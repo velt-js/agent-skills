@@ -189,14 +189,16 @@ function buildSkill(paths: SkillPaths): void {
 	// Generate markdown output
 	const output: string[] = [];
 
-	// Header
+	// Header (with trailing spaces for line breaks to match reference format)
 	output.push(`# ${skillTitle}\n`);
-	output.push(`**Version ${metadata.version}**`);
-	output.push(`${metadata.organization}`);
+	output.push(`**Version ${metadata.version}**  `);
+	output.push(`${metadata.organization}  `);
 	output.push(`${metadata.date}\n`);
-	output.push(
-		"> This document is optimized for AI agents and LLMs. Rules are prioritized by performance impact.\n",
-	);
+	output.push("> **Note:**  ");
+	output.push("> This document is mainly for agents and LLMs to follow when maintaining,  ");
+	output.push("> generating, or refactoring codebases. Humans may also find it useful,  ");
+	output.push("> but guidance here is optimized for automation and consistency by  ");
+	output.push("> AI-assisted workflows.\n");
 	output.push("---\n");
 
 	// Abstract
@@ -210,7 +212,7 @@ function buildSkill(paths: SkillPaths): void {
 	for (const section of sections) {
 		const sectionRules = rulesBySection.get(section.number) || [];
 		output.push(
-			`${section.number}. [${section.title}](#${toAnchor(`${section.number}-${section.title}`)}) - **${section.impact}**`,
+			`${section.number}. [${section.title}](#${toAnchor(`${section.number}-${section.title}`)}) — **${section.impact}**`,
 		);
 
 		for (const rule of sectionRules) {

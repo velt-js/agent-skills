@@ -1,0 +1,73 @@
+---
+title: Use Page Mode for Page-Level Comments
+impact: HIGH
+impactDescription: Comments at page level via sidebar, not attached to elements
+tags: page-mode, sidebar, page-comments, veltcommentssidebar
+---
+
+## Use Page Mode for Page-Level Comments
+
+Page mode enables users to leave comments at the page level through the Comments Sidebar, rather than attaching them to specific elements. Useful for general page feedback.
+
+**Incorrect (missing pageMode on sidebar):**
+
+```jsx
+// Page comments won't appear at sidebar bottom
+<VeltComments />
+<VeltCommentsSidebar />
+```
+
+**Correct (with pageMode enabled):**
+
+```jsx
+import {
+  VeltProvider,
+  VeltComments,
+  VeltCommentsSidebar,
+  VeltSidebarButton
+} from '@veltdev/react';
+
+export default function App() {
+  return (
+    <VeltProvider apiKey="API_KEY">
+      <VeltComments />
+      <VeltCommentsSidebar pageMode={true} />
+
+      <div className="toolbar">
+        <VeltSidebarButton />
+      </div>
+    </VeltProvider>
+  );
+}
+```
+
+**Key Components:**
+- `VeltComments` - Enables comments feature
+- `VeltCommentsSidebar` - The sidebar panel (with `pageMode={true}`)
+- `VeltSidebarButton` - Toggles the sidebar open/closed
+
+**How Page Mode Works:**
+1. User clicks VeltSidebarButton to open sidebar
+2. Comment composer appears at bottom of sidebar
+3. User types page-level comment
+4. Comment is associated with the page, not a specific element
+
+**For HTML:**
+
+```html
+<velt-comments></velt-comments>
+<velt-comments-sidebar page-mode="true"></velt-comments-sidebar>
+
+<div class="toolbar">
+  <velt-sidebar-button></velt-sidebar-button>
+</div>
+```
+
+**Verification Checklist:**
+- [ ] VeltCommentsSidebar has `pageMode={true}`
+- [ ] VeltSidebarButton is placed in UI
+- [ ] Sidebar shows comment composer at bottom
+- [ ] Comments appear without element association
+
+**Source Pointers:**
+- `/docs/async-collaboration/comments/setup/page.mdx` - Complete setup

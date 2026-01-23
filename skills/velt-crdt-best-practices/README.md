@@ -2,6 +2,14 @@
 
 This repository contains Velt CRDT (Yjs) best practice rules for AI agents and LLMs.
 
+## Installation
+
+Add this skill to your project from any terminal:
+
+```bash
+npx skills add https://github.com/velt-js/agent-skills --skill velt-crdt-best-practices
+```
+
 ## Quick Start
 
 ```bash

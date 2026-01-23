@@ -1,10 +1,14 @@
 # Velt Crdt Best Practices
 
-**Version 2.0.0**
-Velt
+**Version 2.0.0**  
+Velt  
 January 2026
 
-> This document is optimized for AI agents and LLMs. Rules are prioritized by performance impact.
+> **Note:**  
+> This document is mainly for agents and LLMs to follow when maintaining,  
+> generating, or refactoring codebases. Humans may also find it useful,  
+> but guidance here is optimized for automation and consistency by  
+> AI-assisted workflows.
 
 ---
 
@@ -16,7 +20,7 @@ Comprehensive best practices guide for implementing real-time collaborative edit
 
 ## Table of Contents
 
-1. [Core CRDT](#1-core-crdt) - **CRITICAL**
+1. [Core CRDT](#1-core-crdt) — **CRITICAL**
    - 1.1 [Choose the Correct CRDT Store Type for Your Data](#11-choose-the-correct-crdt-store-type-for-your-data)
    - 1.2 [Initialize Velt Client Before Creating CRDT Stores](#12-initialize-velt-client-before-creating-crdt-stores)
    - 1.3 [Install Correct CRDT Packages for Your Framework](#13-install-correct-crdt-packages-for-your-framework)
@@ -29,7 +33,7 @@ Comprehensive best practices guide for implementing real-time collaborative edit
    - 1.10 [Use useVeltCrdtStore Hook for React CRDT Stores](#110-use-useveltcrdtstore-hook-for-react-crdt-stores)
    - 1.11 [Use VeltCrdtStoreMap for Runtime Debugging](#111-use-veltcrdtstoremap-for-runtime-debugging)
 
-2. [Tiptap Integration](#2-tiptap-integration) - **CRITICAL**
+2. [Tiptap Integration](#2-tiptap-integration) — **CRITICAL**
    - 2.1 [Add CSS for Collaboration Cursors in Tiptap](#21-add-css-for-collaboration-cursors-in-tiptap)
    - 2.2 [Disable Tiptap History When Using CRDT](#22-disable-tiptap-history-when-using-crdt)
    - 2.3 [Install Tiptap CRDT Packages Correctly](#23-install-tiptap-crdt-packages-correctly)
@@ -38,13 +42,13 @@ Comprehensive best practices guide for implementing real-time collaborative edit
    - 2.6 [Use Unique editorId for Each Tiptap Instance](#26-use-unique-editorid-for-each-tiptap-instance)
    - 2.7 [Use useVeltTiptapCrdtExtension Hook for React Tiptap](#27-use-usevelttiptapcrdtextension-hook-for-react-tiptap)
 
-3. [BlockNote Integration](#3-blocknote-integration) - **HIGH**
+3. [BlockNote Integration](#3-blocknote-integration) — **HIGH**
    - 3.1 [Install BlockNote CRDT Package](#31-install-blocknote-crdt-package)
    - 3.2 [Test BlockNote Collaboration with Multiple Users](#32-test-blocknote-collaboration-with-multiple-users)
    - 3.3 [Use Unique editorId for Each BlockNote Instance](#33-use-unique-editorid-for-each-blocknote-instance)
    - 3.4 [Use useVeltBlockNoteCrdtExtension for BlockNote Collaboration](#34-use-useveltblocknotecrdtextension-for-blocknote-collaboration)
 
-4. [CodeMirror Integration](#4-codemirror-integration) - **HIGH**
+4. [CodeMirror Integration](#4-codemirror-integration) — **HIGH**
    - 4.1 [Install CodeMirror CRDT Packages](#41-install-codemirror-crdt-packages)
    - 4.2 [Test CodeMirror Collaboration with Multiple Users](#42-test-codemirror-collaboration-with-multiple-users)
    - 4.3 [Use createVeltCodeMirrorStore for Non-React CodeMirror](#43-use-createveltcodemirrorstore-for-non-react-codemirror)
@@ -52,7 +56,7 @@ Comprehensive best practices guide for implementing real-time collaborative edit
    - 4.5 [Use useVeltCodeMirrorCrdtExtension for React CodeMirror](#45-use-useveltcodemirrorcrdtextension-for-react-codemirror)
    - 4.6 [Wire yCollab Extension with Store's Yjs Objects](#46-wire-ycollab-extension-with-stores-yjs-objects)
 
-5. [ReactFlow Integration](#5-reactflow-integration) - **HIGH**
+5. [ReactFlow Integration](#5-reactflow-integration) — **HIGH**
    - 5.1 [Install ReactFlow CRDT Package](#51-install-reactflow-crdt-package)
    - 5.2 [Test ReactFlow Collaboration with Multiple Users](#52-test-reactflow-collaboration-with-multiple-users)
    - 5.3 [Use CRDT Handlers for Node and Edge Changes](#53-use-crdt-handlers-for-node-and-edge-changes)
