@@ -1,0 +1,11 @@
+{
+	"name": "velt-agent-skills",
+	"version": "1.0.0",
+	"author": "Velt",
+	"license": "MIT",
+	"description": "Official Velt agent skills",
+	"scripts": {
+		"build": "npm --prefix packages/skills-build run build",
+		"validate": "npm --prefix packages/skills-build run validate"
+	}
+}
