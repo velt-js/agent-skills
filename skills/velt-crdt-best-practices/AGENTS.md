@@ -1,6 +1,6 @@
 # Velt Crdt Best Practices
 
-**Version 2.0.0**  
+**Version 1.0.0**  
 Velt  
 January 2026
 

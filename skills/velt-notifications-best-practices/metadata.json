@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "organization": "Velt",
+  "date": "January 2026",
+  "abstract": "Comprehensive Velt Notifications implementation guide covering in-app notifications, email delivery, webhook integrations, and user preference management. This skill provides evidence-backed patterns for integrating Velt's notification system into React, Next.js, and other web applications. Covers notification panel setup, tab configuration, data access hooks and APIs, settings management, custom notification triggers, and delivery channel routing.",
+  "references": [
+    "https://docs.velt.dev",
+    "https://docs.velt.dev/async-collaboration/notifications/overview",
+    "https://docs.velt.dev/async-collaboration/notifications/setup",
+    "https://docs.velt.dev/async-collaboration/notifications/customize-behavior",
+    "https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel",
+    "https://console.velt.dev"
+  ]
+}

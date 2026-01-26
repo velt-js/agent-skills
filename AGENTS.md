@@ -82,6 +82,42 @@ tags: keywords
 
 ## Available Skills
 
+### velt-comments-best-practices
+
+Velt Comments implementation patterns and best practices for React, Next.js, and web applications. Contains 33 rules across 9 categories.
+
+**Use when:**
+- Adding collaborative commenting to a React/Next.js application
+- Implementing comment modes (Freestyle, Popover, Stream, Text, Page, Inline)
+- Integrating comments with rich text editors (TipTap, SlateJS, Lexical)
+- Adding comments to media players or charts
+- Building custom comment interfaces with standalone components
+
+**Categories covered:**
+- Core Setup (Critical)
+- Comment Modes (High)
+- Standalone Components (Medium-High)
+- Comment Surfaces (Medium-High)
+- UI Customization (Medium)
+
+### velt-notifications-best-practices
+
+Velt Notifications implementation patterns and best practices for React, Next.js, and web applications. Contains 11 rules across 8 categories.
+
+**Use when:**
+- Adding in-app notifications to a React/Next.js application
+- Setting up VeltNotificationsTool and VeltNotificationsPanel
+- Configuring notification tabs and delivery channels
+- Accessing notification data via hooks or REST APIs
+- Setting up email notifications or webhook integrations
+
+**Categories covered:**
+- Core Setup (Critical)
+- Panel Configuration (High)
+- Data Access (High)
+- Settings Management (Medium-High)
+- Delivery Channels (Medium)
+
 ### velt-crdt-best-practices
 
 Velt CRDT (Yjs) collaborative editing best practices for real-time applications. Contains 33 rules across 5 categories.
