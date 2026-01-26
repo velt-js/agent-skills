@@ -9,11 +9,20 @@ tags: comment-pin, manual, veltcommentpin, custom-position, annotation
 
 VeltCommentPin gives you complete control over where comment pins appear. Use this for complex UIs, canvas applications, or when automatic positioning doesn't meet your needs.
 
-**When to Use:**
+**When to Use Standalone Components:**
+
+Standalone components (Pin, Thread, Composer) are recommended when:
+- **You need direct API access** - Work with comment data programmatically
+- **You have complex UI requirements** - 3D canvas, WebGL, custom rendering engines
+- **Default components don't fit your layout** - Kanban boards, custom sidebars, split views
+- **You need custom positioning logic** - Comments on non-DOM elements, virtual lists
+
+**When to Use Comment Pin Specifically:**
 - Custom chart/canvas implementations
+- 3D applications and WebGL scenes
 - Complex drag-and-drop interfaces
 - When automatic pin placement doesn't work
-- Building custom comment UIs
+- Building custom comment UIs with full control
 
 **Implementation Steps:**
 

@@ -10,6 +10,15 @@ Add this skill to your project from any terminal:
 npx skills add https://github.com/velt-js/agent-skills --skill velt-crdt-best-practices
 ```
 
+## Updating
+
+Check for and apply skill updates:
+
+```bash
+npx skills check      # Check for available updates
+npx skills update     # Update all skills to latest versions
+```
+
 ## Quick Start
 
 ```bash

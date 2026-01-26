@@ -9,11 +9,20 @@ tags: comment-thread, standalone, render, kanban, custom-sidebar
 
 The Standalone Comment Thread component renders existing comment data in custom locations. Use this to build custom UIs like kanban boards or your own sidebar implementation.
 
-**When to Use:**
-- Building a kanban board with comment threads
+**When to Use Standalone Components:**
+
+Standalone components (Pin, Thread, Composer) are recommended when:
+- **You need direct API access** - Work with comment data programmatically
+- **You have complex UI requirements** - 3D canvas, WebGL, custom rendering engines
+- **Default components don't fit your layout** - Kanban boards, custom sidebars, split views
+- **You need custom positioning logic** - Comments on non-DOM elements, virtual lists
+
+**When to Use Comment Thread Specifically:**
+- **Kanban boards** - Display comment threads as cards in columns (see example below)
 - Creating a custom comments sidebar
-- Rendering comments in a custom layout
+- Rendering comments in a custom layout (split views, panels)
 - Displaying comments outside the default dialog
+- Building task/issue tracking interfaces with threaded discussions
 
 **Note:** This component only renders existing comments. It's a thin wrapper around the Comment Dialog component.
 

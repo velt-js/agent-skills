@@ -9,11 +9,20 @@ tags: comment-composer, standalone, input, custom-ui, add-comment
 
 The Comment Standalone Composer lets you add comment input anywhere in your application. Combine with Comment Thread and Comment Pin for fully custom comment interfaces.
 
-**When to Use:**
-- Building custom comment sidebars
-- Adding comment input in overlays/popovers
-- Creating inline comment forms
-- Custom comment creation flows
+**When to Use Standalone Components:**
+
+Standalone components (Pin, Thread, Composer) are recommended when:
+- **You need direct API access** - Work with comment data programmatically
+- **You have complex UI requirements** - 3D canvas, WebGL, custom rendering engines
+- **Default components don't fit your layout** - Kanban boards, custom sidebars, split views
+- **You need custom positioning logic** - Comments on non-DOM elements, virtual lists
+
+**When to Use Comment Composer Specifically:**
+- Building custom comment sidebars with your own layout
+- Adding comment input in overlays/popovers/modals
+- Creating inline comment forms in custom locations
+- Custom comment creation flows (e.g., multi-step wizards)
+- Combining with Thread and Pin for fully custom interfaces
 
 **Implementation:**
 
