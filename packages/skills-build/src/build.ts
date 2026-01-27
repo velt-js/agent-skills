@@ -29,7 +29,7 @@ function parseSections(rulesDir: string): Section[] {
 	// **Impact:** CRITICAL
 	// **Description:** Description text
 	const sectionMatches = content.matchAll(
-		/##\s+(\d+)\.\s+([^\n(]+)\s*\((\w+)\/?\)\s*\n+\*\*Impact:\*\*\s*(\w+(?:-\w+)?)\s*\n+\*\*Description:\*\*\s*([^\n]+)/g,
+		/##\s+(\d+)\.\s+([^\n(]+)\s*\(([\w-]+)\/?\)\s*\n+\*\*Impact:\*\*\s*(\w+(?:-\w+)?)\s*\n+\*\*Description:\*\*\s*([^\n]+)/g,
 	);
 
 	for (const match of sectionMatches) {
