@@ -39,9 +39,9 @@ Reference these guidelines when:
 Read individual rule files for detailed explanations and code examples:
 
 ```
-rules/installation/install-react-packages.md
-rules/provider-wiring/provider-velt-provider-setup.md
-rules/_sections.md
+rules/react/installation/install-react-packages.md
+rules/react/provider-wiring/provider-velt-provider-setup.md
+rules/shared/_sections.md
 ```
 
 Each rule file contains:

@@ -94,7 +94,7 @@ skills/velt-crdt-best-practices/
 
 2. **Copy the template**:
    ```bash
-   cp rules/_template.md rules/core/core-new-rule.md
+   cp rules/shared/_template.md rules/shared/core/core-new-rule.md
    ```
 
 3. **Fill in the content** following the template structure

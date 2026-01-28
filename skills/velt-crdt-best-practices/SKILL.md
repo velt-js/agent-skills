@@ -86,8 +86,8 @@ Reference these guidelines when:
 Read individual rule files for detailed explanations and code examples:
 
 ```
-rules/core/core-install.md
-rules/tiptap/tiptap-disable-history.md
+rules/shared/core/core-install.md
+rules/shared/tiptap/tiptap-disable-history.md
 ```
 
 Each rule file contains:

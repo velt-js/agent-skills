@@ -96,8 +96,8 @@ Reference these guidelines when:
 Read individual rule files for detailed explanations and code examples:
 
 ```
-rules/core/core-provider-setup.md
-rules/mode/mode-popover.md
+rules/shared/core/core-provider-setup.md
+rules/shared/mode/mode-popover.md
 ```
 
 Each rule file contains:

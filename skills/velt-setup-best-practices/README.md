@@ -48,7 +48,7 @@ npm run build     # Generate AGENTS.md
 
 ## Creating a New Rule
 
-1. Copy `rules/_template.md` to the appropriate category folder
+1. Copy `rules/shared/_template.md` to the appropriate category folder
 2. Rename using pattern: `{prefix}-{descriptive-name}.md`
 3. Fill in the YAML frontmatter and markdown content
 4. Add Source Pointers to docs or sample apps

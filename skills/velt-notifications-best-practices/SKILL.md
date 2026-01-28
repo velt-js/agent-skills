@@ -78,8 +78,8 @@ Reference these guidelines when:
 Read individual rule files for detailed explanations and code examples:
 
 ```
-rules/core/core-setup.md
-rules/panel/panel-tabs.md
+rules/shared/core/core-setup.md
+rules/shared/panel/panel-tabs.md
 ```
 
 Each rule file contains:

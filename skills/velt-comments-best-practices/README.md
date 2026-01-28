@@ -54,7 +54,7 @@ npm run build
 ## Creating a New Rule
 
 1. **Choose the appropriate category folder** based on the rule's purpose
-2. **Copy the template**: `cp rules/_template.md rules/{category}/{prefix}-{name}.md`
+2. **Copy the template**: `cp rules/shared/_template.md rules/{category}/{prefix}-{name}.md`
 3. **Fill in the content** following the template structure
 4. **Add source pointers** to Velt documentation
 5. **Validate and build**
