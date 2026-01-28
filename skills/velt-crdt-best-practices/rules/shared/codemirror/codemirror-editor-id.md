@@ -41,4 +41,4 @@ const { store } = useVeltCodeMirrorCrdtExtension({
 - [ ] ID consistent across page reloads
 - [ ] Code doesn't appear in wrong files
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/codemirror.mdx` (## Notes > **Unique editorId**)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror` (## Notes > **Unique editorId**)

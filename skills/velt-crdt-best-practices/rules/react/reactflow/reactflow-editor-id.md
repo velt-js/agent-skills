@@ -43,4 +43,4 @@ const { nodes, edges, ...handlers } = useVeltReactFlowCrdtExtension({
 - [ ] ID consistent across page reloads
 - [ ] Nodes don't appear in wrong diagrams
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/reactflow.mdx` (## Notes > **Unique editorId**)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/reactflow` (## Notes > **Unique editorId**)

@@ -71,4 +71,4 @@ store.destroy();
 - [ ] `yCollab` wired with store's Yjs objects
 - [ ] `store.destroy()` called on cleanup
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/codemirror.mdx` (### Step 3: Initialize Velt CRDT Extension > Other Frameworks)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror` (### Step 3: Initialize Velt CRDT Extension > Other Frameworks)

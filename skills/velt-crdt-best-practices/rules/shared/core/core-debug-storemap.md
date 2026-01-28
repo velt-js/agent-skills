@@ -63,4 +63,4 @@ window.addEventListener('veltCrdtStoreUnregister', (event) => {
 - [ ] `getValue()` returns current state
 - [ ] Subscribe callback fires on changes
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/core.mdx` (### Debugging > #### window.VeltCrdtStoreMap)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Debugging > #### window.VeltCrdtStoreMap)

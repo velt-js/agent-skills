@@ -80,4 +80,4 @@ interface EncryptConfig<T> {
 - [ ] Decrypt works correctly for all clients
 - [ ] All clients use the same encryption keys/method
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/core.mdx` (## APIs > ### Custom Encryption)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (## APIs > ### Custom Encryption)

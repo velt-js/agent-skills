@@ -110,5 +110,4 @@ export default function App() {
 - [ ] multiThread setting matches requirements
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/setup/inline-comments.mdx` - Complete setup
-- `/sample-apps/apps/react/comments/dashboard/inline-comments/` - Working demo
+- https://docs.velt.dev/async-collaboration/comments/setup/inline-comments - Complete setup

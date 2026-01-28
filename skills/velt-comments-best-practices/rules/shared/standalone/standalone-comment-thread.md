@@ -131,5 +131,5 @@ export default function KanbanBoard() {
 - [ ] Comments display in custom location
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/standalone-components/comment-thread/overview.mdx` - Overview
-- `/docs/async-collaboration/comments/standalone-components/comment-thread/setup.mdx` - Setup
+- https://docs.velt.dev/async-collaboration/comments/standalone-components/comment-thread/overview - Overview
+- https://docs.velt.dev/async-collaboration/comments/standalone-components/comment-thread/setup - Setup

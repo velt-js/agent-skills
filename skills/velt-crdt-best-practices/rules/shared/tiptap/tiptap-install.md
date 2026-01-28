@@ -37,4 +37,4 @@ npm install @veltdev/tiptap-crdt @veltdev/client @tiptap/core @tiptap/starter-ki
 - [ ] No peer dependency warnings
 - [ ] Imports resolve without errors
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/tiptap.mdx` (### Step 1: Install Dependencies)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (### Step 1: Install Dependencies)

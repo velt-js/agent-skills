@@ -83,4 +83,4 @@ if (fetched) {
 - [ ] `setStateFromVersion()` restores state correctly
 - [ ] All collaborators see restored state
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/core.mdx` (### Step 6: Save and restore versions)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Step 6: Save and restore versions)

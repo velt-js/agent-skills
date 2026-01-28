@@ -159,5 +159,4 @@ await Velt.setDocuments([
 - [ ] No "document not found" errors in console
 
 **Source Pointers:**
-- `/docs/get-started/quickstart.mdx` - "Step 6: Initialize Document" section
-- `/sample-apps/apps/react/comments/tables/tanstack/single-tool/components/velt/VeltInitializeDocument.tsx` - Document initialization pattern
+- `https://docs.velt.dev/get-started/quickstart` - Step 6: Initialize Document

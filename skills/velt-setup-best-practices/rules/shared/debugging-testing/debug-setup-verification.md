@@ -176,5 +176,4 @@ export function VeltDebug() {
 - [ ] Presence shows other users
 
 **Source Pointers:**
-- `/docs/get-started/quickstart.mdx` - Setup steps to verify
-- `/sample-apps/apps/react/comments/tables/tanstack/single-tool/` - Reference working implementation
+- `https://docs.velt.dev/get-started/quickstart` - Setup steps to verify

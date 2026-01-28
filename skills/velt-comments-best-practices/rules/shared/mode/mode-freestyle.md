@@ -80,5 +80,4 @@ export default function App() {
 - [ ] Clicking page creates comment at that location
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/setup/freestyle.mdx` - Complete setup
-- `/sample-apps/apps/react/comments/website-builder/freestyle-comments/freestyle-comments-demo/` - Working demo
+- https://docs.velt.dev/async-collaboration/comments/setup/freestyle - Complete setup

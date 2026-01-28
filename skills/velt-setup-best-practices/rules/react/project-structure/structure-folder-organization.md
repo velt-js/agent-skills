@@ -158,6 +158,4 @@ export function VeltCollaboration() {
 - [ ] Clear separation between app logic and Velt integration
 
 **Source Pointers:**
-- `/sample-apps/apps/react/comments/tables/tanstack/single-tool/` - Reference folder structure
-- `/sample-apps/apps/react/comments/tables/tanstack/single-tool/components/velt/` - Velt components folder
-- `/sample-apps/apps/react/comments/tables/tanstack/single-tool/app/userAuth/` - Auth folder pattern
+- `https://docs.velt.dev/get-started/quickstart` - Complete setup guide with folder structure

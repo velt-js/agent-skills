@@ -116,4 +116,4 @@ const chartComponentRef = useRef(null);
 - [ ] chartComputedData receives the ref
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/setup/chart-comments-setup/highcharts.mdx` - Complete setup
+- https://docs.velt.dev/async-collaboration/comments/setup/chart-comments-setup/highcharts - Complete setup

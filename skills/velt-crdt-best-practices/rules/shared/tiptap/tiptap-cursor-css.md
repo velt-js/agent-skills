@@ -66,4 +66,4 @@ Add CSS styles to make collaboration cursors/carets visible. Without styling, yo
 - [ ] Username labels appear above cursors
 - [ ] Cursors track remote user positions
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/tiptap.mdx` (### Step 4: Add CSS for Collaboration Cursor)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (### Step 4: Add CSS for Collaboration Cursor)

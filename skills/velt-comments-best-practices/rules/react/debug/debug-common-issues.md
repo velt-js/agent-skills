@@ -152,4 +152,4 @@ commentElement.getAllCommentAnnotations().subscribe(console.log);
 - [ ] Mode-specific props configured correctly
 
 **Source Pointers:**
-- `/docs/get-started/quickstart.mdx` - "Debugging" section
+- https://docs.velt.dev/get-started/quickstart - "Debugging" section

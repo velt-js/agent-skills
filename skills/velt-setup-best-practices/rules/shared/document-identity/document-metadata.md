@@ -135,5 +135,4 @@ async function loadDocument(docId: string) {
 - [ ] Metadata updates reflect in all connected clients
 
 **Source Pointers:**
-- `/docs/get-started/quickstart.mdx` - "Step 6: Initialize Document" section showing metadata usage
-- `/sample-apps/apps/react/comments/tables/tanstack/single-tool/components/velt/VeltInitializeDocument.tsx` - metadata: { documentName } pattern
+- `https://docs.velt.dev/get-started/quickstart` - Step 6: Initialize Document

@@ -121,5 +121,4 @@ velt-comment-text[comment-available="true"] {
 - [ ] renderComments called on annotation changes
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/setup/slatejs.mdx` - Complete setup
-- `/sample-apps/apps/react/comments/text-editors/slatejs/slatejs-comments-demo/` - Working demo
+- https://docs.velt.dev/async-collaboration/comments/setup/slatejs - Complete setup

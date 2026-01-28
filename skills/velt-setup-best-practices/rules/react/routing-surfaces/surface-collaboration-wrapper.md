@@ -178,4 +178,4 @@ export function VeltCollaborationDashboard() {
 - [ ] Component props are configured as needed
 
 **Source Pointers:**
-- `/sample-apps/apps/react/comments/tables/tanstack/single-tool/components/velt/VeltCollaboration.tsx` - VeltCollaboration pattern
+- `https://docs.velt.dev/get-started/quickstart` - Step 4: Initialize Velt

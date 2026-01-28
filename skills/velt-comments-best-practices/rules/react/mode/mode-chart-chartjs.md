@@ -176,5 +176,5 @@ y: chart.scales.y.getPixelForValue(yValue)
 - [ ] Comments filtered by chartId
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/setup/chart-comments-setup/chartjs.mdx` - Setup reference
-- `/docs/async-collaboration/comments/setup/chart-comments-setup/custom-charts.mdx` - Pattern details
+- https://docs.velt.dev/async-collaboration/comments/setup/chart-comments-setup/chartjs - Setup reference
+- https://docs.velt.dev/async-collaboration/comments/setup/chart-comments-setup/custom-charts - Pattern details

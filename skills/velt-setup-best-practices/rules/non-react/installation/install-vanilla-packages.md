@@ -83,5 +83,4 @@ npm install --save-dev @veltdev/types
 - [ ] No console errors on page load
 
 **Source Pointers:**
-- `/docs/get-started/quickstart.mdx` - "Step 1: Install Dependencies" section (Angular, Vue.js, HTML tabs)
-- `/docs/get-started/quickstart.mdx` - "HTML" tab with CDN script pattern
+- `https://docs.velt.dev/get-started/quickstart` - Step 1: Install Dependencies (Angular, Vue.js, HTML tabs)

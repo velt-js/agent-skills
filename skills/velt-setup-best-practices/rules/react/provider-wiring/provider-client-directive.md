@@ -113,5 +113,4 @@ export default function Home() {
 - [ ] Page renders without hydration errors
 
 **Source Pointers:**
-- `/docs/get-started/quickstart.mdx` - Warning about 'use client' directive in Step 4 and Notes section
-- `/sample-apps/apps/react/comments/tables/tanstack/single-tool/app/page.tsx` - Shows 'use client' at top of file
+- `https://docs.velt.dev/get-started/quickstart` - Step 4: Initialize Velt (warning about 'use client' directive)

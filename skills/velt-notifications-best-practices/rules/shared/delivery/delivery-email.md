@@ -89,4 +89,4 @@ notificationElement.setSettings({
 - [ ] Email channel enabled in settings config
 - [ ] Test email received after @mention
 
-**Source Pointer:** `/docs/async-collaboration/comments/notifications.mdx` (Email section)
+**Source Pointer:** https://docs.velt.dev/async-collaboration/comments/notifications - Email section

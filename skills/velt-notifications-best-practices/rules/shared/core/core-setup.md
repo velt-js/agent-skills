@@ -67,4 +67,4 @@ function App() {
 - [ ] Tool appears in UI (bell icon)
 - [ ] Clicking tool opens notification panel
 
-**Source Pointer:** `/docs/async-collaboration/notifications/setup.mdx` (Enable Feature in Console, Add Notification Tool)
+**Source Pointer:** https://docs.velt.dev/async-collaboration/notifications/setup - Enable Feature in Console, Add Notification Tool

@@ -120,4 +120,4 @@ const response = await fetch('https://api.velt.dev/v2/notifications/update', {
 - [ ] Correct endpoint URL used
 - [ ] Required headers included
 
-**Source Pointer:** `/docs/api-reference/rest-apis/v2/notifications/get-notifications-v2.mdx` (Get Notifications API)
+**Source Pointer:** https://docs.velt.dev/api-reference/rest-apis/v2/notifications/get-notifications-v2 - Get Notifications API

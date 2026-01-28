@@ -187,4 +187,4 @@ const filtered = commentAnnotations?.filter(c => c.context?.chartId === chartId)
 - [ ] VeltCommentPin receives correct annotationId
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/setup/chart-comments-setup/custom-charts.mdx` - Complete setup
+- https://docs.velt.dev/async-collaboration/comments/setup/chart-comments-setup/custom-charts - Complete setup

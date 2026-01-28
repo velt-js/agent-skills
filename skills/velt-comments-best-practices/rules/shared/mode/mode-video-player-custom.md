@@ -156,4 +156,4 @@ const onCommentClick = async (event) => {
 - [ ] Comment clicks seek video and set location
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/setup/video-player-setup/custom-video-player-setup.mdx` - Complete setup
+- https://docs.velt.dev/async-collaboration/comments/setup/video-player-setup/custom-video-player-setup - Complete setup

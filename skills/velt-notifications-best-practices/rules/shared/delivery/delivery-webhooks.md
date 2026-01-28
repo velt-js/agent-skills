@@ -142,4 +142,4 @@ notificationElement.setSettingsInitialConfig([
 - [ ] Signature verification implemented
 - [ ] External service receives notifications
 
-**Source Pointer:** `/docs/webhooks/basic.mdx` (Webhook setup)
+**Source Pointer:** https://docs.velt.dev/webhooks/basic - Webhook setup

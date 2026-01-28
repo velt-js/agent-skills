@@ -104,4 +104,4 @@ function NotificationButton() {
 - [ ] Embedded panels have proper container styling
 - [ ] Programmatic controls work as expected
 
-**Source Pointer:** `/docs/async-collaboration/notifications/customize-behavior.mdx` (Panel Open Mode, Actions)
+**Source Pointer:** https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Panel Open Mode, Actions

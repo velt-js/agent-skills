@@ -104,5 +104,4 @@ When multiple comments can exist on the same element:
 - [ ] Empty groups handled gracefully
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/customize-behavior.mdx` - "Aggregation"
-- `/sample-apps/apps/react/comments/tables/tanstack/comment-aggregation/` - Aggregation demo
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior - "Aggregation"

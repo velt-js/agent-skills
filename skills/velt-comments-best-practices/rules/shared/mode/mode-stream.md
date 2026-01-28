@@ -77,4 +77,4 @@ export default function App() {
 - [ ] VeltComments is inside the scrolling container
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/setup/stream.mdx` - Complete setup
+- https://docs.velt.dev/async-collaboration/comments/setup/stream - Complete setup

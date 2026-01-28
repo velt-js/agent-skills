@@ -99,5 +99,4 @@ async function loadVelt() {
 - [ ] Metadata includes descriptive documentName
 
 **Source Pointers:**
-- `/docs/get-started/quickstart.mdx` - "Step 6: Initialize Document"
-- `/sample-apps/apps/react/comments/tables/tanstack/comment-aggregation/components/velt/VeltInitializeDocument.tsx` - Document setup
+- https://docs.velt.dev/get-started/quickstart - "Step 6: Initialize Document"

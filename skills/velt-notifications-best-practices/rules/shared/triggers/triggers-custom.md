@@ -130,4 +130,4 @@ Custom variables can be any string value in `displayHeadlineMessageTemplateData`
 - [ ] Template variables match templateData keys
 - [ ] notifyUsers or notifyAll specified
 
-**Source Pointer:** `/docs/api-reference/rest-apis/v2/notifications/add-notifications.mdx` (Add Notifications API)
+**Source Pointer:** https://docs.velt.dev/api-reference/rest-apis/v2/notifications/add-notifications - Add Notifications API

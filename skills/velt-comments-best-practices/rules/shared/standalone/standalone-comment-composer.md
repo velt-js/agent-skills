@@ -128,5 +128,5 @@ function FullCustomInterface() {
 - [ ] Comment creation works from composer
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/standalone-components/comment-composer/overview.mdx` - Overview
-- `/docs/async-collaboration/comments/standalone-components/comment-composer/setup.mdx` - Setup
+- https://docs.velt.dev/async-collaboration/comments/standalone-components/comment-composer/overview - Overview
+- https://docs.velt.dev/async-collaboration/comments/standalone-components/comment-composer/setup - Setup

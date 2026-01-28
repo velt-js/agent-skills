@@ -108,5 +108,5 @@ const feedbackComments = commentAnnotations?.filter(
 - [ ] JSON format correct for HTML attributes
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/setup/popover.mdx` - "Step 4: Add Metadata to the Comment"
-- `/docs/async-collaboration/comments/customize-behavior.mdx` - Context and metadata
+- https://docs.velt.dev/async-collaboration/comments/setup/popover - "Step 4: Add Metadata to the Comment"
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior - Context and metadata

@@ -8,7 +8,7 @@ This category covers file attachments and emoji reactions for Velt Comments.
 
 ### Reactions (VeltReactionTool)
 
-Found in video player documentation at `/docs/async-collaboration/comments/setup/video-player-setup/custom-video-player-setup.mdx`:
+Found in video player documentation at https://docs.velt.dev/async-collaboration/comments/setup/video-player-setup/custom-video-player-setup:
 
 ```jsx
 import { VeltReactionTool } from '@veltdev/react';
@@ -31,8 +31,8 @@ The VeltReactionTool component:
 
 ## Source Pointers Searched
 
-- `/docs/async-collaboration/comments/setup/video-player-setup/custom-video-player-setup.mdx` - VeltReactionTool
-- `/docs/async-collaboration/comments/` - General comments features
+- https://docs.velt.dev/async-collaboration/comments/setup/video-player-setup/custom-video-player-setup - VeltReactionTool
+- https://docs.velt.dev/async-collaboration/comments - General comments features
 
 ## Not Found / Unknown
 

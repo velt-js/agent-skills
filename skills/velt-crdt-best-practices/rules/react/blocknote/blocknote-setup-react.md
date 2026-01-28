@@ -68,4 +68,4 @@ function CollaborativeEditor() {
 - [ ] Unique `editorId` provided
 - [ ] Connection status shows connected
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/blocknote.mdx` (### Step 3: Initialize Velt CRDT Extension)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/blocknote` (### Step 3: Initialize Velt CRDT Extension)

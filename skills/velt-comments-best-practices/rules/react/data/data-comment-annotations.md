@@ -107,5 +107,5 @@ const addAnnotation = () => {
 - [ ] Filtering works with annotation properties
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/customize-behavior.mdx` - "getCommentAnnotations"
-- `/docs/api-reference/sdk/api/react-hooks.mdx` - Hook documentation
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior - "getCommentAnnotations"
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks - Hook documentation

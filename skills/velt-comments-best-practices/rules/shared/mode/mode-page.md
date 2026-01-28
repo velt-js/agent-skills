@@ -70,4 +70,4 @@ export default function App() {
 - [ ] Comments appear without element association
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/setup/page.mdx` - Complete setup
+- https://docs.velt.dev/async-collaboration/comments/setup/page - Complete setup

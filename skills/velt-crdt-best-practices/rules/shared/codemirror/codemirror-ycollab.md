@@ -61,4 +61,4 @@ const startState = EditorState.create({
 - [ ] Awareness passed for cursor support
 - [ ] UndoManager passed for collaborative undo
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/codemirror.mdx` (## Notes > **Use yCollab**: Pass the store's Yjs text, awareness, and undo manager)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror` (## Notes > **Use yCollab**: Pass the store's Yjs text, awareness, and undo manager)

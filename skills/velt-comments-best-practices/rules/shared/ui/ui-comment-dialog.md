@@ -97,6 +97,6 @@ velt-comment-dialog {
 - [ ] Wireframes used for complex customization
 
 **Source Pointers:**
-- `/docs/ui-customization/features/async/comments/comment-dialog-structure.mdx` - Structure
-- `/docs/ui-customization/features/async/comments/comment-dialog/styling.mdx` - Styling
-- `/docs/ui-customization/features/async/comments/comment-dialog/pre-defined-variants.mdx` - Variants
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog-structure - Structure
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/styling - Styling
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/pre-defined-variants - Variants

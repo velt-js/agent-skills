@@ -72,4 +72,4 @@ export default function App() {
 - [ ] sync enabled if collaborative playback needed
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/setup/video-player-setup/video-player-setup.mdx` - Complete setup
+- https://docs.velt.dev/async-collaboration/comments/setup/video-player-setup/video-player-setup - Complete setup

@@ -144,4 +144,4 @@ function NotificationData() {
 - [ ] Component re-renders when data changes
 - [ ] Type parameter used correctly for filtered data
 
-**Source Pointer:** `/docs/async-collaboration/notifications/customize-behavior.mdx` (Data, Events)
+**Source Pointer:** https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Data, Events

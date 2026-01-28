@@ -126,6 +126,4 @@ await client.identify(user);
 - [ ] User object logged to console shows all fields
 
 **Source Pointers:**
-- `/docs/get-started/quickstart.mdx` - "Step 5: Authenticate Users" section, user object example
-- `/docs/get-started/quickstart.mdx` - "Complete Example" section, AuthComponent.js showing user fields
-- `/sample-apps/apps/react/comments/tables/tanstack/single-tool/app/userAuth/AppUserContext.tsx` - User generation pattern
+- `https://docs.velt.dev/get-started/quickstart` - Step 5: Authenticate Users

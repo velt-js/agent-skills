@@ -83,4 +83,4 @@ function CollaborativeCodeEditor({ editorId }: { editorId: string }) {
 - [ ] `yCollab` receives store's YText, Awareness, UndoManager
 - [ ] EditorView destroyed on cleanup
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/codemirror.mdx` (### Step 3: Initialize Velt CRDT Extension > React / Next.js)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror` (### Step 3: Initialize Velt CRDT Extension > React / Next.js)

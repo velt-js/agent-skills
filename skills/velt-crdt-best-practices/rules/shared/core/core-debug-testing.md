@@ -55,4 +55,4 @@ Profile 2 (Chrome Guest): User B (bob@example.com) on document-1
 - [ ] Collaboration cursors/carets show correct user info
 - [ ] No console errors related to sync
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/tiptap.mdx` (## Testing and Debugging)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (## Testing and Debugging)

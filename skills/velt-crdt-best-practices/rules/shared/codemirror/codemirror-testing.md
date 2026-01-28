@@ -45,4 +45,4 @@ window.VeltCrdtStoreMap.get('your-editor-id').getValue();
 - [ ] Code syncs both directions
 - [ ] Cursors show for remote users
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/codemirror.mdx` (## Testing and Debugging)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror` (## Testing and Debugging)

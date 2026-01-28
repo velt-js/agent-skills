@@ -69,4 +69,4 @@ store.destroy();
 - [ ] `history: false` in StarterKit config
 - [ ] `store.destroy()` called on cleanup
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/tiptap.mdx` (### Step 3: Initialize Velt CRDT Extension > Other Frameworks)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (### Step 3: Initialize Velt CRDT Extension > Other Frameworks)

@@ -144,5 +144,5 @@ For `ResponsiveBar`/`ResponsiveLine`, positions are relative to container.
 - [ ] Comments filtered by chartId
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/setup/chart-comments-setup/nivo-charts.mdx` - Setup reference
-- `/docs/async-collaboration/comments/setup/chart-comments-setup/custom-charts.mdx` - Pattern details
+- https://docs.velt.dev/async-collaboration/comments/setup/chart-comments-setup/nivo-charts - Setup reference
+- https://docs.velt.dev/async-collaboration/comments/setup/chart-comments-setup/custom-charts - Pattern details

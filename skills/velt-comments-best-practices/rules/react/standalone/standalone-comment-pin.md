@@ -174,5 +174,5 @@ export default function ManualPinExample() {
 - [ ] Pin positioned with absolute CSS
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/standalone-components/comment-pin/overview.mdx` - Overview
-- `/docs/async-collaboration/comments/standalone-components/comment-pin/setup.mdx` - Setup
+- https://docs.velt.dev/async-collaboration/comments/standalone-components/comment-pin/overview - Overview
+- https://docs.velt.dev/async-collaboration/comments/standalone-components/comment-pin/setup - Setup

@@ -30,4 +30,4 @@ npm install @veltdev/reactflow-crdt @veltdev/react
 - [ ] No peer dependency warnings
 - [ ] Imports resolve without errors
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/reactflow.mdx` (### Step 1: Install Dependencies)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/reactflow` (### Step 1: Install Dependencies)

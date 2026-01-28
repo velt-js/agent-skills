@@ -146,5 +146,4 @@ An attacker with your auth token can:
 - [ ] Token generation endpoint validates user session
 
 **Source Pointers:**
-- `/docs/get-started/advanced.mdx` - "JWT Authentication Tokens" section, Warning about auth token security
-- `/sample-apps/apps/react/comments/tables/tanstack/single-tool/app/api/velt/token/route.ts` - Server-side token generation pattern
+- `https://docs.velt.dev/get-started/advanced` - JWT Authentication Tokens

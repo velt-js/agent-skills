@@ -109,6 +109,4 @@ export default function App() {
 - [ ] Comments appear attached to target element
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/setup/popover.mdx` - Complete setup
-- `/sample-apps/apps/react/comments/tables/tanstack/comment-aggregation/` - TanStack table demo
-- `/sample-apps/apps/react/comments/tables/ag-grid/comment-aggregation/` - AG Grid demo
+- https://docs.velt.dev/async-collaboration/comments/setup/popover - Complete setup

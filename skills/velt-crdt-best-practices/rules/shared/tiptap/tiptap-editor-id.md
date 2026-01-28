@@ -51,4 +51,4 @@ const { VeltCrdt } = useVeltTiptapCrdtExtension({
 - [ ] Content doesn't appear in wrong editors
 - [ ] Collaborators on same editorId see each other's changes
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/tiptap.mdx` (## Notes > **Unique editorId**: Use a unique `editorId` per editor instance)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (## Notes > **Unique editorId**: Use a unique `editorId` per editor instance)

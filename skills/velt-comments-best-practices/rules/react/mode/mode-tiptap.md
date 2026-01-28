@@ -131,5 +131,4 @@ velt-comment-text[comment-available="true"] {
 - [ ] BubbleMenu has comment button
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/setup/tiptap.mdx` - Complete setup
-- `/sample-apps/apps/react/comments/text-editors/tiptap/tiptap-comments-demo/` - Working demo
+- https://docs.velt.dev/async-collaboration/comments/setup/tiptap - Complete setup

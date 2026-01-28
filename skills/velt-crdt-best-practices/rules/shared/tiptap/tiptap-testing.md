@@ -51,4 +51,4 @@ window.VeltCrdtStoreMap.get('your-editor-id').subscribe(v => console.log(v));
 - [ ] Text syncs bidirectionally
 - [ ] No console errors
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/tiptap.mdx` (## Testing and Debugging)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (## Testing and Debugging)

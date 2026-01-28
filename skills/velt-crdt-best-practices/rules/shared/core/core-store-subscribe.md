@@ -65,4 +65,4 @@ const currentValue = store.getValue();
 - [ ] Vanilla: `subscribe()` callback fires on remote changes
 - [ ] Unsubscribe called on cleanup to prevent leaks
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/core.mdx` (### Step 5: Listen for changes)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Step 5: Listen for changes)

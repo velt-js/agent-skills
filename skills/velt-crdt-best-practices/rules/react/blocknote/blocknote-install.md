@@ -31,4 +31,4 @@ npm install @veltdev/blocknote-crdt-react
 - [ ] No peer dependency warnings
 - [ ] Imports resolve without errors
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/blocknote.mdx` (### Step 1: Install Dependencies)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/blocknote` (### Step 1: Install Dependencies)

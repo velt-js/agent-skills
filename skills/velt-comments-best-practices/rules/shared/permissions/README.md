@@ -14,15 +14,15 @@ Based on documentation search, moderation and permissions are primarily handled 
 
 ## Source Pointers Searched
 
-- `/docs/key-concepts/overview.mdx` - Access Control section
-- `/docs/get-started/quickstart.mdx` - Authentication section
-- `/docs/api-reference/rest-apis/v2/auth/` - Auth APIs
+- https://docs.velt.dev/key-concepts/overview - Access Control section
+- https://docs.velt.dev/get-started/quickstart - Authentication section
+- https://docs.velt.dev/api-reference/rest-apis/v2/auth - Auth APIs
 
 ## What's Known
 
 ### Access Control Roles
 
-From `/docs/get-started/quickstart.mdx`:
+From https://docs.velt.dev/get-started/quickstart:
 > Assign users as **Editor** or **Viewer** per resource (organization, folder, document) via your JWT token permissions or backend access APIs. Editors can write collaboration data (e.g., add/edit comments); Viewers are read-only.
 
 ### JWT Token Permissions
@@ -49,5 +49,5 @@ If these features exist, they may be undocumented or handled through the REST AP
 
 For detailed moderation and permissions setup, consult:
 - Velt Console access control settings
-- `/docs/api-reference/rest-apis/v2/auth/` - REST API authentication endpoints
+- https://docs.velt.dev/api-reference/rest-apis/v2/auth - REST API authentication endpoints
 - Contact Velt support for enterprise moderation features

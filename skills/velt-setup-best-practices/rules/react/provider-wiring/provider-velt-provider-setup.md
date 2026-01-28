@@ -126,5 +126,4 @@ export default function App() {
 - [ ] Provider is in page.tsx, not layout.tsx
 
 **Source Pointers:**
-- `/docs/get-started/quickstart.mdx` - "Step 4: Initialize Velt" section
-- `/sample-apps/apps/react/comments/tables/tanstack/single-tool/app/page.tsx` - VeltProvider placement pattern
+- `https://docs.velt.dev/get-started/quickstart` - Step 4: Initialize Velt

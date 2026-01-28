@@ -114,5 +114,4 @@ NEXT_PUBLIC_VELT_API_KEY=prod-api-key
 - [ ] API key uses environment variable in production
 
 **Source Pointers:**
-- `/docs/get-started/quickstart.mdx` - "Step 2: Get Your API Key" section
-- `/sample-apps/apps/react/comments/tables/tanstack/single-tool/app/page.tsx` - API key configuration pattern
+- `https://docs.velt.dev/get-started/quickstart` - Step 2: Get Your API Key

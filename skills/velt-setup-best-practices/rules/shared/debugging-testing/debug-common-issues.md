@@ -270,5 +270,4 @@ See `document-id-generation` rule for proper patterns.
 | Data not persisting | Document ID consistent? |
 
 **Source Pointers:**
-- `/docs/get-started/quickstart.mdx` - Setup requirements
-- `/sample-apps/apps/react/comments/tables/tanstack/single-tool/` - Working reference implementation
+- `https://docs.velt.dev/get-started/quickstart` - Setup requirements

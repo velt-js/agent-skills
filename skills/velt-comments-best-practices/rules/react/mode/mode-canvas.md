@@ -169,5 +169,5 @@ style={{
 - [ ] Pins rendered at stored coordinates
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/setup/canvas.mdx` - Canvas setup
-- `/docs/async-collaboration/comments/setup/canvas-comments/overview.mdx` - Overview
+- https://docs.velt.dev/async-collaboration/comments/setup/canvas - Canvas setup
+- https://docs.velt.dev/async-collaboration/comments/setup/canvas-comments/overview - Overview

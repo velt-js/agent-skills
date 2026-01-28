@@ -38,4 +38,4 @@ const { collaborationConfig } = useVeltBlockNoteCrdtExtension({
 - [ ] ID consistent across page reloads
 - [ ] Content doesn't appear in wrong editors
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/blocknote.mdx` (## Notes > **Unique editorId**)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/blocknote` (## Notes > **Unique editorId**)

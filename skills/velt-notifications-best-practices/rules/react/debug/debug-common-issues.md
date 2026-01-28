@@ -150,4 +150,4 @@ function NotificationNavigation() {
 <VeltProvider apiKey="API_KEY" debug={true}>
 ```
 
-**Source Pointer:** `/docs/async-collaboration/notifications/setup.mdx` (Setup requirements)
+**Source Pointer:** https://docs.velt.dev/async-collaboration/notifications/setup - Setup requirements

@@ -137,4 +137,4 @@ function CustomNotificationsPanel() {
 - [ ] shadowDom disabled if using custom CSS
 - [ ] All subcomponents properly nested
 
-**Source Pointer:** `/docs/ui-customization/features/async/notifications/notifications-panel.mdx` (Panel wireframes)
+**Source Pointer:** https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel - Panel wireframes

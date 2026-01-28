@@ -33,4 +33,4 @@ npm install @veltdev/crdt @veltdev/client
 - [ ] No peer dependency warnings during install
 - [ ] Imports resolve without errors
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/core.mdx` (## Setup > ### Step 1: Install Dependencies)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (## Setup > ### Step 1: Install Dependencies)

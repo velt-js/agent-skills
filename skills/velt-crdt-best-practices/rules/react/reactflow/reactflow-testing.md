@@ -45,4 +45,4 @@ window.VeltCrdtStoreMap.get('your-diagram-id').getValue();
 - [ ] Node/edge changes sync both directions
 - [ ] No console errors
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/reactflow.mdx` (## Testing and Debugging)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/reactflow` (## Testing and Debugging)

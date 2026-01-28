@@ -43,4 +43,4 @@ window.VeltCrdtStoreMap.get('your-editor-id').getValue();
 - [ ] Text syncs both directions
 - [ ] No console errors
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/blocknote.mdx` (## Testing and Debugging)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/blocknote` (## Testing and Debugging)

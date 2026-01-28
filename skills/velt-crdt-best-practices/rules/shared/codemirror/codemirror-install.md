@@ -36,4 +36,4 @@ npm install @veltdev/codemirror-crdt @veltdev/client y-codemirror.next
 - [ ] `y-codemirror.next` installed for yCollab
 - [ ] No peer dependency warnings
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/codemirror.mdx` (### Step 1: Install Dependencies)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror` (### Step 1: Install Dependencies)

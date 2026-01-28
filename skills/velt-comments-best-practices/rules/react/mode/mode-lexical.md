@@ -116,5 +116,4 @@ velt-comment-text[comment-available="true"] {
 - [ ] Comment button triggers addComment
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/setup/lexical.mdx` - Complete setup
-- `/sample-apps/apps/react/comments/text-editors/lexical/lexical-comments-demo/` - Working demo
+- https://docs.velt.dev/async-collaboration/comments/setup/lexical - Complete setup

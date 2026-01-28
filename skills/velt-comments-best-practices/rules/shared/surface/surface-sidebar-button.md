@@ -87,5 +87,5 @@ export default function App() {
 - [ ] Custom content renders inside button if provided
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments-sidebar/setup.mdx` - Setup with sidebar button
-- `/docs/async-collaboration/comments/setup/page.mdx` - Page mode example
+- https://docs.velt.dev/async-collaboration/comments-sidebar/setup - Setup with sidebar button
+- https://docs.velt.dev/async-collaboration/comments/setup/page - Page mode example

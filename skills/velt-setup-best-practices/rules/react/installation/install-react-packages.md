@@ -63,5 +63,4 @@ pnpm add -D @veltdev/types
 - [ ] Can import `{ VeltProvider } from '@veltdev/react'`
 
 **Source Pointers:**
-- `/docs/get-started/quickstart.mdx` - "Step 1: Install Dependencies" section
-- `/sample-apps/apps/react/comments/tables/tanstack/single-tool/package.json` - Reference package.json
+- `https://docs.velt.dev/get-started/quickstart` - Step 1: Install Dependencies

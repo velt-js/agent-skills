@@ -75,4 +75,4 @@ store.destroy();
 - [ ] Document set via `veltClient.setDocument()`
 - [ ] `store.destroy()` called on cleanup
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/core.mdx` (### Step 3: Initialize a CRDT store > Other Frameworks)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Step 3: Initialize a CRDT store > Other Frameworks)

@@ -192,6 +192,4 @@ For production apps with external users, always implement generateToken.
 - [ ] No token-related errors in browser console
 
 **Source Pointers:**
-- `/docs/get-started/quickstart.mdx` - "Step 5: Authenticate Users" section, authProvider configuration
-- `/sample-apps/apps/react/comments/tables/tanstack/single-tool/components/velt/VeltInitializeUser.tsx` - useVeltAuthProvider hook pattern
-- `/sample-apps/apps/react/comments/tables/tanstack/single-tool/app/page.tsx` - VeltProvider with authProvider
+- `https://docs.velt.dev/get-started/quickstart` - Step 5: Authenticate Users

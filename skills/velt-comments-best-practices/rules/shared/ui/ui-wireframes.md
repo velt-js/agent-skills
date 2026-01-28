@@ -105,5 +105,5 @@ function CustomSidebar() {
 - [ ] Required subcomponents included
 
 **Source Pointers:**
-- `/docs/ui-customization/features/async/comments/comment-dialog-structure.mdx` - Dialog wireframe
-- `/docs/ui-customization/features/async/comments/comment-sidebar-structure.mdx` - Sidebar wireframe
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog-structure - Dialog wireframe
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar-structure - Sidebar wireframe

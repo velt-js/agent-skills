@@ -140,4 +140,4 @@ notificationElement.enableSettings();
 - [ ] Each channel has id, name, enable, default, and values
 - [ ] Default values are valid (ALL, MINE, or NONE)
 
-**Source Pointer:** `/docs/async-collaboration/notifications/customize-behavior.mdx` (Settings, setSettingsInitialConfig)
+**Source Pointer:** https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Settings, setSettingsInitialConfig

@@ -123,4 +123,4 @@ testVeltSetup();
 ```
 
 **Source Pointers:**
-- `/docs/get-started/quickstart.mdx` - "Step 8: Verify Setup"
+- https://docs.velt.dev/get-started/quickstart - "Step 8: Verify Setup"

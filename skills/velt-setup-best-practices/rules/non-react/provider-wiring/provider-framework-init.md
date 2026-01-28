@@ -202,6 +202,4 @@ export default {
 - [ ] No "unknown element" warnings in browser console
 
 **Source Pointers:**
-- `/docs/get-started/quickstart.mdx` - "Step 4: Initialize Velt" section, Angular tab
-- `/docs/get-started/quickstart.mdx` - "Step 4: Initialize Velt" section, Vue.js tab
-- `/docs/get-started/quickstart.mdx` - "Step 4: Initialize Velt" section, HTML tab
+- `https://docs.velt.dev/get-started/quickstart` - Step 4: Initialize Velt (Angular, Vue.js, HTML tabs)

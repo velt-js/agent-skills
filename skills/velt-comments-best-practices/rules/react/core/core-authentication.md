@@ -104,5 +104,4 @@ export default function App() {
 - [ ] Authentication happens before document setup
 
 **Source Pointers:**
-- `/docs/get-started/quickstart.mdx` - "Step 5: Authenticate Users"
-- `/sample-apps/apps/react/comments/tables/tanstack/comment-aggregation/components/velt/VeltInitializeUser.tsx` - Auth implementation
+- https://docs.velt.dev/get-started/quickstart - "Step 5: Authenticate Users"

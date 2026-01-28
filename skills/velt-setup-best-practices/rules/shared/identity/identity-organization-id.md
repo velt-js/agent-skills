@@ -139,6 +139,4 @@ const body = {
 - [ ] Console.velt.dev shows correct organization IDs in user list
 
 **Source Pointers:**
-- `/docs/get-started/quickstart.mdx` - "Notes" section mentions organizationId requirement
-- `/docs/get-started/quickstart.mdx` - "Step 5: Authenticate Users" section, user object structure
-- `/sample-apps/apps/react/comments/tables/tanstack/single-tool/app/userAuth/AppUserContext.tsx` - Shows organizationId usage
+- `https://docs.velt.dev/get-started/quickstart` - Step 5: Authenticate Users

@@ -213,5 +213,4 @@ Body:
 - [ ] No auth token visible in browser network tab
 
 **Source Pointers:**
-- `/docs/get-started/advanced.mdx` - "JWT Authentication Tokens" section
-- `/sample-apps/apps/react/comments/tables/tanstack/single-tool/app/api/velt/token/route.ts` - Token endpoint implementation
+- `https://docs.velt.dev/get-started/advanced` - JWT Authentication Tokens

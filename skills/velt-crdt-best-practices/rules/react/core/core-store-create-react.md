@@ -74,4 +74,4 @@ function Editor() {
 - [ ] `value` updates when remote peers make changes
 - [ ] No memory leaks on component unmount
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/core.mdx` (### Step 3: Initialize a CRDT store > React / Next.js)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Step 3: Initialize a CRDT store > React / Next.js)

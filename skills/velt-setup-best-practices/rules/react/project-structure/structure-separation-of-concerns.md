@@ -206,5 +206,5 @@ export default function Home() {
 - [ ] VeltInitializeUser only bridges to Velt API
 
 **Source Pointers:**
-- `/sample-apps/apps/react/comments/tables/tanstack/single-tool/app/userAuth/AppUserContext.tsx` - App auth layer
-- `/sample-apps/apps/react/comments/tables/tanstack/single-tool/components/velt/VeltInitializeUser.tsx` - Velt auth bridge
+- `https://docs.velt.dev/get-started/quickstart` - Step 5: Authenticate Users
+- `https://docs.velt.dev/get-started/advanced` - JWT Authentication Tokens

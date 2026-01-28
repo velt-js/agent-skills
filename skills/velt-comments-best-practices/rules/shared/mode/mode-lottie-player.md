@@ -163,4 +163,4 @@ commentElement.allowedElementIds(['lottiePlayerContainer']);
 - [ ] Comment clicks seek to correct frame
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/setup/lottie-player-setup.mdx` - Complete setup
+- https://docs.velt.dev/async-collaboration/comments/setup/lottie-player-setup - Complete setup

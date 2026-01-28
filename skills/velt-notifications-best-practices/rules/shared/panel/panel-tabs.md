@@ -88,4 +88,4 @@ function ConfigureNotifications() {
 - [ ] Each tab has name and enable properties
 - [ ] Disabled tabs do not appear in panel
 
-**Source Pointer:** `/docs/async-collaboration/notifications/customize-behavior.mdx` (Tab Configuration)
+**Source Pointer:** https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Tab Configuration

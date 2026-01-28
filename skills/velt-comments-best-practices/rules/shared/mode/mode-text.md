@@ -79,4 +79,4 @@ Text mode works well with Stream mode for a Google Docs-like experience:
 - [ ] Highlighted text is visually marked
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/setup/text.mdx` - Complete setup
+- https://docs.velt.dev/async-collaboration/comments/setup/text - Complete setup

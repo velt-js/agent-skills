@@ -63,4 +63,4 @@ const store = await createVeltStore({
 - [ ] API key is valid and domain is safelisted in Velt Console
 - [ ] No console errors about missing Velt client
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/core.mdx` (### Step 2: Initialize Velt in your app)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Step 2: Initialize Velt in your app)

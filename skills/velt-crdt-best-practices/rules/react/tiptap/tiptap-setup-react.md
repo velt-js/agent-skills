@@ -67,4 +67,4 @@ function CollaborativeEditor() {
 - [ ] `history: false` set on StarterKit
 - [ ] Connection status shows "Connected"
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/tiptap.mdx` (### Step 3: Initialize Velt CRDT Extension > React / Next.js)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (### Step 3: Initialize Velt CRDT Extension > React / Next.js)

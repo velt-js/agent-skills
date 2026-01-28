@@ -99,4 +99,4 @@ useEffect(() => {
 - [ ] Preview/staging domains are whitelisted
 
 **Source Pointers:**
-- `/docs/get-started/quickstart.mdx` - "Step 3: Safelist Your Domain" section
+- `https://docs.velt.dev/get-started/quickstart` - Step 3: Safelist Your Domain

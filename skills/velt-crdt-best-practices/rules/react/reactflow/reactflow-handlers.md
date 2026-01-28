@@ -71,4 +71,4 @@ return (
 - [ ] No direct mutation of `nodes`/`edges` arrays
 - [ ] Changes appear for collaborators
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/reactflow.mdx` (## Notes > **Use CRDT handlers**)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/reactflow` (## Notes > **Use CRDT handlers**)

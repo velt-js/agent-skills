@@ -67,4 +67,4 @@ const { value, update } = useVeltCrdtStore<string[]>({
 - [ ] Concurrent edits merge as expected
 - [ ] Type is consistent across all clients for the same store ID
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/core.mdx` (type: 'text', // 'array' | 'map' | 'text' | 'xml')
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (type: 'text', // 'array' | 'map' | 'text' | 'xml')

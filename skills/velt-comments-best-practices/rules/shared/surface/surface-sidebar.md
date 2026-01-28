@@ -112,6 +112,5 @@ export default function App() {
 - [ ] onCommentClick handles navigation
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments-sidebar/overview.mdx` - Overview
-- `/docs/async-collaboration/comments-sidebar/setup.mdx` - Setup
-- `/sample-apps/apps/react/comments/tables/tanstack/comment-aggregation/` - Demo usage
+- https://docs.velt.dev/async-collaboration/comments-sidebar/overview - Overview
+- https://docs.velt.dev/async-collaboration/comments-sidebar/setup - Setup

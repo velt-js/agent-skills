@@ -171,5 +171,4 @@ Velt components use z-index for proper layering. If components aren't visible:
 - [ ] Components are visible (check z-index if not)
 
 **Source Pointers:**
-- `/sample-apps/apps/react/comments/tables/tanstack/single-tool/components/velt/VeltCollaboration.tsx` - Component placement pattern
-- `/docs/get-started/quickstart.mdx` - "Notes" section on child component requirements
+- `https://docs.velt.dev/get-started/quickstart` - Notes section on child component requirements

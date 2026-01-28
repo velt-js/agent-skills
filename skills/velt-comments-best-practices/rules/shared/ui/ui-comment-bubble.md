@@ -89,5 +89,5 @@ When using bubbles, you may want to disable the default triangle indicator:
 - [ ] Triangle disabled if using bubble as indicator
 
 **Source Pointers:**
-- `/docs/async-collaboration/comments/setup/popover.mdx` - "Step 5: Add the Comment Bubble component"
-- `/docs/ui-customization/features/async/comments/comment-bubble.mdx` - Customization
+- https://docs.velt.dev/async-collaboration/comments/setup/popover - "Step 5: Add the Comment Bubble component"
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-bubble - Customization

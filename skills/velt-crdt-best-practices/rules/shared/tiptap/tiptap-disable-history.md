@@ -52,4 +52,4 @@ const editor = useEditor({
 - [ ] Undo/redo works correctly across collaborators
 - [ ] No content flashing or jumping
 
-**Source Pointer:** `/docs/realtime-collaboration/crdt/setup/tiptap.mdx` (## Notes > **Disable history**: Turn off Tiptap `history` when using collaboration)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (## Notes > **Disable history**: Turn off Tiptap `history` when using collaboration)

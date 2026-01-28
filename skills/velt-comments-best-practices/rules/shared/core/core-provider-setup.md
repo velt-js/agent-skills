@@ -84,5 +84,4 @@ export default function App() {
 - [ ] Next.js files have `'use client'` directive
 
 **Source Pointers:**
-- `/docs/get-started/quickstart.mdx` - "Step 4: Initialize Velt"
-- `/sample-apps/apps/react/comments/tables/tanstack/comment-aggregation/app/page.tsx` - VeltProvider usage
+- https://docs.velt.dev/get-started/quickstart - "Step 4: Initialize Velt"
