@@ -22,6 +22,8 @@ export interface Rule {
 	section: number;
 	category: string;
 	sourceGroup: SourceGroup;
+	filePath: string;
+	folder: string;
 	impact: ImpactLevel;
 	impactDescription?: string;
 	explanation: string;

@@ -88,6 +88,7 @@ Each rule file contains:
 - Correct code example with explanation
 - Source pointers to official documentation
 
-## Full Compiled Document
+## Compiled Documents
 
-For the complete guide with all rules expanded: `AGENTS.md`
+- `AGENTS.md` — Compressed index of all rules with file paths (start here)
+- `AGENTS.full.md` — Full verbose guide with all rules expanded inline

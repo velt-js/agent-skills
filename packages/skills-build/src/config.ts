@@ -17,6 +17,7 @@ export interface SkillPaths {
 	skillDir: string;
 	rulesDir: string;
 	agentsOutput: string;
+	agentsFullOutput: string;
 	metadataFile: string;
 }
 
@@ -38,6 +39,7 @@ export function getSkillPaths(skillName: string): SkillPaths {
 		skillDir,
 		rulesDir: join(skillDir, "rules"),
 		agentsOutput: join(skillDir, "AGENTS.md"),
+		agentsFullOutput: join(skillDir, "AGENTS.full.md"),
 		metadataFile: join(skillDir, "metadata.json"),
 	};
 }

@@ -283,6 +283,8 @@ export function parseRuleFile(
 			section,
 			category,
 			sourceGroup: "shared", // Default; overridden by build based on file path
+			filePath, // Absolute path to the rule file
+			folder: category, // Category folder name (e.g., "installation", "identity")
 			impact,
 			impactDescription: frontmatter.impactDescription,
 			explanation,

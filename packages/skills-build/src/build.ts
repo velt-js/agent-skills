@@ -167,7 +167,60 @@ function getSourceGroup(filePath: string, rulesDir: string): SourceGroup {
 }
 
 /**
- * Build AGENTS.md for a specific skill
+ * Build compressed pipe-delimited index for AGENTS.md
+ * Points to individual rule files on disk for on-demand reading.
+ */
+function buildCompressedIndex(
+	paths: SkillPaths,
+	metadata: Metadata,
+	sections: Section[],
+	rulesBySection: Map<number, Rule[]>,
+	skillTitle: string,
+): string {
+	const output: string[] = [];
+
+	// Compact header
+	output.push(`# ${skillTitle}`);
+	output.push(`|v${metadata.version}|${metadata.organization}|${metadata.date}`);
+	output.push(`|IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any ${metadata.organization} tasks.`);
+	output.push(`|root: ./rules`);
+	output.push("");
+
+	// Sections with rule file references
+	for (const section of sections) {
+		const sectionRules = rulesBySection.get(section.number) || [];
+
+		output.push(`## ${section.number}. ${section.title} — ${section.impact}`);
+
+		if (sectionRules.length === 0) {
+			continue;
+		}
+
+		// Group rules by sourceGroup within this section
+		const rulesByGroup = new Map<SourceGroup, Rule[]>();
+		for (const rule of sectionRules) {
+			const group = rulesByGroup.get(rule.sourceGroup) || [];
+			group.push(rule);
+			rulesByGroup.set(rule.sourceGroup, group);
+		}
+
+		// Output each group's rules on one line
+		for (const group of SOURCE_GROUPS) {
+			const groupRules = rulesByGroup.get(group);
+			if (!groupRules || groupRules.length === 0) continue;
+
+			const fileNames = groupRules.map((rule) => basename(rule.filePath));
+			output.push(`|${group}/${section.folder}:{${fileNames.join(",")}}`);
+		}
+
+		output.push("");
+	}
+
+	return output.join("\n");
+}
+
+/**
+ * Build AGENTS.md (compressed index) and AGENTS.full.md (verbose) for a specific skill
  */
 function buildSkill(paths: SkillPaths): void {
 	console.log(`[${paths.name}] Building AGENTS.md...`);
@@ -183,6 +236,10 @@ function buildSkill(paths: SkillPaths): void {
 		console.log(`  No rules directory found. Generating empty AGENTS.md.`);
 		writeFileSync(
 			paths.agentsOutput,
+			`# ${skillTitle}\n\nNo rules defined yet.\n`,
+		);
+		writeFileSync(
+			paths.agentsFullOutput,
 			`# ${skillTitle}\n\nNo rules defined yet.\n`,
 		);
 		return;
@@ -211,6 +268,7 @@ function buildSkill(paths: SkillPaths): void {
 		const result = parseRuleFile(file, sectionMap);
 		if (result.success && result.rule) {
 			result.rule.sourceGroup = getSourceGroup(file, paths.rulesDir);
+			result.rule.filePath = file;
 			rules.push(result.rule);
 		}
 	}
@@ -236,7 +294,12 @@ function buildSkill(paths: SkillPaths): void {
 		});
 	}
 
-	// Generate markdown output
+	// Generate compressed index (AGENTS.md)
+	const compressedOutput = buildCompressedIndex(paths, metadata, sections, rulesBySection, skillTitle);
+	writeFileSync(paths.agentsOutput, compressedOutput);
+	console.log(`  Generated: ${paths.agentsOutput} (compressed index)`);
+
+	// Generate full verbose output (AGENTS.full.md)
 	const output: string[] = [];
 
 	// Header (with trailing spaces for line breaks to match reference format)
@@ -342,9 +405,9 @@ function buildSkill(paths: SkillPaths): void {
 		output.push("");
 	}
 
-	// Write output
-	writeFileSync(paths.agentsOutput, output.join("\n"));
-	console.log(`  Generated: ${paths.agentsOutput}`);
+	// Write full verbose output
+	writeFileSync(paths.agentsFullOutput, output.join("\n"));
+	console.log(`  Generated: ${paths.agentsFullOutput} (full verbose)`);
 	console.log(`  Total rules: ${rules.length}`);
 }
 

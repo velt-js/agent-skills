@@ -51,6 +51,7 @@ Each rule file contains:
 - Verification checklist
 - Source pointers to official docs
 
-## Full Compiled Document
+## Compiled Documents
 
-For the complete guide with all rules expanded: `AGENTS.md`
+- `AGENTS.md` — Compressed index of all rules with file paths (start here)
+- `AGENTS.full.md` — Full verbose guide with all rules expanded inline
