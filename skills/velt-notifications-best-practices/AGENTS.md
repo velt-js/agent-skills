@@ -101,7 +101,7 @@ function App() {
 <velt-notifications-tool></velt-notifications-tool>
 ```
 
-Reference: `/docs/async-collaboration/notifications/setup.mdx` (Enable Feature in Console, Add Notification Tool)
+Reference: https://docs.velt.dev/async-collaboration/notifications/setup - Enable Feature in Console, Add Notification Tool
 
 ---
 
@@ -179,7 +179,7 @@ function ConfigureNotifications() {
 }
 ```
 
-Reference: `/docs/async-collaboration/notifications/customize-behavior.mdx` (Tab Configuration)
+Reference: https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Tab Configuration
 
 ---
 
@@ -279,7 +279,7 @@ function NotificationButton() {
 <velt-notifications-panel></velt-notifications-panel>
 ```
 
-Reference: `/docs/async-collaboration/notifications/customize-behavior.mdx` (Panel Open Mode, Actions)
+Reference: https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Panel Open Mode, Actions
 
 ---
 
@@ -415,7 +415,7 @@ function NotificationData() {
 }
 ```
 
-Reference: `/docs/async-collaboration/notifications/customize-behavior.mdx` (Data, Events)
+Reference: https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Data, Events
 
 ---
 
@@ -510,7 +510,7 @@ const response = await fetch('https://api.velt.dev/v2/notifications/update', {
 }
 ```
 
-Reference: `/docs/api-reference/rest-apis/v2/notifications/get-notifications-v2.mdx` (Get Notifications API)
+Reference: https://docs.velt.dev/api-reference/rest-apis/v2/notifications/get-notifications-v2 - Get Notifications API
 
 ---
 
@@ -644,7 +644,7 @@ notificationElement.disableSettings();
 notificationElement.enableSettings();
 ```
 
-Reference: `/docs/async-collaboration/notifications/customize-behavior.mdx` (Settings, setSettingsInitialConfig)
+Reference: https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Settings, setSettingsInitialConfig
 
 ---
 
@@ -753,7 +753,7 @@ const response = await fetch('https://api.velt.dev/v2/notifications/add', {
 }
 ```
 
-Reference: `/docs/api-reference/rest-apis/v2/notifications/add-notifications.mdx` (Add Notifications API)
+Reference: https://docs.velt.dev/api-reference/rest-apis/v2/notifications/add-notifications - Add Notifications API
 
 ---
 
@@ -871,7 +871,7 @@ notificationElement.setSettingsInitialConfig([
 ]);
 ```
 
-Reference: `/docs/webhooks/basic.mdx` (Webhook setup)
+Reference: https://docs.velt.dev/webhooks/basic - Webhook setup
 
 ---
 
@@ -936,7 +936,7 @@ notificationElement.setSettings({
 });
 ```
 
-Reference: `/docs/async-collaboration/comments/notifications.mdx` (Email section)
+Reference: https://docs.velt.dev/async-collaboration/comments/notifications - Email section
 
 ---
 
@@ -1061,7 +1061,7 @@ function CustomNotificationsPanel() {
 />
 ```
 
-Reference: `/docs/ui-customization/features/async/notifications/notifications-panel.mdx` (Panel wireframes)
+Reference: https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel - Panel wireframes
 
 ---
 
@@ -1175,7 +1175,7 @@ function NotificationNavigation() {
 <VeltProvider apiKey="API_KEY" debug={true}>
 ```
 
-Reference: `/docs/async-collaboration/notifications/setup.mdx` (Setup requirements)
+Reference: https://docs.velt.dev/async-collaboration/notifications/setup - Setup requirements
 
 ---
 

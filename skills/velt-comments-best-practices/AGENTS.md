@@ -31,11 +31,11 @@ Comprehensive Velt Comments implementation guide covering comment modes, setup p
    - 2.3 [Add Comments to Custom Charts with Manual Positioning](#23-add-comments-to-custom-charts-with-manual-positioning)
    - 2.4 [Add Comments to Nivo Charts](#24-add-comments-to-nivo-charts)
    - 2.5 [Add Data Point Comments to Highcharts](#25-add-data-point-comments-to-highcharts)
-   - 2.6 [Add Frame-by-Frame Comments to Lottie Animations](#26-add-frame-by-frame-comments-to-lottie-animations)
-   - 2.7 [Integrate Comments with Custom Video Player](#27-integrate-comments-with-custom-video-player)
-   - 2.8 [Integrate Comments with Lexical Editor](#28-integrate-comments-with-lexical-editor)
-   - 2.9 [Integrate Comments with SlateJS Editor](#29-integrate-comments-with-slatejs-editor)
-   - 2.10 [Integrate Comments with TipTap Editor](#210-integrate-comments-with-tiptap-editor)
+   - 2.6 [Integrate Comments with Lexical Editor](#26-integrate-comments-with-lexical-editor)
+   - 2.7 [Integrate Comments with SlateJS Editor](#27-integrate-comments-with-slatejs-editor)
+   - 2.8 [Integrate Comments with TipTap Editor](#28-integrate-comments-with-tiptap-editor)
+   - 2.9 [Add Frame-by-Frame Comments to Lottie Animations](#29-add-frame-by-frame-comments-to-lottie-animations)
+   - 2.10 [Integrate Comments with Custom Video Player](#210-integrate-comments-with-custom-video-player)
    - 2.11 [Use Freestyle Mode for Pin-Anywhere Comments](#211-use-freestyle-mode-for-pin-anywhere-comments)
    - 2.12 [Use Inline Comments for Traditional Thread Style](#212-use-inline-comments-for-traditional-thread-style)
    - 2.13 [Use Page Mode for Page-Level Comments](#213-use-page-mode-for-page-level-comments)
@@ -45,8 +45,8 @@ Comprehensive Velt Comments implementation guide covering comment modes, setup p
    - 2.17 [Use Text Mode for Text Highlight Comments](#217-use-text-mode-for-text-highlight-comments)
 
 3. [Standalone Components](#3-standalone-components) — **MEDIUM-HIGH**
-   - 3.1 [Use Comment Composer for Custom Comment Input](#31-use-comment-composer-for-custom-comment-input)
-   - 3.2 [Use Comment Pin for Manual Position Control](#32-use-comment-pin-for-manual-position-control)
+   - 3.1 [Use Comment Pin for Manual Position Control](#31-use-comment-pin-for-manual-position-control)
+   - 3.2 [Use Comment Composer for Custom Comment Input](#32-use-comment-composer-for-custom-comment-input)
    - 3.3 [Use Comment Thread to Render Existing Comments](#33-use-comment-thread-to-render-existing-comments)
 
 4. [Comment Surfaces](#4-comment-surfaces) — **MEDIUM-HIGH**
@@ -59,9 +59,9 @@ Comprehensive Velt Comments implementation guide covering comment modes, setup p
    - 5.3 [Use Wireframe Components for Custom UI](#53-use-wireframe-components-for-custom-ui)
 
 6. [Data Model](#6-data-model) — **MEDIUM**
-   - 6.1 [Add Custom Metadata to Comments with Context](#61-add-custom-metadata-to-comments-with-context)
-   - 6.2 [Filter and Group Comments](#62-filter-and-group-comments)
-   - 6.3 [Work with Comment Annotations Data](#63-work-with-comment-annotations-data)
+   - 6.1 [Filter and Group Comments](#61-filter-and-group-comments)
+   - 6.2 [Work with Comment Annotations Data](#62-work-with-comment-annotations-data)
+   - 6.3 [Add Custom Metadata to Comments with Context](#63-add-custom-metadata-to-comments-with-context)
 
 7. [Debugging & Testing](#7-debugging-testing) — **LOW-MEDIUM**
    - 7.1 [Troubleshoot Common Velt Integration Issues](#71-troubleshoot-common-velt-integration-issues)
@@ -1047,7 +1047,309 @@ const chartComponentRef = useRef(null);
 
 ---
 
-### 2.6 Add Frame-by-Frame Comments to Lottie Animations
+### 2.6 Integrate Comments with Lexical Editor
+
+**Impact: HIGH (Text comments in Lexical rich text editor with CommentNode)**
+
+Add collaborative text comments to Lexical editor using Velt's Lexical extension. Users can select text and add comments that integrate with Lexical's node system.
+
+**Incorrect (using default text mode):**
+
+```jsx
+// Default text mode doesn't integrate with Lexical properly
+<VeltComments textMode={true} />
+<LexicalComposer ... />
+```
+
+**Correct (with Lexical extension):**
+
+```jsx
+npm install @veltdev/lexical-velt-comments @veltdev/client lexical
+import { VeltProvider, VeltComments } from '@veltdev/react';
+
+<VeltProvider apiKey="API_KEY">
+  <VeltComments textMode={false} />
+</VeltProvider>
+import { LexicalComposer } from '@lexical/react/LexicalComposer';
+import { CommentNode } from '@veltdev/lexical-velt-comments';
+
+const initialConfig = {
+  namespace: 'MyEditor',
+  nodes: [CommentNode],  // Register Velt comment node
+  onError: console.error,
+};
+
+function Editor() {
+  return (
+    <LexicalComposer initialConfig={initialConfig}>
+      {/* plugins */}
+    </LexicalComposer>
+  );
+}
+import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
+import { addComment, renderComments } from '@veltdev/lexical-velt-comments';
+import { useCommentAnnotations } from '@veltdev/react';
+
+function CommentPlugin() {
+  const [editor] = useLexicalComposerContext();
+  const commentAnnotations = useCommentAnnotations();
+
+  // Render comments when annotations change
+  useEffect(() => {
+    if (editor && commentAnnotations?.length) {
+      renderComments({ editor, commentAnnotations });
+    }
+  }, [editor, commentAnnotations]);
+
+  const handleAddComment = () => {
+    if (editor) {
+      addComment({ editor });
+    }
+  };
+
+  return (
+    <button onMouseDown={(e) => {
+      e.preventDefault();
+      handleAddComment();
+    }}>
+      Add Comment
+    </button>
+  );
+}
+```
+
+**Step 2: Configure VeltComments**
+**Step 3: Register CommentNode in editor config**
+**Step 4: Add comment functionality**
+
+**Export Editor State Without Comments:**
+
+```jsx
+import { exportJSONWithoutComments } from '@veltdev/lexical-velt-comments';
+
+// Store clean state without comment nodes
+const cleanState = exportJSONWithoutComments(editor);
+```
+
+**Style Commented Text:**
+
+```css
+velt-comment-text[comment-available="true"] {
+  background-color: #ffff00;
+}
+```
+
+---
+
+### 2.7 Integrate Comments with SlateJS Editor
+
+**Impact: HIGH (Text comments in SlateJS rich text editor with custom elements)**
+
+Add collaborative text comments to SlateJS editor using Velt's SlateJS extension. Users can select text and add comments that integrate with Slate's document model.
+
+**Incorrect (using default text mode):**
+
+```jsx
+// Default text mode doesn't integrate with SlateJS properly
+<VeltComments textMode={true} />
+<Slate ... />
+```
+
+**Correct (with SlateJS extension):**
+
+```jsx
+npm install @veltdev/slate-velt-comments
+import { VeltProvider, VeltComments } from '@veltdev/react';
+
+<VeltProvider apiKey="API_KEY">
+  <VeltComments textMode={false} />
+</VeltProvider>
+import { createEditor } from 'slate';
+import { withReact, Slate, Editable, useSlate } from 'slate-react';
+import { withHistory } from 'slate-history';
+import { withVeltComments, addComment, renderComments, SlateVeltComment } from '@veltdev/slate-velt-comments';
+import { useCommentAnnotations } from '@veltdev/react';
+
+// Create editor with Velt extension
+const editor = withVeltComments(
+  withReact(withHistory(createEditor())),
+  { HistoryEditor: SlateHistoryEditor }
+);
+import type { VeltCommentsElement } from '@veltdev/slate-velt-comments';
+
+type CustomElement = VeltCommentsElement;
+
+declare module 'slate' {
+  interface CustomTypes {
+    Element: CustomElement;
+  }
+}
+function SlateEditor() {
+  const editor = useSlate();
+  const commentAnnotations = useCommentAnnotations();
+
+  // Render comments when annotations change
+  useEffect(() => {
+    if (editor && commentAnnotations) {
+      renderComments({ editor, commentAnnotations });
+    }
+  }, [commentAnnotations, editor]);
+
+  const handleAddComment = () => {
+    addComment({ editor });
+  };
+
+  return (
+    <Slate editor={editor} initialValue={initialValue}>
+      <button onMouseDown={(e) => {
+        e.preventDefault();
+        handleAddComment();
+      }}>
+        Comment
+      </button>
+      <Editable renderElement={renderElement} />
+    </Slate>
+  );
+}
+
+// Render Velt comment elements
+const renderElement = (props) => {
+  if (props.element.type === 'veltComment') {
+    return <SlateVeltComment {...props} element={props.element} />;
+  }
+  return <p {...props.attributes}>{props.children}</p>;
+};
+```
+
+**Step 2: Configure VeltComments**
+**Step 3: Configure editor with extension**
+**Step 4: Register custom type**
+**Step 5: Render comments and add button**
+
+**Style Commented Text:**
+
+```css
+velt-comment-text[comment-available="true"] {
+  background-color: #ffff00;
+}
+```
+
+---
+
+### 2.8 Integrate Comments with TipTap Editor
+
+**Impact: HIGH (Text comments in TipTap rich text editor with highlight marks)**
+
+Add collaborative text comments to TipTap editor using Velt's TipTap extension. Users can select text and add comments that persist as marks in the editor.
+
+**Incorrect (using default text mode instead of extension):**
+
+```jsx
+// Default text mode doesn't integrate with TipTap properly
+<VeltComments textMode={true} />
+<Editor ... />
+```
+
+**Correct (with TipTap extension):**
+
+```jsx
+npm install @veltdev/tiptap-velt-comments
+import { VeltProvider, VeltComments } from '@veltdev/react';
+
+// Disable default text mode when using editor integration
+<VeltProvider apiKey="API_KEY">
+  <VeltComments textMode={false} />
+</VeltProvider>
+import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import { TiptapVeltComments, addComment, renderComments } from '@veltdev/tiptap-velt-comments';
+import { useCommentAnnotations } from '@veltdev/react';
+
+export default function TipTapComponent() {
+  const commentAnnotations = useCommentAnnotations();
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      TiptapVeltComments,
+    ],
+    content: '<p>Hello Velt!</p>',
+  });
+
+  // Render comments when annotations change
+  useEffect(() => {
+    if (editor && commentAnnotations?.length) {
+      renderComments({ editor, commentAnnotations });
+    }
+  }, [editor, commentAnnotations]);
+
+  const handleAddComment = () => {
+    if (editor) {
+      addComment({ editor });
+    }
+  };
+
+  return (
+    <div>
+      <EditorContent editor={editor} />
+
+      {editor && (
+        <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }}>
+          <button
+            onMouseDown={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              handleAddComment();
+            }}
+          >
+            Add Comment
+          </button>
+        </BubbleMenu>
+      )}
+    </div>
+  );
+}
+```
+
+**Step 2: Configure VeltComments**
+**Step 3: Add extension to TipTap editor**
+
+**With Custom Metadata (Context):**
+
+```jsx
+addComment({
+  editor,
+  editorId: 'my-doc-1',
+  context: {
+    storyId: 'story-123',
+    section: 'intro',
+  },
+});
+```
+
+**Configure Mark Persistence:**
+
+```jsx
+const editor = useEditor({
+  extensions: [
+    TiptapVeltComments.configure({
+      persistVeltMarks: false, // Set false if storing HTML yourself
+    }),
+  ],
+});
+```
+
+**Style Commented Text:**
+
+```css
+velt-comment-text[comment-available="true"] {
+  background-color: #ffff00;
+}
+```
+
+---
+
+### 2.9 Add Frame-by-Frame Comments to Lottie Animations
 
 **Impact: HIGH (Comments synced to specific frames in Lottie animations)**
 
@@ -1204,7 +1506,7 @@ commentElement.allowedElementIds(['lottiePlayerContainer']);
 
 ---
 
-### 2.7 Integrate Comments with Custom Video Player
+### 2.10 Integrate Comments with Custom Video Player
 
 **Impact: HIGH (Add comments to any video player with timeline and sidebar)**
 
@@ -1344,308 +1646,6 @@ const onCommentClick = async (event) => {
     total-media-length="120"
   ></velt-comment-player-timeline>
 </div>
-```
-
----
-
-### 2.8 Integrate Comments with Lexical Editor
-
-**Impact: HIGH (Text comments in Lexical rich text editor with CommentNode)**
-
-Add collaborative text comments to Lexical editor using Velt's Lexical extension. Users can select text and add comments that integrate with Lexical's node system.
-
-**Incorrect (using default text mode):**
-
-```jsx
-// Default text mode doesn't integrate with Lexical properly
-<VeltComments textMode={true} />
-<LexicalComposer ... />
-```
-
-**Correct (with Lexical extension):**
-
-```jsx
-npm install @veltdev/lexical-velt-comments @veltdev/client lexical
-import { VeltProvider, VeltComments } from '@veltdev/react';
-
-<VeltProvider apiKey="API_KEY">
-  <VeltComments textMode={false} />
-</VeltProvider>
-import { LexicalComposer } from '@lexical/react/LexicalComposer';
-import { CommentNode } from '@veltdev/lexical-velt-comments';
-
-const initialConfig = {
-  namespace: 'MyEditor',
-  nodes: [CommentNode],  // Register Velt comment node
-  onError: console.error,
-};
-
-function Editor() {
-  return (
-    <LexicalComposer initialConfig={initialConfig}>
-      {/* plugins */}
-    </LexicalComposer>
-  );
-}
-import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
-import { addComment, renderComments } from '@veltdev/lexical-velt-comments';
-import { useCommentAnnotations } from '@veltdev/react';
-
-function CommentPlugin() {
-  const [editor] = useLexicalComposerContext();
-  const commentAnnotations = useCommentAnnotations();
-
-  // Render comments when annotations change
-  useEffect(() => {
-    if (editor && commentAnnotations?.length) {
-      renderComments({ editor, commentAnnotations });
-    }
-  }, [editor, commentAnnotations]);
-
-  const handleAddComment = () => {
-    if (editor) {
-      addComment({ editor });
-    }
-  };
-
-  return (
-    <button onMouseDown={(e) => {
-      e.preventDefault();
-      handleAddComment();
-    }}>
-      Add Comment
-    </button>
-  );
-}
-```
-
-**Step 2: Configure VeltComments**
-**Step 3: Register CommentNode in editor config**
-**Step 4: Add comment functionality**
-
-**Export Editor State Without Comments:**
-
-```jsx
-import { exportJSONWithoutComments } from '@veltdev/lexical-velt-comments';
-
-// Store clean state without comment nodes
-const cleanState = exportJSONWithoutComments(editor);
-```
-
-**Style Commented Text:**
-
-```css
-velt-comment-text[comment-available="true"] {
-  background-color: #ffff00;
-}
-```
-
----
-
-### 2.9 Integrate Comments with SlateJS Editor
-
-**Impact: HIGH (Text comments in SlateJS rich text editor with custom elements)**
-
-Add collaborative text comments to SlateJS editor using Velt's SlateJS extension. Users can select text and add comments that integrate with Slate's document model.
-
-**Incorrect (using default text mode):**
-
-```jsx
-// Default text mode doesn't integrate with SlateJS properly
-<VeltComments textMode={true} />
-<Slate ... />
-```
-
-**Correct (with SlateJS extension):**
-
-```jsx
-npm install @veltdev/slate-velt-comments
-import { VeltProvider, VeltComments } from '@veltdev/react';
-
-<VeltProvider apiKey="API_KEY">
-  <VeltComments textMode={false} />
-</VeltProvider>
-import { createEditor } from 'slate';
-import { withReact, Slate, Editable, useSlate } from 'slate-react';
-import { withHistory } from 'slate-history';
-import { withVeltComments, addComment, renderComments, SlateVeltComment } from '@veltdev/slate-velt-comments';
-import { useCommentAnnotations } from '@veltdev/react';
-
-// Create editor with Velt extension
-const editor = withVeltComments(
-  withReact(withHistory(createEditor())),
-  { HistoryEditor: SlateHistoryEditor }
-);
-import type { VeltCommentsElement } from '@veltdev/slate-velt-comments';
-
-type CustomElement = VeltCommentsElement;
-
-declare module 'slate' {
-  interface CustomTypes {
-    Element: CustomElement;
-  }
-}
-function SlateEditor() {
-  const editor = useSlate();
-  const commentAnnotations = useCommentAnnotations();
-
-  // Render comments when annotations change
-  useEffect(() => {
-    if (editor && commentAnnotations) {
-      renderComments({ editor, commentAnnotations });
-    }
-  }, [commentAnnotations, editor]);
-
-  const handleAddComment = () => {
-    addComment({ editor });
-  };
-
-  return (
-    <Slate editor={editor} initialValue={initialValue}>
-      <button onMouseDown={(e) => {
-        e.preventDefault();
-        handleAddComment();
-      }}>
-        Comment
-      </button>
-      <Editable renderElement={renderElement} />
-    </Slate>
-  );
-}
-
-// Render Velt comment elements
-const renderElement = (props) => {
-  if (props.element.type === 'veltComment') {
-    return <SlateVeltComment {...props} element={props.element} />;
-  }
-  return <p {...props.attributes}>{props.children}</p>;
-};
-```
-
-**Step 2: Configure VeltComments**
-**Step 3: Configure editor with extension**
-**Step 4: Register custom type**
-**Step 5: Render comments and add button**
-
-**Style Commented Text:**
-
-```css
-velt-comment-text[comment-available="true"] {
-  background-color: #ffff00;
-}
-```
-
----
-
-### 2.10 Integrate Comments with TipTap Editor
-
-**Impact: HIGH (Text comments in TipTap rich text editor with highlight marks)**
-
-Add collaborative text comments to TipTap editor using Velt's TipTap extension. Users can select text and add comments that persist as marks in the editor.
-
-**Incorrect (using default text mode instead of extension):**
-
-```jsx
-// Default text mode doesn't integrate with TipTap properly
-<VeltComments textMode={true} />
-<Editor ... />
-```
-
-**Correct (with TipTap extension):**
-
-```jsx
-npm install @veltdev/tiptap-velt-comments
-import { VeltProvider, VeltComments } from '@veltdev/react';
-
-// Disable default text mode when using editor integration
-<VeltProvider apiKey="API_KEY">
-  <VeltComments textMode={false} />
-</VeltProvider>
-import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import { TiptapVeltComments, addComment, renderComments } from '@veltdev/tiptap-velt-comments';
-import { useCommentAnnotations } from '@veltdev/react';
-
-export default function TipTapComponent() {
-  const commentAnnotations = useCommentAnnotations();
-
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-      TiptapVeltComments,
-    ],
-    content: '<p>Hello Velt!</p>',
-  });
-
-  // Render comments when annotations change
-  useEffect(() => {
-    if (editor && commentAnnotations?.length) {
-      renderComments({ editor, commentAnnotations });
-    }
-  }, [editor, commentAnnotations]);
-
-  const handleAddComment = () => {
-    if (editor) {
-      addComment({ editor });
-    }
-  };
-
-  return (
-    <div>
-      <EditorContent editor={editor} />
-
-      {editor && (
-        <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }}>
-          <button
-            onMouseDown={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              handleAddComment();
-            }}
-          >
-            Add Comment
-          </button>
-        </BubbleMenu>
-      )}
-    </div>
-  );
-}
-```
-
-**Step 2: Configure VeltComments**
-**Step 3: Add extension to TipTap editor**
-
-**With Custom Metadata (Context):**
-
-```jsx
-addComment({
-  editor,
-  editorId: 'my-doc-1',
-  context: {
-    storyId: 'story-123',
-    section: 'intro',
-  },
-});
-```
-
-**Configure Mark Persistence:**
-
-```jsx
-const editor = useEditor({
-  extensions: [
-    TiptapVeltComments.configure({
-      persistVeltMarks: false, // Set false if storing HTML yourself
-    }),
-  ],
-});
-```
-
-**Style Commented Text:**
-
-```css
-velt-comment-text[comment-available="true"] {
-  background-color: #ffff00;
-}
 ```
 
 ---
@@ -2130,103 +2130,7 @@ export default function App() {
 
 Individual comment components for building custom implementations. Includes Comment Pin, Comment Thread, and Comment Composer for DIY comment interfaces.
 
-### 3.1 Use Comment Composer for Custom Comment Input
-
-**Impact: MEDIUM-HIGH (Add comment input anywhere in your application)**
-
-The Comment Standalone Composer lets you add comment input anywhere in your application. Combine with Comment Thread and Comment Pin for fully custom comment interfaces.
-
-**Implementation:**
-
-```jsx
-import {
-  VeltProvider,
-  VeltComments,
-  VeltCommentComposer,
-  useCommentAnnotations
-} from '@veltdev/react';
-
-function CustomCommentSidebar() {
-  const commentAnnotations = useCommentAnnotations();
-
-  return (
-    <div className="custom-sidebar">
-      {/* Composer for new comments */}
-      <div className="new-comment-section">
-        <h4>Add Comment</h4>
-        <VeltCommentComposer />
-      </div>
-
-      {/* List existing comments */}
-      <div className="comments-list">
-        {commentAnnotations?.map((annotation) => (
-          <div key={annotation.annotationId}>
-            {/* Render comment content */}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-export default function App() {
-  return (
-    <VeltProvider apiKey="API_KEY">
-      <VeltComments />
-      <CustomCommentSidebar />
-    </VeltProvider>
-  );
-}
-```
-
-**Combining with Other Standalone Components:**
-
-```jsx
-import {
-  VeltCommentComposer,
-  VeltCommentThread,
-  VeltCommentPin
-} from '@veltdev/react';
-
-function FullCustomInterface() {
-  const commentAnnotations = useCommentAnnotations();
-
-  return (
-    <div className="layout">
-      {/* Main content area with pins */}
-      <div className="content" data-velt-manual-comment-container="true">
-        {commentAnnotations?.map((a) => (
-          <div
-            key={a.annotationId}
-            style={{ position: 'absolute', left: a.context?.x, top: a.context?.y }}
-          >
-            <VeltCommentPin annotationId={a.annotationId} />
-          </div>
-        ))}
-      </div>
-
-      {/* Sidebar with composer and threads */}
-      <div className="sidebar">
-        <VeltCommentComposer />
-
-        {commentAnnotations?.map((a) => (
-          <VeltCommentThread key={a.annotationId} annotationId={a.annotationId} />
-        ))}
-      </div>
-    </div>
-  );
-}
-```
-
-**For HTML:**
-
-```html
-<velt-comment-composer></velt-comment-composer>
-```
-
----
-
-### 3.2 Use Comment Pin for Manual Position Control
+### 3.1 Use Comment Pin for Manual Position Control
 
 **Impact: MEDIUM-HIGH (Full control over comment pin placement in complex UIs)**
 
@@ -2362,6 +2266,102 @@ export default function ManualPinExample() {
     </VeltProvider>
   );
 }
+```
+
+---
+
+### 3.2 Use Comment Composer for Custom Comment Input
+
+**Impact: MEDIUM-HIGH (Add comment input anywhere in your application)**
+
+The Comment Standalone Composer lets you add comment input anywhere in your application. Combine with Comment Thread and Comment Pin for fully custom comment interfaces.
+
+**Implementation:**
+
+```jsx
+import {
+  VeltProvider,
+  VeltComments,
+  VeltCommentComposer,
+  useCommentAnnotations
+} from '@veltdev/react';
+
+function CustomCommentSidebar() {
+  const commentAnnotations = useCommentAnnotations();
+
+  return (
+    <div className="custom-sidebar">
+      {/* Composer for new comments */}
+      <div className="new-comment-section">
+        <h4>Add Comment</h4>
+        <VeltCommentComposer />
+      </div>
+
+      {/* List existing comments */}
+      <div className="comments-list">
+        {commentAnnotations?.map((annotation) => (
+          <div key={annotation.annotationId}>
+            {/* Render comment content */}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <VeltProvider apiKey="API_KEY">
+      <VeltComments />
+      <CustomCommentSidebar />
+    </VeltProvider>
+  );
+}
+```
+
+**Combining with Other Standalone Components:**
+
+```jsx
+import {
+  VeltCommentComposer,
+  VeltCommentThread,
+  VeltCommentPin
+} from '@veltdev/react';
+
+function FullCustomInterface() {
+  const commentAnnotations = useCommentAnnotations();
+
+  return (
+    <div className="layout">
+      {/* Main content area with pins */}
+      <div className="content" data-velt-manual-comment-container="true">
+        {commentAnnotations?.map((a) => (
+          <div
+            key={a.annotationId}
+            style={{ position: 'absolute', left: a.context?.x, top: a.context?.y }}
+          >
+            <VeltCommentPin annotationId={a.annotationId} />
+          </div>
+        ))}
+      </div>
+
+      {/* Sidebar with composer and threads */}
+      <div className="sidebar">
+        <VeltCommentComposer />
+
+        {commentAnnotations?.map((a) => (
+          <VeltCommentThread key={a.annotationId} annotationId={a.annotationId} />
+        ))}
+      </div>
+    </div>
+  );
+}
+```
+
+**For HTML:**
+
+```html
+<velt-comment-composer></velt-comment-composer>
 ```
 
 ---
@@ -2878,94 +2878,7 @@ function CustomSidebar() {
 
 Patterns for working with comment data structures. Includes custom metadata, comment annotations, and filtering/grouping.
 
-### 6.1 Add Custom Metadata to Comments with Context
-
-**Impact: MEDIUM (Attach custom data for filtering, grouping, and processing)**
-
-Add custom metadata (context) to comments for filtering, grouping, rendering, and notification processing.
-
-**Use Cases:**
-
-```jsx
-<VeltCommentTool
-  targetElementId="element-id"
-  context={{
-    category: 'feedback',
-    section: 'header',
-    priority: 'high',
-    customField: 'value'
-  }}
-/>
-<VeltComments
-  onCommentAdd={(event) => {
-    // Add or modify context before comment is created
-    return {
-      ...event,
-      context: {
-        ...event.context,
-        timestamp: Date.now(),
-        pageSection: 'main-content'
-      }
-    };
-  }}
-/>
-const { client } = useVeltClient();
-
-const addCommentWithMetadata = () => {
-  const commentElement = client.getCommentElement();
-  commentElement.addManualComment({
-    context: {
-      chartId: 'revenue-chart',
-      dataPoint: { x: 100, y: 200 },
-      seriesName: 'Q1 Revenue'
-    }
-  });
-};
-```
-
-**Method 2: Via onCommentAdd Callback**
-**Method 3: Via addManualComment API**
-
-**Accessing Context in Annotations:**
-
-```jsx
-const commentAnnotations = useCommentAnnotations();
-
-commentAnnotations?.forEach((annotation) => {
-  const context = annotation.context;
-  console.log(context.category);  // 'feedback'
-  console.log(context.section);   // 'header'
-});
-```
-
-**Filtering by Context:**
-
-```jsx
-const commentAnnotations = useCommentAnnotations();
-
-// Filter comments for specific chart
-const chartComments = commentAnnotations?.filter(
-  (a) => a.context?.chartId === 'revenue-chart'
-);
-
-// Filter by custom category
-const feedbackComments = commentAnnotations?.filter(
-  (a) => a.context?.category === 'feedback'
-);
-```
-
-**For HTML:**
-
-```html
-<velt-comment-tool
-  target-element-id="element-id"
-  context='{"category": "feedback", "section": "header"}'
-></velt-comment-tool>
-```
-
----
-
-### 6.2 Filter and Group Comments
+### 6.1 Filter and Group Comments
 
 **Impact: MEDIUM (Organize comments by context, location, or custom criteria)**
 
@@ -3059,7 +2972,7 @@ Object.entries(groupedBySection).map(([section, comments]) => (
 
 ---
 
-### 6.3 Work with Comment Annotations Data
+### 6.2 Work with Comment Annotations Data
 
 **Impact: MEDIUM (Retrieve and manipulate comment annotation objects)**
 
@@ -3146,6 +3059,93 @@ const addAnnotation = () => {
     context: { custom: 'data' }
   });
 };
+```
+
+---
+
+### 6.3 Add Custom Metadata to Comments with Context
+
+**Impact: MEDIUM (Attach custom data for filtering, grouping, and processing)**
+
+Add custom metadata (context) to comments for filtering, grouping, rendering, and notification processing.
+
+**Use Cases:**
+
+```jsx
+<VeltCommentTool
+  targetElementId="element-id"
+  context={{
+    category: 'feedback',
+    section: 'header',
+    priority: 'high',
+    customField: 'value'
+  }}
+/>
+<VeltComments
+  onCommentAdd={(event) => {
+    // Add or modify context before comment is created
+    return {
+      ...event,
+      context: {
+        ...event.context,
+        timestamp: Date.now(),
+        pageSection: 'main-content'
+      }
+    };
+  }}
+/>
+const { client } = useVeltClient();
+
+const addCommentWithMetadata = () => {
+  const commentElement = client.getCommentElement();
+  commentElement.addManualComment({
+    context: {
+      chartId: 'revenue-chart',
+      dataPoint: { x: 100, y: 200 },
+      seriesName: 'Q1 Revenue'
+    }
+  });
+};
+```
+
+**Method 2: Via onCommentAdd Callback**
+**Method 3: Via addManualComment API**
+
+**Accessing Context in Annotations:**
+
+```jsx
+const commentAnnotations = useCommentAnnotations();
+
+commentAnnotations?.forEach((annotation) => {
+  const context = annotation.context;
+  console.log(context.category);  // 'feedback'
+  console.log(context.section);   // 'header'
+});
+```
+
+**Filtering by Context:**
+
+```jsx
+const commentAnnotations = useCommentAnnotations();
+
+// Filter comments for specific chart
+const chartComments = commentAnnotations?.filter(
+  (a) => a.context?.chartId === 'revenue-chart'
+);
+
+// Filter by custom category
+const feedbackComments = commentAnnotations?.filter(
+  (a) => a.context?.category === 'feedback'
+);
+```
+
+**For HTML:**
+
+```html
+<velt-comment-tool
+  target-element-id="element-id"
+  context='{"category": "feedback", "section": "header"}'
+></velt-comment-tool>
 ```
 
 ---

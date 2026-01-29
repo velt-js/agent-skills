@@ -1,6 +1,6 @@
 # Velt Crdt Best Practices
 
-**Version 1.0.0**  
+**Version 2.0.0**  
 Velt  
 January 2026
 
@@ -21,26 +21,26 @@ Comprehensive best practices guide for implementing real-time collaborative edit
 ## Table of Contents
 
 1. [Core CRDT](#1-core-crdt) — **CRITICAL**
-   - 1.1 [Choose the Correct CRDT Store Type for Your Data](#11-choose-the-correct-crdt-store-type-for-your-data)
-   - 1.2 [Initialize Velt Client Before Creating CRDT Stores](#12-initialize-velt-client-before-creating-crdt-stores)
-   - 1.3 [Install Correct CRDT Packages for Your Framework](#13-install-correct-crdt-packages-for-your-framework)
-   - 1.4 [Save Named Version Checkpoints for State Recovery](#14-save-named-version-checkpoints-for-state-recovery)
-   - 1.5 [Subscribe to Store Changes for Remote Updates](#15-subscribe-to-store-changes-for-remote-updates)
-   - 1.6 [Test Collaboration with Multiple Browser Profiles](#16-test-collaboration-with-multiple-browser-profiles)
-   - 1.7 [Use createVeltStore for Non-React CRDT Stores](#17-use-createveltstore-for-non-react-crdt-stores)
+   - 1.1 [Use useVeltCrdtStore Hook for React CRDT Stores](#11-use-useveltcrdtstore-hook-for-react-crdt-stores)
+   - 1.2 [Choose the Correct CRDT Store Type for Your Data](#12-choose-the-correct-crdt-store-type-for-your-data)
+   - 1.3 [Initialize Velt Client Before Creating CRDT Stores](#13-initialize-velt-client-before-creating-crdt-stores)
+   - 1.4 [Install Correct CRDT Packages for Your Framework](#14-install-correct-crdt-packages-for-your-framework)
+   - 1.5 [Save Named Version Checkpoints for State Recovery](#15-save-named-version-checkpoints-for-state-recovery)
+   - 1.6 [Subscribe to Store Changes for Remote Updates](#16-subscribe-to-store-changes-for-remote-updates)
+   - 1.7 [Test Collaboration with Multiple Browser Profiles](#17-test-collaboration-with-multiple-browser-profiles)
    - 1.8 [Use Custom Encryption Provider for Sensitive Data](#18-use-custom-encryption-provider-for-sensitive-data)
    - 1.9 [Use update() Method to Modify Store Values](#19-use-update-method-to-modify-store-values)
-   - 1.10 [Use useVeltCrdtStore Hook for React CRDT Stores](#110-use-useveltcrdtstore-hook-for-react-crdt-stores)
-   - 1.11 [Use VeltCrdtStoreMap for Runtime Debugging](#111-use-veltcrdtstoremap-for-runtime-debugging)
+   - 1.10 [Use VeltCrdtStoreMap for Runtime Debugging](#110-use-veltcrdtstoremap-for-runtime-debugging)
+   - 1.11 [Use createVeltStore for Non-React CRDT Stores](#111-use-createveltstore-for-non-react-crdt-stores)
 
 2. [Tiptap Integration](#2-tiptap-integration) — **CRITICAL**
-   - 2.1 [Add CSS for Collaboration Cursors in Tiptap](#21-add-css-for-collaboration-cursors-in-tiptap)
-   - 2.2 [Disable Tiptap History When Using CRDT](#22-disable-tiptap-history-when-using-crdt)
-   - 2.3 [Install Tiptap CRDT Packages Correctly](#23-install-tiptap-crdt-packages-correctly)
-   - 2.4 [Test Tiptap Collaboration with Multiple Users](#24-test-tiptap-collaboration-with-multiple-users)
-   - 2.5 [Use createVeltTipTapStore for Non-React Tiptap](#25-use-createvelttiptapstore-for-non-react-tiptap)
+   - 2.1 [Use useVeltTiptapCrdtExtension Hook for React Tiptap](#21-use-usevelttiptapcrdtextension-hook-for-react-tiptap)
+   - 2.2 [Add CSS for Collaboration Cursors in Tiptap](#22-add-css-for-collaboration-cursors-in-tiptap)
+   - 2.3 [Disable Tiptap History When Using CRDT](#23-disable-tiptap-history-when-using-crdt)
+   - 2.4 [Install Tiptap CRDT Packages Correctly](#24-install-tiptap-crdt-packages-correctly)
+   - 2.5 [Test Tiptap Collaboration with Multiple Users](#25-test-tiptap-collaboration-with-multiple-users)
    - 2.6 [Use Unique editorId for Each Tiptap Instance](#26-use-unique-editorid-for-each-tiptap-instance)
-   - 2.7 [Use useVeltTiptapCrdtExtension Hook for React Tiptap](#27-use-usevelttiptapcrdtextension-hook-for-react-tiptap)
+   - 2.7 [Use createVeltTipTapStore for Non-React Tiptap](#27-use-createvelttiptapstore-for-non-react-tiptap)
 
 3. [BlockNote Integration](#3-blocknote-integration) — **HIGH**
    - 3.1 [Install BlockNote CRDT Package](#31-install-blocknote-crdt-package)
@@ -49,12 +49,12 @@ Comprehensive best practices guide for implementing real-time collaborative edit
    - 3.4 [Use useVeltBlockNoteCrdtExtension for BlockNote Collaboration](#34-use-useveltblocknotecrdtextension-for-blocknote-collaboration)
 
 4. [CodeMirror Integration](#4-codemirror-integration) — **HIGH**
-   - 4.1 [Install CodeMirror CRDT Packages](#41-install-codemirror-crdt-packages)
-   - 4.2 [Test CodeMirror Collaboration with Multiple Users](#42-test-codemirror-collaboration-with-multiple-users)
-   - 4.3 [Use createVeltCodeMirrorStore for Non-React CodeMirror](#43-use-createveltcodemirrorstore-for-non-react-codemirror)
+   - 4.1 [Use useVeltCodeMirrorCrdtExtension for React CodeMirror](#41-use-useveltcodemirrorcrdtextension-for-react-codemirror)
+   - 4.2 [Install CodeMirror CRDT Packages](#42-install-codemirror-crdt-packages)
+   - 4.3 [Test CodeMirror Collaboration with Multiple Users](#43-test-codemirror-collaboration-with-multiple-users)
    - 4.4 [Use Unique editorId for Each CodeMirror Instance](#44-use-unique-editorid-for-each-codemirror-instance)
-   - 4.5 [Use useVeltCodeMirrorCrdtExtension for React CodeMirror](#45-use-useveltcodemirrorcrdtextension-for-react-codemirror)
-   - 4.6 [Wire yCollab Extension with Store's Yjs Objects](#46-wire-ycollab-extension-with-stores-yjs-objects)
+   - 4.5 [Wire yCollab Extension with Store's Yjs Objects](#45-wire-ycollab-extension-with-stores-yjs-objects)
+   - 4.6 [Use createVeltCodeMirrorStore for Non-React CodeMirror](#46-use-createveltcodemirrorstore-for-non-react-codemirror)
 
 5. [ReactFlow Integration](#5-reactflow-integration) — **HIGH**
    - 5.1 [Install ReactFlow CRDT Package](#51-install-reactflow-crdt-package)
@@ -71,7 +71,55 @@ Comprehensive best practices guide for implementing real-time collaborative edit
 
 Framework-agnostic CRDT fundamentals including Velt initialization, store creation, store types, subscriptions, updates, versioning, encryption, and debugging. Required foundation for all editor integrations.
 
-### 1.1 Choose the Correct CRDT Store Type for Your Data
+### 1.1 Use useVeltCrdtStore Hook for React CRDT Stores
+
+**Impact: CRITICAL (Provides reactive store with automatic cleanup)**
+
+In React, use `useVeltCrdtStore` for automatic lifecycle management. The hook handles subscriptions, updates, and cleanup on unmount.
+
+**Incorrect (manual store creation in React):**
+
+```tsx
+import { createVeltStore } from '@veltdev/crdt';
+
+function Editor() {
+  const [store, setStore] = useState(null);
+
+  useEffect(() => {
+    // Manual creation misses cleanup and reactive updates
+    createVeltStore({ id: 'doc', type: 'text' }).then(setStore);
+  }, []);
+
+  return <div>{/* ... */}</div>;
+}
+```
+
+**Correct (useVeltCrdtStore hook):**
+
+```tsx
+import { useVeltCrdtStore } from '@veltdev/crdt-react';
+
+function Editor() {
+  const { value, update, store } = useVeltCrdtStore<string>({
+    id: 'my-collab-note',
+    type: 'text',
+    initialValue: 'Hello, world!',
+  });
+
+  return (
+    <textarea
+      value={value ?? ''}
+      onChange={(e) => update(e.target.value)}
+    />
+  );
+}
+```
+
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Step 3: Initialize a CRDT store > React / Next.js)
+
+---
+
+### 1.2 Choose the Correct CRDT Store Type for Your Data
 
 **Impact: CRITICAL (Wrong type causes merge conflicts or data loss)**
 
@@ -121,11 +169,11 @@ const { value, update } = useVeltCrdtStore<string[]>({
 });
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/core.mdx` (type: 'text', // 'array' | 'map' | 'text' | 'xml')
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (type: 'text', // 'array' | 'map' | 'text' | 'xml')
 
 ---
 
-### 1.2 Initialize Velt Client Before Creating CRDT Stores
+### 1.3 Initialize Velt Client Before Creating CRDT Stores
 
 **Impact: CRITICAL (Prevents CRDT store creation failures)**
 
@@ -179,11 +227,11 @@ const store = await createVeltStore({
 });
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/core.mdx` (### Step 2: Initialize Velt in your app)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Step 2: Initialize Velt in your app)
 
 ---
 
-### 1.3 Install Correct CRDT Packages for Your Framework
+### 1.4 Install Correct CRDT Packages for Your Framework
 
 **Impact: CRITICAL (Missing packages prevent CRDT from working)**
 
@@ -208,11 +256,11 @@ npm install @veltdev/crdt-react @veltdev/crdt @veltdev/react
 npm install @veltdev/crdt @veltdev/client
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/core.mdx` (## Setup > ### Step 1: Install Dependencies)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (## Setup > ### Step 1: Install Dependencies)
 
 ---
 
-### 1.4 Save Named Version Checkpoints for State Recovery
+### 1.5 Save Named Version Checkpoints for State Recovery
 
 **Impact: MEDIUM-HIGH (Enables rollback to known good states)**
 
@@ -270,11 +318,11 @@ if (fetched) {
 }
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/core.mdx` (### Step 6: Save and restore versions)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Step 6: Save and restore versions)
 
 ---
 
-### 1.5 Subscribe to Store Changes for Remote Updates
+### 1.6 Subscribe to Store Changes for Remote Updates
 
 **Impact: HIGH (Enables real-time collaboration visibility)**
 
@@ -331,11 +379,11 @@ unsubscribe();
 const currentValue = store.getValue();
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/core.mdx` (### Step 5: Listen for changes)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Step 5: Listen for changes)
 
 ---
 
-### 1.6 Test Collaboration with Multiple Browser Profiles
+### 1.7 Test Collaboration with Multiple Browser Profiles
 
 **Impact: LOW (Catches sync issues before production)**
 
@@ -356,65 +404,7 @@ Profile 1 (Chrome): User A (alice@example.com) on document-1
 Profile 2 (Chrome Guest): User B (bob@example.com) on document-1
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/tiptap.mdx` (## Testing and Debugging)
-
----
-
-### 1.7 Use createVeltStore for Non-React CRDT Stores
-
-**Impact: CRITICAL (Required for Vue, Angular, vanilla JS integrations)**
-
-For Vue, Angular, or vanilla JavaScript, use `createVeltStore` from `@veltdev/crdt`. You must pass the initialized `veltClient` and manually handle cleanup.
-
-**Incorrect (missing veltClient):**
-
-```ts
-import { createVeltStore } from '@veltdev/crdt';
-
-// Missing veltClient - will fail
-const store = await createVeltStore({
-  id: 'my-document',
-  type: 'text',
-});
-```
-
-**Correct (with veltClient and cleanup):**
-
-```ts
-import { createVeltStore } from '@veltdev/crdt';
-import { initVelt } from '@veltdev/client';
-
-// Step 1: Initialize Velt
-const veltClient = await initVelt('YOUR_API_KEY');
-
-// Step 2: Authenticate user
-await veltClient.identify({ userId: 'user-1', name: 'John' });
-
-// Step 3: Set document context
-await veltClient.setDocument('my-document-id');
-
-// Step 4: Create store
-const store = await createVeltStore<string>({
-  id: 'my-document',
-  type: 'text',
-  initialValue: 'Hello, world!',
-  veltClient,
-});
-
-// Step 5: Subscribe to changes
-const unsubscribe = store.subscribe((newValue) => {
-  console.log('Updated value:', newValue);
-});
-
-// Step 6: Update value
-store.update('Hello, collaborative world!');
-
-// Step 7: Cleanup when done
-unsubscribe();
-store.destroy();
-```
-
-Reference: `/docs/realtime-collaboration/crdt/setup/core.mdx` (### Step 3: Initialize a CRDT store > Other Frameworks)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (## Testing and Debugging)
 
 ---
 
@@ -489,7 +479,7 @@ interface EncryptConfig<T> {
 }
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/core.mdx` (## APIs > ### Custom Encryption)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (## APIs > ### Custom Encryption)
 
 ---
 
@@ -546,59 +536,11 @@ const store = await createVeltStore<string>({
 store.update('Hello, collaborative world!');
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/core.mdx` (### Step 4: Set or update the store value)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Step 4: Set or update the store value)
 
 ---
 
-### 1.10 Use useVeltCrdtStore Hook for React CRDT Stores
-
-**Impact: CRITICAL (Provides reactive store with automatic cleanup)**
-
-In React, use `useVeltCrdtStore` for automatic lifecycle management. The hook handles subscriptions, updates, and cleanup on unmount.
-
-**Incorrect (manual store creation in React):**
-
-```tsx
-import { createVeltStore } from '@veltdev/crdt';
-
-function Editor() {
-  const [store, setStore] = useState(null);
-
-  useEffect(() => {
-    // Manual creation misses cleanup and reactive updates
-    createVeltStore({ id: 'doc', type: 'text' }).then(setStore);
-  }, []);
-
-  return <div>{/* ... */}</div>;
-}
-```
-
-**Correct (useVeltCrdtStore hook):**
-
-```tsx
-import { useVeltCrdtStore } from '@veltdev/crdt-react';
-
-function Editor() {
-  const { value, update, store } = useVeltCrdtStore<string>({
-    id: 'my-collab-note',
-    type: 'text',
-    initialValue: 'Hello, world!',
-  });
-
-  return (
-    <textarea
-      value={value ?? ''}
-      onChange={(e) => update(e.target.value)}
-    />
-  );
-}
-```
-
-Reference: `/docs/realtime-collaboration/crdt/setup/core.mdx` (### Step 3: Initialize a CRDT store > React / Next.js)
-
----
-
-### 1.11 Use VeltCrdtStoreMap for Runtime Debugging
+### 1.10 Use VeltCrdtStoreMap for Runtime Debugging
 
 **Impact: LOW (Enables real-time inspection of CRDT state)**
 
@@ -638,7 +580,65 @@ window.addEventListener('veltCrdtStoreUnregister', (event) => {
 });
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/core.mdx` (### Debugging > #### window.VeltCrdtStoreMap)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Debugging > #### window.VeltCrdtStoreMap)
+
+---
+
+### 1.11 Use createVeltStore for Non-React CRDT Stores
+
+**Impact: CRITICAL (Required for Vue, Angular, vanilla JS integrations)**
+
+For Vue, Angular, or vanilla JavaScript, use `createVeltStore` from `@veltdev/crdt`. You must pass the initialized `veltClient` and manually handle cleanup.
+
+**Incorrect (missing veltClient):**
+
+```ts
+import { createVeltStore } from '@veltdev/crdt';
+
+// Missing veltClient - will fail
+const store = await createVeltStore({
+  id: 'my-document',
+  type: 'text',
+});
+```
+
+**Correct (with veltClient and cleanup):**
+
+```ts
+import { createVeltStore } from '@veltdev/crdt';
+import { initVelt } from '@veltdev/client';
+
+// Step 1: Initialize Velt
+const veltClient = await initVelt('YOUR_API_KEY');
+
+// Step 2: Authenticate user
+await veltClient.identify({ userId: 'user-1', name: 'John' });
+
+// Step 3: Set document context
+await veltClient.setDocument('my-document-id');
+
+// Step 4: Create store
+const store = await createVeltStore<string>({
+  id: 'my-document',
+  type: 'text',
+  initialValue: 'Hello, world!',
+  veltClient,
+});
+
+// Step 5: Subscribe to changes
+const unsubscribe = store.subscribe((newValue) => {
+  console.log('Updated value:', newValue);
+});
+
+// Step 6: Update value
+store.update('Hello, collaborative world!');
+
+// Step 7: Cleanup when done
+unsubscribe();
+store.destroy();
+```
+
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Step 3: Initialize a CRDT store > Other Frameworks)
 
 ---
 
@@ -648,7 +648,53 @@ Reference: `/docs/realtime-collaboration/crdt/setup/core.mdx` (### Debugging > #
 
 Rich text collaborative editing with Tiptap. Covers installation, setup, history conflict, cursor styling, and testing.
 
-### 2.1 Add CSS for Collaboration Cursors in Tiptap
+### 2.1 Use useVeltTiptapCrdtExtension Hook for React Tiptap
+
+**Impact: CRITICAL (Required for Tiptap collaboration in React)**
+
+In React, use `useVeltTiptapCrdtExtension` to get the `VeltCrdt` extension for Tiptap. Pass it to `useEditor` extensions array.
+
+**Incorrect (missing VeltCrdt extension):**
+
+```tsx
+const editor = useEditor({
+  extensions: [StarterKit],
+  content: '',
+});
+// No CRDT - collaboration won't work
+```
+
+**Correct (with VeltCrdt extension):**
+
+```tsx
+import { EditorContent, useEditor } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import { useVeltTiptapCrdtExtension } from '@veltdev/tiptap-crdt-react';
+
+function CollaborativeEditor() {
+  const { VeltCrdt } = useVeltTiptapCrdtExtension({
+    editorId: 'velt-tiptap-crdt-demo',
+  });
+
+  const editor = useEditor({
+    extensions: [
+      StarterKit.configure({
+        history: false,  // IMPORTANT: Disable history
+      }),
+      ...(VeltCrdt ? [VeltCrdt] : []),
+    ],
+    content: '',
+  }, [VeltCrdt]);
+
+  return <EditorContent editor={editor} />;
+}
+```
+
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (### Step 3: Initialize Velt CRDT Extension > React / Next.js)
+
+---
+
+### 2.2 Add CSS for Collaboration Cursors in Tiptap
 
 **Impact: MEDIUM (Makes remote user cursors visible)**
 
@@ -700,11 +746,11 @@ Add CSS styles to make collaboration cursors/carets visible. Without styling, yo
 }
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/tiptap.mdx` (### Step 4: Add CSS for Collaboration Cursor)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (### Step 4: Add CSS for Collaboration Cursor)
 
 ---
 
-### 2.2 Disable Tiptap History When Using CRDT
+### 2.3 Disable Tiptap History When Using CRDT
 
 **Impact: CRITICAL (Prevents undo/redo conflicts and content desync)**
 
@@ -736,11 +782,11 @@ const editor = useEditor({
 }, [VeltCrdt]);
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/tiptap.mdx` (## Notes > **Disable history**: Turn off Tiptap `history` when using collaboration)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (## Notes > **Disable history**: Turn off Tiptap `history` when using collaboration)
 
 ---
 
-### 2.3 Install Tiptap CRDT Packages Correctly
+### 2.4 Install Tiptap CRDT Packages Correctly
 
 **Impact: CRITICAL (Missing packages prevent Tiptap collaboration)**
 
@@ -758,11 +804,11 @@ npm install @veltdev/tiptap-crdt-react @tiptap/react @tiptap/starter-kit @tiptap
 npm install @veltdev/tiptap-crdt @veltdev/client @tiptap/core @tiptap/starter-kit @tiptap/extension-collaboration-caret
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/tiptap.mdx` (### Step 1: Install Dependencies)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (### Step 1: Install Dependencies)
 
 ---
 
-### 2.4 Test Tiptap Collaboration with Multiple Users
+### 2.5 Test Tiptap Collaboration with Multiple Users
 
 **Impact: LOW (Validates collaboration works correctly)**
 
@@ -778,11 +824,49 @@ window.VeltCrdtStoreMap.get('your-editor-id').getValue();
 window.VeltCrdtStoreMap.get('your-editor-id').subscribe(v => console.log(v));
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/tiptap.mdx` (## Testing and Debugging)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (## Testing and Debugging)
 
 ---
 
-### 2.5 Use createVeltTipTapStore for Non-React Tiptap
+### 2.6 Use Unique editorId for Each Tiptap Instance
+
+**Impact: HIGH (Prevents content cross-contamination)**
+
+Each Tiptap editor must have a unique `editorId`. If you have multiple editors in your app (or across pages), reusing the same ID causes content to merge incorrectly.
+
+**Incorrect (same editorId for different editors):**
+
+```tsx
+// Page 1: Document editor
+const { VeltCrdt } = useVeltTiptapCrdtExtension({
+  editorId: 'editor',  // Generic ID
+});
+
+// Page 2: Notes sidebar
+const { VeltCrdt } = useVeltTiptapCrdtExtension({
+  editorId: 'editor',  // Same ID - content will merge!
+});
+```
+
+**Correct (unique editorId per logical editor):**
+
+```tsx
+// Page 1: Document editor
+const { VeltCrdt } = useVeltTiptapCrdtExtension({
+  editorId: `document-${documentId}`,  // Unique per document
+});
+
+// Page 2: Notes sidebar
+const { VeltCrdt } = useVeltTiptapCrdtExtension({
+  editorId: `notes-${documentId}`,  // Different namespace
+});
+```
+
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (## Notes > **Unique editorId**: Use a unique `editorId` per editor instance)
+
+---
+
+### 2.7 Use createVeltTipTapStore for Non-React Tiptap
 
 **Impact: CRITICAL (Required for Tiptap collaboration in Vue/Angular/vanilla)**
 
@@ -832,91 +916,7 @@ editor.destroy();
 store.destroy();
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/tiptap.mdx` (### Step 3: Initialize Velt CRDT Extension > Other Frameworks)
-
----
-
-### 2.6 Use Unique editorId for Each Tiptap Instance
-
-**Impact: HIGH (Prevents content cross-contamination)**
-
-Each Tiptap editor must have a unique `editorId`. If you have multiple editors in your app (or across pages), reusing the same ID causes content to merge incorrectly.
-
-**Incorrect (same editorId for different editors):**
-
-```tsx
-// Page 1: Document editor
-const { VeltCrdt } = useVeltTiptapCrdtExtension({
-  editorId: 'editor',  // Generic ID
-});
-
-// Page 2: Notes sidebar
-const { VeltCrdt } = useVeltTiptapCrdtExtension({
-  editorId: 'editor',  // Same ID - content will merge!
-});
-```
-
-**Correct (unique editorId per logical editor):**
-
-```tsx
-// Page 1: Document editor
-const { VeltCrdt } = useVeltTiptapCrdtExtension({
-  editorId: `document-${documentId}`,  // Unique per document
-});
-
-// Page 2: Notes sidebar
-const { VeltCrdt } = useVeltTiptapCrdtExtension({
-  editorId: `notes-${documentId}`,  // Different namespace
-});
-```
-
-Reference: `/docs/realtime-collaboration/crdt/setup/tiptap.mdx` (## Notes > **Unique editorId**: Use a unique `editorId` per editor instance)
-
----
-
-### 2.7 Use useVeltTiptapCrdtExtension Hook for React Tiptap
-
-**Impact: CRITICAL (Required for Tiptap collaboration in React)**
-
-In React, use `useVeltTiptapCrdtExtension` to get the `VeltCrdt` extension for Tiptap. Pass it to `useEditor` extensions array.
-
-**Incorrect (missing VeltCrdt extension):**
-
-```tsx
-const editor = useEditor({
-  extensions: [StarterKit],
-  content: '',
-});
-// No CRDT - collaboration won't work
-```
-
-**Correct (with VeltCrdt extension):**
-
-```tsx
-import { EditorContent, useEditor } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import { useVeltTiptapCrdtExtension } from '@veltdev/tiptap-crdt-react';
-
-function CollaborativeEditor() {
-  const { VeltCrdt } = useVeltTiptapCrdtExtension({
-    editorId: 'velt-tiptap-crdt-demo',
-  });
-
-  const editor = useEditor({
-    extensions: [
-      StarterKit.configure({
-        history: false,  // IMPORTANT: Disable history
-      }),
-      ...(VeltCrdt ? [VeltCrdt] : []),
-    ],
-    content: '',
-  }, [VeltCrdt]);
-
-  return <EditorContent editor={editor} />;
-}
-```
-
-Reference: `/docs/realtime-collaboration/crdt/setup/tiptap.mdx` (### Step 3: Initialize Velt CRDT Extension > React / Next.js)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (### Step 3: Initialize Velt CRDT Extension > Other Frameworks)
 
 ---
 
@@ -940,7 +940,7 @@ npm install @veltdev/blocknote-crdt-react
 
 **Note:** Non-React framework support is not yet documented. Check Velt docs for updates.
 
-Reference: `/docs/realtime-collaboration/crdt/setup/blocknote.mdx` (### Step 1: Install Dependencies)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/blocknote` (### Step 1: Install Dependencies)
 
 ---
 
@@ -956,7 +956,7 @@ Test BlockNote collaboration using different authenticated users in separate bro
 window.VeltCrdtStoreMap.get('your-editor-id').getValue();
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/blocknote.mdx` (## Testing and Debugging)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/blocknote` (## Testing and Debugging)
 
 ---
 
@@ -982,7 +982,7 @@ const { collaborationConfig } = useVeltBlockNoteCrdtExtension({
 });
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/blocknote.mdx` (## Notes > **Unique editorId**)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/blocknote` (## Notes > **Unique editorId**)
 
 ---
 
@@ -1027,7 +1027,7 @@ function CollaborativeEditor() {
 }
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/blocknote.mdx` (### Step 3: Initialize Velt CRDT Extension)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/blocknote` (### Step 3: Initialize Velt CRDT Extension)
 
 ---
 
@@ -1037,131 +1037,7 @@ Reference: `/docs/realtime-collaboration/crdt/setup/blocknote.mdx` (### Step 3: 
 
 Collaborative code editing with CodeMirror. Covers yCollab wiring and both React and vanilla setups.
 
-### 4.1 Install CodeMirror CRDT Packages
-
-**Impact: CRITICAL (Required for CodeMirror collaboration)**
-
-Install the Velt CodeMirror CRDT packages plus `y-codemirror.next` for Yjs integration.
-
-**Correct (React / Next.js):**
-
-```bash
-npm install @veltdev/codemirror-crdt-react @veltdev/react
-```
-
-**Correct (Other Frameworks):**
-
-```bash
-npm install @veltdev/codemirror-crdt @veltdev/client y-codemirror.next
-```
-
-Reference: `/docs/realtime-collaboration/crdt/setup/codemirror.mdx` (### Step 1: Install Dependencies)
-
----
-
-### 4.2 Test CodeMirror Collaboration with Multiple Users
-
-**Impact: LOW (Validates collaboration works correctly)**
-
-Test CodeMirror collaboration using different authenticated users in separate browser profiles.
-
-**Debug with Console:**
-
-```js
-window.VeltCrdtStoreMap.get('your-editor-id').getValue();
-```
-
-Reference: `/docs/realtime-collaboration/crdt/setup/codemirror.mdx` (## Testing and Debugging)
-
----
-
-### 4.3 Use createVeltCodeMirrorStore for Non-React CodeMirror
-
-**Impact: CRITICAL (Required for CodeMirror CRDT in vanilla JS)**
-
-For vanilla JS, Vue, or Angular, use `createVeltCodeMirrorStore` to create the CRDT store.
-
-**Correct (vanilla JS implementation):**
-
-```js
-import { initVelt } from '@veltdev/client';
-import { createVeltCodeMirrorStore } from '@veltdev/codemirror-crdt';
-import { yCollab } from 'y-codemirror.next';
-import { EditorState } from '@codemirror/state';
-import { basicSetup, EditorView } from 'codemirror';
-
-// Step 1: Initialize Velt client
-const veltClient = await initVelt('YOUR_API_KEY');
-
-// Step 2: Authenticate user
-await veltClient.identify({ userId: 'user-1', name: 'John Doe' });
-
-// Step 3: Set document
-await veltClient.setDocument('my-document-id');
-
-// Step 4: Create CRDT store
-const store = await createVeltCodeMirrorStore({
-  editorId: 'velt-codemirror-crdt-demo',
-  veltClient: veltClient,
-});
-
-// Step 5: Create CodeMirror editor
-const startState = EditorState.create({
-  doc: store.getYText()?.toString() ?? '',
-  extensions: [
-    basicSetup,
-    yCollab(
-      store.getYText(),
-      store.getAwareness(),
-      { undoManager: store.getUndoManager() }
-    ),
-  ],
-});
-
-const view = new EditorView({
-  state: startState,
-  parent: document.getElementById('editor'),
-});
-
-// Cleanup on unmount
-view.destroy();
-store.destroy();
-```
-
-Reference: `/docs/realtime-collaboration/crdt/setup/codemirror.mdx` (### Step 3: Initialize Velt CRDT Extension > Other Frameworks)
-
----
-
-### 4.4 Use Unique editorId for Each CodeMirror Instance
-
-**Impact: HIGH (Prevents content cross-contamination)**
-
-Each CodeMirror editor must have a unique `editorId`. Reusing IDs causes code from different editors to merge incorrectly.
-
-**Incorrect (same ID for different files):**
-
-```tsx
-// file1.tsx
-const { store } = useVeltCodeMirrorCrdtExtension({ editorId: 'code' });
-
-// file2.tsx
-const { store } = useVeltCodeMirrorCrdtExtension({ editorId: 'code' });
-// Content will merge between files!
-```
-
-**Correct (unique ID per file/editor):**
-
-```tsx
-const { store } = useVeltCodeMirrorCrdtExtension({
-  editorId: `code-${fileId}`,  // Unique per file
-});
-```
-
-Reference: `/docs/realtime-collaboration/crdt/setup/codemirror.mdx` (## Notes > **Unique editorId**)
-
----
-
-### 4.5 Use useVeltCodeMirrorCrdtExtension for React CodeMirror
+### 4.1 Use useVeltCodeMirrorCrdtExtension for React CodeMirror
 
 **Impact: CRITICAL (Required for CodeMirror CRDT in React)**
 
@@ -1220,11 +1096,78 @@ function CollaborativeCodeEditor({ editorId }: { editorId: string }) {
 }
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/codemirror.mdx` (### Step 3: Initialize Velt CRDT Extension > React / Next.js)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror` (### Step 3: Initialize Velt CRDT Extension > React / Next.js)
 
 ---
 
-### 4.6 Wire yCollab Extension with Store's Yjs Objects
+### 4.2 Install CodeMirror CRDT Packages
+
+**Impact: CRITICAL (Required for CodeMirror collaboration)**
+
+Install the Velt CodeMirror CRDT packages plus `y-codemirror.next` for Yjs integration.
+
+**Correct (React / Next.js):**
+
+```bash
+npm install @veltdev/codemirror-crdt-react @veltdev/react
+```
+
+**Correct (Other Frameworks):**
+
+```bash
+npm install @veltdev/codemirror-crdt @veltdev/client y-codemirror.next
+```
+
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror` (### Step 1: Install Dependencies)
+
+---
+
+### 4.3 Test CodeMirror Collaboration with Multiple Users
+
+**Impact: LOW (Validates collaboration works correctly)**
+
+Test CodeMirror collaboration using different authenticated users in separate browser profiles.
+
+**Debug with Console:**
+
+```js
+window.VeltCrdtStoreMap.get('your-editor-id').getValue();
+```
+
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror` (## Testing and Debugging)
+
+---
+
+### 4.4 Use Unique editorId for Each CodeMirror Instance
+
+**Impact: HIGH (Prevents content cross-contamination)**
+
+Each CodeMirror editor must have a unique `editorId`. Reusing IDs causes code from different editors to merge incorrectly.
+
+**Incorrect (same ID for different files):**
+
+```tsx
+// file1.tsx
+const { store } = useVeltCodeMirrorCrdtExtension({ editorId: 'code' });
+
+// file2.tsx
+const { store } = useVeltCodeMirrorCrdtExtension({ editorId: 'code' });
+// Content will merge between files!
+```
+
+**Correct (unique ID per file/editor):**
+
+```tsx
+const { store } = useVeltCodeMirrorCrdtExtension({
+  editorId: `code-${fileId}`,  // Unique per file
+});
+```
+
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror` (## Notes > **Unique editorId**)
+
+---
+
+### 4.5 Wire yCollab Extension with Store's Yjs Objects
 
 **Impact: CRITICAL (Required for text sync and collaborative cursors)**
 
@@ -1268,7 +1211,64 @@ const startState = EditorState.create({
 });
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/codemirror.mdx` (## Notes > **Use yCollab**: Pass the store's Yjs text, awareness, and undo manager)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror` (## Notes > **Use yCollab**: Pass the store's Yjs text, awareness, and undo manager)
+
+---
+
+### 4.6 Use createVeltCodeMirrorStore for Non-React CodeMirror
+
+**Impact: CRITICAL (Required for CodeMirror CRDT in vanilla JS)**
+
+For vanilla JS, Vue, or Angular, use `createVeltCodeMirrorStore` to create the CRDT store.
+
+**Correct (vanilla JS implementation):**
+
+```js
+import { initVelt } from '@veltdev/client';
+import { createVeltCodeMirrorStore } from '@veltdev/codemirror-crdt';
+import { yCollab } from 'y-codemirror.next';
+import { EditorState } from '@codemirror/state';
+import { basicSetup, EditorView } from 'codemirror';
+
+// Step 1: Initialize Velt client
+const veltClient = await initVelt('YOUR_API_KEY');
+
+// Step 2: Authenticate user
+await veltClient.identify({ userId: 'user-1', name: 'John Doe' });
+
+// Step 3: Set document
+await veltClient.setDocument('my-document-id');
+
+// Step 4: Create CRDT store
+const store = await createVeltCodeMirrorStore({
+  editorId: 'velt-codemirror-crdt-demo',
+  veltClient: veltClient,
+});
+
+// Step 5: Create CodeMirror editor
+const startState = EditorState.create({
+  doc: store.getYText()?.toString() ?? '',
+  extensions: [
+    basicSetup,
+    yCollab(
+      store.getYText(),
+      store.getAwareness(),
+      { undoManager: store.getUndoManager() }
+    ),
+  ],
+});
+
+const view = new EditorView({
+  state: startState,
+  parent: document.getElementById('editor'),
+});
+
+// Cleanup on unmount
+view.destroy();
+store.destroy();
+```
+
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror` (### Step 3: Initialize Velt CRDT Extension > Other Frameworks)
 
 ---
 
@@ -1290,7 +1290,7 @@ Install the Velt ReactFlow CRDT package for collaborative diagram editing.
 npm install @veltdev/reactflow-crdt @veltdev/react
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/reactflow.mdx` (### Step 1: Install Dependencies)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/reactflow` (### Step 1: Install Dependencies)
 
 ---
 
@@ -1307,7 +1307,7 @@ Test ReactFlow collaboration using different authenticated users in separate bro
 window.VeltCrdtStoreMap.get('your-diagram-id').getValue();
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/reactflow.mdx` (## Testing and Debugging)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/reactflow` (## Testing and Debugging)
 
 ---
 
@@ -1366,7 +1366,7 @@ return (
 );
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/reactflow.mdx` (## Notes > **Use CRDT handlers**)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/reactflow` (## Notes > **Use CRDT handlers**)
 
 ---
 
@@ -1397,7 +1397,7 @@ const { nodes, edges, ...handlers } = useVeltReactFlowCrdtExtension({
 });
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/reactflow.mdx` (## Notes > **Unique editorId**)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/reactflow` (## Notes > **Unique editorId**)
 
 ---
 
@@ -1465,7 +1465,7 @@ function App() {
 }
 ```
 
-Reference: `/docs/realtime-collaboration/crdt/setup/reactflow.mdx` (### Step 3: Initialize Velt CRDT Extension)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/reactflow` (### Step 3: Initialize Velt CRDT Extension)
 
 ---
 

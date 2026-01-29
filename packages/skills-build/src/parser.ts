@@ -282,6 +282,7 @@ export function parseRuleFile(
 			title,
 			section,
 			category,
+			sourceGroup: "shared", // Default; overridden by build based on file path
 			impact,
 			impactDescription: frontmatter.impactDescription,
 			explanation,

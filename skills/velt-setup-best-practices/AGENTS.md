@@ -21,8 +21,8 @@ Comprehensive setup guide for integrating Velt collaboration SDK into web applic
 ## Table of Contents
 
 1. [Installation](#1-installation) — **CRITICAL**
-   - 1.1 [Install Velt Client Package or CDN](#11-install-velt-client-package-or-cdn)
-   - 1.2 [Install Velt React Packages](#12-install-velt-react-packages)
+   - 1.1 [Install Velt React Packages](#11-install-velt-react-packages)
+   - 1.2 [Install Velt Client Package or CDN](#12-install-velt-client-package-or-cdn)
 
 2. [Provider Wiring](#2-provider-wiring) — **CRITICAL**
    - 2.1 [Add 'use client' Directive for Next.js](#21-add-use-client-directive-for-nextjs)
@@ -65,7 +65,44 @@ Comprehensive setup guide for integrating Velt collaboration SDK into web applic
 
 Package installation for Velt SDK. Without the correct packages installed, no other Velt functionality will work. Covers @veltdev/react for React/Next.js and @veltdev/client for Angular/Vue/vanilla.
 
-### 1.1 Install Velt Client Package or CDN
+### 1.1 Install Velt React Packages
+
+**Impact: CRITICAL (Required for any Velt functionality in React/Next.js apps)**
+
+The @veltdev/react package is required for React and Next.js applications. It provides the VeltProvider component and all React hooks for Velt functionality.
+
+**Incorrect (missing packages):**
+
+```bash
+# Missing required package - Velt features won't work
+npm install react react-dom
+```
+
+**Correct (with Velt packages):**
+
+```bash
+# Install the core Velt React package
+npm install @veltdev/react
+
+# Optional: Install TypeScript types for better IDE support
+npm install --save-dev @veltdev/types
+```
+
+**Using yarn or pnpm:**
+
+```bash
+# yarn
+yarn add @veltdev/react
+yarn add -D @veltdev/types
+
+# pnpm
+pnpm add @veltdev/react
+pnpm add -D @veltdev/types
+```
+
+---
+
+### 1.2 Install Velt Client Package or CDN
 
 **Impact: CRITICAL (Required for any Velt functionality in Angular, Vue, or vanilla HTML apps)**
 
@@ -123,43 +160,6 @@ npm install --save-dev @veltdev/types
 
 <!-- Specific version (recommended for production) -->
 <script src="https://cdn.velt.dev/lib/sdk@4.6.10/velt.js"></script>
-```
-
----
-
-### 1.2 Install Velt React Packages
-
-**Impact: CRITICAL (Required for any Velt functionality in React/Next.js apps)**
-
-The @veltdev/react package is required for React and Next.js applications. It provides the VeltProvider component and all React hooks for Velt functionality.
-
-**Incorrect (missing packages):**
-
-```bash
-# Missing required package - Velt features won't work
-npm install react react-dom
-```
-
-**Correct (with Velt packages):**
-
-```bash
-# Install the core Velt React package
-npm install @veltdev/react
-
-# Optional: Install TypeScript types for better IDE support
-npm install --save-dev @veltdev/types
-```
-
-**Using yarn or pnpm:**
-
-```bash
-# yarn
-yarn add @veltdev/react
-yarn add -D @veltdev/types
-
-# pnpm
-pnpm add @veltdev/react
-pnpm add -D @veltdev/types
 ```
 
 ---
@@ -616,7 +616,33 @@ export default function App() {
 "use client";
 import { useMemo } from "react";
 import type { VeltAuthProvider } from "@veltdev/types";
-import { useAppUser } from "@/app/userAuth/useAppUser";
+import { useAppUser } from "@/app/userAuth/AppUserContext";
+
+// Call your backend API to generate a JWT token for the user
+async function getVeltJwtFromBackend(user: {
+  userId: string;
+  organizationId: string;
+  email?: string;
+}) {
+  const resp = await fetch("/api/velt/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      userId: user.userId,
+      organizationId: user.organizationId,
+      email: user.email,
+      isAdmin: false,
+    }),
+    cache: "no-store",  // Don't cache token requests
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(`Token API failed: ${err?.error || resp.statusText}`);
+  }
+  const { token } = await resp.json();
+  if (!token) throw new Error("No token in response");
+  return token as string;
+}
 
 export function useVeltAuthProvider() {
   const { user } = useAppUser();
@@ -625,27 +651,14 @@ export function useVeltAuthProvider() {
     if (!user) return undefined;
 
     return {
-      user: {
-        userId: user.userId,
-        organizationId: user.organizationId,
-        name: user.name,
-        email: user.email,
-        photoUrl: user.photoUrl,
-      },
+      user,
       retryConfig: { retryCount: 3, retryDelay: 1000 },
       generateToken: async () => {
-        const resp = await fetch("/api/velt/token", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            userId: user.userId,
-            organizationId: user.organizationId,
-            email: user.email,
-          }),
-          cache: "no-store",  // Don't cache token requests
+        return await getVeltJwtFromBackend({
+          userId: user.userId as string,
+          organizationId: user.organizationId as string,
+          email: user.email,
         });
-        const { token } = await resp.json();
-        return token;
       },
     };
   }, [user]);
@@ -711,49 +724,57 @@ const generateToken = async () => {
 import { NextRequest, NextResponse } from "next/server";
 
 // These should be environment variables
-const VELT_API_KEY = process.env.VELT_API_KEY!;
+const VELT_API_KEY = process.env.NEXT_PUBLIC_VELT_API_KEY!;
 const VELT_AUTH_TOKEN = process.env.VELT_AUTH_TOKEN!;
 
 export async function POST(req: NextRequest) {
-  const { userId, organizationId, email, isAdmin } = await req.json();
+  try {
+    const { userId, organizationId, email, isAdmin } = await req.json();
 
-  // Validate the user is authenticated in your system
-  // Add your own authentication check here
+    if (!userId || !organizationId) {
+      return NextResponse.json({ error: 'Missing userId or organizationId' }, { status: 400 });
+    }
 
-  const body = {
-    userId,
-    userProperties: {
-      ...(email ? { email } : {}),
-      ...(typeof isAdmin === "boolean" ? { isAdmin } : {}),
-    },
-    permissions: {
-      resources: [
-        { type: "organization", id: organizationId },
-      ],
-    },
-  };
+    if (!VELT_AUTH_TOKEN) {
+      return NextResponse.json({ error: 'Server configuration error: missing VELT_AUTH_TOKEN' }, { status: 500 });
+    }
 
-  const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-velt-api-key": VELT_API_KEY,
-      "x-velt-auth-token": VELT_AUTH_TOKEN,
-    },
-    body: JSON.stringify(body),
-  });
+    // Body structure with data wrapper (required by Velt API)
+    const body = {
+      data: {
+        userId,
+        userProperties: {
+          organizationId,
+          ...(typeof isAdmin === "boolean" ? { isAdmin } : {}),
+          ...(email ? { email } : {}),
+        },
+      },
+    };
 
-  const json = await response.json();
-  const token = json?.result?.data?.token;
+    const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-velt-api-key": VELT_API_KEY,
+        "x-velt-auth-token": VELT_AUTH_TOKEN,
+      },
+      body: JSON.stringify(body),
+    });
 
-  if (!token) {
-    return NextResponse.json(
-      { error: "Failed to generate token" },
-      { status: 500 }
-    );
+    const json = await response.json();
+    const token = json?.result?.data?.token;
+
+    if (!response.ok || !token) {
+      return NextResponse.json(
+        { error: json?.error?.message || "Failed to generate token" },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json({ token });
+  } catch {
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
-
-  return NextResponse.json({ token });
 }
 # .env.local (never commit this file)
 VELT_API_KEY=your-api-key-from-console
@@ -792,9 +813,13 @@ const VELT_AUTH_TOKEN = process.env.VELT_AUTH_TOKEN;
 app.post("/api/velt/token", async (req, res) => {
   const { userId, organizationId, email, isAdmin } = req.body;
 
+  if (!userId || !organizationId) {
+    return res.status(400).json({ error: "Missing userId or organizationId" });
+  }
+
   // Validate user authentication here
 
-  const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
+  const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -802,12 +827,13 @@ app.post("/api/velt/token", async (req, res) => {
       "x-velt-auth-token": VELT_AUTH_TOKEN,
     },
     body: JSON.stringify({
-      userId,
-      userProperties: { email, isAdmin },
-      permissions: {
-        resources: [
-          { type: "organization", id: organizationId },
-        ],
+      data: {
+        userId,
+        userProperties: {
+          organizationId,
+          ...(email ? { email } : {}),
+          ...(typeof isAdmin === "boolean" ? { isAdmin } : {}),
+        },
       },
     }),
   });
@@ -815,8 +841,8 @@ app.post("/api/velt/token", async (req, res) => {
   const json = await response.json();
   const token = json?.result?.data?.token;
 
-  if (!token) {
-    return res.status(500).json({ error: "Failed to generate token" });
+  if (!response.ok || !token) {
+    return res.status(500).json({ error: json?.error?.message || "Failed to generate token" });
   }
 
   res.json({ token });
@@ -827,7 +853,7 @@ app.post("/api/velt/token", async (req, res) => {
 
 ```typescript
 // Request to Velt API
-POST https://api.velt.dev/v2/auth/generate_token
+POST https://api.velt.dev/v2/auth/token/get
 Headers:
   Content-Type: application/json
   x-velt-api-key: YOUR_API_KEY
@@ -835,15 +861,13 @@ Headers:
 
 Body:
 {
-  "userId": "user-123",
-  "userProperties": {
-    "email": "user@example.com",
-    "isAdmin": false
-  },
-  "permissions": {
-    "resources": [
-      { "type": "organization", "id": "org-abc" }
-    ]
+  "data": {
+    "userId": "user-123",
+    "userProperties": {
+      "organizationId": "org-abc",
+      "email": "user@example.com",
+      "isAdmin": false
+    }
   }
 }
 
@@ -1391,23 +1415,25 @@ export default function App() {
 import { useEffect } from "react";
 import { useSetDocuments, useCurrentUser } from "@veltdev/react";
 import { useCurrentDocument } from "@/app/document/useCurrentDocument";
+import { useAppUser } from "@/app/userAuth/useAppUser";
 
-export function VeltInitializeDocument() {
+export default function VeltInitializeDocument() {
   const { documentId, documentName } = useCurrentDocument();
+  const { user } = useAppUser();
+
+  // Get document setter hook
   const { setDocuments } = useSetDocuments();
-  const veltUser = useCurrentUser();  // Wait for user to be authenticated
 
+  // Wait for Velt user to be authenticated before setting document
+  const veltUser = useCurrentUser();
+
+  // Set document in Velt. This is the resource where all Velt collaboration data will be scoped.
   useEffect(() => {
-    // Only set document after user is authenticated
-    if (!veltUser || !documentId) return;
-
+    if (!veltUser || !user || !documentId || !documentName) return;
     setDocuments([
-      {
-        id: documentId,
-        metadata: { documentName: documentName },
-      },
+      { id: documentId, metadata: { documentName: documentName } },
     ]);
-  }, [veltUser, documentId, documentName, setDocuments]);
+  }, [veltUser, user, setDocuments, documentId, documentName]);
 
   return null;
 }
@@ -1570,7 +1596,7 @@ const VELT_AUTH_TOKEN = "bd4d5226050470b6c658054fcdf1092a";
 
 async function generateToken() {
   // This code runs in the browser - token is visible!
-  const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
+  const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
     headers: {
       "x-velt-auth-token": VELT_AUTH_TOKEN,  // Exposed!
     },
@@ -1595,38 +1621,53 @@ VELT_AUTH_TOKEN=your-auth-token-from-console
 import { NextRequest, NextResponse } from "next/server";
 
 // These are only accessible on the server
-const VELT_API_KEY = process.env.VELT_API_KEY!;
+const VELT_API_KEY = process.env.NEXT_PUBLIC_VELT_API_KEY!;
 const VELT_AUTH_TOKEN = process.env.VELT_AUTH_TOKEN!;
 
 export async function POST(req: NextRequest) {
-  // Verify user is authenticated in your system first
-  const session = await getServerSession();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  try {
+    const { userId, organizationId, email, isAdmin } = await req.json();
 
-  const { userId, organizationId, email } = await req.json();
+    if (!userId || !organizationId) {
+      return NextResponse.json({ error: 'Missing userId or organizationId' }, { status: 400 });
+    }
 
-  const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-velt-api-key": VELT_API_KEY,
-      "x-velt-auth-token": VELT_AUTH_TOKEN,  // Safe: server-side only
-    },
-    body: JSON.stringify({
-      userId,
-      userProperties: { email },
-      permissions: {
-        resources: [
-          { type: "organization", id: organizationId },
-        ],
+    if (!VELT_AUTH_TOKEN) {
+      return NextResponse.json({ error: 'Server configuration error: missing VELT_AUTH_TOKEN' }, { status: 500 });
+    }
+
+    const body = {
+      data: {
+        userId,
+        userProperties: {
+          organizationId,
+          ...(typeof isAdmin === 'boolean' ? { isAdmin } : {}),
+          ...(email ? { email } : {}),
+        },
       },
-    }),
-  });
+    };
 
-  const json = await response.json();
-  return NextResponse.json({ token: json?.result?.data?.token });
+    const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-velt-api-key": VELT_API_KEY,
+        "x-velt-auth-token": VELT_AUTH_TOKEN,  // Safe: server-side only
+      },
+      body: JSON.stringify(body),
+    });
+
+    const json = await response.json();
+    const token = json?.result?.data?.token;
+
+    if (!response.ok || !token) {
+      return NextResponse.json({ error: json?.error?.message || "Failed to generate token" }, { status: 500 });
+    }
+
+    return NextResponse.json({ token });
+  } catch {
+    return NextResponse.json({ error: "Internal error" }, { status: 500 });
+  }
 }
 ```
 
@@ -1823,9 +1864,9 @@ export default function Home() {
 "use client";
 import { useEffect } from "react";
 import { VeltComments, VeltCommentsSidebar, useVeltClient } from "@veltdev/react";
-import { useAppUser } from "@/app/userAuth/useAppUser";
+import { useAppUser } from "@/app/userAuth/AppUserContext";
 import VeltInitializeDocument from "./VeltInitializeDocument";
-import VeltCustomization from "./ui-customization/VeltCustomization";
+import { VeltCustomization } from "./ui-customization/VeltCustomization";
 
 export function VeltCollaboration() {
   const { isUserLoggedIn } = useAppUser();
@@ -1837,11 +1878,15 @@ export function VeltCollaboration() {
     }
   }, [isUserLoggedIn, client]);
 
+  const groupConfig = {
+    enable: false
+  };
+
   return (
     <>
       <VeltInitializeDocument />
-      <VeltComments />
-      <VeltCommentsSidebar />
+      <VeltComments shadowDom={false} textMode={false} />
+      <VeltCommentsSidebar groupConfig={groupConfig} />
       <VeltCustomization />
     </>
   );
@@ -2064,12 +2109,11 @@ import { useEffect } from "react";
 import {
   VeltComments,
   VeltCommentsSidebar,
-  VeltPresence,
   useVeltClient,
 } from "@veltdev/react";
-import { useAppUser } from "@/app/userAuth/useAppUser";
+import { useAppUser } from "@/app/userAuth/AppUserContext";
 import VeltInitializeDocument from "./VeltInitializeDocument";
-import VeltCustomization from "./ui-customization/VeltCustomization";
+import { VeltCustomization } from "./ui-customization/VeltCustomization";
 
 export function VeltCollaboration() {
   const { isUserLoggedIn } = useAppUser();
@@ -2082,6 +2126,10 @@ export function VeltCollaboration() {
     }
   }, [isUserLoggedIn, client]);
 
+  const groupConfig = {
+    enable: false
+  };
+
   return (
     <>
       {/* Initialize document after user is authenticated */}
@@ -2089,20 +2137,12 @@ export function VeltCollaboration() {
 
       {/* Core collaboration components */}
       <VeltComments
-        popoverMode={true}
         shadowDom={false}
         textMode={false}
-        commentPinHighlighter={false}
-        dialogOnHover={false}
       />
 
       {/* Sidebar for viewing all comments */}
-      <VeltCommentsSidebar
-        groupConfig={{ enable: false }}
-      />
-
-      {/* User presence indicators */}
-      <VeltPresence />
+      <VeltCommentsSidebar groupConfig={groupConfig} />
 
       {/* Custom styling */}
       <VeltCustomization />
@@ -2160,8 +2200,9 @@ export function VeltCollaboration({ enabled = true }) {
   return (
     <>
       <VeltInitializeDocument />
-      <VeltComments />
-      <VeltCommentsSidebar />
+      <VeltComments shadowDom={false} textMode={false} />
+      <VeltCommentsSidebar groupConfig={{ enable: false }} />
+      <VeltCustomization />
     </>
   );
 }
@@ -2171,15 +2212,14 @@ export function VeltCollaboration({ enabled = true }) {
 
 ```jsx
 // components/velt/VeltCollaborationEditor.tsx
-// Extended version for editor pages
+// Extended version for editor pages with text selection
 export function VeltCollaborationEditor() {
   return (
     <>
       <VeltInitializeDocument />
-      <VeltComments textMode={true} />  {/* Text selection mode */}
-      <VeltCommentsSidebar />
-      <VeltCommentTool />  {/* Add comment tool button */}
-      <VeltPresence />
+      <VeltComments textMode={true} shadowDom={false} />  {/* Text selection mode */}
+      <VeltCommentsSidebar groupConfig={{ enable: false }} />
+      <VeltCustomization />
     </>
   );
 }
@@ -2190,8 +2230,8 @@ export function VeltCollaborationDashboard() {
   return (
     <>
       <VeltInitializeDocument />
-      <VeltComments pageMode={true} />  {/* Page-level comments only */}
-      <VeltPresence />
+      <VeltComments pageMode={true} shadowDom={false} />  {/* Page-level comments only */}
+      <VeltCommentsSidebar groupConfig={{ enable: false }} />
     </>
   );
 }
@@ -2439,18 +2479,20 @@ const VELT_AUTH_TOKEN = process.env.VELT_AUTH_TOKEN;
 console.log("Auth token defined:", !!VELT_AUTH_TOKEN);  // Should be true
 
 // 2. Check API response format
-const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
+const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
-    "x-velt-api-key": process.env.VELT_API_KEY,
+    "x-velt-api-key": process.env.NEXT_PUBLIC_VELT_API_KEY,
     "x-velt-auth-token": process.env.VELT_AUTH_TOKEN,
   },
   body: JSON.stringify({
-    userId,
-    userProperties: {},
-    permissions: {
-      resources: [{ type: "organization", id: organizationId }],
+    data: {
+      userId,
+      userProperties: {
+        organizationId,
+        ...(email ? { email } : {}),
+      },
     },
   }),
 });

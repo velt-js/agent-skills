@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { basename, join, relative } from "node:path";
 import {
 	discoverSkills,
 	getSkillPaths,
@@ -7,15 +7,28 @@ import {
 	validateSkillExists,
 } from "./config.js";
 import { parseRuleFile } from "./parser.js";
-import type { Metadata, Rule, Section } from "./types.js";
+import type { Metadata, Rule, Section, SourceGroup } from "./types.js";
+
+/** Priority order for source groups: react first, then shared, then non-react */
+const SOURCE_GROUP_PRIORITY: Record<SourceGroup, number> = {
+	react: 0,
+	shared: 1,
+	"non-react": 2,
+};
+
+/** Valid source group directory names */
+const SOURCE_GROUPS: SourceGroup[] = ["react", "shared", "non-react"];
 import { validateRuleFile } from "./validate.js";
 
 /**
  * Parse section definitions from _sections.md
+ * Looks in rules/shared/_sections.md first, falls back to rules/_sections.md
  * Supports folder-based format: ## 1. Category Name (folder/)
  */
 function parseSections(rulesDir: string): Section[] {
-	const sectionsFile = join(rulesDir, "_sections.md");
+	const sharedSectionsFile = join(rulesDir, "shared", "_sections.md");
+	const legacySectionsFile = join(rulesDir, "_sections.md");
+	const sectionsFile = existsSync(sharedSectionsFile) ? sharedSectionsFile : legacySectionsFile;
 	if (!existsSync(sectionsFile)) {
 		console.warn("Warning: _sections.md not found, using empty sections");
 		return [];
@@ -99,26 +112,58 @@ export function generateSectionMap(
 }
 
 /**
- * Get all rule files from category subdirectories
+ * Get all rule files from category subdirectories.
+ * Searches in react/, shared/, and non-react/ source group directories.
+ * Falls back to flat structure (rules/{folder}/) for backward compatibility.
  */
 function getRuleFilesFromCategories(rulesDir: string, sections: Section[]): string[] {
 	const ruleFiles: string[] = [];
 
 	for (const section of sections) {
-		const categoryDir = join(rulesDir, section.folder);
-		if (!existsSync(categoryDir)) {
-			console.warn(`  Warning: Category folder not found: ${section.folder}/`);
-			continue;
+		let found = false;
+
+		// Search in source group subdirectories (react/, shared/, non-react/)
+		for (const group of SOURCE_GROUPS) {
+			const categoryDir = join(rulesDir, group, section.folder);
+			if (!existsSync(categoryDir)) continue;
+
+			found = true;
+			const files = readdirSync(categoryDir)
+				.filter((f) => f.endsWith(".md") && !f.startsWith("_"))
+				.map((f) => join(categoryDir, f));
+
+			ruleFiles.push(...files);
 		}
 
-		const files = readdirSync(categoryDir)
-			.filter((f) => f.endsWith(".md") && !f.startsWith("_"))
-			.map((f) => join(categoryDir, f));
+		// Fallback: check flat structure (rules/{folder}/)
+		if (!found) {
+			const categoryDir = join(rulesDir, section.folder);
+			if (existsSync(categoryDir)) {
+				const files = readdirSync(categoryDir)
+					.filter((f) => f.endsWith(".md") && !f.startsWith("_"))
+					.map((f) => join(categoryDir, f));
 
-		ruleFiles.push(...files);
+				ruleFiles.push(...files);
+			} else {
+				console.warn(`  Warning: Category folder not found: ${section.folder}/`);
+			}
+		}
 	}
 
 	return ruleFiles;
+}
+
+/**
+ * Determine the source group from a rule file's path relative to the rules directory.
+ */
+function getSourceGroup(filePath: string, rulesDir: string): SourceGroup {
+	const rel = relative(rulesDir, filePath);
+	const firstDir = rel.split("/")[0];
+	if (firstDir === "react" || firstDir === "non-react" || firstDir === "shared") {
+		return firstDir as SourceGroup;
+	}
+	// Flat structure defaults to shared
+	return "shared";
 }
 
 /**
@@ -165,6 +210,7 @@ function buildSkill(paths: SkillPaths): void {
 
 		const result = parseRuleFile(file, sectionMap);
 		if (result.success && result.rule) {
+			result.rule.sourceGroup = getSourceGroup(file, paths.rulesDir);
 			rules.push(result.rule);
 		}
 	}
@@ -178,9 +224,13 @@ function buildSkill(paths: SkillPaths): void {
 		rulesBySection.set(rule.section, sectionRules);
 	}
 
-	// Sort rules within each section and assign IDs
+	// Sort rules within each section: react first, then shared, then non-react; alphabetical within each group
 	for (const [sectionNum, sectionRules] of rulesBySection) {
-		sectionRules.sort((a, b) => a.title.localeCompare(b.title));
+		sectionRules.sort((a, b) => {
+			const groupDiff = SOURCE_GROUP_PRIORITY[a.sourceGroup] - SOURCE_GROUP_PRIORITY[b.sourceGroup];
+			if (groupDiff !== 0) return groupDiff;
+			return a.title.localeCompare(b.title);
+		});
 		sectionRules.forEach((rule, index) => {
 			rule.id = `${sectionNum}.${index + 1}`;
 		});

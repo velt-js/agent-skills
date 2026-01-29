@@ -14,11 +14,14 @@ export interface CodeExample {
 	additionalText?: string;
 }
 
+export type SourceGroup = "react" | "shared" | "non-react";
+
 export interface Rule {
 	id: string;
 	title: string;
 	section: number;
 	category: string;
+	sourceGroup: SourceGroup;
 	impact: ImpactLevel;
 	impactDescription?: string;
 	explanation: string;

@@ -126,23 +126,44 @@ export function validateRuleFile(
 	};
 }
 
+/** Valid source group directory names */
+const SOURCE_GROUPS = ["react", "shared", "non-react"] as const;
+
 /**
- * Get all rule files from category subdirectories
+ * Get all rule files from category subdirectories.
+ * Searches in react/, shared/, and non-react/ source group directories.
+ * Falls back to flat structure (rules/{folder}/) for backward compatibility.
  */
 function getRuleFilesFromCategories(rulesDir: string, sections: Section[]): string[] {
 	const ruleFiles: string[] = [];
 
 	for (const section of sections) {
-		const categoryDir = join(rulesDir, section.folder);
-		if (!existsSync(categoryDir)) {
-			continue;
+		let found = false;
+
+		// Search in source group subdirectories (react/, shared/, non-react/)
+		for (const group of SOURCE_GROUPS) {
+			const categoryDir = join(rulesDir, group, section.folder);
+			if (!existsSync(categoryDir)) continue;
+
+			found = true;
+			const files = readdirSync(categoryDir)
+				.filter((f) => f.endsWith(".md") && !f.startsWith("_"))
+				.map((f) => join(categoryDir, f));
+
+			ruleFiles.push(...files);
 		}
 
-		const files = readdirSync(categoryDir)
-			.filter((f) => f.endsWith(".md") && !f.startsWith("_"))
-			.map((f) => join(categoryDir, f));
+		// Fallback: check flat structure (rules/{folder}/)
+		if (!found) {
+			const categoryDir = join(rulesDir, section.folder);
+			if (existsSync(categoryDir)) {
+				const files = readdirSync(categoryDir)
+					.filter((f) => f.endsWith(".md") && !f.startsWith("_"))
+					.map((f) => join(categoryDir, f));
 
-		ruleFiles.push(...files);
+				ruleFiles.push(...files);
+			}
+		}
 	}
 
 	return ruleFiles;
