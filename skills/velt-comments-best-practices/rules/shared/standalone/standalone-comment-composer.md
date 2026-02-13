@@ -106,10 +106,64 @@ function FullCustomInterface() {
 }
 ```
 
+**Composer Props (v4.7.3+):**
+
+```jsx
+<VeltCommentComposer
+  placeholder="Leave a comment..."       // Custom placeholder text (v4.7.3+)
+  readOnly={false}                        // Disable input (v4.7.9+)
+  targetComposerElementId="my-composer"   // Associate with specific element (v4.7.4+)
+/>
+```
+
+**Note:** The prop `targetElementId` was renamed to `targetComposerElementId` in v4.7.4. Use `targetComposerElementId` for all new implementations.
+
+**Programmatic Submission (v4.7.4+):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+
+function ComposerControls() {
+  const { client } = useVeltClient();
+
+  const submit = () => {
+    const commentElement = client.getCommentElement();
+    // Submit comment from a specific composer
+    commentElement.submitComment({ targetComposerElementId: 'my-composer' });
+  };
+
+  const clear = () => {
+    const commentElement = client.getCommentElement();
+    commentElement.clearComposer();
+  };
+
+  return (
+    <>
+      <button onClick={submit}>Submit</button>
+      <button onClick={clear}>Clear</button>
+    </>
+  );
+}
+```
+
+**Listening for Text Changes (v4.7.3+):**
+
+```jsx
+<VeltComments
+  onComposerTextChange={(event) => {
+    // event includes draft annotation and targetComposerElementId
+    console.log('Text changed:', event);
+  }}
+/>
+```
+
 **For HTML:**
 
 ```html
-<velt-comment-composer></velt-comment-composer>
+<velt-comment-composer
+  placeholder="Leave a comment..."
+  target-composer-element-id="my-composer"
+></velt-comment-composer>
 ```
 
 **Integration Points:**
@@ -124,8 +178,8 @@ function FullCustomInterface() {
 **Verification Checklist:**
 - [ ] VeltComments added to app root
 - [ ] VeltCommentComposer placed in desired location
+- [ ] Use `targetComposerElementId` (not `targetElementId`) for element association
 - [ ] Combined with Thread/Pin as needed
-- [ ] Comment creation works from composer
 
 **Source Pointers:**
 - https://docs.velt.dev/async-collaboration/comments/standalone-components/comment-composer/overview - Overview

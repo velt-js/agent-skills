@@ -92,6 +92,30 @@ const feedbackComments = commentAnnotations?.filter(
 );
 ```
 
+**Method 4: Via Global Context Provider (v5.0.0-beta.7+):**
+
+```jsx
+import { useSetContextProvider } from '@veltdev/react';
+
+function AppWithContextProvider() {
+  // Global context provider applied to all new comment annotations
+  useSetContextProvider(() => ({
+    appVersion: '2.0',
+    environment: 'production',
+    currentPage: window.location.pathname
+  }));
+
+  return <VeltComments />;
+}
+
+// Or via API
+const commentElement = client.getCommentElement();
+commentElement.setContextProvider(() => ({
+  appVersion: '2.0',
+  environment: 'production'
+}));
+```
+
 **For HTML:**
 
 ```html

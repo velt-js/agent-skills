@@ -92,6 +92,21 @@ const addAnnotation = () => {
 };
 ```
 
+**Batched Annotation Counts (v5.0.0-beta.10+):**
+
+```jsx
+const commentElement = client.getCommentElement();
+
+// Get counts across multiple documents efficiently (80% more efficient)
+commentElement.getCommentAnnotationsCount({
+  documentIds: ['doc-1', 'doc-2', 'doc-3'],
+  batchedPerDocument: true
+}).subscribe((result) => {
+  // result.data: { "doc-1": { total: 10, unread: 2 }, "doc-2": { total: 15, unread: 5 } }
+  console.log(result.data);
+});
+```
+
 **Hooks Available:**
 
 | Hook | Description |

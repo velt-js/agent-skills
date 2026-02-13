@@ -1861,6 +1861,39 @@ export default function App() {
 </div>
 ```
 
+**Programmatic Page Mode Composer Control (v4.7.7+):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+
+function PageModeControls() {
+  const { client } = useVeltClient();
+
+  const openComposerWithContext = () => {
+    const commentElement = client.getCommentElement();
+    // Set context data before opening composer
+    commentElement.setContextInPageModeComposer({
+      section: 'header',
+      category: 'feedback'
+    });
+    // Focus the page mode composer
+    commentElement.focusPageModeComposer();
+  };
+
+  const clearContext = () => {
+    const commentElement = client.getCommentElement();
+    commentElement.clearPageModeComposerContext();
+  };
+
+  return (
+    <>
+      <button onClick={openComposerWithContext}>Add Page Comment</button>
+      <button onClick={clearContext}>Clear Context</button>
+    </>
+  );
+}
+```
+
 ---
 
 ### 2.14 Use Popover Mode for Table Cell Comments
@@ -2358,10 +2391,64 @@ function FullCustomInterface() {
 }
 ```
 
+**Composer Props (v4.7.3+):**
+
+```jsx
+<VeltCommentComposer
+  placeholder="Leave a comment..."       // Custom placeholder text (v4.7.3+)
+  readOnly={false}                        // Disable input (v4.7.9+)
+  targetComposerElementId="my-composer"   // Associate with specific element (v4.7.4+)
+/>
+```
+
+**Note:** The prop `targetElementId` was renamed to `targetComposerElementId` in v4.7.4. Use `targetComposerElementId` for all new implementations.
+
+**Programmatic Submission (v4.7.4+):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+
+function ComposerControls() {
+  const { client } = useVeltClient();
+
+  const submit = () => {
+    const commentElement = client.getCommentElement();
+    // Submit comment from a specific composer
+    commentElement.submitComment({ targetComposerElementId: 'my-composer' });
+  };
+
+  const clear = () => {
+    const commentElement = client.getCommentElement();
+    commentElement.clearComposer();
+  };
+
+  return (
+    <>
+      <button onClick={submit}>Submit</button>
+      <button onClick={clear}>Clear</button>
+    </>
+  );
+}
+```
+
+**Listening for Text Changes (v4.7.3+):**
+
+```jsx
+<VeltComments
+  onComposerTextChange={(event) => {
+    // event includes draft annotation and targetComposerElementId
+    console.log('Text changed:', event);
+  }}
+/>
+```
+
 **For HTML:**
 
 ```html
-<velt-comment-composer></velt-comment-composer>
+<velt-comment-composer
+  placeholder="Leave a comment..."
+  target-composer-element-id="my-composer"
+></velt-comment-composer>
 ```
 
 ---
@@ -3061,6 +3148,21 @@ const addAnnotation = () => {
 };
 ```
 
+**Batched Annotation Counts (v5.0.0-beta.10+):**
+
+```jsx
+const commentElement = client.getCommentElement();
+
+// Get counts across multiple documents efficiently (80% more efficient)
+commentElement.getCommentAnnotationsCount({
+  documentIds: ['doc-1', 'doc-2', 'doc-3'],
+  batchedPerDocument: true
+}).subscribe((result) => {
+  // result.data: { "doc-1": { total: 10, unread: 2 }, "doc-2": { total: 15, unread: 5 } }
+  console.log(result.data);
+});
+```
+
 ---
 
 ### 6.3 Add Custom Metadata to Comments with Context
@@ -3137,6 +3239,30 @@ const chartComments = commentAnnotations?.filter(
 const feedbackComments = commentAnnotations?.filter(
   (a) => a.context?.category === 'feedback'
 );
+```
+
+**Method 4: Via Global Context Provider (v5.0.0-beta.7+):**
+
+```jsx
+import { useSetContextProvider } from '@veltdev/react';
+
+function AppWithContextProvider() {
+  // Global context provider applied to all new comment annotations
+  useSetContextProvider(() => ({
+    appVersion: '2.0',
+    environment: 'production',
+    currentPage: window.location.pathname
+  }));
+
+  return <VeltComments />;
+}
+
+// Or via API
+const commentElement = client.getCommentElement();
+commentElement.setContextProvider(() => ({
+  appVersion: '2.0',
+  environment: 'production'
+}));
 ```
 
 **For HTML:**

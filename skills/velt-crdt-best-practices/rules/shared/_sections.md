@@ -20,6 +20,8 @@ Rules are organized into category folders under `rules/`.
 - `core-store-update` - Update store values
 - `core-version-save` - Save version checkpoints
 - `core-encryption` - Custom encryption provider
+- `core-webhooks` - Webhook notifications for data changes
+- `core-rest-api` - REST API for server-side data access
 - `core-debug-storemap` - VeltCrdtStoreMap debugging
 - `core-debug-testing` - Multi-user testing
 

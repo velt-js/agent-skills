@@ -63,6 +63,39 @@ export default function App() {
 </div>
 ```
 
+**Programmatic Page Mode Composer Control (v4.7.7+):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+
+function PageModeControls() {
+  const { client } = useVeltClient();
+
+  const openComposerWithContext = () => {
+    const commentElement = client.getCommentElement();
+    // Set context data before opening composer
+    commentElement.setContextInPageModeComposer({
+      section: 'header',
+      category: 'feedback'
+    });
+    // Focus the page mode composer
+    commentElement.focusPageModeComposer();
+  };
+
+  const clearContext = () => {
+    const commentElement = client.getCommentElement();
+    commentElement.clearPageModeComposerContext();
+  };
+
+  return (
+    <>
+      <button onClick={openComposerWithContext}>Add Page Comment</button>
+      <button onClick={clearContext}>Clear Context</button>
+    </>
+  );
+}
+```
+
 **Verification Checklist:**
 - [ ] VeltCommentsSidebar has `pageMode={true}`
 - [ ] VeltSidebarButton is placed in UI

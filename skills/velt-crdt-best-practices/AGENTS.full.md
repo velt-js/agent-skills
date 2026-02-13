@@ -29,9 +29,11 @@ Comprehensive best practices guide for implementing real-time collaborative edit
    - 1.6 [Subscribe to Store Changes for Remote Updates](#16-subscribe-to-store-changes-for-remote-updates)
    - 1.7 [Test Collaboration with Multiple Browser Profiles](#17-test-collaboration-with-multiple-browser-profiles)
    - 1.8 [Use Custom Encryption Provider for Sensitive Data](#18-use-custom-encryption-provider-for-sensitive-data)
-   - 1.9 [Use update() Method to Modify Store Values](#19-use-update-method-to-modify-store-values)
-   - 1.10 [Use VeltCrdtStoreMap for Runtime Debugging](#110-use-veltcrdtstoremap-for-runtime-debugging)
-   - 1.11 [Use createVeltStore for Non-React CRDT Stores](#111-use-createveltstore-for-non-react-crdt-stores)
+   - 1.9 [Use REST API to Retrieve CRDT Data Server-Side](#19-use-rest-api-to-retrieve-crdt-data-server-side)
+   - 1.10 [Use update() Method to Modify Store Values](#110-use-update-method-to-modify-store-values)
+   - 1.11 [Use VeltCrdtStoreMap for Runtime Debugging](#111-use-veltcrdtstoremap-for-runtime-debugging)
+   - 1.12 [Use Webhooks to Listen for CRDT Data Changes](#112-use-webhooks-to-listen-for-crdt-data-changes)
+   - 1.13 [Use createVeltStore for Non-React CRDT Stores](#113-use-createveltstore-for-non-react-crdt-stores)
 
 2. [Tiptap Integration](#2-tiptap-integration) — **CRITICAL**
    - 2.1 [Use useVeltTiptapCrdtExtension Hook for React Tiptap](#21-use-usevelttiptapcrdtextension-hook-for-react-tiptap)
@@ -483,7 +485,43 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (## AP
 
 ---
 
-### 1.9 Use update() Method to Modify Store Values
+### 1.9 Use REST API to Retrieve CRDT Data Server-Side
+
+**Impact: HIGH (Access collaborative editor data from backend services)**
+
+Use the CRDT REST API to retrieve editor data from your backend. This enables server-side processing, export, indexing, or backup of collaborative content without requiring a client connection.
+
+**Incorrect (client-only data access):**
+
+```typescript
+// Can only access CRDT data from client-side
+const store = await createVeltStore({ id: 'doc', type: 'text', veltClient });
+const value = store.getValue();
+// No way to access from backend
+```
+
+**Correct (REST API for server-side access):**
+
+```bash
+# Get CRDT data for a specific document/editor
+curl -X POST https://api.velt.dev/v2/crdt/data \
+  -H "Content-Type: application/json" \
+  -H "x-velt-api-key: YOUR_API_KEY" \
+  -H "x-velt-auth-token: YOUR_AUTH_TOKEN" \
+  -d '{
+    "data": {
+      "organizationId": "org-id",
+      "documentId": "doc-id",
+      "editorId": "editor-id"
+    }
+  }'
+```
+
+<!-- TODO (v4.7.1-beta.4): Verify exact response structure for Get CRDT Data REST API. Release note text: "Added Get CRDT Data REST API to retrieve editor data" but exact response format not specified in release notes. -->
+
+---
+
+### 1.10 Use update() Method to Modify Store Values
 
 **Impact: HIGH (Ensures changes sync to all collaborators)**
 
@@ -540,7 +578,7 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### S
 
 ---
 
-### 1.10 Use VeltCrdtStoreMap for Runtime Debugging
+### 1.11 Use VeltCrdtStoreMap for Runtime Debugging
 
 **Impact: LOW (Enables real-time inspection of CRDT state)**
 
@@ -584,7 +622,65 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### D
 
 ---
 
-### 1.11 Use createVeltStore for Non-React CRDT Stores
+### 1.12 Use Webhooks to Listen for CRDT Data Changes
+
+**Impact: HIGH (Enables server-side reactions to collaborative data changes)**
+
+CRDT stores support webhook notifications for data changes, allowing server-side systems to react to collaborative edits. Webhooks are disabled by default and use a 5-second debounce to batch rapid changes.
+
+**Incorrect (no server-side awareness of CRDT changes):**
+
+```typescript
+// Server has no way to know when collaborative data changes
+const store = await createVeltStore({ id: 'doc', type: 'text', veltClient });
+// Only client-side subscribe() is available
+```
+
+**Correct (enabling webhooks for server-side notifications):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+
+function CrdtWebhookSetup() {
+  const { client } = useVeltClient();
+
+  useEffect(() => {
+    if (!client) return;
+    const crdtElement = client.getCrdtElement();
+
+    // Enable webhooks for CRDT data changes
+    crdtElement.enableWebhook();
+
+    // Optional: customize debounce time (default 5000ms)
+    crdtElement.setWebhookDebounceTime(3000);
+  }, [client]);
+}
+```
+
+**Subscribing to `updateData` Events (Client-Side):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+
+function CrdtChangeListener() {
+  const { client } = useVeltClient();
+
+  useEffect(() => {
+    if (!client) return;
+    const crdtElement = client.getCrdtElement();
+
+    const subscription = crdtElement.on('updateData', (data) => {
+      console.log('CRDT data changed:', data);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [client]);
+}
+```
+
+---
+
+### 1.13 Use createVeltStore for Non-React CRDT Stores
 
 **Impact: CRITICAL (Required for Vue, Angular, vanilla JS integrations)**
 

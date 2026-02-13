@@ -99,9 +99,22 @@ function NotificationButton() {
 <velt-notifications-panel></velt-notifications-panel>
 ```
 
+**Controlling Initial Load Count:**
+
+```jsx
+// Control how many notifications load initially (v4.7.1+)
+<VeltNotificationsTool pageSize={20} />
+```
+
+```html
+<!-- HTML variant -->
+<velt-notifications-tool page-size="20"></velt-notifications-tool>
+```
+
 **Verification:**
 - [ ] Panel mode matches application layout needs
 - [ ] Embedded panels have proper container styling
 - [ ] Programmatic controls work as expected
+- [ ] pageSize set if default load count needs adjustment
 
 **Source Pointer:** https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Panel Open Mode, Actions
