@@ -68,8 +68,11 @@ Comprehensive Velt Comments implementation guide covering comment modes, setup p
    - 7.2 [Verify Velt Comments Integration](#72-verify-velt-comments-integration)
 
 8. [Moderation & Permissions](#8-moderation-permissions) — **LOW**
+   - 8.1 [Control Comment Visibility with Private Mode and Per-Annotation Updates](#81-control-comment-visibility-with-private-mode-and-per-annotation-updates)
+   - 8.2 [Use the commentSaved Event for Reliable Post-Persist Side-Effects](#82-use-the-commentsaved-event-for-reliable-post-persist-side-effects)
 
-9. [Attachments & Reactions](#9-attachments-reactions) — **LOW**
+9. [Attachments & Reactions](#9-attachments-reactions) — **MEDIUM**
+   - 9.1 [Control Attachment Download Behavior and Intercept Clicks](#91-control-attachment-download-behavior-and-intercept-clicks)
 
 ---
 
@@ -1864,6 +1867,12 @@ export default function App() {
 **Programmatic Page Mode Composer Control (v4.7.7+):**
 
 ```jsx
+// PageModeComposerConfig interface
+// {
+//   context?: { [key: string]: any } | null;
+//   targetElementId?: string | null;
+//   clearContext?: boolean;  // defaults to true
+// }
 import { useVeltClient } from '@veltdev/react';
 
 function PageModeControls() {
@@ -1871,16 +1880,27 @@ function PageModeControls() {
 
   const openComposerWithContext = () => {
     const commentElement = client.getCommentElement();
-    // Set context data before opening composer
+    // Set context data before opening composer (context cleared after submission by default)
     commentElement.setContextInPageModeComposer({
-      section: 'header',
-      category: 'feedback'
+      context: { section: 'header', category: 'feedback' },
+      targetElementId: 'header-section',
     });
     // Focus the page mode composer
     commentElement.focusPageModeComposer();
   };
 
-  const clearContext = () => {
+  const openComposerPreservingContext = () => {
+    const commentElement = client.getCommentElement();
+    // Set clearContext: false to preserve context data across submissions
+    commentElement.setContextInPageModeComposer({
+      context: { documentId: '123', section: 'intro' },
+      targetElementId: 'my-element',
+      clearContext: false,
+    });
+    commentElement.focusPageModeComposer();
+  };
+
+  const handleClearContext = () => {
     const commentElement = client.getCommentElement();
     commentElement.clearPageModeComposerContext();
   };
@@ -1888,7 +1908,8 @@ function PageModeControls() {
   return (
     <>
       <button onClick={openComposerWithContext}>Add Page Comment</button>
-      <button onClick={clearContext}>Clear Context</button>
+      <button onClick={openComposerPreservingContext}>Add Comment (Keep Context)</button>
+      <button onClick={handleClearContext}>Clear Context</button>
     </>
   );
 }
@@ -2947,6 +2968,29 @@ function CustomSidebar() {
 }
 ```
 
+**AssigneeBanner Resolve/Unresolve Button Nesting (v5.0.1-beta.2+):**
+
+```html
+// Correct: custom content rendered INSIDE the button component (v5.0.1-beta.2+)
+<VeltCommentDialogWireframe.AssigneeBanner>
+  <VeltCommentDialogWireframe.AssigneeBanner.ResolveButton>
+    {/* Custom content rendered inside the resolve button */}
+  </VeltCommentDialogWireframe.AssigneeBanner.ResolveButton>
+  <VeltCommentDialogWireframe.AssigneeBanner.UnresolveButton>
+    {/* Custom content rendered inside the unresolve button */}
+  </VeltCommentDialogWireframe.AssigneeBanner.UnresolveButton>
+</VeltCommentDialogWireframe.AssigneeBanner>
+<!-- HTML equivalents -->
+<velt-comment-dialog-assignee-banner-wireframe>
+  <velt-comment-dialog-assignee-banner-resolve-button-wireframe>
+    <!-- Custom content inside resolve button -->
+  </velt-comment-dialog-assignee-banner-resolve-button-wireframe>
+  <velt-comment-dialog-assignee-banner-unresolve-button-wireframe>
+    <!-- Custom content inside unresolve button -->
+  </velt-comment-dialog-assignee-banner-unresolve-button-wireframe>
+</velt-comment-dialog-assignee-banner-wireframe>
+```
+
 **For HTML:**
 
 ```html
@@ -3465,17 +3509,383 @@ testVeltSetup();
 
 **Impact: LOW**
 
-Access control and moderation features for comments. Limited documentation available.
+Access control and moderation features for comments. Includes comment visibility control (private mode), per-annotation visibility updates, and post-persist event handling.
 
-*No rules defined yet. See rules/_template.md for creating new rules.*
+### 8.1 Control Comment Visibility with Private Mode and Per-Annotation Updates
+
+**Impact: LOW (Prevent unintended comment exposure by restricting visibility globally or per annotation to organization members or specific users)**
+
+Use `enablePrivateMode()` to set a global visibility default for all new comments in a session, and `updateVisibility()` to change the visibility of a specific existing annotation. Without explicit visibility control, all new comments are public by default.
+
+> **Breaking Change (v5.0.1-beta.4):** `CommentVisibilityType` string literal values were renamed. `'organization'` is now `'organizationPrivate'` and `'self'` is now `'restricted'`. Passing the old values will silently apply incorrect visibility. See the Breaking Change section below.
+
+**Incorrect (no visibility control — all new comments visible to everyone):**
+
+```jsx
+// No private mode set — every new comment is public by default.
+const { client } = useVeltClient();
+useEffect(() => {
+  if (!client) return;
+  const commentElement = client.getCommentElement();
+  // Missing: commentElement.enablePrivateMode(...)
+}, [client]);
+```
+
+**Correct (React — enable global private mode for organization members):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function PrivateModeController() {
+  const { client } = useVeltClient();
+
+  useEffect(() => {
+    if (!client) return;
+    const commentElement = client.getCommentElement();
+
+    // Restrict all new comments to members of the same organization
+    commentElement.enablePrivateMode({ type: 'organizationPrivate' });
+
+    // organizationId is auto-resolved from the authenticated user — no need to pass it manually.
+
+    return () => {
+      // Revert to default public visibility on unmount
+      commentElement.disablePrivateMode();
+    };
+  }, [client]);
+
+  return null;
+}
+```
+
+**Correct (React — restrict new comments to specific users only):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function RestrictedModeController() {
+  const { client } = useVeltClient();
+
+  useEffect(() => {
+    if (!client) return;
+    const commentElement = client.getCommentElement();
+
+    // Restrict all new comments to user-a and user-b only.
+    // If userIds is omitted, it defaults to the current user.
+    commentElement.enablePrivateMode({
+      type: 'restricted',
+      userIds: ['user-a', 'user-b'],
+    });
+
+    return () => commentElement.disablePrivateMode();
+  }, [client]);
+
+  return null;
+}
+```
+
+**Correct (React — update visibility of a specific existing annotation):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+
+function VisibilityUpdater({ annotationId }: { annotationId: string }) {
+  const { client } = useVeltClient();
+
+  const makeOrgPrivate = () => {
+    if (!client) return;
+    const commentElement = client.getCommentElement();
+    commentElement.updateVisibility({
+      annotationId,
+      type: 'organizationPrivate',
+      // organizationId is optional — auto-resolved from authenticated user
+    });
+  };
+
+  const restrictToUsers = () => {
+    if (!client) return;
+    const commentElement = client.getCommentElement();
+    commentElement.updateVisibility({
+      annotationId,
+      type: 'restricted',
+      userIds: ['user-a'],
+    });
+  };
+
+  return (
+    <>
+      <button onClick={makeOrgPrivate}>Make org-private</button>
+      <button onClick={restrictToUsers}>Restrict to user-a</button>
+    </>
+  );
+}
+```
+
+**Correct (HTML / Other Frameworks — global private mode):**
+
+```typescript
+// Global private mode: organization members only
+const commentElement = Velt.getCommentElement();
+commentElement.enablePrivateMode({ type: 'organizationPrivate' });
+
+// Restrict new comments to specific users
+commentElement.enablePrivateMode({
+  type: 'restricted',
+  userIds: ['user-a', 'user-b'],
+});
+
+// Revert to default public visibility
+commentElement.disablePrivateMode();
+```
+
+**Correct (HTML / Other Frameworks — per-annotation visibility update):**
+
+```typescript
+const commentElement = Velt.getCommentElement();
+
+// Update a specific annotation to organization-private
+commentElement.updateVisibility({
+  annotationId: 'annotation-123',
+  type: 'organizationPrivate',
+});
+
+// Update a specific annotation to restricted visibility
+commentElement.updateVisibility({
+  annotationId: 'annotation-123',
+  type: 'restricted',
+  userIds: ['user-a'],
+});
+```
+
+**Type Definitions:**
+
+```typescript
+type CommentVisibilityType = 'public' | 'organizationPrivate' | 'restricted';
+
+interface CommentVisibilityConfig {
+  type: CommentVisibilityType;
+  annotationId?: string;   // Required for updateVisibility(); unused in enablePrivateMode()
+  organizationId?: string; // Auto-resolved from authenticated user when omitted
+  userIds?: string[];      // Defaults to current user when omitted for 'restricted' type
+}
+
+// PrivateModeConfig omits annotationId and organizationId (auto-resolved)
+type PrivateModeConfig = Omit<CommentVisibilityConfig, 'annotationId' | 'organizationId'>;
+```
+
+**Before (v5.0.1-beta.3 and earlier — now broken):**
+
+```typescript
+// WRONG — 'organization' and 'self' are no longer valid values
+commentElement.updateVisibility({ annotationId: 'a1', type: 'organization' }); // WRONG
+commentElement.updateVisibility({ annotationId: 'a1', type: 'self' });         // WRONG
+commentElement.enablePrivateMode({ type: 'organization' });                    // WRONG
+```
+
+**After (v5.0.1-beta.4+ — correct values):**
+
+```typescript
+// CORRECT — use 'organizationPrivate' and 'restricted'
+commentElement.updateVisibility({ annotationId: 'a1', type: 'organizationPrivate' }); // CORRECT
+commentElement.updateVisibility({ annotationId: 'a1', type: 'restricted' });          // CORRECT
+commentElement.enablePrivateMode({ type: 'organizationPrivate' });                    // CORRECT
+```
+
+---
+
+### 8.2 Use the commentSaved Event for Reliable Post-Persist Side-Effects
+
+**Impact: LOW (Trigger webhooks, analytics, or external sync only after database write confirmation — not prematurely on optimistic UI updates)**
+
+The `commentSaved` event fires after a comment annotation is successfully written to the database. Use this event — not optimistic UI callbacks — as the trigger for side-effects such as webhooks, audit logging, or syncing external systems.
+
+**Incorrect (triggering side-effects on optimistic callbacks — may fire before persistence):**
+
+```jsx
+// onCommentAdd fires optimistically before the comment is persisted.
+// Side-effects triggered here can reference data that has not yet been saved.
+<VeltComments
+  onCommentAdd={(event) => {
+    triggerWebhook(event); // Unreliable — may fire before database write
+  }}
+/>
+```
+
+**Correct (React — subscribe via useCommentEventCallback):**
+
+```jsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function CommentSaveListener() {
+  const savedEvent = useCommentEventCallback('commentSaved');
+
+  useEffect(() => {
+    if (!savedEvent) return;
+
+    // Fires only after the annotation is confirmed in the database.
+    console.log('Comment persisted, annotationId:', savedEvent.annotationId);
+    console.log('Full annotation:', savedEvent.commentAnnotation);
+
+    // Safe to trigger webhooks, log analytics, or sync external systems here.
+    triggerWebhook(savedEvent);
+    logAnalyticsEvent('comment_saved', { annotationId: savedEvent.annotationId });
+  }, [savedEvent]);
+
+  return null;
+}
+```
+
+**Correct (HTML / Other Frameworks — subscribe via commentElement):**
+
+```typescript
+const commentElement = Velt.getCommentElement();
+
+const subscription = commentElement.on('commentSaved').subscribe((event) => {
+  // Fires only after database write confirmation.
+  console.log('Comment persisted, annotationId:', event.annotationId);
+  console.log('Full annotation:', event.commentAnnotation);
+
+  // Trigger webhook, log analytics, or sync external systems.
+  triggerWebhook(event);
+});
+
+// Clean up subscription when no longer needed
+subscription.unsubscribe();
+```
+
+**`CommentSavedEvent` Interface:**
+
+```typescript
+interface CommentSavedEvent {
+  annotationId: string;                  // ID of the persisted comment annotation
+  commentAnnotation: CommentAnnotation;  // Full annotation object as stored in the database
+  metadata: VeltEventMetadata;           // Event metadata (timestamp, source, etc.)
+}
+```
+
+---
 
 ## 9. Attachments & Reactions
 
-**Impact: LOW**
+**Impact: MEDIUM**
 
-File attachments and emoji reaction features. Limited documentation available.
+File attachment control and emoji reaction features. Includes attachment download behavior, click interception events, and CSS state classes for attachment loading and edit-mode states.
 
-*No rules defined yet. See rules/_template.md for creating new rules.*
+### 9.1 Control Attachment Download Behavior and Intercept Clicks
+
+**Impact: MEDIUM (Prevent automatic downloads and intercept attachment clicks for custom viewers, analytics, or access control)**
+
+By default, clicking an attachment in a comment triggers a file download. Use `attachmentDownload` / `enableAttachmentDownload()` / `disableAttachmentDownload()` to suppress that behavior, and subscribe to the `attachmentDownloadClicked` event to handle every attachment click regardless of the download setting.
+
+**Incorrect (no click interception, download cannot be suppressed):**
+
+```jsx
+// No control over attachment download — browser always triggers a download on click.
+// Cannot open files in a custom viewer or log analytics.
+<VeltComments />
+```
+
+**Correct (disable download, intercept clicks in React):**
+
+```jsx
+import { VeltComments, useVeltClient, useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+// Option A: Declarative prop — disable download via prop on <VeltComments>
+<VeltComments attachmentDownload={false} />
+
+// Option B: Imperative API — toggle download via commentElement methods
+function AttachmentDownloadController() {
+  const { client } = useVeltClient();
+
+  useEffect(() => {
+    if (!client) return;
+    const commentElement = client.getCommentElement();
+
+    // Disable automatic download on attachment click
+    commentElement.disableAttachmentDownload();
+
+    return () => {
+      // Re-enable when component unmounts if needed
+      commentElement.enableAttachmentDownload();
+    };
+  }, [client]);
+
+  return null;
+}
+
+// Listening to the attachmentDownloadClicked event (fires on every click)
+function AttachmentClickListener() {
+  const attachmentClickedEvent = useCommentEventCallback('attachmentDownloadClicked');
+
+  useEffect(() => {
+    if (attachmentClickedEvent) {
+      const { annotationId, attachment } = attachmentClickedEvent;
+      console.log('Attachment clicked on annotation:', annotationId);
+      console.log('Attachment ID:', attachment.attachmentId);
+      // Open in custom viewer, log analytics, or enforce access control here
+    }
+  }, [attachmentClickedEvent]);
+
+  return null;
+}
+```
+
+**Correct (disable download in HTML / Other Frameworks):**
+
+```typescript
+<!-- Declarative attribute -->
+<velt-comments attachment-download="false"></velt-comments>
+// Imperative API methods (non-React)
+const commentElement = Velt.getCommentElement();
+commentElement.disableAttachmentDownload();
+commentElement.enableAttachmentDownload();
+
+// Event subscription
+commentElement.on('attachmentDownloadClicked').subscribe((event) => {
+  console.log('Attachment clicked on annotation:', event.annotationId);
+  console.log('Attachment ID:', event.attachment.attachmentId);
+});
+```
+
+**`AttachmentDownloadClickedEvent` Interface:**
+
+```typescript
+interface AttachmentDownloadClickedEvent {
+  annotationId: string;               // ID of the comment annotation containing the attachment
+  commentAnnotation: CommentAnnotation; // Full comment annotation object
+  attachment: Attachment;             // Attachment object that was clicked
+  metadata?: VeltEventMetadata;       // Optional event metadata
+}
+```
+
+**CSS State Classes:**
+
+```css
+/* Base container class applied to every composer attachment wrapper */
+.velt-composer-attachment-container {
+  display: flex;
+  gap: 8px;
+}
+
+/* Applied while the attachment is uploading or in a loading state */
+.velt-composer-attachment--loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Applied when the comment composer is in edit mode */
+.velt-composer-attachment--edit-mode {
+  border: 1px solid var(--velt-edit-color);
+}
+```
+
+<!-- TODO (v5.0.1-beta.2): Verify exact DOM element hierarchy for .velt-composer-attachment-container and whether shadowDom must be disabled to target these classes, or whether CSS custom properties suffice. Release note confirms classes exist and their semantic meaning but does not specify DOM depth or shadow DOM requirements. -->
+
+---
 
 ## References
 

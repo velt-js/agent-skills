@@ -57,11 +57,15 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 8. Moderation & Permissions (permissions)
 
 **Impact:** LOW
-**Description:** Access control and moderation features for comments. Limited documentation available.
+**Description:** Access control and moderation features for comments. Includes comment visibility control (private mode), per-annotation visibility updates, and post-persist event handling.
+
+**Rules:**
+- `permissions-private-mode` - Control global comment visibility with enablePrivateMode/disablePrivateMode and update per-annotation visibility with updateVisibility
+- `permissions-comment-saved-event` - Subscribe to the commentSaved event for reliable post-persist side-effects (webhooks, analytics, external sync)
 
 ---
 
 ## 9. Attachments & Reactions (attach)
 
-**Impact:** LOW
-**Description:** File attachments and emoji reaction features. Limited documentation available.
+**Impact:** MEDIUM
+**Description:** File attachment control and emoji reaction features. Includes attachment download behavior, click interception events, and CSS state classes for attachment loading and edit-mode states.

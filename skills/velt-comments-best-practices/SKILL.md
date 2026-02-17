@@ -9,7 +9,7 @@ metadata:
 
 # Velt Comments Best Practices
 
-Comprehensive implementation guide for Velt's collaborative comments feature in React and Next.js applications. Contains 33 rules across 9 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's collaborative comments feature in React and Next.js applications. Contains 36 rules across 9 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
@@ -33,7 +33,7 @@ Reference these guidelines when:
 | 6 | Data Model | MEDIUM | `data-` |
 | 7 | Debugging & Testing | LOW-MEDIUM | `debug-` |
 | 8 | Moderation & Permissions | LOW | `permissions-` |
-| 9 | Attachments & Reactions | LOW | `attach-` |
+| 9 | Attachments & Reactions | MEDIUM | `attach-` |
 
 ## Quick Reference
 
@@ -90,6 +90,15 @@ Reference these guidelines when:
 
 - `debug-common-issues` - Common issues and solutions
 - `debug-verification` - Verification checklist
+
+### 8. Moderation & Permissions (LOW)
+
+- `permissions-private-mode` - Control global comment visibility with enablePrivateMode/disablePrivateMode and update per-annotation visibility with updateVisibility
+- `permissions-comment-saved-event` - Subscribe to the commentSaved event for reliable post-persist side-effects (webhooks, analytics, external sync)
+
+### 9. Attachments & Reactions (MEDIUM)
+
+- `attach-download-control` - Control attachment download behavior and intercept clicks
 
 ## How to Use
 

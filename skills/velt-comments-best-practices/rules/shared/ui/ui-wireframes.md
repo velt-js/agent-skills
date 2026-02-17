@@ -74,12 +74,42 @@ function CustomSidebar() {
 - `GhostBanner` - Anonymous comment indicator
 - `PrivateBanner` - Private comment indicator
 - `AssigneeBanner` - Assigned user display
+  - `AssigneeBanner.ResolveButton` - Resolve button (template nested **inside** the button component as of v5.0.1-beta.2)
+  - `AssigneeBanner.UnresolveButton` - Unresolve button (template nested **inside** the button component as of v5.0.1-beta.2)
 - `Header` - Dialog header container
 - `Status` - Status selector
 - `Priority` - Priority selector
 - `Options` - Options menu
 - `Body` - Comment content area
 - `Composer` - Input composer
+
+**AssigneeBanner Resolve/Unresolve Button Nesting (v5.0.1-beta.2+):**
+
+As of v5.0.1-beta.2, the wireframe template for the resolve and unresolve buttons is nested **inside** the button component, not wrapping it. This gives custom content direct access to button state, styling, and event handlers.
+
+```jsx
+// Correct: custom content rendered INSIDE the button component (v5.0.1-beta.2+)
+<VeltCommentDialogWireframe.AssigneeBanner>
+  <VeltCommentDialogWireframe.AssigneeBanner.ResolveButton>
+    {/* Custom content rendered inside the resolve button */}
+  </VeltCommentDialogWireframe.AssigneeBanner.ResolveButton>
+  <VeltCommentDialogWireframe.AssigneeBanner.UnresolveButton>
+    {/* Custom content rendered inside the unresolve button */}
+  </VeltCommentDialogWireframe.AssigneeBanner.UnresolveButton>
+</VeltCommentDialogWireframe.AssigneeBanner>
+```
+
+```html
+<!-- HTML equivalents -->
+<velt-comment-dialog-assignee-banner-wireframe>
+  <velt-comment-dialog-assignee-banner-resolve-button-wireframe>
+    <!-- Custom content inside resolve button -->
+  </velt-comment-dialog-assignee-banner-resolve-button-wireframe>
+  <velt-comment-dialog-assignee-banner-unresolve-button-wireframe>
+    <!-- Custom content inside unresolve button -->
+  </velt-comment-dialog-assignee-banner-unresolve-button-wireframe>
+</velt-comment-dialog-assignee-banner-wireframe>
+```
 
 **Sidebar Components:**
 - `Header` - Sidebar header

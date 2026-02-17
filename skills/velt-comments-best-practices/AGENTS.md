@@ -29,4 +29,7 @@
 |react/debug:{debug-common-issues.md,debug-verification.md}
 
 ## 8. Moderation & Permissions — LOW
-## 9. Attachments & Reactions — LOW
+|shared/permissions:{permissions-private-mode.md,permissions-comment-saved-event.md}
+
+## 9. Attachments & Reactions — MEDIUM
+|shared/attach:{attach-download-control.md}

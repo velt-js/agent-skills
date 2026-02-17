@@ -65,6 +65,17 @@ export default function App() {
 
 **Programmatic Page Mode Composer Control (v4.7.7+):**
 
+`setContextInPageModeComposer()` accepts a `PageModeComposerConfig` object. By default, context is cleared after each submission (`clearContext: true`). Set `clearContext: false` to preserve context data across multiple submissions.
+
+```tsx
+// PageModeComposerConfig interface
+// {
+//   context?: { [key: string]: any } | null;
+//   targetElementId?: string | null;
+//   clearContext?: boolean;  // defaults to true
+// }
+```
+
 ```jsx
 import { useVeltClient } from '@veltdev/react';
 
@@ -73,16 +84,27 @@ function PageModeControls() {
 
   const openComposerWithContext = () => {
     const commentElement = client.getCommentElement();
-    // Set context data before opening composer
+    // Set context data before opening composer (context cleared after submission by default)
     commentElement.setContextInPageModeComposer({
-      section: 'header',
-      category: 'feedback'
+      context: { section: 'header', category: 'feedback' },
+      targetElementId: 'header-section',
     });
     // Focus the page mode composer
     commentElement.focusPageModeComposer();
   };
 
-  const clearContext = () => {
+  const openComposerPreservingContext = () => {
+    const commentElement = client.getCommentElement();
+    // Set clearContext: false to preserve context data across submissions
+    commentElement.setContextInPageModeComposer({
+      context: { documentId: '123', section: 'intro' },
+      targetElementId: 'my-element',
+      clearContext: false,
+    });
+    commentElement.focusPageModeComposer();
+  };
+
+  const handleClearContext = () => {
     const commentElement = client.getCommentElement();
     commentElement.clearPageModeComposerContext();
   };
@@ -90,7 +112,8 @@ function PageModeControls() {
   return (
     <>
       <button onClick={openComposerWithContext}>Add Page Comment</button>
-      <button onClick={clearContext}>Clear Context</button>
+      <button onClick={openComposerPreservingContext}>Add Comment (Keep Context)</button>
+      <button onClick={handleClearContext}>Clear Context</button>
     </>
   );
 }
