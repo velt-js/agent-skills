@@ -15,12 +15,13 @@
 
 ## 4. Settings Management — MEDIUM-HIGH
 |react/settings:{settings-channels.md}
+|shared/settings:{settings-config-rest-api.md}
 
 ## 5. Notification Triggers — MEDIUM
 |shared/triggers:{triggers-custom.md}
 
 ## 6. Delivery Channels — MEDIUM
-|shared/delivery:{delivery-webhooks.md,delivery-email.md}
+|shared/delivery:{delivery-delay-batching.md,delivery-webhooks.md,delivery-email.md}
 
 ## 7. UI Customization — MEDIUM
 |shared/ui:{ui-wireframes.md}

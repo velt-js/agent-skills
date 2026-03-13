@@ -9,7 +9,7 @@ metadata:
 
 # Velt CRDT Best Practices
 
-Comprehensive best practices guide for implementing real-time collaborative editing with Velt CRDT (Yjs), maintained by Velt. Contains 35 rules across 5 categories, prioritized by impact to guide automated code generation and debugging.
+Comprehensive best practices guide for implementing real-time collaborative editing with Velt CRDT (Yjs), maintained by Velt. Contains 38 rules across 5 categories, prioritized by impact to guide automated code generation and debugging.
 
 ## When to Apply
 
@@ -46,6 +46,9 @@ Reference these guidelines when:
 - `core-encryption` - Use custom encryption provider for sensitive data
 - `core-webhooks` - Use webhooks to listen for CRDT data changes
 - `core-rest-api` - Use REST API to retrieve CRDT data server-side
+- `core-activity-debounce` - Use setActivityDebounceTime() to control how frequently batched CRDT editor activities are flushed
+- `core-activity-action-types` - Use CrdtActivityActionTypes constant for type-safe CRDT activity filtering instead of raw strings
+- `core-message-stream` - Use CrdtElement message-stream methods (pushMessage, onMessage, getMessages, getSnapshot, saveSnapshot, pruneMessages) for Yjs-backed collaborative editors
 - `core-debug-storemap` - Use VeltCrdtStoreMap for runtime debugging
 - `core-debug-testing` - Test with multiple browser profiles
 

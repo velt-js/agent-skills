@@ -82,6 +82,104 @@ function CustomSidebar() {
 - `Options` - Options menu
 - `Body` - Comment content area
 - `Composer` - Input composer
+- `VisibilityBanner` - Four-option visibility banner below the composer (v5.0.2-beta.4+; replaces the removed `VisibilityDropdown`)
+  - `VisibilityBanner.Icon` - Banner icon
+  - `VisibilityBanner.Text` - Banner label text
+  - `VisibilityBanner.Dropdown` - Visibility selector dropdown
+  - `VisibilityBanner.Dropdown.Trigger` - Dropdown trigger button
+  - `VisibilityBanner.Dropdown.Trigger.Label` - Trigger label text
+  - `VisibilityBanner.Dropdown.Trigger.AvatarList` - Avatar list (shown for `selected-people`)
+  - `VisibilityBanner.Dropdown.Trigger.AvatarList.Item` - Individual avatar
+  - `VisibilityBanner.Dropdown.Trigger.AvatarList.RemainingCount` - Overflow count badge
+  - `VisibilityBanner.Dropdown.Trigger.Icon` - Trigger icon
+  - `VisibilityBanner.Dropdown.Content` - Dropdown content panel
+  - `VisibilityBanner.Dropdown.Content.Item` - Visibility option item (accepts `type`: `'public'` | `'organizationPrivate'` | `'restrictedSelf'` | `'restrictedSelectedPeople'`) (renamed from `'org-users'` / `'personal'` / `'selected-people'` in v5.0.2-beta.5)
+  - `VisibilityBanner.Dropdown.Content.Item.Icon` - Option item icon
+  - `VisibilityBanner.Dropdown.Content.Item.Label` - Option item label
+
+> **Breaking Change (v5.0.2-beta.4):** The `velt-comment-dialog-visibility-dropdown-*` wireframe family has been removed. Migrate any custom wireframes to the new `velt-comment-dialog-visibility-banner-*` family shown below.
+
+> **Breaking Change (v5.0.2-beta.5):** The `type` prop values on `VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item` (and the HTML equivalent) have been renamed to align with the `CommentVisibilityOption` enum. Replace `type="personal"` → `type="restrictedSelf"`, `type="selected-people"` → `type="restrictedSelectedPeople"`, `type="org-users"` → `type="organizationPrivate"`. The `type="public"` value is unchanged.
+
+> **Breaking Change (v5.0.2-beta.5):** The `VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.UserPicker` sub-component hierarchy (11 components) has been removed. The visibility banner now uses the shared autocomplete component internally for user selection. Remove any wireframe usage of `UserPicker` and its descendants.
+
+**VisibilityBanner Wireframe Usage (v5.0.2-beta.5+):**
+
+```jsx
+// React (v5.0.2-beta.5+)
+<VeltWireframe>
+  <VeltCommentDialogWireframe.VisibilityBanner>
+    <VeltCommentDialogWireframe.VisibilityBanner.Icon />
+    <VeltCommentDialogWireframe.VisibilityBanner.Text />
+    <VeltCommentDialogWireframe.VisibilityBanner.Dropdown>
+      <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Trigger>
+        <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Trigger.Label />
+        <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Trigger.AvatarList>
+          <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Trigger.AvatarList.Item />
+          <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Trigger.AvatarList.RemainingCount />
+        </VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Trigger.AvatarList>
+        <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Trigger.Icon />
+      </VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Trigger>
+      <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content>
+        {/* Supports 4 types: 'public', 'organizationPrivate', 'restrictedSelf', 'restrictedSelectedPeople' */}
+        <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item type="public">
+          <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item.Icon />
+          <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item.Label />
+        </VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item>
+        <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item type="organizationPrivate">
+          <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item.Icon />
+          <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item.Label />
+        </VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item>
+        <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item type="restrictedSelf">
+          <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item.Icon />
+          <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item.Label />
+        </VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item>
+        <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item type="restrictedSelectedPeople">
+          <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item.Icon />
+          <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item.Label />
+        </VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item>
+      </VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content>
+    </VeltCommentDialogWireframe.VisibilityBanner.Dropdown>
+  </VeltCommentDialogWireframe.VisibilityBanner>
+</VeltWireframe>
+```
+
+```html
+<!-- Other Frameworks (inside <velt-wireframe style="display:none;"> wrapper) (v5.0.2-beta.5+) -->
+<velt-comment-dialog-visibility-banner-wireframe>
+  <velt-comment-dialog-visibility-banner-icon-wireframe></velt-comment-dialog-visibility-banner-icon-wireframe>
+  <velt-comment-dialog-visibility-banner-text-wireframe></velt-comment-dialog-visibility-banner-text-wireframe>
+  <velt-comment-dialog-visibility-banner-dropdown-wireframe>
+    <velt-comment-dialog-visibility-banner-dropdown-trigger-wireframe>
+      <velt-comment-dialog-visibility-banner-dropdown-trigger-label-wireframe></velt-comment-dialog-visibility-banner-dropdown-trigger-label-wireframe>
+      <velt-comment-dialog-visibility-banner-dropdown-trigger-avatar-list-wireframe>
+        <velt-comment-dialog-visibility-banner-dropdown-trigger-avatar-list-item-wireframe></velt-comment-dialog-visibility-banner-dropdown-trigger-avatar-list-item-wireframe>
+        <velt-comment-dialog-visibility-banner-dropdown-trigger-avatar-list-remaining-count-wireframe></velt-comment-dialog-visibility-banner-dropdown-trigger-avatar-list-remaining-count-wireframe>
+      </velt-comment-dialog-visibility-banner-dropdown-trigger-avatar-list-wireframe>
+      <velt-comment-dialog-visibility-banner-dropdown-trigger-icon-wireframe></velt-comment-dialog-visibility-banner-dropdown-trigger-icon-wireframe>
+    </velt-comment-dialog-visibility-banner-dropdown-trigger-wireframe>
+    <velt-comment-dialog-visibility-banner-dropdown-content-wireframe>
+      <!-- Supports 4 types: 'public', 'organizationPrivate', 'restrictedSelf', 'restrictedSelectedPeople' -->
+      <velt-comment-dialog-visibility-banner-dropdown-content-item-wireframe type="public">
+        <velt-comment-dialog-visibility-banner-dropdown-content-item-icon-wireframe></velt-comment-dialog-visibility-banner-dropdown-content-item-icon-wireframe>
+        <velt-comment-dialog-visibility-banner-dropdown-content-item-label-wireframe></velt-comment-dialog-visibility-banner-dropdown-content-item-label-wireframe>
+      </velt-comment-dialog-visibility-banner-dropdown-content-item-wireframe>
+      <velt-comment-dialog-visibility-banner-dropdown-content-item-wireframe type="organizationPrivate">
+        <velt-comment-dialog-visibility-banner-dropdown-content-item-icon-wireframe></velt-comment-dialog-visibility-banner-dropdown-content-item-icon-wireframe>
+        <velt-comment-dialog-visibility-banner-dropdown-content-item-label-wireframe></velt-comment-dialog-visibility-banner-dropdown-content-item-label-wireframe>
+      </velt-comment-dialog-visibility-banner-dropdown-content-item-wireframe>
+      <velt-comment-dialog-visibility-banner-dropdown-content-item-wireframe type="restrictedSelf">
+        <velt-comment-dialog-visibility-banner-dropdown-content-item-icon-wireframe></velt-comment-dialog-visibility-banner-dropdown-content-item-icon-wireframe>
+        <velt-comment-dialog-visibility-banner-dropdown-content-item-label-wireframe></velt-comment-dialog-visibility-banner-dropdown-content-item-label-wireframe>
+      </velt-comment-dialog-visibility-banner-dropdown-content-item-wireframe>
+      <velt-comment-dialog-visibility-banner-dropdown-content-item-wireframe type="restrictedSelectedPeople">
+        <velt-comment-dialog-visibility-banner-dropdown-content-item-icon-wireframe></velt-comment-dialog-visibility-banner-dropdown-content-item-icon-wireframe>
+        <velt-comment-dialog-visibility-banner-dropdown-content-item-label-wireframe></velt-comment-dialog-visibility-banner-dropdown-content-item-label-wireframe>
+      </velt-comment-dialog-visibility-banner-dropdown-content-item-wireframe>
+    </velt-comment-dialog-visibility-banner-dropdown-content-wireframe>
+  </velt-comment-dialog-visibility-banner-dropdown-wireframe>
+</velt-comment-dialog-visibility-banner-wireframe>
+```
 
 **AssigneeBanner Resolve/Unresolve Button Nesting (v5.0.1-beta.2+):**
 

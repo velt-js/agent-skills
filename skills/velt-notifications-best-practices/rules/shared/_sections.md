@@ -29,7 +29,7 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 4. Settings Management (settings)
 
 **Impact:** MEDIUM-HIGH
-**Description:** User notification preference management. Includes channel configuration (Inbox, Email, Slack), settings UI layout, and mute options.
+**Description:** User notification preference management. Includes channel configuration (Inbox, Email, Slack), settings UI layout, mute options, and server-side getConfig/setConfig REST API for reading and writing per-user preferences at document or org level.
 
 ---
 
@@ -43,7 +43,7 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 6. Delivery Channels (delivery)
 
 **Impact:** MEDIUM
-**Description:** Notification delivery methods. Includes in-app inbox, email via SendGrid, and webhook integrations for external services.
+**Description:** Notification delivery methods. Includes in-app inbox, email via SendGrid, webhook integrations for external services, and the opt-in server-side delay and batching pipeline.
 
 ---
 

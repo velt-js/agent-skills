@@ -60,8 +60,17 @@ interface CommentAnnotation {
   targetElementId: string;   // Target DOM element ID
   context: object;           // Custom metadata
   comments: Comment[];       // Array of comment messages
+  visibilityConfig?: CommentAnnotationVisibilityConfig; // defaults to { type: 'public' } when not set
   // ... other fields
 }
+
+interface CommentAnnotationVisibilityConfig {
+  type: CommentVisibilityType;  // 'public' | 'organizationPrivate' | 'restricted'
+  organizationId?: string;
+  userIds?: string[];
+}
+
+type CommentVisibilityType = 'public' | 'organizationPrivate' | 'restricted';
 ```
 
 **Get Specific Annotation:**

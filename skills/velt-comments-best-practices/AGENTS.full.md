@@ -56,12 +56,16 @@ Comprehensive Velt Comments implementation guide covering comment modes, setup p
 5. [UI Customization](#5-ui-customization) — **MEDIUM**
    - 5.1 [Customize Comment Bubble Display](#51-customize-comment-bubble-display)
    - 5.2 [Customize Comment Dialog Appearance](#52-customize-comment-dialog-appearance)
-   - 5.3 [Use Wireframe Components for Custom UI](#53-use-wireframe-components-for-custom-ui)
+   - 5.3 [Use Standalone Autocomplete Primitives for Custom Autocomplete UIs](#53-use-standalone-autocomplete-primitives-for-custom-autocomplete-uis)
+   - 5.4 [Use Wireframe Components for Custom UI](#54-use-wireframe-components-for-custom-ui)
 
 6. [Data Model](#6-data-model) — **MEDIUM**
    - 6.1 [Filter and Group Comments](#61-filter-and-group-comments)
    - 6.2 [Work with Comment Annotations Data](#62-work-with-comment-annotations-data)
    - 6.3 [Add Custom Metadata to Comments with Context](#63-add-custom-metadata-to-comments-with-context)
+   - 6.4 [Use CommentActivityActionTypes for Type-Safe Comment Activity Filtering](#64-use-commentactivityactiontypes-for-type-safe-comment-activity-filtering)
+   - 6.5 [Use Config-Based URL Endpoints Instead of Placeholder Callbacks in CommentAnnotationDataProvider](#65-use-config-based-url-endpoints-instead-of-placeholder-callbacks-in-commentannotationdataprovider)
+   - 6.6 [Use triggerActivities to Create Activity Records via REST API](#66-use-triggeractivities-to-create-activity-records-via-rest-api)
 
 7. [Debugging & Testing](#7-debugging-testing) — **LOW-MEDIUM**
    - 7.1 [Troubleshoot Common Velt Integration Issues](#71-troubleshoot-common-velt-integration-issues)
@@ -69,7 +73,11 @@ Comprehensive Velt Comments implementation guide covering comment modes, setup p
 
 8. [Moderation & Permissions](#8-moderation-permissions) — **LOW**
    - 8.1 [Control Comment Visibility with Private Mode and Per-Annotation Updates](#81-control-comment-visibility-with-private-mode-and-per-annotation-updates)
-   - 8.2 [Use the commentSaved Event for Reliable Post-Persist Side-Effects](#82-use-the-commentsaved-event-for-reliable-post-persist-side-effects)
+   - 8.2 [Prefer Past-Tense Event Aliases commentToolClicked and sidebarButtonClicked in New Code](#82-prefer-past-tense-event-aliases-commenttoolclicked-and-sidebarbuttonclicked-in-new-code)
+   - 8.3 [Register an Anonymous User Data Provider to Resolve Tagged Contact Emails to User IDs](#83-register-an-anonymous-user-data-provider-to-resolve-tagged-contact-emails-to-user-ids)
+   - 8.4 [Show a Visibility Banner in the Comment Composer for Multi-Level Visibility Selection](#84-show-a-visibility-banner-in-the-comment-composer-for-multi-level-visibility-selection)
+   - 8.5 [Use commentSaveTriggered for Immediate UI Feedback Before Async Save Completes](#85-use-commentsavetriggered-for-immediate-ui-feedback-before-async-save-completes)
+   - 8.6 [Use the commentSaved Event for Reliable Post-Persist Side-Effects](#86-use-the-commentsaved-event-for-reliable-post-persist-side-effects)
 
 9. [Attachments & Reactions](#9-attachments-reactions) — **MEDIUM**
    - 9.1 [Control Attachment Download Behavior and Intercept Clicks](#91-control-attachment-download-behavior-and-intercept-clicks)
@@ -2762,7 +2770,7 @@ export default function App() {
 
 **Impact: MEDIUM**
 
-Visual customization patterns for comment components. Includes dialog customization, bubble styling, and wireframe component usage.
+Visual customization patterns for comment components. Includes dialog customization, bubble styling, wireframe component usage, and standalone autocomplete primitives.
 
 ### 5.1 Customize Comment Bubble Display
 
@@ -2910,7 +2918,129 @@ velt-comment-dialog {
 
 ---
 
-### 5.3 Use Wireframe Components for Custom UI
+### 5.3 Use Standalone Autocomplete Primitives for Custom Autocomplete UIs
+
+**Impact: MEDIUM (Build fully custom autocomplete UIs without requiring the full VeltAutocomplete panel, using independently importable primitive components)**
+
+Velt provides 13 standalone autocomplete primitive components that are independently importable and render their corresponding HTML custom elements without requiring the full `<VeltAutocomplete>` panel. Use these primitives to build fully custom autocomplete UIs; use `VeltAutocompleteEmptyWireframe` to customize the empty state.
+
+**Incorrect (using the full panel when only a subset of primitives is needed):**
+
+```jsx
+// Importing the full autocomplete panel forces all sub-components to render together.
+// Use primitives individually when you need custom layout or partial rendering.
+import { VeltAutocomplete } from '@veltdev/react';
+```
+
+**Correct (React — import and use primitives independently):**
+
+```jsx
+import {
+  VeltAutocompleteOption,
+  VeltAutocompleteOptionIcon,
+  VeltAutocompleteOptionName,
+  VeltAutocompleteOptionDescription,
+  VeltAutocompleteOptionErrorIcon,
+  VeltAutocompleteGroupOption,
+  VeltAutocompleteTool,
+  VeltAutocompleteEmpty,
+  VeltAutocompleteChip,
+  VeltAutocompleteChipTooltip,
+  VeltAutocompleteChipTooltipIcon,
+  VeltAutocompleteChipTooltipName,
+  VeltAutocompleteChipTooltipDescription,
+} from '@veltdev/react';
+
+// Render a custom chip with tooltip
+function CustomChip({ user }) {
+  return (
+    <VeltAutocompleteChip
+      type="user"
+      email={user.email}
+      userId={user.userId}
+      userObject={user}
+    >
+      <VeltAutocompleteChipTooltip>
+        <VeltAutocompleteChipTooltipIcon />
+        <VeltAutocompleteChipTooltipName />
+        <VeltAutocompleteChipTooltipDescription />
+      </VeltAutocompleteChipTooltip>
+    </VeltAutocompleteChip>
+  );
+}
+
+// Render a custom option row
+function CustomOption({ user }) {
+  return (
+    <VeltAutocompleteOption userId={user.userId} userObject={user}>
+      <VeltAutocompleteOptionIcon />
+      <VeltAutocompleteOptionName />
+      <VeltAutocompleteOptionDescription field="email" />
+      <VeltAutocompleteOptionErrorIcon />
+    </VeltAutocompleteOption>
+  );
+}
+```
+
+**Correct (React — customize the empty state via wireframe):**
+
+```jsx
+import { VeltWireframe, VeltAutocompleteEmptyWireframe } from '@veltdev/react';
+
+// Wrap in VeltWireframe so Velt picks up the custom template
+<VeltWireframe>
+  <VeltAutocompleteEmptyWireframe>
+    <div className="my-empty-state">No results found</div>
+  </VeltAutocompleteEmptyWireframe>
+</VeltWireframe>
+```
+
+**Correct (HTML — primitive custom elements):**
+
+```html
+<!-- Each primitive renders as its own custom element -->
+<velt-autocomplete-option>
+  <velt-autocomplete-option-icon></velt-autocomplete-option-icon>
+  <velt-autocomplete-option-name></velt-autocomplete-option-name>
+  <velt-autocomplete-option-description></velt-autocomplete-option-description>
+  <velt-autocomplete-option-error-icon></velt-autocomplete-option-error-icon>
+</velt-autocomplete-option>
+
+<velt-autocomplete-chip>
+  <velt-autocomplete-chip-tooltip>
+    <velt-autocomplete-chip-tooltip-icon></velt-autocomplete-chip-tooltip-icon>
+    <velt-autocomplete-chip-tooltip-name></velt-autocomplete-chip-tooltip-name>
+    <velt-autocomplete-chip-tooltip-description></velt-autocomplete-chip-tooltip-description>
+  </velt-autocomplete-chip-tooltip>
+</velt-autocomplete-chip>
+
+<!-- Empty state wireframe -->
+<velt-autocomplete-empty-wireframe>
+  <div class="my-empty-state">No results found</div>
+</velt-autocomplete-empty-wireframe>
+```
+
+**`VeltAutocomplete` Panel Props (v5.0.2-beta.5+):**
+
+```html
+// React — configure the autocomplete panel
+<VeltAutocomplete
+  multiSelect={true}
+  selectedFirstOrdering={true}
+  contacts={myContactList}
+/>
+<!-- HTML — configure the autocomplete panel (contacts has no HTML attribute) -->
+<velt-autocomplete
+  multi-select="true"
+  selected-first-ordering="true"
+></velt-autocomplete>
+```
+
+<!-- TODO (v5.0.2-beta.5): Verify default values for readOnly and inline props on VeltAutocomplete. Release note confirms the prop names and types but does not specify default values. -->
+
+---
+
+### 5.4 Use Wireframe Components for Custom UI
 
 **Impact: MEDIUM (Build fully custom comment UIs with wireframe building blocks)**
 
@@ -2966,6 +3096,81 @@ function CustomSidebar() {
     </VeltCommentsSidebarWireframe>
   );
 }
+```
+
+**VisibilityBanner Wireframe Usage (v5.0.2-beta.5+):**
+
+```html
+// React (v5.0.2-beta.5+)
+<VeltWireframe>
+  <VeltCommentDialogWireframe.VisibilityBanner>
+    <VeltCommentDialogWireframe.VisibilityBanner.Icon />
+    <VeltCommentDialogWireframe.VisibilityBanner.Text />
+    <VeltCommentDialogWireframe.VisibilityBanner.Dropdown>
+      <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Trigger>
+        <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Trigger.Label />
+        <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Trigger.AvatarList>
+          <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Trigger.AvatarList.Item />
+          <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Trigger.AvatarList.RemainingCount />
+        </VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Trigger.AvatarList>
+        <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Trigger.Icon />
+      </VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Trigger>
+      <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content>
+        {/* Supports 4 types: 'public', 'organizationPrivate', 'restrictedSelf', 'restrictedSelectedPeople' */}
+        <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item type="public">
+          <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item.Icon />
+          <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item.Label />
+        </VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item>
+        <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item type="organizationPrivate">
+          <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item.Icon />
+          <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item.Label />
+        </VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item>
+        <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item type="restrictedSelf">
+          <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item.Icon />
+          <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item.Label />
+        </VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item>
+        <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item type="restrictedSelectedPeople">
+          <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item.Icon />
+          <VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item.Label />
+        </VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item>
+      </VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content>
+    </VeltCommentDialogWireframe.VisibilityBanner.Dropdown>
+  </VeltCommentDialogWireframe.VisibilityBanner>
+</VeltWireframe>
+<!-- Other Frameworks (inside <velt-wireframe style="display:none;"> wrapper) (v5.0.2-beta.5+) -->
+<velt-comment-dialog-visibility-banner-wireframe>
+  <velt-comment-dialog-visibility-banner-icon-wireframe></velt-comment-dialog-visibility-banner-icon-wireframe>
+  <velt-comment-dialog-visibility-banner-text-wireframe></velt-comment-dialog-visibility-banner-text-wireframe>
+  <velt-comment-dialog-visibility-banner-dropdown-wireframe>
+    <velt-comment-dialog-visibility-banner-dropdown-trigger-wireframe>
+      <velt-comment-dialog-visibility-banner-dropdown-trigger-label-wireframe></velt-comment-dialog-visibility-banner-dropdown-trigger-label-wireframe>
+      <velt-comment-dialog-visibility-banner-dropdown-trigger-avatar-list-wireframe>
+        <velt-comment-dialog-visibility-banner-dropdown-trigger-avatar-list-item-wireframe></velt-comment-dialog-visibility-banner-dropdown-trigger-avatar-list-item-wireframe>
+        <velt-comment-dialog-visibility-banner-dropdown-trigger-avatar-list-remaining-count-wireframe></velt-comment-dialog-visibility-banner-dropdown-trigger-avatar-list-remaining-count-wireframe>
+      </velt-comment-dialog-visibility-banner-dropdown-trigger-avatar-list-wireframe>
+      <velt-comment-dialog-visibility-banner-dropdown-trigger-icon-wireframe></velt-comment-dialog-visibility-banner-dropdown-trigger-icon-wireframe>
+    </velt-comment-dialog-visibility-banner-dropdown-trigger-wireframe>
+    <velt-comment-dialog-visibility-banner-dropdown-content-wireframe>
+      <!-- Supports 4 types: 'public', 'organizationPrivate', 'restrictedSelf', 'restrictedSelectedPeople' -->
+      <velt-comment-dialog-visibility-banner-dropdown-content-item-wireframe type="public">
+        <velt-comment-dialog-visibility-banner-dropdown-content-item-icon-wireframe></velt-comment-dialog-visibility-banner-dropdown-content-item-icon-wireframe>
+        <velt-comment-dialog-visibility-banner-dropdown-content-item-label-wireframe></velt-comment-dialog-visibility-banner-dropdown-content-item-label-wireframe>
+      </velt-comment-dialog-visibility-banner-dropdown-content-item-wireframe>
+      <velt-comment-dialog-visibility-banner-dropdown-content-item-wireframe type="organizationPrivate">
+        <velt-comment-dialog-visibility-banner-dropdown-content-item-icon-wireframe></velt-comment-dialog-visibility-banner-dropdown-content-item-icon-wireframe>
+        <velt-comment-dialog-visibility-banner-dropdown-content-item-label-wireframe></velt-comment-dialog-visibility-banner-dropdown-content-item-label-wireframe>
+      </velt-comment-dialog-visibility-banner-dropdown-content-item-wireframe>
+      <velt-comment-dialog-visibility-banner-dropdown-content-item-wireframe type="restrictedSelf">
+        <velt-comment-dialog-visibility-banner-dropdown-content-item-icon-wireframe></velt-comment-dialog-visibility-banner-dropdown-content-item-icon-wireframe>
+        <velt-comment-dialog-visibility-banner-dropdown-content-item-label-wireframe></velt-comment-dialog-visibility-banner-dropdown-content-item-label-wireframe>
+      </velt-comment-dialog-visibility-banner-dropdown-content-item-wireframe>
+      <velt-comment-dialog-visibility-banner-dropdown-content-item-wireframe type="restrictedSelectedPeople">
+        <velt-comment-dialog-visibility-banner-dropdown-content-item-icon-wireframe></velt-comment-dialog-visibility-banner-dropdown-content-item-icon-wireframe>
+        <velt-comment-dialog-visibility-banner-dropdown-content-item-label-wireframe></velt-comment-dialog-visibility-banner-dropdown-content-item-label-wireframe>
+      </velt-comment-dialog-visibility-banner-dropdown-content-item-wireframe>
+    </velt-comment-dialog-visibility-banner-dropdown-content-wireframe>
+  </velt-comment-dialog-visibility-banner-dropdown-wireframe>
+</velt-comment-dialog-visibility-banner-wireframe>
 ```
 
 **AssigneeBanner Resolve/Unresolve Button Nesting (v5.0.1-beta.2+):**
@@ -3160,8 +3365,17 @@ interface CommentAnnotation {
   targetElementId: string;   // Target DOM element ID
   context: object;           // Custom metadata
   comments: Comment[];       // Array of comment messages
+  visibilityConfig?: CommentAnnotationVisibilityConfig; // defaults to { type: 'public' } when not set
   // ... other fields
 }
+
+interface CommentAnnotationVisibilityConfig {
+  type: CommentVisibilityType;  // 'public' | 'organizationPrivate' | 'restricted'
+  organizationId?: string;
+  userIds?: string[];
+}
+
+type CommentVisibilityType = 'public' | 'organizationPrivate' | 'restricted';
 ```
 
 **Get Specific Annotation:**
@@ -3316,6 +3530,221 @@ commentElement.setContextProvider(() => ({
   target-element-id="element-id"
   context='{"category": "feedback", "section": "header"}'
 ></velt-comment-tool>
+```
+
+---
+
+### 6.4 Use CommentActivityActionTypes for Type-Safe Comment Activity Filtering
+
+**Impact: MEDIUM (Eliminates raw-string action type errors when filtering comment activities)**
+
+The `CommentActivityActionTypes` exported constant provides the canonical string values for all comment action types. Use it — and the accompanying `CommentActivityActionType` union type — instead of raw strings when building `ActivitySubscribeConfig.actionTypes` filters, so that typos are caught at compile time and the code self-documents intent.
+
+**Incorrect (raw string values for action type filtering):**
+
+```typescript
+// Raw strings are error-prone and not refactor-safe
+const activities = activityElement.getAllActivities({
+  actionTypes: ['comment_annotation.add', 'comment_annotation.status_change'],
+});
+```
+
+**Correct (React / Next.js — type-safe filtering with CommentActivityActionTypes):**
+
+```jsx
+import { CommentActivityActionTypes } from '@veltdev/react';
+import { useVeltClient } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function CommentActivityFilter() {
+  const { client } = useVeltClient();
+
+  useEffect(() => {
+    if (!client) return;
+    const activityElement = client.getActivityElement();
+
+    // Type-safe filtering of comment activities
+    const subscription = activityElement.getAllActivities({
+      actionTypes: [
+        CommentActivityActionTypes.ANNOTATION_ADD,
+        CommentActivityActionTypes.STATUS_CHANGE,
+      ],
+    }).subscribe((activities) => {
+      console.log('Comment activities:', activities);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [client]);
+}
+```
+
+**Correct (Other Frameworks — Angular, Vue, Vanilla JS):**
+
+```typescript
+import { CommentActivityActionTypes } from '@veltdev/types';
+
+const activityElement = client.getActivityElement();
+
+const subscription = activityElement.getAllActivities({
+  actionTypes: [
+    CommentActivityActionTypes.ANNOTATION_ADD,
+    CommentActivityActionTypes.STATUS_CHANGE,
+  ],
+}).subscribe((activities) => {
+  console.log('Comment activities:', activities);
+});
+```
+
+**Full Constant Definition (v5.0.2-beta.7):**
+
+```typescript
+import { CommentActivityActionTypes, CommentActivityActionType } from '@veltdev/react';
+
+const CommentActivityActionTypes = {
+  ANNOTATION_ADD: 'comment_annotation.add',
+  ANNOTATION_DELETE: 'comment_annotation.delete',
+  COMMENT_ADD: 'comment.add',
+  COMMENT_UPDATE: 'comment.update',
+  COMMENT_DELETE: 'comment.delete',
+  STATUS_CHANGE: 'comment_annotation.status_change',
+  PRIORITY_CHANGE: 'comment_annotation.priority_change',
+  ASSIGN: 'comment_annotation.assign',
+  ACCESS_MODE_CHANGE: 'comment_annotation.access_mode_change',
+  CUSTOM_LIST_CHANGE: 'comment_annotation.custom_list_change',
+  APPROVE: 'comment_annotation.approve',
+  ACCEPT: 'comment.accept',
+  REJECT: 'comment.reject',
+  REACTION_ADD: 'comment.reaction_add',
+  REACTION_DELETE: 'comment.reaction_delete',
+  SUBSCRIBE: 'comment_annotation.subscribe',
+  UNSUBSCRIBE: 'comment_annotation.unsubscribe',
+} as const;
+
+type CommentActivityActionType =
+  typeof CommentActivityActionTypes[keyof typeof CommentActivityActionTypes];
+```
+
+<!-- TODO (v5.0.2-beta.7): Verify the complete member list for CommentActivityActionTypes. Release note confirms ANNOTATION_ADD and STATUS_CHANGE and that the constant exists; all 17 members above are supplied in the release delta but should be validated against SDK source before shipping to production. -->
+
+---
+
+### 6.5 Use Config-Based URL Endpoints Instead of Placeholder Callbacks in CommentAnnotationDataProvider
+
+**Impact: MEDIUM (Eliminates boilerplate callback stubs when using URL-based data provider endpoints, reducing integration errors)**
+
+As of v5.0.2-beta.8, the `get`, `save`, and `delete` methods on `CommentAnnotationDataProvider` (and the parallel `ReactionAnnotationDataProvider` and `AttachmentDataProvider`) are optional. When using config-based URL endpoints (`config.getConfig`, `config.saveConfig`, `config.deleteConfig`), you no longer need to supply empty placeholder callbacks alongside them. `ResolverConfig` also accepts a new `additionalFields?: string[]` property to include custom fields in the resolver payload sent to your endpoints.
+
+**Incorrect (supplying unnecessary placeholder callbacks alongside config-based endpoints):**
+
+```tsx
+// Before v5.0.2-beta.8: developers had to supply stub callbacks
+// even when using config-based URL endpoints — now redundant
+client.setDataProviders({
+  comment: {
+    get: async (request) => ({ data: null }), // unnecessary stub
+    save: async (request) => ({ data: null }), // unnecessary stub
+    delete: async (request) => ({ data: null }), // unnecessary stub
+    config: {
+      getConfig:    { url: 'https://api.yourapp.com/comments/get' },
+      saveConfig:   { url: 'https://api.yourapp.com/comments/save' },
+      deleteConfig: { url: 'https://api.yourapp.com/comments/delete' },
+    },
+  },
+});
+```
+
+**Correct (config-based endpoints with no placeholder callbacks required):**
+
+```tsx
+import { useVeltClient } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function DataProviderSetup() {
+  const { client } = useVeltClient();
+
+  useEffect(() => {
+    if (!client) return;
+
+    // Config-based URL endpoints — get/save/delete callbacks are optional
+    client.setDataProviders({
+      comment: {
+        config: {
+          getConfig:        { url: 'https://api.yourapp.com/comments/get' },
+          saveConfig:       { url: 'https://api.yourapp.com/comments/save' },
+          deleteConfig:     { url: 'https://api.yourapp.com/comments/delete' },
+          // Include custom fields in the resolver payload sent to each endpoint
+          additionalFields: ['tenantId', 'projectId'],
+        },
+      },
+    });
+  }, [client]);
+}
+
+// Callback-based form is still valid when you need custom logic
+function DataProviderSetupCallbackBased() {
+  const { client } = useVeltClient();
+
+  useEffect(() => {
+    if (!client) return;
+
+    client.setDataProviders({
+      comment: {
+        get:    async (request) => { /* fetch from your backend */ return { data: null }; },
+        save:   async (request) => { /* persist to your backend */ return { data: null }; },
+        delete: async (request) => { /* delete from your backend */ return { data: null }; },
+      },
+    });
+  }, [client]);
+}
+```
+
+---
+
+### 6.6 Use triggerActivities to Create Activity Records via REST API
+
+**Impact: MEDIUM (Ensures comment additions via REST API are reflected in the activity feed when workspace-level activity tracking is enabled)**
+
+When adding comments via the `POST /v2/commentannotations/add` REST endpoint, set `triggerActivities: true` on each `CommentData` entry to automatically create an activity record for that comment. Without this flag the comment is persisted but no activity record is generated, even if the workspace has `activityServiceConfig` enabled.
+
+Note: `triggerActivities` creates activity records; `triggerNotification` sends notifications. These are independent flags — one does not imply the other.
+
+**Incorrect (omitting triggerActivities when activity tracking is required):**
+
+```json
+// POST /v2/commentannotations/add — activity record will NOT be created
+{
+  "commentAnnotations": [
+    {
+      "commentData": [
+        {
+          "from": { "userId": "user-1", "email": "user@example.com" },
+          "commentText": "This needs review",
+          "triggerNotification": true
+        }
+      ]
+    }
+  ]
+}
+```
+
+**Correct (set triggerActivities: true on the CommentData entry):**
+
+```json
+// POST /v2/commentannotations/add — activity record is created automatically
+{
+  "commentAnnotations": [
+    {
+      "commentData": [
+        {
+          "from": { "userId": "user-1", "email": "user@example.com" },
+          "commentText": "This needs review",
+          "triggerNotification": true,
+          "triggerActivities": true
+        }
+      ]
+    }
+  ]
+}
 ```
 
 ---
@@ -3573,7 +4002,7 @@ function RestrictedModeController() {
     const commentElement = client.getCommentElement();
 
     // Restrict all new comments to user-a and user-b only.
-    // If userIds is omitted, it defaults to the current user.
+    // The current user is always auto-appended to userIds — even when an explicit list is provided.
     commentElement.enablePrivateMode({
       type: 'restricted',
       userIds: ['user-a', 'user-b'],
@@ -3659,6 +4088,49 @@ commentElement.updateVisibility({
 });
 ```
 
+**Correct (React — set visibility at comment creation time):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+
+function CreateRestrictedComment() {
+  const { client } = useVeltClient();
+
+  const addComment = () => {
+    if (!client) return;
+    const commentElement = client.getCommentElement();
+
+    // Set visibility at creation time — no post-creation updateVisibility() call needed.
+    commentElement.addComment({
+      annotationId: 'annotation-id',
+      comment: { text: 'Visible only to selected users' },
+      visibility: {
+        type: 'restricted',
+        userIds: ['user1', 'user2'],
+      },
+    });
+  };
+
+  return <button onClick={addComment}>Add restricted comment</button>;
+}
+```
+
+**Correct (HTML / Other Frameworks — set visibility at comment creation time):**
+
+```typescript
+const commentElement = Velt.getCommentElement();
+
+// Set visibility at creation time — no post-creation updateVisibility() call needed.
+commentElement.addComment({
+  annotationId: 'annotation-id',
+  comment: { text: 'Visible only to selected users' },
+  visibility: {
+    type: 'restricted',
+    userIds: ['user1', 'user2'],
+  },
+});
+```
+
 **Type Definitions:**
 
 ```typescript
@@ -3668,11 +4140,18 @@ interface CommentVisibilityConfig {
   type: CommentVisibilityType;
   annotationId?: string;   // Required for updateVisibility(); unused in enablePrivateMode()
   organizationId?: string; // Auto-resolved from authenticated user when omitted
-  userIds?: string[];      // Defaults to current user when omitted for 'restricted' type
+  userIds?: string[];      // Current user always auto-appended for 'restricted' type, even when list is explicitly provided
 }
 
 // PrivateModeConfig omits annotationId and organizationId (auto-resolved)
 type PrivateModeConfig = Omit<CommentVisibilityConfig, 'annotationId' | 'organizationId'>;
+
+interface AddCommentRequest {
+  annotationId?: string;
+  comment?: { text?: string; [key: string]: unknown };
+  visibility?: CommentVisibilityConfig; // Optional: set visibility at creation time (v5.0.2-beta.4+)
+  [key: string]: unknown;
+}
 ```
 
 **Before (v5.0.1-beta.3 and earlier — now broken):**
@@ -3695,7 +4174,429 @@ commentElement.enablePrivateMode({ type: 'organizationPrivate' });              
 
 ---
 
-### 8.2 Use the commentSaved Event for Reliable Post-Persist Side-Effects
+### 8.2 Prefer Past-Tense Event Aliases commentToolClicked and sidebarButtonClicked in New Code
+
+**Impact: LOW (Write consistent event subscriptions using the canonical past-tense naming convention that aligns with all other Velt events — both old and new names fire simultaneously so migration is non-breaking)**
+
+Velt v5.0.2-beta.2 introduced `commentToolClicked` and `sidebarButtonClicked` as past-tense aliases for the original `commentToolClick` and `sidebarButtonClick` events. Both old and new names fire simultaneously — use the past-tense aliases in all new code to align with the consistent naming convention used across all other Velt events.
+
+**Incorrect (using present-tense event names in new code — still works but not the canonical pattern):**
+
+```jsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function InteractionListeners() {
+  // Present-tense names still fire, but past-tense aliases are the canonical form.
+  const toolClickEvent = useCommentEventCallback('commentToolClick');
+  const sidebarClickEvent = useCommentEventCallback('sidebarButtonClick');
+
+  useEffect(() => {
+    if (toolClickEvent) {
+      console.log('Comment tool clicked:', toolClickEvent);
+    }
+  }, [toolClickEvent]);
+
+  return null;
+}
+```
+
+**Correct (React — use past-tense aliases):**
+
+```jsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function CommentToolClickedListener() {
+  const toolClickedEvent = useCommentEventCallback('commentToolClicked');
+  const sidebarClickedEvent = useCommentEventCallback('sidebarButtonClicked');
+
+  useEffect(() => {
+    if (toolClickedEvent) {
+      console.log('Comment tool clicked:', toolClickedEvent);
+    }
+  }, [toolClickedEvent]);
+
+  useEffect(() => {
+    if (sidebarClickedEvent) {
+      console.log('Sidebar button clicked:', sidebarClickedEvent);
+    }
+  }, [sidebarClickedEvent]);
+
+  return null;
+}
+```
+
+**Correct (HTML / Other Frameworks — subscribe via commentElement):**
+
+```typescript
+const commentElement = Velt.getCommentElement();
+
+const sub1 = commentElement.on('commentToolClicked').subscribe((event) => {
+  console.log('Comment tool clicked:', event);
+});
+
+const sub2 = commentElement.on('sidebarButtonClicked').subscribe((event) => {
+  console.log('Sidebar button clicked:', event);
+});
+
+// Clean up subscriptions when no longer needed
+sub1.unsubscribe();
+sub2.unsubscribe();
+```
+
+---
+
+### 8.3 Register an Anonymous User Data Provider to Resolve Tagged Contact Emails to User IDs
+
+**Impact: LOW (Enables Velt to automatically map email addresses to userIds at comment save time, so anonymous contacts tagged in comments are correctly associated with their accounts)**
+
+When a user tags a contact in a comment who has an email address but no userId, Velt automatically calls the registered anonymous user data provider at comment save time to resolve the email to a userId. Without a provider, the tagged contact cannot be correctly associated with their account.
+
+Register the provider once at initialization using `client.setAnonymousUserDataProvider()` (React) or `Velt.setAnonymousUserDataProvider()` (other frameworks). The equivalent `setDataProviders({ anonymousUser: resolver })` form may be used interchangeably.
+
+**Incorrect (no provider registered — tagged contacts with only an email remain unresolved):**
+
+```jsx
+// No anonymous user data provider registered.
+// Comments that tag contacts by email will not resolve to a userId at save time.
+const { client } = useVeltClient();
+useEffect(() => {
+  if (!client) return;
+  // Missing: client.setAnonymousUserDataProvider(...)
+}, [client]);
+```
+
+**Correct (React — register via setAnonymousUserDataProvider):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function AnonymousUserProviderSetup() {
+  const { client } = useVeltClient();
+
+  useEffect(() => {
+    if (!client) return;
+
+    client.setAnonymousUserDataProvider({
+      resolveUserIdsByEmail: async (request) => {
+        // request: { organizationId: string; emails: string[]; documentId?: string; folderId?: string; }
+        const map = {};
+        for (const email of request.emails) {
+          map[email] = await lookupUserId(email); // your internal lookup
+        }
+        // Return shape: ResolverResponse<Record<string, string>> (email → userId)
+        return { statusCode: 200, success: true, data: map };
+      },
+    });
+  }, [client]);
+
+  return null;
+}
+```
+
+**Correct (React — equivalent form using setDataProviders):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function AnonymousUserProviderSetup() {
+  const { client } = useVeltClient();
+
+  useEffect(() => {
+    if (!client) return;
+
+    client.setDataProviders({
+      anonymousUser: {
+        resolveUserIdsByEmail: async (request) => {
+          const map = {};
+          for (const email of request.emails) {
+            map[email] = await lookupUserId(email);
+          }
+          return { statusCode: 200, success: true, data: map };
+        },
+      },
+    });
+  }, [client]);
+
+  return null;
+}
+```
+
+**Correct (HTML / Other Frameworks):**
+
+```typescript
+Velt.setAnonymousUserDataProvider({
+  resolveUserIdsByEmail: async (request) => {
+    const map = {};
+    for (const email of request.emails) {
+      map[email] = await lookupUserId(email);
+    }
+    return { statusCode: 200, success: true, data: map };
+  },
+});
+
+// Equivalent alternative
+Velt.setDataProviders({
+  anonymousUser: {
+    resolveUserIdsByEmail: async (request) => { /* ... */ },
+  },
+});
+```
+
+**Type Definitions:**
+
+```typescript
+interface AnonymousUserDataProvider {
+  resolveUserIdsByEmail: (
+    request: ResolveUserIdsByEmailRequest
+  ) => Promise<ResolverResponse<Record<string, string>>>;
+  config?: AnonymousUserDataProviderConfig;
+}
+
+interface ResolveUserIdsByEmailRequest {
+  organizationId: string;
+  emails: string[];
+  documentId?: string;
+  folderId?: string;
+}
+
+interface AnonymousUserDataProviderConfig {
+  resolveTimeout?: number;
+  getRetryConfig?: RetryConfig;
+}
+
+interface RetryConfig {
+  retryCount: number;
+  retryDelay: number;
+}
+
+interface ResolverResponse<T> {
+  statusCode: number;
+  success: boolean;
+  data: T;
+}
+```
+
+---
+
+### 8.4 Show a Visibility Banner in the Comment Composer for Multi-Level Visibility Selection
+
+**Impact: LOW (Let users choose from four visibility levels before submitting a comment, and react to that choice via the visibilityOptionClicked event)**
+
+Enable `visibilityOptions` to render a persistent visibility banner below the comment composer that lets users choose from four visibility levels — `public`, `organizationPrivate`, `restrictedSelf`, and `restrictedSelectedPeople` — before submitting. The feature is off by default; without enabling it, users have no in-UI way to set visibility at comment-creation time.
+
+> **Breaking Change (v5.0.2-beta.4):** `visibilityOptionDropdown` prop has been renamed to `visibilityOptions` / `visibility-options`. The API methods `enableVisibilityOptionDropdown()` / `disableVisibilityOptionDropdown()` have been renamed to `enableVisibilityOptions()` / `disableVisibilityOptions()`. The `VisibilityOptionClickedEvent.visibility` type has widened from `'public' | 'private'` to `CommentVisibilityOptionType` (`'personal' | 'selected-people' | 'org-users' | 'public'`). Replace all `'private'` comparisons with `'personal'`.
+
+> **Breaking Change (v5.0.2-beta.5):** `CommentVisibilityOptionType` values have been renamed to align with the new `CommentVisibilityOption` enum. Replace `'personal'` → `'restrictedSelf'`, `'selected-people'` → `'restrictedSelectedPeople'`, `'org-users'` → `'organizationPrivate'`. The `'public'` value is unchanged.
+
+**Incorrect (no visibility choice for users — visibility banner is hidden by default):**
+
+```jsx
+// visibilityOptions defaults to false — the banner is not rendered.
+// Users cannot choose visibility from the composer.
+<VeltComments />
+```
+
+**Correct (React — enable via prop):**
+
+```jsx
+import { VeltComments } from '@veltdev/react';
+
+function App() {
+  return (
+    // Renders the four-option visibility banner below the comment composer.
+    <VeltComments visibilityOptions={true} />
+  );
+}
+```
+
+**Correct (React — enable/disable programmatically):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function VisibilityOptionsController() {
+  const { client } = useVeltClient();
+
+  useEffect(() => {
+    if (!client) return;
+    const commentElement = client.getCommentElement();
+
+    // Show the visibility banner in the composer.
+    commentElement.enableVisibilityOptions();
+
+    return () => {
+      // Hide the banner on unmount.
+      commentElement.disableVisibilityOptions();
+    };
+  }, [client]);
+
+  return null;
+}
+```
+
+**Correct (React — subscribe to the visibilityOptionClicked event):**
+
+```jsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function VisibilityOptionListener() {
+  const visibilityEvent = useCommentEventCallback('visibilityOptionClicked');
+
+  useEffect(() => {
+    if (!visibilityEvent) return;
+
+    // One of: 'public' | 'organizationPrivate' | 'restrictedSelf' | 'restrictedSelectedPeople'
+    console.log('Visibility selected:', visibilityEvent.visibility);
+    console.log('Annotation ID:', visibilityEvent.annotationId);
+    console.log('Full annotation:', visibilityEvent.commentAnnotation);
+
+    // users is populated when visibility === 'restrictedSelectedPeople'
+    if (visibilityEvent.visibility === 'restrictedSelectedPeople') {
+      console.log('Selected users:', visibilityEvent.users);
+    }
+  }, [visibilityEvent]);
+
+  return null;
+}
+```
+
+**Correct (HTML / Other Frameworks — enable/disable programmatically):**
+
+```typescript
+const commentElement = Velt.getCommentElement();
+
+// Show the visibility banner in the composer.
+commentElement.enableVisibilityOptions();
+
+// Hide the banner when no longer needed.
+commentElement.disableVisibilityOptions();
+```
+
+**Correct (HTML / Other Frameworks — subscribe to the visibilityOptionClicked event):**
+
+```typescript
+const commentElement = Velt.getCommentElement();
+
+const subscription = commentElement.on('visibilityOptionClicked').subscribe((event) => {
+  // One of: 'public' | 'organizationPrivate' | 'restrictedSelf' | 'restrictedSelectedPeople'
+  console.log('Visibility selected:', event.visibility);
+  console.log('Annotation ID:', event.annotationId);
+  // event.users is populated when event.visibility === 'restrictedSelectedPeople'
+});
+
+// Clean up subscription when no longer needed.
+subscription.unsubscribe();
+```
+
+**`CommentVisibilityOptionType` and `VisibilityOptionClickedEvent` Interfaces:**
+
+```typescript
+// Added in v5.0.2-beta.5 — enum backing the type union
+export declare enum CommentVisibilityOption {
+  RESTRICTED_SELF = "restrictedSelf",
+  RESTRICTED_SELECTED_PEOPLE = "restrictedSelectedPeople",
+  ORGANIZATION_PRIVATE = "organizationPrivate",
+  PUBLIC = "public"
+}
+
+// Template-literal type derived from the enum
+export type CommentVisibilityOptionType = `${CommentVisibilityOption}`;
+// = 'restrictedSelf' | 'restrictedSelectedPeople' | 'organizationPrivate' | 'public'
+
+interface VisibilityOptionClickedEvent {
+  annotationId: string;                    // ID of the comment annotation
+  commentAnnotation: CommentAnnotation;    // Full annotation object
+  visibility: CommentVisibilityOptionType; // The visibility option the user selected
+  users?: User[];                          // Populated when visibility === 'restrictedSelectedPeople'
+  metadata?: VeltEventMetadata;            // Optional event metadata (timestamp, source, etc.)
+}
+```
+
+---
+
+### 8.5 Use commentSaveTriggered for Immediate UI Feedback Before Async Save Completes
+
+**Impact: LOW (Show spinners or disable UI the moment the user clicks save — before the database write — without reacting too late with the post-persist commentSaved event)**
+
+The `commentSaveTriggered` event fires the instant the save button is clicked, before the async database write begins. Use it for immediate UI feedback (spinners, disabled states) and use `commentSaved` — which fires only after the write confirms — for reliable post-persist side-effects such as webhooks or analytics.
+
+**Incorrect (using commentSaved for immediate UI feedback — fires too late):**
+
+```jsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function SaveFeedback() {
+  const savedEvent = useCommentEventCallback('commentSaved');
+
+  useEffect(() => {
+    if (!savedEvent) return;
+    // commentSaved fires AFTER the database write completes.
+    // The UI will feel sluggish — the spinner appears only after the round-trip.
+    showSpinner();
+  }, [savedEvent]);
+
+  return null;
+}
+```
+
+**Correct (React — use commentSaveTriggered for immediate feedback):**
+
+```jsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function CommentSaveTriggeredListener() {
+  const triggeredEvent = useCommentEventCallback('commentSaveTriggered');
+
+  useEffect(() => {
+    if (!triggeredEvent) return;
+    // Fires immediately on button click, before the database write starts.
+    console.log('Save triggered, annotationId:', triggeredEvent.annotationId);
+    // Use for immediate UI feedback only — not for post-persist side-effects.
+    showSpinner();
+    disableUI();
+  }, [triggeredEvent]);
+
+  return null;
+}
+```
+
+**Correct (HTML / Other Frameworks — subscribe via commentElement):**
+
+```typescript
+const commentElement = Velt.getCommentElement();
+
+const subscription = commentElement.on('commentSaveTriggered').subscribe((event) => {
+  // Fires immediately on button click, before the database write starts.
+  console.log('Save triggered, annotationId:', event.annotationId);
+  showSpinner();
+  disableUI();
+});
+
+// Clean up subscription when no longer needed
+subscription.unsubscribe();
+```
+
+**`CommentSaveTriggeredEvent` Interface:**
+
+```typescript
+interface CommentSaveTriggeredEvent {
+  annotationId: string;                 // ID of the comment annotation being saved
+  commentAnnotation: CommentAnnotation; // Full annotation object at save time (v5.0.2-beta.4+)
+  metadata: VeltEventMetadata;          // Event metadata (timestamp, source, etc.)
+}
+```
+
+---
+
+### 8.6 Use the commentSaved Event for Reliable Post-Persist Side-Effects
 
 **Impact: LOW (Trigger webhooks, analytics, or external sync only after database write confirmation — not prematurely on optimistic UI updates)**
 

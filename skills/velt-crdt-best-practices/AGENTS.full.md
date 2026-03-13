@@ -28,12 +28,15 @@ Comprehensive best practices guide for implementing real-time collaborative edit
    - 1.5 [Save Named Version Checkpoints for State Recovery](#15-save-named-version-checkpoints-for-state-recovery)
    - 1.6 [Subscribe to Store Changes for Remote Updates](#16-subscribe-to-store-changes-for-remote-updates)
    - 1.7 [Test Collaboration with Multiple Browser Profiles](#17-test-collaboration-with-multiple-browser-profiles)
-   - 1.8 [Use Custom Encryption Provider for Sensitive Data](#18-use-custom-encryption-provider-for-sensitive-data)
-   - 1.9 [Use REST API to Retrieve CRDT Data Server-Side](#19-use-rest-api-to-retrieve-crdt-data-server-side)
-   - 1.10 [Use update() Method to Modify Store Values](#110-use-update-method-to-modify-store-values)
-   - 1.11 [Use VeltCrdtStoreMap for Runtime Debugging](#111-use-veltcrdtstoremap-for-runtime-debugging)
-   - 1.12 [Use Webhooks to Listen for CRDT Data Changes](#112-use-webhooks-to-listen-for-crdt-data-changes)
-   - 1.13 [Use createVeltStore for Non-React CRDT Stores](#113-use-createveltstore-for-non-react-crdt-stores)
+   - 1.8 [Use CrdtActivityActionTypes for Type-Safe Activity Filtering](#18-use-crdtactivityactiontypes-for-type-safe-activity-filtering)
+   - 1.9 [Use CrdtElement Message Stream for Yjs-Backed Collaborative Editors](#19-use-crdtelement-message-stream-for-yjs-backed-collaborative-editors)
+   - 1.10 [Use Custom Encryption Provider for Sensitive Data](#110-use-custom-encryption-provider-for-sensitive-data)
+   - 1.11 [Use REST API to Retrieve CRDT Data Server-Side](#111-use-rest-api-to-retrieve-crdt-data-server-side)
+   - 1.12 [Use setActivityDebounceTime() to Control CRDT Activity Flush Frequency](#112-use-setactivitydebouncetime-to-control-crdt-activity-flush-frequency)
+   - 1.13 [Use update() Method to Modify Store Values](#113-use-update-method-to-modify-store-values)
+   - 1.14 [Use VeltCrdtStoreMap for Runtime Debugging](#114-use-veltcrdtstoremap-for-runtime-debugging)
+   - 1.15 [Use Webhooks to Listen for CRDT Data Changes](#115-use-webhooks-to-listen-for-crdt-data-changes)
+   - 1.16 [Use createVeltStore for Non-React CRDT Stores](#116-use-createveltstore-for-non-react-crdt-stores)
 
 2. [Tiptap Integration](#2-tiptap-integration) — **CRITICAL**
    - 2.1 [Use useVeltTiptapCrdtExtension Hook for React Tiptap](#21-use-usevelttiptapcrdtextension-hook-for-react-tiptap)
@@ -410,7 +413,166 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (## 
 
 ---
 
-### 1.8 Use Custom Encryption Provider for Sensitive Data
+### 1.8 Use CrdtActivityActionTypes for Type-Safe Activity Filtering
+
+**Impact: MEDIUM (Eliminates raw-string action type errors when filtering CRDT activities)**
+
+The `CrdtActivityActionTypes` exported constant provides the canonical string values for CRDT action types. Use it — and the accompanying `CrdtActivityActionType` union type — instead of raw strings when building `ActionSubscribeConfig.actionTypes` filters, so that typos are caught at compile time and the code self-documents intent.
+
+**Incorrect (raw string values for action type filtering):**
+
+```typescript
+// Raw strings are error-prone and not refactor-safe
+const activities = activityElement.getAllActivities({
+  actionTypes: ['crdt.editor_edit'],
+});
+```
+
+**Correct (React / Next.js — type-safe filtering with CrdtActivityActionTypes):**
+
+```jsx
+import { CrdtActivityActionTypes } from '@veltdev/react';
+import { useVeltClient } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function CrdtActivityFilter() {
+  const { client } = useVeltClient();
+
+  useEffect(() => {
+    if (!client) return;
+    const activityElement = client.getActivityElement();
+
+    // Type-safe filtering of CRDT activities
+    const subscription = activityElement.getAllActivities({
+      actionTypes: [
+        CrdtActivityActionTypes.EDITOR_EDIT,
+      ],
+    }).subscribe((activities) => {
+      console.log('CRDT edit activities:', activities);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [client]);
+}
+```
+
+**Correct (Other Frameworks — Angular, Vue, Vanilla JS):**
+
+```typescript
+import { CrdtActivityActionTypes } from '@veltdev/types';
+
+const activityElement = client.getActivityElement();
+
+const subscription = activityElement.getAllActivities({
+  actionTypes: [
+    CrdtActivityActionTypes.EDITOR_EDIT,
+  ],
+}).subscribe((activities) => {
+  console.log('CRDT edit activities:', activities);
+});
+```
+
+---
+
+### 1.9 Use CrdtElement Message Stream for Yjs-Backed Collaborative Editors
+
+**Impact: HIGH (Enables low-latency Yjs sync and awareness over a single Firebase RTDB channel with built-in encryption and snapshot-based pruning)**
+
+`CrdtElement` exposes six methods that implement a y-redis-style message stream over a single Firebase RTDB channel per document. Without this pattern, custom Yjs integrations must manage their own transport, snapshot, and pruning logic, leading to unbounded storage growth and complex replay logic.
+
+**Incorrect (no snapshot baseline, replaying all messages from the beginning):**
+
+```typescript
+// Replays the entire history on every load — O(n) in message count,
+// no snapshot baseline, and no pruning keeps storage growing forever
+const messages = await crdtElement.getMessages({ id: 'my-doc', afterTs: 0 });
+for (const msg of messages) {
+  Y.applyUpdate(ydoc, new Uint8Array(msg.data));
+}
+```
+
+**Correct (snapshot + incremental replay + real-time stream + periodic pruning):**
+
+```tsx
+import { useVeltClient } from '@veltdev/react';
+import * as Y from 'yjs';
+import { useEffect, useRef } from 'react';
+
+function CollaborativeEditor({ docId }: { docId: string }) {
+  const { client } = useVeltClient();
+  const ydocRef = useRef(new Y.Doc());
+
+  useEffect(() => {
+    if (!client) return;
+
+    const ydoc = ydocRef.current;
+    const crdtElement = client.getCrdtElement();
+    let unsubscribe: (() => void) | undefined;
+
+    async function initStream() {
+      // --- Initial load: snapshot baseline + incremental replay ---
+      const snapshot = await crdtElement.getSnapshot({ id: docId });
+      if (snapshot?.state) {
+        Y.applyUpdate(ydoc, new Uint8Array(snapshot.state));
+      }
+      const afterTs = snapshot?.timestamp ?? 0;
+      const messages = await crdtElement.getMessages({ id: docId, afterTs });
+      for (const msg of messages) {
+        Y.applyUpdate(ydoc, new Uint8Array(msg.data));
+      }
+
+      // --- Real-time streaming ---
+      unsubscribe = crdtElement.onMessage({
+        id: docId,
+        callback: (msg) => {
+          Y.applyUpdate(ydoc, new Uint8Array(msg.data));
+        },
+      });
+
+      // --- Send local updates upstream ---
+      ydoc.on('update', async (update: Uint8Array) => {
+        await crdtElement.pushMessage({
+          id: docId,
+          data: Array.from(update),
+          yjsClientId: ydoc.clientID,
+          messageType: 'sync',
+          source: 'tiptap',
+        });
+      });
+    }
+
+    initStream();
+
+    return () => {
+      unsubscribe?.();
+    };
+  }, [client, docId]);
+
+  // ... render editor with ydocRef.current
+}
+
+// --- Periodic snapshot checkpoint and pruning (run on a timer or on save) ---
+async function checkpointAndPrune(client: any, docId: string, ydoc: Y.Doc) {
+  const crdtElement = client.getCrdtElement();
+
+  await crdtElement.saveSnapshot({
+    id: docId,
+    state: Array.from(Y.encodeStateAsUpdate(ydoc)),
+    vector: Array.from(Y.encodeStateVector(ydoc)),
+    source: 'tiptap',
+  });
+
+  // Remove messages older than 24 hours
+  await crdtElement.pruneMessages({
+    id: docId,
+    beforeTs: Date.now() - 24 * 60 * 60 * 1000,
+  });
+}
+```
+
+---
+
+### 1.10 Use Custom Encryption Provider for Sensitive Data
 
 **Impact: MEDIUM (Protects collaborative data at rest)**
 
@@ -485,7 +647,7 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (## AP
 
 ---
 
-### 1.9 Use REST API to Retrieve CRDT Data Server-Side
+### 1.11 Use REST API to Retrieve CRDT Data Server-Side
 
 **Impact: HIGH (Access collaborative editor data from backend services)**
 
@@ -521,7 +683,53 @@ curl -X POST https://api.velt.dev/v2/crdt/data \
 
 ---
 
-### 1.10 Use update() Method to Modify Store Values
+### 1.12 Use setActivityDebounceTime() to Control CRDT Activity Flush Frequency
+
+**Impact: MEDIUM (Prevents excessive activity records from batched editor keystrokes)**
+
+By default, Velt batches CRDT editor keystrokes into a single activity record every 10 minutes. Call `setActivityDebounceTime()` on `CrdtElement` to tune how frequently these batched edit activities are flushed — use a shorter interval for near-real-time audit trails, or a longer one to reduce write volume.
+
+**Incorrect (relying on the 10-minute default when a different cadence is needed):**
+
+```typescript
+// Default debounce is 600,000 ms (10 minutes) — too long for audit trail use cases
+const crdtElement = client.getCrdtElement();
+// No debounce configuration; activity records arrive only after 10 minutes of inactivity
+```
+
+**Correct (React / Next.js — flush activities after 30 seconds of inactivity):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function CrdtActivityDebounceSetup() {
+  const { client } = useVeltClient();
+
+  useEffect(() => {
+    if (!client) return;
+    const crdtElement = client.getCrdtElement();
+
+    // Flush CRDT editor edit activities after 30 seconds of inactivity
+    // Default: 600000 (10 minutes) | Minimum enforced: 10000 (10 seconds)
+    crdtElement.setActivityDebounceTime(30000);
+  }, [client]);
+}
+```
+
+**Correct (Other Frameworks — Angular, Vue, Vanilla JS):**
+
+```typescript
+// Obtain CrdtElement after Velt client is initialized
+const crdtElement = client.getCrdtElement();
+
+// Flush CRDT editor edit activities after 30 seconds of inactivity
+crdtElement.setActivityDebounceTime(30000);
+```
+
+---
+
+### 1.13 Use update() Method to Modify Store Values
 
 **Impact: HIGH (Ensures changes sync to all collaborators)**
 
@@ -578,7 +786,7 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### S
 
 ---
 
-### 1.11 Use VeltCrdtStoreMap for Runtime Debugging
+### 1.14 Use VeltCrdtStoreMap for Runtime Debugging
 
 **Impact: LOW (Enables real-time inspection of CRDT state)**
 
@@ -622,7 +830,7 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### D
 
 ---
 
-### 1.12 Use Webhooks to Listen for CRDT Data Changes
+### 1.15 Use Webhooks to Listen for CRDT Data Changes
 
 **Impact: HIGH (Enables server-side reactions to collaborative data changes)**
 
@@ -680,7 +888,7 @@ function CrdtChangeListener() {
 
 ---
 
-### 1.13 Use createVeltStore for Non-React CRDT Stores
+### 1.16 Use createVeltStore for Non-React CRDT Stores
 
 **Impact: CRITICAL (Required for Vue, Angular, vanilla JS integrations)**
 

@@ -65,7 +65,7 @@ function RestrictedModeController() {
     const commentElement = client.getCommentElement();
 
     // Restrict all new comments to user-a and user-b only.
-    // If userIds is omitted, it defaults to the current user.
+    // The current user is always auto-appended to userIds — even when an explicit list is provided.
     commentElement.enablePrivateMode({
       type: 'restricted',
       userIds: ['user-a', 'user-b'],
@@ -151,6 +151,49 @@ commentElement.updateVisibility({
 });
 ```
 
+**Correct (React — set visibility at comment creation time):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+
+function CreateRestrictedComment() {
+  const { client } = useVeltClient();
+
+  const addComment = () => {
+    if (!client) return;
+    const commentElement = client.getCommentElement();
+
+    // Set visibility at creation time — no post-creation updateVisibility() call needed.
+    commentElement.addComment({
+      annotationId: 'annotation-id',
+      comment: { text: 'Visible only to selected users' },
+      visibility: {
+        type: 'restricted',
+        userIds: ['user1', 'user2'],
+      },
+    });
+  };
+
+  return <button onClick={addComment}>Add restricted comment</button>;
+}
+```
+
+**Correct (HTML / Other Frameworks — set visibility at comment creation time):**
+
+```typescript
+const commentElement = Velt.getCommentElement();
+
+// Set visibility at creation time — no post-creation updateVisibility() call needed.
+commentElement.addComment({
+  annotationId: 'annotation-id',
+  comment: { text: 'Visible only to selected users' },
+  visibility: {
+    type: 'restricted',
+    userIds: ['user1', 'user2'],
+  },
+});
+```
+
 **API Reference:**
 
 | Method | Signature | Description |
@@ -158,6 +201,7 @@ commentElement.updateVisibility({
 | `enablePrivateMode` | `enablePrivateMode(config: PrivateModeConfig): void` | Sets global visibility for all new comments. |
 | `disablePrivateMode` | `disablePrivateMode(): void` | Reverts all new comments to default public visibility. |
 | `updateVisibility` | `updateVisibility(config: CommentVisibilityConfig): void` | Updates visibility of a specific annotation by ID. |
+| `addComment` | `addComment(request: AddCommentRequest): void` | Creates a comment; accepts optional `visibility` to set `CommentVisibilityConfig` at creation time. |
 
 **Type Definitions:**
 
@@ -168,11 +212,18 @@ interface CommentVisibilityConfig {
   type: CommentVisibilityType;
   annotationId?: string;   // Required for updateVisibility(); unused in enablePrivateMode()
   organizationId?: string; // Auto-resolved from authenticated user when omitted
-  userIds?: string[];      // Defaults to current user when omitted for 'restricted' type
+  userIds?: string[];      // Current user always auto-appended for 'restricted' type, even when list is explicitly provided
 }
 
 // PrivateModeConfig omits annotationId and organizationId (auto-resolved)
 type PrivateModeConfig = Omit<CommentVisibilityConfig, 'annotationId' | 'organizationId'>;
+
+interface AddCommentRequest {
+  annotationId?: string;
+  comment?: { text?: string; [key: string]: unknown };
+  visibility?: CommentVisibilityConfig; // Optional: set visibility at creation time (v5.0.2-beta.4+)
+  [key: string]: unknown;
+}
 ```
 
 **Key Behaviors:**
@@ -180,8 +231,9 @@ type PrivateModeConfig = Omit<CommentVisibilityConfig, 'annotationId' | 'organiz
 - `enablePrivateMode()` applies to all **new** comments created after the call. It does not retroactively change existing annotations.
 - `disablePrivateMode()` resets the global default to `'public'` for subsequent new comments.
 - For `'organizationPrivate'` type, `organizationId` is auto-resolved from the authenticated user; no need to pass it explicitly.
-- For `'restricted'` type, `userIds` defaults to the current user if omitted.
+- For `'restricted'` type, the current user is **always** auto-appended to `userIds` — even when an explicit `userIds` list is provided. If the current user is not in the list, they are automatically included. Do not assume passing `userIds: ['user-b']` restricts the comment to only `user-b`.
 - `updateVisibility()` requires `annotationId` and changes only that specific annotation.
+- `addComment()` accepts an optional `visibility: CommentVisibilityConfig` field (v5.0.2-beta.4+) to set visibility at creation time, eliminating a separate `updateVisibility()` call when visibility is known upfront.
 
 ---
 

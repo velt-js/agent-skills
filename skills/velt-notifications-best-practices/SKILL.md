@@ -9,7 +9,7 @@ metadata:
 
 # Velt Notifications Best Practices
 
-Comprehensive implementation guide for Velt's notification system in React and Next.js applications. Contains 12 rules across 8 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's notification system in React and Next.js applications. Contains 14 rules across 8 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
@@ -19,9 +19,11 @@ Reference these guidelines when:
 - Configuring notification tabs (For You, All, Documents, People)
 - Accessing notification data via hooks or REST APIs
 - Managing user notification preferences and channels
+- Reading or writing per-user notification config via REST API (document-level or org-level)
 - Setting up email notifications with SendGrid
 - Creating custom notifications via REST API
 - Integrating with external services via webhooks
+- Configuring notification delay and batching to reduce noise
 
 ## Rule Categories by Priority
 
@@ -55,6 +57,7 @@ Reference these guidelines when:
 ### 4. Settings Management (MEDIUM-HIGH)
 
 - `settings-channels` — Configure notification delivery channels
+- `settings-config-rest-api` — Read and write per-user notification config at document or org level via REST API
 
 ### 5. Notification Triggers (MEDIUM)
 
@@ -64,6 +67,7 @@ Reference these guidelines when:
 
 - `delivery-email` — Set up email notifications with SendGrid
 - `delivery-webhooks` — Integrate with external services via webhooks
+- `delivery-delay-batching` — Configure opt-in server-side delay and batching pipeline
 
 ### 7. UI Customization (MEDIUM)
 

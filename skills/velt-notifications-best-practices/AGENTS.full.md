@@ -33,13 +33,15 @@ Comprehensive Velt Notifications implementation guide covering in-app notificati
 
 4. [Settings Management](#4-settings-management) — **MEDIUM-HIGH**
    - 4.1 [Configure Notification Delivery Channels](#41-configure-notification-delivery-channels)
+   - 4.2 [Manage Per-User Notification Config via REST API](#42-manage-per-user-notification-config-via-rest-api)
 
 5. [Notification Triggers](#5-notification-triggers) — **MEDIUM**
    - 5.1 [Create Custom Notifications via REST API](#51-create-custom-notifications-via-rest-api)
 
 6. [Delivery Channels](#6-delivery-channels) — **MEDIUM**
-   - 6.1 [Integrate with External Services via Webhooks](#61-integrate-with-external-services-via-webhooks)
-   - 6.2 [Set Up Email Notifications with SendGrid](#62-set-up-email-notifications-with-sendgrid)
+   - 6.1 [Configure Notification Delay and Batching Pipeline](#61-configure-notification-delay-and-batching-pipeline)
+   - 6.2 [Integrate with External Services via Webhooks](#62-integrate-with-external-services-via-webhooks)
+   - 6.3 [Set Up Email Notifications with SendGrid](#63-set-up-email-notifications-with-sendgrid)
 
 7. [UI Customization](#7-ui-customization) — **MEDIUM**
    - 7.1 [Customize Notification Components with Wireframes](#71-customize-notification-components-with-wireframes)
@@ -527,7 +529,7 @@ Reference: https://docs.velt.dev/api-reference/rest-apis/v2/notifications/get-no
 
 **Impact: MEDIUM-HIGH**
 
-User notification preference management. Includes channel configuration (Inbox, Email, Slack), settings UI layout, and mute options.
+User notification preference management. Includes channel configuration (Inbox, Email, Slack), settings UI layout, mute options, and server-side getConfig/setConfig REST API for reading and writing per-user preferences at document or org level.
 
 ### 4.1 Configure Notification Delivery Channels
 
@@ -657,6 +659,115 @@ Reference: https://docs.velt.dev/async-collaboration/notifications/customize-beh
 
 ---
 
+### 4.2 Manage Per-User Notification Config via REST API
+
+**Impact: MEDIUM-HIGH (Read and write per-user notification preferences at document or org level from your server)**
+
+Use the `getConfig` and `setConfig` REST endpoints to read and write a user's notification channel preferences from your server. Both endpoints support document-level config (scoped to specific documents) and org-level config (applied as the user's default for all documents). Available on v1 and v2 REST APIs.
+
+**Incorrect (assuming documentIds is always required):**
+
+```javascript
+// setConfig without documentIds fails to apply org-level default
+await fetch('https://api.velt.dev/v2/notifications/config/set', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', 'x-velt-api-key': 'YOUR_API_KEY' },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'your-org-id',
+      userId: 'user-123',
+      documentIds: [],          // Empty array is not the same as omitting
+      config: { inbox: 'ALL', email: 'MINE' }
+    }
+  })
+});
+```
+
+**Correct (use getOrganizationConfig flag and omit documentIds for org-level operations):**
+
+```javascript
+// GET CONFIG — Document-level
+const docConfigResponse = await fetch('https://api.velt.dev/v2/notifications/config/get', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': 'YOUR_API_KEY',
+    'x-velt-auth-token': 'YOUR_AUTH_TOKEN'
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'your-org-id',
+      userId: 'user-123',
+      documentIds: ['doc-id-1', 'doc-id-2']
+    }
+  })
+});
+
+// GET CONFIG — Org-level (set getOrganizationConfig: true; documentIds not required)
+const orgConfigResponse = await fetch('https://api.velt.dev/v2/notifications/config/get', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': 'YOUR_API_KEY',
+    'x-velt-auth-token': 'YOUR_AUTH_TOKEN'
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'your-org-id',
+      userId: 'user-123',
+      getOrganizationConfig: true
+    }
+  })
+});
+
+// SET CONFIG — Document-level
+const setDocResponse = await fetch('https://api.velt.dev/v2/notifications/config/set', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': 'YOUR_API_KEY',
+    'x-velt-auth-token': 'YOUR_AUTH_TOKEN'
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'your-org-id',
+      userId: 'user-123',
+      documentIds: ['doc-id-1'],
+      config: { inbox: 'MINE', email: 'NONE' }
+    }
+  })
+});
+
+// SET CONFIG — Org-level default (omit documentIds entirely)
+// When documentIds is omitted, config is stored as the user's default for all documents
+const setOrgResponse = await fetch('https://api.velt.dev/v2/notifications/config/set', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': 'YOUR_API_KEY',
+    'x-velt-auth-token': 'YOUR_AUTH_TOKEN'
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'your-org-id',
+      userId: 'user-123',
+      config: { inbox: 'ALL', email: 'MINE' }
+    }
+  })
+});
+```
+
+**Endpoint URLs:**
+
+```typescript
+POST https://api.velt.dev/v1/notifications/config/get
+POST https://api.velt.dev/v2/notifications/config/get
+POST https://api.velt.dev/v1/notifications/config/set
+POST https://api.velt.dev/v2/notifications/config/set
+```
+
+---
+
 ## 5. Notification Triggers
 
 **Impact: MEDIUM**
@@ -770,9 +881,50 @@ Reference: https://docs.velt.dev/api-reference/rest-apis/v2/notifications/add-no
 
 **Impact: MEDIUM**
 
-Notification delivery methods. Includes in-app inbox, email via SendGrid, and webhook integrations for external services.
+Notification delivery methods. Includes in-app inbox, email via SendGrid, webhook integrations for external services, and the opt-in server-side delay and batching pipeline.
 
-### 6.1 Integrate with External Services via Webhooks
+### 6.1 Configure Notification Delay and Batching Pipeline
+
+**Impact: MEDIUM (Reduce notification noise by holding, suppress-if-seen, and batching before delivery)**
+
+An opt-in, server-side pipeline lets you hold notifications during a configurable window, suppress delivery if the recipient views the comment before the window expires, and batch high-activity documents or users — all configured in your workspace's `notificationServiceConfig`. Webhooks and workflow triggers are never affected; they always fire immediately.
+
+**Incorrect (expecting delay/batching without workspace config):**
+
+```javascript
+// No notificationServiceConfig set on the workspace
+// Notifications deliver immediately with no delay or batching
+```
+
+**Correct (configure notificationServiceConfig on your workspace):**
+
+```javascript
+// Set via Velt REST API or Velt Console on your workspace object
+{
+  "notificationServiceConfig": {
+    "delayConfig": {
+      "isEnabled": true,
+      "delaySeconds": 30
+    },
+    "batchConfig": {
+      "document": {
+        "isEnabled": true,
+        "batchWindowSeconds": 300,
+        "maxActivities": 20
+      },
+      "user": {
+        "isEnabled": true,
+        "batchWindowSeconds": 300,
+        "maxActivities": 20
+      }
+    }
+  }
+}
+```
+
+---
+
+### 6.2 Integrate with External Services via Webhooks
 
 **Impact: MEDIUM (Forward notifications to Slack, Linear, or custom services)**
 
@@ -807,9 +959,51 @@ Use webhooks to forward Velt notifications to external services like Slack, Line
     "notificationSource": "comment",  // or "custom"
     "notificationSourceData": {
       // Comment annotation or custom data
+    },
+
+    // Per-user notification config (added in v5.0.1-beta.4)
+    // Exactly ONE of these two fields is present per payload, depending on config scope.
+    // Each is a map of userId → NotificationChannelConfig.
+    // NotificationChannelConfig: Record<channelId, 'ALL' | 'MINE' | 'NONE'>
+    //   e.g. { "inbox": "ALL", "email": "MINE" }
+
+    // Present when an org-level config is active for the notified users:
+    "usersOrganizationNotificationsConfig": {
+      "user-123": { "inbox": "ALL", "email": "MINE" },
+      "user-456": { "inbox": "NONE", "email": "NONE" }
+    },
+
+    // — OR — present when a document-level config is active:
+    "usersDocumentNotificationsConfig": {
+      "user-123": { "inbox": "MINE", "email": "ALL" }
     }
   }
 }
+```
+
+**Accessing per-user config in your webhook handler:**
+
+```javascript
+app.post('/webhooks/velt', async (req, res) => {
+  const { event, data } = req.body;
+
+  if (event === 'notification.created') {
+    // Exactly one config field is present per payload
+    const userConfigs =
+      data.usersOrganizationNotificationsConfig ||
+      data.usersDocumentNotificationsConfig;
+
+    if (userConfigs) {
+      // userConfigs is keyed by userId
+      // each value is a map of channel ID → 'ALL' | 'MINE' | 'NONE'
+      Object.entries(userConfigs).forEach(([userId, channelPrefs]) => {
+        console.log(`User ${userId} email pref: ${channelPrefs.email}`);
+      });
+    }
+  }
+
+  res.status(200).send('OK');
+});
 // Your webhook handler
 app.post('/webhooks/velt', async (req, res) => {
   const { event, data } = req.body;
@@ -884,7 +1078,7 @@ Reference: https://docs.velt.dev/webhooks/basic - Webhook setup
 
 ---
 
-### 6.2 Set Up Email Notifications with SendGrid
+### 6.3 Set Up Email Notifications with SendGrid
 
 **Impact: MEDIUM (Deliver notifications via email for @mentions and replies)**
 

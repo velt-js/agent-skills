@@ -22,6 +22,9 @@ Rules are organized into category folders under `rules/`.
 - `core-encryption` - Custom encryption provider
 - `core-webhooks` - Webhook notifications for data changes
 - `core-rest-api` - REST API for server-side data access
+- `core-activity-debounce` - Control CRDT activity flush frequency with setActivityDebounceTime()
+- `core-activity-action-types` - Type-safe CRDT activity filtering with CrdtActivityActionTypes
+- `core-message-stream` - Yjs message stream (pushMessage, onMessage, getMessages, getSnapshot, saveSnapshot, pruneMessages)
 - `core-debug-storemap` - VeltCrdtStoreMap debugging
 - `core-debug-testing` - Multi-user testing
 

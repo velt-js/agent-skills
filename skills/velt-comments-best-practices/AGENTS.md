@@ -19,17 +19,17 @@
 |shared/surface:{surface-sidebar.md,surface-sidebar-button.md}
 
 ## 5. UI Customization — MEDIUM
-|shared/ui:{ui-comment-bubble.md,ui-comment-dialog.md,ui-wireframes.md}
+|shared/ui:{ui-comment-bubble.md,ui-comment-dialog.md,ui-autocomplete-primitives.md,ui-wireframes.md}
 
 ## 6. Data Model — MEDIUM
 |react/data:{data-filtering-grouping.md,data-comment-annotations.md}
-|shared/data:{data-context-metadata.md}
+|shared/data:{data-context-metadata.md,data-activity-action-types.md,data-comment-annotation-data-provider.md,data-trigger-activities.md}
 
 ## 7. Debugging & Testing — LOW-MEDIUM
 |react/debug:{debug-common-issues.md,debug-verification.md}
 
 ## 8. Moderation & Permissions — LOW
-|shared/permissions:{permissions-private-mode.md,permissions-comment-saved-event.md}
+|shared/permissions:{permissions-private-mode.md,permissions-comment-interaction-events.md,permissions-anonymous-user-data-provider.md,permissions-visibility-option-dropdown.md,permissions-comment-save-triggered-event.md,permissions-comment-saved-event.md}
 
 ## 9. Attachments & Reactions — MEDIUM
 |shared/attach:{attach-download-control.md}
