@@ -52,6 +52,7 @@ Comprehensive Velt Comments implementation guide covering comment modes, setup p
 4. [Comment Surfaces](#4-comment-surfaces) — **MEDIUM-HIGH**
    - 4.1 [Use Comments Sidebar for Comment Navigation](#41-use-comments-sidebar-for-comment-navigation)
    - 4.2 [Use Sidebar Button to Toggle Comments Panel](#42-use-sidebar-button-to-toggle-comments-panel)
+   - 4.3 [Use VeltCommentsSidebarV2 for Primitive-Architecture Sidebar Customization](#43-use-veltcommentssidebarv2-for-primitive-architecture-sidebar-customization)
 
 5. [UI Customization](#5-ui-customization) — **MEDIUM**
    - 5.1 [Customize Comment Bubble Display](#51-customize-comment-bubble-display)
@@ -63,9 +64,10 @@ Comprehensive Velt Comments implementation guide covering comment modes, setup p
    - 6.1 [Filter and Group Comments](#61-filter-and-group-comments)
    - 6.2 [Work with Comment Annotations Data](#62-work-with-comment-annotations-data)
    - 6.3 [Add Custom Metadata to Comments with Context](#63-add-custom-metadata-to-comments-with-context)
-   - 6.4 [Use CommentActivityActionTypes for Type-Safe Comment Activity Filtering](#64-use-commentactivityactiontypes-for-type-safe-comment-activity-filtering)
-   - 6.5 [Use Config-Based URL Endpoints Instead of Placeholder Callbacks in CommentAnnotationDataProvider](#65-use-config-based-url-endpoints-instead-of-placeholder-callbacks-in-commentannotationdataprovider)
-   - 6.6 [Use triggerActivities to Create Activity Records via REST API](#66-use-triggeractivities-to-create-activity-records-via-rest-api)
+   - 6.4 [Use agentFields on CommentRequestQuery to Filter Annotation Count by Agent](#64-use-agentfields-on-commentrequestquery-to-filter-annotation-count-by-agent)
+   - 6.5 [Use CommentActivityActionTypes for Type-Safe Comment Activity Filtering](#65-use-commentactivityactiontypes-for-type-safe-comment-activity-filtering)
+   - 6.6 [Use Config-Based URL Endpoints Instead of Placeholder Callbacks in CommentAnnotationDataProvider](#66-use-config-based-url-endpoints-instead-of-placeholder-callbacks-in-commentannotationdataprovider)
+   - 6.7 [Use triggerActivities to Create Activity Records via REST API](#67-use-triggeractivities-to-create-activity-records-via-rest-api)
 
 7. [Debugging & Testing](#7-debugging-testing) — **LOW-MEDIUM**
    - 7.1 [Troubleshoot Common Velt Integration Issues](#71-troubleshoot-common-velt-integration-issues)
@@ -2590,7 +2592,7 @@ export default function KanbanBoard() {
 
 **Impact: MEDIUM-HIGH**
 
-Navigation and display surfaces for comments. Includes the Comments Sidebar and related toggle components.
+Navigation and display surfaces for comments. Includes the Comments Sidebar, the V2 primitive-architecture sidebar, and related toggle components.
 
 ### 4.1 Use Comments Sidebar for Comment Navigation
 
@@ -2654,6 +2656,16 @@ export default function App() {
     // e.g., scroll to element, seek video, etc.
   }}
 />
+```
+
+**Opt into V2 via the existing tag (v5.0.2-beta.9+):**
+
+```html
+// Routes velt-comments-sidebar to the full VeltCommentsSidebarV2
+// implementation, forwarding all supported props automatically.
+<VeltCommentsSidebar version="2" />
+<!-- HTML -->
+<velt-comments-sidebar version="2"></velt-comments-sidebar>
 ```
 
 **For HTML:**
@@ -2762,6 +2774,76 @@ export default function App() {
     </VeltProvider>
   );
 }
+```
+
+---
+
+### 4.3 Use VeltCommentsSidebarV2 for Primitive-Architecture Sidebar Customization
+
+**Impact: MEDIUM-HIGH (Full composability of every sidebar UI section via 27+ independently importable primitives, enabling precise customization without forking the entire component)**
+
+`VeltCommentsSidebarV2` is a complete redesign of the Comments Sidebar built on a flat primitive component architecture. Every section of the UI is an independently importable and composable primitive, so you can replace only the parts you need without reimplementing the whole component. V2 ships with a unified filter model (replacing the legacy `minimalFilter` + `advancedFilters` system), CDK virtual scroll for large comment lists, a focused-thread view, a minimal actions dropdown, and a filter dropdown.
+
+**Incorrect (customizing V1 sidebar by overriding deeply nested internals):**
+
+```jsx
+// V1 sidebar requires shadowing deeply nested internal components
+// to change layout or filtering — there is no flat primitive tree
+<VeltCommentsSidebar />
+```
+
+**Correct (React / Next.js — direct V2 component with primitive composition):**
+
+```jsx
+import {
+  VeltProvider,
+  VeltComments,
+  VeltCommentsSidebarV2,
+} from '@veltdev/react';
+
+export default function App() {
+  return (
+    <VeltProvider apiKey="API_KEY">
+      <VeltComments />
+
+      {/* Direct usage — all props are optional */}
+      <VeltCommentsSidebarV2
+        pageMode={false}
+        focusedThreadMode={false}
+        readOnly={false}
+        position="right"
+        variant="sidebar"
+        forceClose={false}
+        onSidebarOpen={(data) => console.log('sidebar opened', data)}
+        onSidebarClose={(data) => console.log('sidebar closed', data)}
+        onCommentClick={(data) => console.log('comment clicked', data)}
+        onCommentNavigationButtonClick={(data) => console.log('nav button clicked', data)}
+      />
+    </VeltProvider>
+  );
+}
+```
+
+**Correct (HTML / Other Frameworks):**
+
+```html
+<velt-comments-sidebar-v2
+  page-mode="false"
+  focused-thread-mode="false"
+  read-only="false"
+  position="right"
+  variant="sidebar"
+  force-close="false"
+></velt-comments-sidebar-v2>
+```
+
+**Alternate: opt into V2 via the existing sidebar tag:**
+
+```jsx
+// Routes <VeltCommentsSidebar> to the full V2 implementation,
+// forwarding pageMode, focusedThreadMode, readOnly, embedMode,
+// floatingMode, position, variant, and forceClose automatically.
+<VeltCommentsSidebar version="2" />
 ```
 
 ---
@@ -3534,7 +3616,70 @@ commentElement.setContextProvider(() => ({
 
 ---
 
-### 6.4 Use CommentActivityActionTypes for Type-Safe Comment Activity Filtering
+### 6.4 Use agentFields on CommentRequestQuery to Filter Annotation Count by Agent
+
+**Impact: MEDIUM (Enables precise comment count queries scoped to agent-tagged annotations, avoiding full-collection scans)**
+
+`CommentRequestQuery.agentFields` filters `getCommentAnnotationCount()` to only annotations where `agent.agentFields` contains any of the provided values. This is useful when a document has a mix of human and agent-authored annotations and you want a count scoped to a specific agent. Due to a Firestore `array-contains` limitation, when `agentFields` is set the unread count query is skipped and the unread count is treated as equal to the total count.
+
+**Incorrect (querying all annotation counts without agent scoping):**
+
+```jsx
+// Returns total + unread counts across all annotations,
+// including those not authored by the target agent
+const commentElement = client.getCommentElement();
+commentElement.getCommentAnnotationCount({
+  organizationId: 'org-123',
+});
+```
+
+**Correct (React / Next.js — scoped count query with agentFields):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+import { useEffect, useState } from 'react';
+
+function AgentCommentCount() {
+  const { client } = useVeltClient();
+  const [count, setCount] = useState(null);
+
+  useEffect(() => {
+    if (!client) return;
+    const commentElement = client.getCommentElement();
+
+    // Filters to annotations where agent.agentFields contains
+    // 'agent-1' or 'agent-2'. Unread count equals total count
+    // when agentFields is set (Firestore array-contains constraint).
+    const subscription = commentElement.getCommentAnnotationCount({
+      organizationId: 'org-123',
+      agentFields: ['agent-1', 'agent-2'],
+    }).subscribe((result) => {
+      setCount(result);
+    });
+
+    return () => subscription.unsubscribe();
+  }, [client]);
+
+  return <div>Agent annotations: {count?.totalCount ?? 0}</div>;
+}
+```
+
+**Correct (Other Frameworks — Angular, Vue, Vanilla JS):**
+
+```typescript
+const commentElement = client.getCommentElement();
+
+const subscription = commentElement.getCommentAnnotationCount({
+  organizationId: 'org-123',
+  agentFields: ['agent-1', 'agent-2'],
+}).subscribe((result) => {
+  console.log('Agent annotation count:', result);
+});
+```
+
+---
+
+### 6.5 Use CommentActivityActionTypes for Type-Safe Comment Activity Filtering
 
 **Impact: MEDIUM (Eliminates raw-string action type errors when filtering comment activities)**
 
@@ -3628,11 +3773,11 @@ type CommentActivityActionType =
 
 ---
 
-### 6.5 Use Config-Based URL Endpoints Instead of Placeholder Callbacks in CommentAnnotationDataProvider
+### 6.6 Use Config-Based URL Endpoints Instead of Placeholder Callbacks in CommentAnnotationDataProvider
 
 **Impact: MEDIUM (Eliminates boilerplate callback stubs when using URL-based data provider endpoints, reducing integration errors)**
 
-As of v5.0.2-beta.8, the `get`, `save`, and `delete` methods on `CommentAnnotationDataProvider` (and the parallel `ReactionAnnotationDataProvider` and `AttachmentDataProvider`) are optional. When using config-based URL endpoints (`config.getConfig`, `config.saveConfig`, `config.deleteConfig`), you no longer need to supply empty placeholder callbacks alongside them. `ResolverConfig` also accepts a new `additionalFields?: string[]` property to include custom fields in the resolver payload sent to your endpoints.
+As of v5.0.2-beta.8, the `get`, `save`, and `delete` methods on `CommentAnnotationDataProvider` (and the parallel `ReactionAnnotationDataProvider` and `AttachmentDataProvider`) are optional. When using config-based URL endpoints (`config.getConfig`, `config.saveConfig`, `config.deleteConfig`), you no longer need to supply empty placeholder callbacks alongside them. `ResolverConfig` accepts `additionalFields?: string[]` to copy custom fields to your resolver endpoint payload while retaining them in Velt's storage, and `fieldsToRemove?: string[]` to strip fields from Velt's DB entirely before storage (e.g. for PII removal). Both can coexist on the same config object.
 
 **Incorrect (supplying unnecessary placeholder callbacks alongside config-based endpoints):**
 
@@ -3672,8 +3817,10 @@ function DataProviderSetup() {
           getConfig:        { url: 'https://api.yourapp.com/comments/get' },
           saveConfig:       { url: 'https://api.yourapp.com/comments/save' },
           deleteConfig:     { url: 'https://api.yourapp.com/comments/delete' },
-          // Include custom fields in the resolver payload sent to each endpoint
+          // Copied to resolver payload but kept in Velt's storage
           additionalFields: ['tenantId', 'projectId'],
+          // Stripped from Velt's DB before storage (PII removal)
+          fieldsToRemove: ['sensitiveField'],
         },
       },
     });
@@ -3700,7 +3847,7 @@ function DataProviderSetupCallbackBased() {
 
 ---
 
-### 6.6 Use triggerActivities to Create Activity Records via REST API
+### 6.7 Use triggerActivities to Create Activity Records via REST API
 
 **Impact: MEDIUM (Ensures comment additions via REST API are reflected in the activity feed when workspace-level activity tracking is enabled)**
 

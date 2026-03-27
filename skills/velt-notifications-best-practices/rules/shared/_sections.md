@@ -22,7 +22,12 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 3. Data Access (data)
 
 **Impact:** HIGH
-**Description:** Patterns for accessing notification data. Includes React hooks (useNotificationsData, useUnreadNotificationsCount), SDK APIs, and REST API endpoints.
+**Description:** Patterns for accessing notification data. Includes React hooks (useNotificationsData, useUnreadNotificationsCount), SDK APIs, REST API endpoints, and the NotificationDataProvider resolver for fetching and deleting custom notifications from your own backend.
+
+**Rules:**
+- `data-hooks` - Use React hooks to access notification data
+- `data-rest-api` - Use REST APIs for server-side notification management
+- `data-notification-data-provider` - Register NotificationDataProvider on VeltDataProvider to route custom notification fetch and delete operations through your own backend resolver; applies only to notificationSource === 'custom' notifications
 
 ---
 

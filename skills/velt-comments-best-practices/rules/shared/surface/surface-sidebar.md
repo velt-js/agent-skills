@@ -75,6 +75,20 @@ export default function App() {
 | `pageMode` | boolean | Enable page-level comments |
 | `groupConfig` | object | Configure comment grouping |
 | `onCommentClick` | function | Handle comment selection |
+| `version` | string | Set to `"2"` to route the existing tag to the full V2 primitive-architecture implementation, forwarding `pageMode`, `focusedThreadMode`, `readOnly`, `embedMode`, `floatingMode`, `position`, `variant`, and `forceClose`. |
+
+**Opt into V2 via the existing tag (v5.0.2-beta.9+):**
+
+```jsx
+// Routes velt-comments-sidebar to the full VeltCommentsSidebarV2
+// implementation, forwarding all supported props automatically.
+<VeltCommentsSidebar version="2" />
+```
+
+```html
+<!-- HTML -->
+<velt-comments-sidebar version="2"></velt-comments-sidebar>
+```
 
 **For HTML:**
 

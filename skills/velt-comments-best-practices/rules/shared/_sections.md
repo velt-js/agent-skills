@@ -29,7 +29,12 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 4. Comment Surfaces (surface)
 
 **Impact:** MEDIUM-HIGH
-**Description:** Navigation and display surfaces for comments. Includes the Comments Sidebar and related toggle components.
+**Description:** Navigation and display surfaces for comments. Includes the Comments Sidebar, the V2 primitive-architecture sidebar, and related toggle components.
+
+**Rules:**
+- `surface-sidebar` - Comments sidebar component (VeltCommentsSidebar)
+- `surface-sidebar-v2` - Primitive-architecture V2 sidebar (VeltCommentsSidebarV2) with 27+ composable primitives, unified filter model, CDK virtual scroll, and focused-thread view
+- `surface-sidebar-button` - Toggle sidebar button
 
 ---
 
@@ -55,7 +60,8 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 - `data-context-metadata` - Add custom metadata to comments with context
 - `data-activity-action-types` - Type-safe comment activity filtering with CommentActivityActionTypes
 - `data-trigger-activities` - Set triggerActivities on CommentData to create activity records via POST /v2/commentannotations/add (v5.0.2-beta.7)
-- `data-comment-annotation-data-provider` - get/save/delete callbacks on CommentAnnotationDataProvider are now optional when using config-based URL endpoints; ResolverConfig.additionalFields for custom resolver payload fields
+- `data-comment-annotation-data-provider` - get/save/delete callbacks on CommentAnnotationDataProvider are now optional when using config-based URL endpoints; ResolverConfig.additionalFields replicates fields to resolver while retaining in Velt storage; ResolverConfig.fieldsToRemove strips fields from Velt's DB (PII removal)
+- `data-agent-fields-query` - Use agentFields on CommentRequestQuery to filter getCommentAnnotationCount() to annotations where agent.agentFields contains any of the provided values; unread count equals total count when agentFields is set
 
 ---
 

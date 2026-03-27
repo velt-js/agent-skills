@@ -16,14 +16,14 @@
 |shared/standalone:{standalone-comment-composer.md,standalone-comment-thread.md}
 
 ## 4. Comment Surfaces — MEDIUM-HIGH
-|shared/surface:{surface-sidebar.md,surface-sidebar-button.md}
+|shared/surface:{surface-sidebar.md,surface-sidebar-button.md,surface-sidebar-v2.md}
 
 ## 5. UI Customization — MEDIUM
 |shared/ui:{ui-comment-bubble.md,ui-comment-dialog.md,ui-autocomplete-primitives.md,ui-wireframes.md}
 
 ## 6. Data Model — MEDIUM
 |react/data:{data-filtering-grouping.md,data-comment-annotations.md}
-|shared/data:{data-context-metadata.md,data-activity-action-types.md,data-comment-annotation-data-provider.md,data-trigger-activities.md}
+|shared/data:{data-context-metadata.md,data-agent-fields-query.md,data-activity-action-types.md,data-comment-annotation-data-provider.md,data-trigger-activities.md}
 
 ## 7. Debugging & Testing — LOW-MEDIUM
 |react/debug:{debug-common-issues.md,debug-verification.md}

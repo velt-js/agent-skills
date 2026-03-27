@@ -29,7 +29,8 @@ Comprehensive Velt Notifications implementation guide covering in-app notificati
 
 3. [Data Access](#3-data-access) — **HIGH**
    - 3.1 [Use React Hooks to Access Notification Data](#31-use-react-hooks-to-access-notification-data)
-   - 3.2 [Use REST APIs for Server-Side Notification Management](#32-use-rest-apis-for-server-side-notification-management)
+   - 3.2 [Use NotificationDataProvider to Fetch and Delete Notifications from Your Own Backend](#32-use-notificationdataprovider-to-fetch-and-delete-notifications-from-your-own-backend)
+   - 3.3 [Use REST APIs for Server-Side Notification Management](#33-use-rest-apis-for-server-side-notification-management)
 
 4. [Settings Management](#4-settings-management) — **MEDIUM-HIGH**
    - 4.1 [Configure Notification Delivery Channels](#41-configure-notification-delivery-channels)
@@ -298,7 +299,7 @@ Reference: https://docs.velt.dev/async-collaboration/notifications/customize-beh
 
 **Impact: HIGH**
 
-Patterns for accessing notification data. Includes React hooks (useNotificationsData, useUnreadNotificationsCount), SDK APIs, and REST API endpoints.
+Patterns for accessing notification data. Includes React hooks (useNotificationsData, useUnreadNotificationsCount), SDK APIs, REST API endpoints, and the NotificationDataProvider resolver for fetching and deleting custom notifications from your own backend.
 
 ### 3.1 Use React Hooks to Access Notification Data
 
@@ -430,7 +431,82 @@ Reference: https://docs.velt.dev/async-collaboration/notifications/customize-beh
 
 ---
 
-### 3.2 Use REST APIs for Server-Side Notification Management
+### 3.2 Use NotificationDataProvider to Fetch and Delete Notifications from Your Own Backend
+
+**Impact: HIGH (Routes custom notification data through your backend resolver instead of Velt's storage, enabling full control over notification PII and lifecycle)**
+
+Register a `NotificationDataProvider` on `VeltDataProvider.notification` via `client.setDataProviders()` to have Velt call your `get` and `delete` handlers instead of reading from Velt's storage. This applies only to notifications where `notificationSource === 'custom'`. The resolution pipeline runs in the order notification → user → comment, so resolver-enriched user references are available when the user resolver executes. Notifications enriched through this resolver gain the `isNotificationResolverUsed: true` flag on the `Notification` model.
+
+**Incorrect (relying on Velt storage for custom notifications that contain PII):**
+
+```jsx
+// No data provider registered — Velt reads custom notifications
+// directly from its own storage, exposing any PII fields to clients
+client.setDataProviders({});
+```
+
+**Correct (React / Next.js — register notification get and delete handlers):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function NotificationProviderSetup() {
+  const { client } = useVeltClient();
+
+  useEffect(() => {
+    if (!client) return;
+
+    client.setDataProviders({
+      notification: {
+        get: async ({ organizationId, notificationIds }) => {
+          // Fetch enriched notification data from your backend
+          const results = await myBackend.fetchNotifications(
+            organizationId,
+            notificationIds
+          );
+          return { status: 200, data: results };
+        },
+        delete: async ({ notificationId, organizationId }) => {
+          // Delete the notification from your backend
+          await myBackend.deleteNotification(organizationId, notificationId);
+          return { status: 200, data: undefined };
+        },
+        config: {
+          // Max ms to wait for resolver response (default: 30000)
+          resolveTimeout: 30000,
+          getRetryConfig: {
+            retryCount: 2,
+            retryDelay: 500,
+            revertOnFailure: false,
+          },
+        },
+      },
+    });
+  }, [client]);
+}
+```
+
+**Correct (Other Frameworks — Angular, Vue, Vanilla JS):**
+
+```typescript
+client.setDataProviders({
+  notification: {
+    get: async ({ organizationId, notificationIds }) => {
+      const results = await myBackend.fetchNotifications(organizationId, notificationIds);
+      return { status: 200, data: results };
+    },
+    delete: async ({ notificationId, organizationId }) => {
+      await myBackend.deleteNotification(organizationId, notificationId);
+      return { status: 200, data: undefined };
+    },
+  },
+});
+```
+
+---
+
+### 3.3 Use REST APIs for Server-Side Notification Management
 
 **Impact: HIGH (Programmatic access to notifications from backend services)**
 

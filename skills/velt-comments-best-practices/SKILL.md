@@ -9,7 +9,7 @@ metadata:
 
 # Velt Comments Best Practices
 
-Comprehensive implementation guide for Velt's collaborative comments feature in React and Next.js applications. Contains 44 rules across 9 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's collaborative comments feature in React and Next.js applications. Contains 47 rules across 9 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
@@ -72,6 +72,7 @@ Reference these guidelines when:
 ### 4. Comment Surfaces (MEDIUM-HIGH)
 
 - `surface-sidebar` - Comments sidebar component
+- `surface-sidebar-v2` - Primitive-architecture V2 sidebar with 27+ composable primitives, unified filter model, and focused-thread view
 - `surface-sidebar-button` - Toggle sidebar button
 
 ### 5. UI Customization (MEDIUM)
@@ -88,7 +89,8 @@ Reference these guidelines when:
 - `data-filtering-grouping` - Filter and group comments
 - `data-activity-action-types` - Use CommentActivityActionTypes constant for type-safe comment activity filtering instead of raw strings
 - `data-trigger-activities` - Set triggerActivities on CommentData to auto-create activity records via POST /v2/commentannotations/add
-- `data-comment-annotation-data-provider` - Use config-based URL endpoints on CommentAnnotationDataProvider without placeholder callbacks; use ResolverConfig.additionalFields for custom resolver payload fields
+- `data-comment-annotation-data-provider` - Use config-based URL endpoints on CommentAnnotationDataProvider without placeholder callbacks; additionalFields replicates fields to resolver while retaining in Velt storage; fieldsToRemove strips fields from Velt's DB for PII removal
+- `data-agent-fields-query` - Use agentFields on CommentRequestQuery to filter getCommentAnnotationCount() to agent-tagged annotations; unread count equals total count when agentFields is set
 
 ### 7. Debugging & Testing (LOW-MEDIUM)
 

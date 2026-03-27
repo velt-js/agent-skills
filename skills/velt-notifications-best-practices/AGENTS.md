@@ -11,7 +11,7 @@
 
 ## 3. Data Access — HIGH
 |react/data:{data-hooks.md}
-|shared/data:{data-rest-api.md}
+|shared/data:{data-notification-data-provider.md,data-rest-api.md}
 
 ## 4. Settings Management — MEDIUM-HIGH
 |react/settings:{settings-channels.md}

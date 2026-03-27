@@ -7,7 +7,7 @@ tags: data-provider, comment-annotation, config, resolver, backend, rest-api
 
 ## Use Config-Based URL Endpoints Instead of Placeholder Callbacks in CommentAnnotationDataProvider
 
-As of v5.0.2-beta.8, the `get`, `save`, and `delete` methods on `CommentAnnotationDataProvider` (and the parallel `ReactionAnnotationDataProvider` and `AttachmentDataProvider`) are optional. When using config-based URL endpoints (`config.getConfig`, `config.saveConfig`, `config.deleteConfig`), you no longer need to supply empty placeholder callbacks alongside them. `ResolverConfig` also accepts a new `additionalFields?: string[]` property to include custom fields in the resolver payload sent to your endpoints.
+As of v5.0.2-beta.8, the `get`, `save`, and `delete` methods on `CommentAnnotationDataProvider` (and the parallel `ReactionAnnotationDataProvider` and `AttachmentDataProvider`) are optional. When using config-based URL endpoints (`config.getConfig`, `config.saveConfig`, `config.deleteConfig`), you no longer need to supply empty placeholder callbacks alongside them. `ResolverConfig` accepts `additionalFields?: string[]` to copy custom fields to your resolver endpoint payload while retaining them in Velt's storage, and `fieldsToRemove?: string[]` to strip fields from Velt's DB entirely before storage (e.g. for PII removal). Both can coexist on the same config object.
 
 **Incorrect (supplying unnecessary placeholder callbacks alongside config-based endpoints):**
 
@@ -47,8 +47,10 @@ function DataProviderSetup() {
           getConfig:        { url: 'https://api.yourapp.com/comments/get' },
           saveConfig:       { url: 'https://api.yourapp.com/comments/save' },
           deleteConfig:     { url: 'https://api.yourapp.com/comments/delete' },
-          // Include custom fields in the resolver payload sent to each endpoint
+          // Copied to resolver payload but kept in Velt's storage
           additionalFields: ['tenantId', 'projectId'],
+          // Stripped from Velt's DB before storage (PII removal)
+          fieldsToRemove: ['sensitiveField'],
         },
       },
     });
@@ -83,13 +85,15 @@ function DataProviderSetupCallbackBased() {
 | `config.getConfig` | `{ url: string }` | Yes | URL endpoint for fetch operations. |
 | `config.saveConfig` | `{ url: string }` | Yes | URL endpoint for save operations. |
 | `config.deleteConfig` | `{ url: string }` | Yes | URL endpoint for delete operations. |
-| `config.additionalFields` | `string[]` | Yes | Extra fields to include in the resolver payload sent to URL endpoints. |
+| `config.additionalFields` | `string[]` | Yes | Fields copied to your resolver endpoint payload but **retained** in Velt's storage. Use for data replication without removal. |
+| `config.fieldsToRemove` | `string[]` | Yes | Fields **stripped from Velt's DB** before storage. Use for PII removal. Can coexist with `additionalFields` on the same config object. |
 
 The same `get?`, `save?`, `delete?` optionality applies to `ReactionAnnotationDataProvider` and `AttachmentDataProvider`.
 
 **Verification Checklist:**
 - [ ] Config-based registrations omit placeholder `get`/`save`/`delete` stub callbacks
-- [ ] `additionalFields` lists only field names that exist in your comment data model
+- [ ] `additionalFields` lists only field names that exist in your comment data model and are safe to replicate
+- [ ] `fieldsToRemove` lists PII or sensitive fields that must not be persisted in Velt's storage
 - [ ] Callback-based and config-based forms are not mixed on the same provider entry
 - [ ] `setDataProviders` is called after the Velt client is initialized
 
