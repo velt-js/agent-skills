@@ -1,18 +1,16 @@
 # Velt Agent Skills
 
-Agent Skills to help developers using AI agents with Velt. Agent Skills are
-folders of instructions, scripts, and resources that agents like Claude Code,
-Cursor, Github Copilot, etc... can discover and use to do things more accurately
-and efficiently.
+Implementation rules and best practices for AI agents working with the Velt collaboration SDK. These skills are the **canonical source of truth** for Velt integration patterns — the [Velt Cursor plugin](https://github.com/velt-js/velt-plugin) and [MCP Installer](https://www.npmjs.com/package/@velt-js/mcp-installer) reference these rules by name.
 
-The skills in this repo follow the [Agent Skills](https://agentskills.io/)
-format.
+Skills follow the [Agent Skills](https://agentskills.io/) format and work with Claude Code, Cursor, GitHub Copilot, and other AI agents.
 
 ## Installation
 
 ```bash
 npx skills add velt-js/agent-skills
 ```
+
+> **Recommended when using the Velt plugin.** The plugin's embedded rules are concise summaries; these skills provide the full detailed patterns with code examples, verification checklists, and troubleshooting guides.
 
 ## Available Skills
 
