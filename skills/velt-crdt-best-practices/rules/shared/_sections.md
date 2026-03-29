@@ -42,6 +42,7 @@ Rules are organized into category folders under `rules/`.
 - `tiptap-setup-vanilla` - createVeltTipTapStore (non-React)
 - `tiptap-disable-history` - Disable Tiptap history
 - `tiptap-editor-id` - Unique editorId
+- `tiptap-comments-integration` - CRITICAL: Add TiptapVeltComments extension when using comments + CRDT (prevents freeze)
 - `tiptap-cursor-css` - Collaboration cursor CSS (y-prosemirror + Tiptap extension classes)
 - `tiptap-initial-content` - Use HTML string format for initialContent (not JSON)
 - `tiptap-nextjs-ssr` - Load Tiptap with SSR disabled in Next.js
