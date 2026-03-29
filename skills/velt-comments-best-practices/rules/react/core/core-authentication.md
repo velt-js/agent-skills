@@ -57,33 +57,7 @@ export default function App() {
 }
 ```
 
-**Alternative (using useIdentify hook):**
-
-```jsx
-import { VeltProvider, VeltComments, useIdentify } from '@veltdev/react';
-
-function AuthComponent() {
-  const user = {
-    userId: 'user-123',
-    organizationId: 'org-abc',
-    name: 'John Doe',
-    email: 'john.doe@example.com',
-    photoUrl: 'https://i.pravatar.cc/300',
-  };
-
-  useIdentify(user);
-  return null;
-}
-
-export default function App() {
-  return (
-    <VeltProvider apiKey="YOUR_API_KEY">
-      <AuthComponent />
-      <VeltComments />
-    </VeltProvider>
-  );
-}
-```
+> **Note:** The legacy `useIdentify()` hook is deprecated. Always use `authProvider` on `VeltProvider` for production applications.
 
 **Required User Object Fields:**
 
@@ -99,7 +73,7 @@ export default function App() {
 
 **Verification Checklist:**
 - [ ] User object includes userId, organizationId, name, email
-- [ ] authProvider or useIdentify is configured
+- [ ] authProvider is configured on VeltProvider
 - [ ] Token generation is set up for production
 - [ ] Authentication happens before document setup
 

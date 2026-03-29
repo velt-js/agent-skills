@@ -57,3 +57,7 @@ This file defines all rule categories for velt-setup-best-practices.
 
 **Impact:** LOW-MEDIUM
 **Description:** Setup verification and troubleshooting common configuration errors. Helps identify and fix issues when Velt features don't work as expected.
+
+**Rules:**
+- `debug-common-issues` - Troubleshoot common configuration errors (9 issues)
+- `debug-multi-user-testing` - Set up two-user testing for collaboration features

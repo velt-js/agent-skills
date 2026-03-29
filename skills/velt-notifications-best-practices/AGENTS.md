@@ -7,18 +7,18 @@
 |shared/core:{core-setup.md}
 
 ## 2. Panel Configuration — HIGH
-|shared/panel:{panel-tabs.md,panel-display.md}
+|shared/panel:{panel-tabs.md,panel-display.md,panel-current-document-only.md}
 
 ## 3. Data Access — HIGH
 |react/data:{data-hooks.md}
-|shared/data:{data-notification-data-provider.md,data-rest-api.md}
+|shared/data:{data-notification-actions.md,data-notification-data-provider.md,data-rest-api.md}
 
 ## 4. Settings Management — MEDIUM-HIGH
 |react/settings:{settings-channels.md}
 |shared/settings:{settings-config-rest-api.md}
 
 ## 5. Notification Triggers — MEDIUM
-|shared/triggers:{triggers-custom.md}
+|shared/triggers:{triggers-custom.md,triggers-self-notifications.md}
 
 ## 6. Delivery Channels — MEDIUM
 |shared/delivery:{delivery-delay-batching.md,delivery-webhooks.md,delivery-email.md}

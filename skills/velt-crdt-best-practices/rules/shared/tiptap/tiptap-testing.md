@@ -31,7 +31,7 @@ Test Tiptap collaboration by opening the same page with different authenticated 
 | Cursors not appearing | Same user in both profiles | Use different users |
 | | Missing cursor CSS | Add collaboration cursor styles |
 | Editor not loading | Velt not initialized | Check VeltProvider/API key |
-| Content desynced | History not disabled | Set `history: false` |
+| Content desynced | History not disabled | Set `undoRedo: false` (Tiptap v3) |
 | Changes not syncing | Different editorId | Verify both use same editorId |
 
 **Debug with Console:**

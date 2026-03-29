@@ -23,7 +23,18 @@ const veltClient = await initVelt('YOUR_API_KEY');
 
 // Step 2: Authenticate user
 const user = { userId: 'user-1', name: 'John Doe', color: '#3b82f6' };
-await veltClient.identify(user);
+await veltClient.setVeltAuthProvider({
+  user,
+  generateToken: async () => {
+    const resp = await fetch('/api/velt/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: user.userId }),
+    });
+    const { token } = await resp.json();
+    return token;
+  },
+});
 
 // Step 3: Set document
 await veltClient.setDocument('my-document-id');
@@ -38,7 +49,7 @@ const store = await createVeltTipTapStore({
 const editor = new Editor({
   element: document.getElementById('editor'),
   extensions: [
-    StarterKit.configure({ history: false }),  // Disable history!
+    StarterKit.configure({ undoRedo: false }),  // Disable history (Tiptap v3)
     store.getCollabExtension(),
     CollaborationCaret.configure({
       provider: store.getStore().getProvider(),
@@ -64,9 +75,9 @@ store.destroy();
 | `destroy()` | void | Cleanup resources |
 
 **Verification:**
-- [ ] `initVelt()` and `identify()` called first
+- [ ] `initVelt()` and `setVeltAuthProvider()` called first
 - [ ] `veltClient.setDocument()` called
-- [ ] `history: false` in StarterKit config
+- [ ] `undoRedo: false` in StarterKit config
 - [ ] `store.destroy()` called on cleanup
 
 **Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (### Step 3: Initialize Velt CRDT Extension > Other Frameworks)

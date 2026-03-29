@@ -133,7 +133,7 @@ setDocuments([
 **Angular/Vue/HTML Pattern:**
 
 ```javascript
-// After initVelt() and identify()
+// After initVelt() and setVeltAuthProvider()
 await client.setDocuments([
   { id: "unique-document-id", metadata: { documentName: "My Document" } }
 ]);
@@ -146,7 +146,7 @@ await Velt.setDocuments([
 
 **Key Rules:**
 
-1. Call setDocuments AFTER user is authenticated (after identify)
+1. Call setDocuments AFTER user is authenticated (after setVeltAuthProvider)
 2. Call setDocuments in a child component, not with VeltProvider
 3. Document ID must be consistent for all users collaborating
 4. Wait for useCurrentUser to return a value before setting document

@@ -45,7 +45,7 @@ export default function Home() {
 
 Any file that:
 - Imports from `@veltdev/react`
-- Uses Velt hooks (`useIdentify`, `useSetDocument`, `useVeltClient`, etc.)
+- Uses Velt hooks (`useSetDocument`, `useVeltClient`, etc.)
 - Contains Velt components (`VeltComments`, `VeltPresence`, etc.)
 - Uses React hooks with Velt data
 

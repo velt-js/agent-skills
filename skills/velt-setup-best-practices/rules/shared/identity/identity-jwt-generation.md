@@ -48,19 +48,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Server configuration error: missing VELT_AUTH_TOKEN' }, { status: 500 });
     }
 
-    // Body structure with data wrapper (required by Velt API)
     const body = {
-      data: {
-        userId,
-        userProperties: {
-          organizationId,
-          ...(typeof isAdmin === "boolean" ? { isAdmin } : {}),
-          ...(email ? { email } : {}),
-        },
+      userId,
+      userProperties: {
+        ...(typeof isAdmin === "boolean" ? { isAdmin } : {}),
+        ...(email ? { email } : {}),
       },
+      ...(organizationId ? {
+        permissions: {
+          resources: [
+            { type: "organization", id: organizationId },
+          ],
+        },
+      } : {}),
     };
 
-    const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+    const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -135,7 +138,7 @@ app.post("/api/velt/token", async (req, res) => {
 
   // Validate user authentication here
 
-  const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+  const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -143,14 +146,18 @@ app.post("/api/velt/token", async (req, res) => {
       "x-velt-auth-token": VELT_AUTH_TOKEN,
     },
     body: JSON.stringify({
-      data: {
-        userId,
-        userProperties: {
-          organizationId,
-          ...(email ? { email } : {}),
-          ...(typeof isAdmin === "boolean" ? { isAdmin } : {}),
-        },
+      userId,
+      userProperties: {
+        ...(email ? { email } : {}),
+        ...(typeof isAdmin === "boolean" ? { isAdmin } : {}),
       },
+      ...(organizationId ? {
+        permissions: {
+          resources: [
+            { type: "organization", id: organizationId },
+          ],
+        },
+      } : {}),
     }),
   });
 
@@ -177,7 +184,7 @@ app.post("/api/velt/token", async (req, res) => {
 
 ```typescript
 // Request to Velt API
-POST https://api.velt.dev/v2/auth/token/get
+POST https://api.velt.dev/v2/auth/generate_token
 Headers:
   Content-Type: application/json
   x-velt-api-key: YOUR_API_KEY
@@ -185,13 +192,15 @@ Headers:
 
 Body:
 {
-  "data": {
-    "userId": "user-123",
-    "userProperties": {
-      "organizationId": "org-abc",
-      "email": "user@example.com",
-      "isAdmin": false
-    }
+  "userId": "user-123",
+  "userProperties": {
+    "email": "user@example.com",
+    "isAdmin": false
+  },
+  "permissions": {
+    "resources": [
+      { "type": "organization", "id": "org-abc" }
+    ]
   }
 }
 

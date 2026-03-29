@@ -62,11 +62,14 @@ function Editor() {
 | Property | Description |
 |----------|-------------|
 | `value` | Current reactive store value |
-| `update` | Function to update the store |
+| `versions` | Reactive list of all saved versions |
 | `store` | Underlying store instance |
+| `update` | Function to update the store |
 | `saveVersion` | Save a named checkpoint |
-| `getVersions` | Get all saved versions |
-| `setStateFromVersion` | Restore from a version |
+| `getVersions` | Get all saved versions (async) |
+| `getVersionById` | Fetch a specific version by ID |
+| `restoreVersion` | Restore store to a version by ID (convenience method) |
+| `setStateFromVersion` | Restore from a version object |
 
 **Verification:**
 - [ ] Hook is called inside VeltProvider

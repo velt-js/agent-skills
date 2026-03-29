@@ -29,20 +29,16 @@ Add custom metadata (context) to comments for filtering, grouping, rendering, an
 />
 ```
 
-**Method 2: Via onCommentAdd Callback**
+**Method 2: Via onCommentAdd Callback (using addContext)**
 
 ```jsx
 <VeltComments
   onCommentAdd={(event) => {
-    // Add or modify context before comment is created
-    return {
-      ...event,
-      context: {
-        ...event.context,
-        timestamp: Date.now(),
-        pageSection: 'main-content'
-      }
-    };
+    // Use event.addContext() to attach custom metadata
+    event?.addContext({
+      timestamp: Date.now(),
+      pageSection: 'main-content',
+    });
   }}
 />
 ```

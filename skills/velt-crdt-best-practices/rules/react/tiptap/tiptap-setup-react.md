@@ -34,7 +34,7 @@ function CollaborativeEditor() {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        history: false,  // IMPORTANT: Disable history
+        undoRedo: false,  // IMPORTANT: Disable history (Tiptap v3 uses undoRedo, not history)
       }),
       ...(VeltCrdt ? [VeltCrdt] : []),
     ],
@@ -61,10 +61,14 @@ function CollaborativeEditor() {
 | `store` | TiptapStore \| null | Underlying CRDT store |
 | `isLoading` | boolean | True until store is ready |
 
+**Next.js SSR Safety:**
+In Next.js, the Tiptap editor component must be loaded with `next/dynamic` and `ssr: false`. See the `tiptap-nextjs-ssr` rule for the complete pattern. Direct imports in page components will cause server-side rendering crashes.
+
 **Verification:**
 - [ ] `editorId` is unique per editor instance
 - [ ] `VeltCrdt` added to extensions array
-- [ ] `history: false` set on StarterKit
+- [ ] `undoRedo: false` set on StarterKit
 - [ ] Connection status shows "Connected"
+- [ ] In Next.js: editor loaded via `next/dynamic` with `ssr: false`
 
 **Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (### Step 3: Initialize Velt CRDT Extension > React / Next.js)

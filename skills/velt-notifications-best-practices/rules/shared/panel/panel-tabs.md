@@ -2,12 +2,12 @@
 title: Configure Notification Panel Tabs
 impact: HIGH
 impactDescription: Customize which notification categories users see
-tags: panel, tabs, forYou, all, documents, people, tabConfig
+tags: panel, tabs, forYou, all, documents, tabConfig
 ---
 
 ## Configure Notification Panel Tabs
 
-The notification panel has four tabs: forYou, all, documents, and people. Use `tabConfig` to rename, enable/disable, or reorder these tabs.
+The notification panel has three tabs: forYou, all, and documents. Use `tabConfig` to rename, enable/disable, or reorder these tabs.
 
 **Incorrect (using wrong config structure):**
 

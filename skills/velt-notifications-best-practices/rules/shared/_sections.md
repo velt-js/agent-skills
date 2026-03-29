@@ -15,7 +15,12 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 2. Panel Configuration (panel)
 
 **Impact:** HIGH
-**Description:** Configuration options for the notifications panel. Includes tab setup (forYou, all, documents, people), panel open modes (popover, sidebar), and display options.
+**Description:** Configuration options for the notifications panel. Includes tab setup (forYou, all, documents), panel open modes (popover, sidebar), display options, and document filtering.
+
+**Rules:**
+- `panel-tabs` - Configure notification panel tabs (forYou, all, documents)
+- `panel-display` - Control panel display mode (popover, sidebar, embedded)
+- `panel-current-document-only` - Filter notifications to current document only
 
 ---
 
@@ -28,6 +33,7 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 - `data-hooks` - Use React hooks to access notification data
 - `data-rest-api` - Use REST APIs for server-side notification management
 - `data-notification-data-provider` - Register NotificationDataProvider on VeltDataProvider to route custom notification fetch and delete operations through your own backend resolver; applies only to notificationSource === 'custom' notifications
+- `data-notification-actions` - Mark notifications as read and handle click events
 
 ---
 
@@ -41,7 +47,11 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 5. Notification Triggers (triggers)
 
 **Impact:** MEDIUM
-**Description:** How notifications are generated. Includes automatic triggers from comments/@mentions and custom notification creation via REST API.
+**Description:** How notifications are generated. Includes automatic triggers from comments/@mentions, custom notification creation via REST API, and self-notification control.
+
+**Rules:**
+- `triggers-custom` - Custom notification creation via REST API
+- `triggers-self-notifications` - Enable or disable self-notifications for own actions
 
 ---
 

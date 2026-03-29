@@ -54,7 +54,18 @@ export class AppComponent implements OnInit {
       name: 'John Doe',
       email: 'john@example.com',
     };
-    await this.client.identify(user);
+    await this.client.setVeltAuthProvider({
+      user,
+      generateToken: async () => {
+        const resp = await fetch("/api/velt/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: user.userId, organizationId: user.organizationId }),
+        });
+        const { token } = await resp.json();
+        return token;
+      },
+    });
 
     // Set document (see document rules)
     await this.client.setDocument('my-document-id');
@@ -127,7 +138,18 @@ export default {
       name: 'John Doe',
       email: 'john@example.com',
     };
-    await this.client.identify(user);
+    await this.client.setVeltAuthProvider({
+      user,
+      generateToken: async () => {
+        const resp = await fetch("/api/velt/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: user.userId, organizationId: user.organizationId }),
+        });
+        const { token } = await resp.json();
+        return token;
+      },
+    });
 
     // Set document
     await this.client.setDocument('my-document-id');
@@ -171,7 +193,18 @@ export default {
         name: "John Doe",
         email: "john@example.com",
       };
-      await Velt.identify(user);
+      await Velt.setVeltAuthProvider({
+        user,
+        generateToken: async () => {
+          const resp = await fetch("/api/velt/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: user.userId, organizationId: user.organizationId }),
+          });
+          const { token } = await resp.json();
+          return token;
+        },
+      });
 
       // Set document
       await Velt.setDocument('my-document-id');

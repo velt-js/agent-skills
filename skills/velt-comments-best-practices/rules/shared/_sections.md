@@ -15,7 +15,7 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 2. Comment Modes (mode)
 
 **Impact:** HIGH
-**Description:** Different comment presentation and interaction modes for various use cases. Includes Freestyle, Popover, Stream, Text, Page, Inline, rich text editor integrations, media player comments, and chart comments.
+**Description:** Different comment presentation and interaction modes for various use cases. Includes Freestyle, Popover, Stream, Text, Page, Inline, rich text editor integrations (TipTap, SlateJS, Lexical, Plate, Quill, CodeMirror, Ace), media player comments, and chart comments.
 
 ---
 

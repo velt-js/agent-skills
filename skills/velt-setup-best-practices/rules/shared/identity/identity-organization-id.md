@@ -46,7 +46,36 @@ const user = {
   email: currentUser.email,
 };
 
-await client.identify(user);
+// React (recommended)
+<VeltProvider
+  apiKey="YOUR_KEY"
+  authProvider={{
+    user,
+    generateToken: async () => {
+      const resp = await fetch("/api/velt/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.userId, organizationId: user.organizationId }),
+      });
+      const { token } = await resp.json();
+      return token;
+    },
+  }}
+>
+
+// Angular/Vue/HTML
+await client.setVeltAuthProvider({
+  user,
+  generateToken: async () => {
+    const resp = await fetch("/api/velt/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: user.userId, organizationId: user.organizationId }),
+    });
+    const { token } = await resp.json();
+    return token;
+  },
+});
 ```
 
 **Multi-Tenant Patterns:**

@@ -4,12 +4,12 @@
 |root: ./rules
 
 ## 1. Core CRDT — CRITICAL
-|react/core:{core-store-create-react.md}
-|shared/core:{core-store-types.md,core-velt-init.md,core-install.md,core-version-save.md,core-store-subscribe.md,core-debug-testing.md,core-activity-action-types.md,core-message-stream.md,core-encryption.md,core-rest-api.md,core-activity-debounce.md,core-store-update.md,core-debug-storemap.md,core-webhooks.md}
+|react/core:{core-crdt-utils-hooks.md,core-store-create-react.md}
+|shared/core:{core-store-types.md,core-velt-init.md,core-install.md,core-store-lifecycle.md,core-version-save.md,core-event-subscription.md,core-store-subscribe.md,core-debug-testing.md,core-activity-action-types.md,core-message-stream.md,core-encryption.md,core-rest-api.md,core-activity-debounce.md,core-store-update.md,core-debug-storemap.md,core-webhooks.md}
 |non-react/core:{core-store-create-vanilla.md}
 
 ## 2. Tiptap Integration — CRITICAL
-|react/tiptap:{tiptap-setup-react.md}
+|react/tiptap:{tiptap-nextjs-ssr.md,tiptap-setup-react.md}
 |shared/tiptap:{tiptap-cursor-css.md,tiptap-disable-history.md,tiptap-install.md,tiptap-testing.md,tiptap-editor-id.md}
 |non-react/tiptap:{tiptap-setup-vanilla.md}
 

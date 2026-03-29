@@ -85,15 +85,23 @@ function NotificationSetup() {
 import { useNotificationSettings } from '@veltdev/react';
 
 function SettingsManager() {
-  const settings = useNotificationSettings();
+  // useNotificationSettings returns { setSettingsInitialConfig, setSettings, settings }
+  const { setSettingsInitialConfig, setSettings, settings } = useNotificationSettings();
 
-  // Current user settings: { inbox: 'ALL', email: 'MINE', ... }
+  // settings: current user settings (initially null, updates when fetched)
   console.log('Current settings:', settings);
+
+  // Update specific channel
+  const updateEmailSetting = () => {
+    setSettings({
+      email: 'NONE'  // Disable email notifications
+    });
+  };
 
   return null;
 }
 
-// Or via API
+// Or via API using useNotificationUtils
 function UpdateSettings() {
   const { client } = useVeltClient();
 
@@ -116,11 +124,9 @@ function UpdateSettings() {
 **Settings UI Layout:**
 
 ```jsx
-// Change settings display from accordion (default) to dropdown
+// Change settings display from accordion (default) to dropdown using component prop
 <VeltNotificationsTool settingsLayout="dropdown" />
-
-// Or via API
-notificationElement.setSettingsLayout('dropdown'); // 'accordion' or 'dropdown'
+<VeltNotificationsPanel settingsLayout="dropdown" />
 ```
 
 **Enable/Disable Settings Panel:**

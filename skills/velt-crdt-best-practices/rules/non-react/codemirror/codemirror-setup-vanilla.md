@@ -22,7 +22,18 @@ import { basicSetup, EditorView } from 'codemirror';
 const veltClient = await initVelt('YOUR_API_KEY');
 
 // Step 2: Authenticate user
-await veltClient.identify({ userId: 'user-1', name: 'John Doe' });
+await veltClient.setVeltAuthProvider({
+  user: { userId: 'user-1', name: 'John Doe' },
+  generateToken: async () => {
+    const resp = await fetch('/api/velt/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: 'user-1' }),
+    });
+    const { token } = await resp.json();
+    return token;
+  },
+});
 
 // Step 3: Set document
 await veltClient.setDocument('my-document-id');

@@ -26,11 +26,13 @@ Comprehensive Velt Notifications implementation guide covering in-app notificati
 2. [Panel Configuration](#2-panel-configuration) — **HIGH**
    - 2.1 [Configure Notification Panel Tabs](#21-configure-notification-panel-tabs)
    - 2.2 [Control Notification Panel Display Mode](#22-control-notification-panel-display-mode)
+   - 2.3 [Filter Notifications to Current Document Only](#23-filter-notifications-to-current-document-only)
 
 3. [Data Access](#3-data-access) — **HIGH**
    - 3.1 [Use React Hooks to Access Notification Data](#31-use-react-hooks-to-access-notification-data)
-   - 3.2 [Use NotificationDataProvider to Fetch and Delete Notifications from Your Own Backend](#32-use-notificationdataprovider-to-fetch-and-delete-notifications-from-your-own-backend)
-   - 3.3 [Use REST APIs for Server-Side Notification Management](#33-use-rest-apis-for-server-side-notification-management)
+   - 3.2 [Use Notification Actions to Manage Read State and Click Handling](#32-use-notification-actions-to-manage-read-state-and-click-handling)
+   - 3.3 [Use NotificationDataProvider to Fetch and Delete Notifications from Your Own Backend](#33-use-notificationdataprovider-to-fetch-and-delete-notifications-from-your-own-backend)
+   - 3.4 [Use REST APIs for Server-Side Notification Management](#34-use-rest-apis-for-server-side-notification-management)
 
 4. [Settings Management](#4-settings-management) — **MEDIUM-HIGH**
    - 4.1 [Configure Notification Delivery Channels](#41-configure-notification-delivery-channels)
@@ -38,6 +40,7 @@ Comprehensive Velt Notifications implementation guide covering in-app notificati
 
 5. [Notification Triggers](#5-notification-triggers) — **MEDIUM**
    - 5.1 [Create Custom Notifications via REST API](#51-create-custom-notifications-via-rest-api)
+   - 5.2 [Enable Self-Notifications for Own Actions](#52-enable-self-notifications-for-own-actions)
 
 6. [Delivery Channels](#6-delivery-channels) — **MEDIUM**
    - 6.1 [Configure Notification Delay and Batching Pipeline](#61-configure-notification-delay-and-batching-pipeline)
@@ -112,13 +115,13 @@ Reference: https://docs.velt.dev/async-collaboration/notifications/setup - Enabl
 
 **Impact: HIGH**
 
-Configuration options for the notifications panel. Includes tab setup (forYou, all, documents, people), panel open modes (popover, sidebar), and display options.
+Configuration options for the notifications panel. Includes tab setup (forYou, all, documents), panel open modes (popover, sidebar), display options, and document filtering.
 
 ### 2.1 Configure Notification Panel Tabs
 
 **Impact: HIGH (Customize which notification categories users see)**
 
-The notification panel has four tabs: forYou, all, documents, and people. Use `tabConfig` to rename, enable/disable, or reorder these tabs.
+The notification panel has three tabs: forYou, all, and documents. Use `tabConfig` to rename, enable/disable, or reorder these tabs.
 
 **Incorrect (using wrong config structure):**
 
@@ -295,6 +298,70 @@ Reference: https://docs.velt.dev/async-collaboration/notifications/customize-beh
 
 ---
 
+### 2.3 Filter Notifications to Current Document Only
+
+**Impact: MEDIUM (Reduces notification noise by showing only current document notifications)**
+
+By default, the notification panel shows notifications from the 15 most recently active documents accessible to the current user. Use `enableCurrentDocumentOnly()` to restrict the panel to notifications from the current document only.
+
+**Incorrect (no document filtering when only current doc matters):**
+
+```jsx
+// Shows notifications from all recent documents — too noisy for single-document views
+<VeltNotificationsTool />
+```
+
+**Correct (React / Next.js — using useNotificationUtils hook):**
+
+```jsx
+import { useNotificationUtils } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function DocumentNotifications() {
+  const notificationElement = useNotificationUtils();
+
+  useEffect(() => {
+    if (!notificationElement) return;
+
+    // Show only notifications from the current document
+    notificationElement.enableCurrentDocumentOnly();
+
+    // To restore default behavior (show all recent documents):
+    // notificationElement.disableCurrentDocumentOnly();
+  }, [notificationElement]);
+
+  return <VeltNotificationsTool />;
+}
+```
+
+**Correct (React / Next.js — using API):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+
+function DocumentNotifications() {
+  const { client } = useVeltClient();
+
+  useEffect(() => {
+    if (!client) return;
+    const notificationElement = client.getNotificationElement();
+    notificationElement.enableCurrentDocumentOnly();
+  }, [client]);
+}
+```
+
+**Correct (Other Frameworks):**
+
+```jsx
+const notificationElement = Velt.getNotificationElement();
+notificationElement.enableCurrentDocumentOnly();
+
+// To restore default:
+notificationElement.disableCurrentDocumentOnly();
+```
+
+---
+
 ## 3. Data Access
 
 **Impact: HIGH**
@@ -431,7 +498,88 @@ Reference: https://docs.velt.dev/async-collaboration/notifications/customize-beh
 
 ---
 
-### 3.2 Use NotificationDataProvider to Fetch and Delete Notifications from Your Own Backend
+### 3.2 Use Notification Actions to Manage Read State and Click Handling
+
+**Impact: MEDIUM-HIGH (Enables programmatic control over notification read state and custom click handlers)**
+
+Velt provides APIs to mark individual or all notifications as read and to handle notification click events. Use these to build custom notification workflows, navigation on click, and read-state management.
+
+**Incorrect (no read-state management or click handling):**
+
+```jsx
+// Notifications pile up with no way to mark them as read
+// No custom action when user clicks a notification
+<VeltNotificationsTool />
+```
+
+**Correct (mark single notification as read):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+
+function MarkAsRead({ notificationId }) {
+  const { client } = useVeltClient();
+
+  const handleMarkRead = () => {
+    const notificationElement = client?.getNotificationElement();
+    notificationElement?.markNotificationAsReadById(notificationId);
+  };
+
+  return <button onClick={handleMarkRead}>Mark Read</button>;
+}
+```
+
+**Correct (mark all notifications as read):**
+
+```jsx
+const notificationElement = client.getNotificationElement();
+
+// Mark all notifications as read across all tabs
+notificationElement.setAllNotificationsAsRead();
+
+// Mark only "For You" tab as read
+notificationElement.setAllNotificationsAsRead({ tabId: 'for-you' });
+
+// Mark "All" or "Document" tab as read (equivalent to marking all)
+notificationElement.setAllNotificationsAsRead({ tabId: 'all' });
+notificationElement.setAllNotificationsAsRead({ tabId: 'document' });
+```
+
+**Correct (handle notification click events):**
+
+```jsx
+import { VeltNotificationsTool, VeltNotificationsPanel } from '@veltdev/react';
+
+function NotificationPanel() {
+  const onNotificationClickEvent = (notification) => {
+    console.log('Notification clicked:', notification);
+    // Navigate to the relevant part of the app
+    // e.g., router.push(`/doc/${notification.documentId}`)
+  };
+
+  // Listen via Tool or Panel — but not both
+  return (
+    <VeltNotificationsTool
+      onNotificationClick={(notification) => onNotificationClickEvent(notification)}
+    />
+  );
+}
+```
+
+**Correct (Other Frameworks — click event):**
+
+```html
+<script>
+const notificationsTool = document.querySelector('velt-notifications-tool');
+notificationsTool?.addEventListener('onNotificationClick', (event) => {
+  console.log('Notification clicked:', event.detail);
+});
+</script>
+```
+
+---
+
+### 3.3 Use NotificationDataProvider to Fetch and Delete Notifications from Your Own Backend
 
 **Impact: HIGH (Routes custom notification data through your backend resolver instead of Velt's storage, enabling full control over notification PII and lifecycle)**
 
@@ -506,7 +654,7 @@ client.setDataProviders({
 
 ---
 
-### 3.3 Use REST APIs for Server-Side Notification Management
+### 3.4 Use REST APIs for Server-Side Notification Management
 
 **Impact: HIGH (Programmatic access to notifications from backend services)**
 
@@ -681,15 +829,23 @@ function NotificationSetup() {
 import { useNotificationSettings } from '@veltdev/react';
 
 function SettingsManager() {
-  const settings = useNotificationSettings();
+  // useNotificationSettings returns { setSettingsInitialConfig, setSettings, settings }
+  const { setSettingsInitialConfig, setSettings, settings } = useNotificationSettings();
 
-  // Current user settings: { inbox: 'ALL', email: 'MINE', ... }
+  // settings: current user settings (initially null, updates when fetched)
   console.log('Current settings:', settings);
+
+  // Update specific channel
+  const updateEmailSetting = () => {
+    setSettings({
+      email: 'NONE'  // Disable email notifications
+    });
+  };
 
   return null;
 }
 
-// Or via API
+// Or via API using useNotificationUtils
 function UpdateSettings() {
   const { client } = useVeltClient();
 
@@ -712,11 +868,9 @@ function UpdateSettings() {
 **Settings UI Layout:**
 
 ```jsx
-// Change settings display from accordion (default) to dropdown
+// Change settings display from accordion (default) to dropdown using component prop
 <VeltNotificationsTool settingsLayout="dropdown" />
-
-// Or via API
-notificationElement.setSettingsLayout('dropdown'); // 'accordion' or 'dropdown'
+<VeltNotificationsPanel settingsLayout="dropdown" />
 ```
 
 **Enable/Disable Settings Panel:**
@@ -848,7 +1002,7 @@ POST https://api.velt.dev/v2/notifications/config/set
 
 **Impact: MEDIUM**
 
-How notifications are generated. Includes automatic triggers from comments/@mentions and custom notification creation via REST API.
+How notifications are generated. Includes automatic triggers from comments/@mentions, custom notification creation via REST API, and self-notification control.
 
 ### 5.1 Create Custom Notifications via REST API
 
@@ -950,6 +1104,70 @@ const response = await fetch('https://api.velt.dev/v2/notifications/add', {
 ```
 
 Reference: https://docs.velt.dev/api-reference/rest-apis/v2/notifications/add-notifications - Add Notifications API
+
+---
+
+### 5.2 Enable Self-Notifications for Own Actions
+
+**Impact: MEDIUM (Controls whether users receive notifications for their own actions)**
+
+By default, Velt excludes notifications where the current user is the action user. Enable self-notifications if users need to see confirmations of their own actions (e.g., audit trails, confirmation flows).
+
+**Incorrect (expecting self-notifications without enabling them):**
+
+```jsx
+// Default behavior: user does NOT receive notifications for their own actions
+<VeltNotificationsTool />
+// User comments on a thread — no notification generated for themselves
+```
+
+**Correct (React / Next.js — using props):**
+
+```jsx
+import { VeltNotificationsTool, VeltNotificationsPanel } from '@veltdev/react';
+
+// Enable via prop on the tool or panel
+<VeltNotificationsTool selfNotifications={true} />
+<VeltNotificationsPanel selfNotifications={true} />
+```
+
+**Correct (React / Next.js — using API):**
+
+```jsx
+import { useNotificationUtils } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function SelfNotificationSetup() {
+  const notificationElement = useNotificationUtils();
+
+  useEffect(() => {
+    if (!notificationElement) return;
+
+    // Enable self notifications
+    notificationElement.enableSelfNotifications();
+
+    // To disable:
+    // notificationElement.disableSelfNotifications();
+  }, [notificationElement]);
+}
+```
+
+**Correct (Other Frameworks — using attributes):**
+
+```html
+<velt-notifications-tool self-notifications="true"></velt-notifications-tool>
+<velt-notifications-panel self-notifications="true"></velt-notifications-panel>
+```
+
+**Correct (Other Frameworks — using API):**
+
+```jsx
+const notificationElement = Velt.getNotificationElement();
+notificationElement.enableSelfNotifications();
+
+// To disable:
+notificationElement.disableSelfNotifications();
+```
 
 ---
 

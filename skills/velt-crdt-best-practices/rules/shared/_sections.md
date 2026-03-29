@@ -21,10 +21,13 @@ Rules are organized into category folders under `rules/`.
 - `core-version-save` - Save version checkpoints
 - `core-encryption` - Custom encryption provider
 - `core-webhooks` - Webhook notifications for data changes
-- `core-rest-api` - REST API for server-side data access
+- `core-event-subscription` - Subscribe to CRDT updateData events with Observable pattern
+- `core-rest-api` - REST APIs for server-side data access (Get, Add, Update)
 - `core-activity-debounce` - Control CRDT activity flush frequency with setActivityDebounceTime()
 - `core-activity-action-types` - Type-safe CRDT activity filtering with CrdtActivityActionTypes
 - `core-message-stream` - Yjs message stream (pushMessage, onMessage, getMessages, getSnapshot, saveSnapshot, pruneMessages)
+- `core-store-lifecycle` - Store lifecycle management, destroy(), and Yjs accessors
+- `core-crdt-utils-hooks` - useCrdtUtils() and useCrdtEventCallback() React hooks
 - `core-debug-storemap` - VeltCrdtStoreMap debugging
 - `core-debug-testing` - Multi-user testing
 
@@ -39,7 +42,9 @@ Rules are organized into category folders under `rules/`.
 - `tiptap-setup-vanilla` - createVeltTipTapStore (non-React)
 - `tiptap-disable-history` - Disable Tiptap history
 - `tiptap-editor-id` - Unique editorId
-- `tiptap-cursor-css` - Collaboration cursor CSS
+- `tiptap-cursor-css` - Collaboration cursor CSS (y-prosemirror + Tiptap extension classes)
+- `tiptap-initial-content` - Use HTML string format for initialContent (not JSON)
+- `tiptap-nextjs-ssr` - Load Tiptap with SSR disabled in Next.js
 - `tiptap-testing` - Test collaboration
 
 ## 3. BlockNote Integration (blocknote/)

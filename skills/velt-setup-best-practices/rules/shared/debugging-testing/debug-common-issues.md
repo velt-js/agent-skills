@@ -113,7 +113,7 @@ const VELT_AUTH_TOKEN = process.env.VELT_AUTH_TOKEN;
 console.log("Auth token defined:", !!VELT_AUTH_TOKEN);  // Should be true
 
 // 2. Check API response format
-const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
@@ -121,12 +121,14 @@ const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
     "x-velt-auth-token": process.env.VELT_AUTH_TOKEN,
   },
   body: JSON.stringify({
-    data: {
-      userId,
-      userProperties: {
-        organizationId,
-        ...(email ? { email } : {}),
-      },
+    userId,
+    userProperties: {
+      ...(email ? { email } : {}),
+    },
+    permissions: {
+      resources: [
+        { type: "organization", id: organizationId },
+      ],
     },
   }),
 });
@@ -257,6 +259,26 @@ See `document-id-generation` rule for proper patterns.
 
 ---
 
+### Issue 9: ENOENT or Module Not Found After SSR Changes
+
+**Symptom:**
+```
+ENOENT: no such file or directory, open '.next/server/app/...'
+Module not found: Can't resolve '...'
+```
+
+**Cause:** Stale `.next` build cache after changing import patterns (e.g., adding `next/dynamic` with `ssr: false`, modifying component imports).
+
+**Solution:**
+```bash
+rm -rf .next
+npm run dev
+```
+
+Always clear `.next` after modifying SSR patterns or dynamic imports. The old build cache references files at their previous paths, which no longer exist after restructuring imports.
+
+---
+
 ### Quick Diagnostic Checklist
 
 | Issue | Check |
@@ -268,6 +290,7 @@ See `document-id-generation` rule for proper patterns.
 | Hooks error | Inside VeltProvider? In child component? |
 | Inconsistent state | Only one VeltProvider? |
 | Data not persisting | Document ID consistent? |
+| ENOENT after import changes | Clear `.next` cache? |
 
 **Source Pointers:**
 - `https://docs.velt.dev/get-started/quickstart` - Setup requirements

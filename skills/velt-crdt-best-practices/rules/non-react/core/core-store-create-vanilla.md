@@ -31,7 +31,18 @@ import { initVelt } from '@veltdev/client';
 const veltClient = await initVelt('YOUR_API_KEY');
 
 // Step 2: Authenticate user
-await veltClient.identify({ userId: 'user-1', name: 'John' });
+await veltClient.setVeltAuthProvider({
+  user: { userId: 'user-1', name: 'John' },
+  generateToken: async () => {
+    const resp = await fetch('/api/velt/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId: 'user-1' }),
+    });
+    const { token } = await resp.json();
+    return token;
+  },
+});
 
 // Step 3: Set document context
 await veltClient.setDocument('my-document-id');
@@ -71,7 +82,7 @@ store.destroy();
 **Verification:**
 - [ ] `initVelt()` called before `createVeltStore()`
 - [ ] `veltClient` passed to store config
-- [ ] User identified via `veltClient.identify()`
+- [ ] User identified via `veltClient.setVeltAuthProvider()`
 - [ ] Document set via `veltClient.setDocument()`
 - [ ] `store.destroy()` called on cleanup
 

@@ -32,8 +32,8 @@ function CrdtWebhookSetup() {
     // Enable webhooks for CRDT data changes
     crdtElement.enableWebhook();
 
-    // Optional: customize debounce time (default 5000ms)
-    crdtElement.setWebhookDebounceTime(3000);
+    // Optional: customize debounce time (default 5000ms, minimum 5000ms)
+    crdtElement.setWebhookDebounceTime(10000);
   }, [client]);
 }
 ```
@@ -50,8 +50,9 @@ function CrdtChangeListener() {
     if (!client) return;
     const crdtElement = client.getCrdtElement();
 
-    const subscription = crdtElement.on('updateData', (data) => {
-      console.log('CRDT data changed:', data);
+    // on() returns an Observable — call .subscribe() on it
+    const subscription = crdtElement.on("updateData").subscribe((eventData) => {
+      console.log('CRDT data changed:', eventData);
     });
 
     return () => subscription.unsubscribe();
@@ -65,7 +66,7 @@ function CrdtChangeListener() {
 |--------|-------------|
 | `enableWebhook()` | Enable webhook notifications for CRDT data changes |
 | `disableWebhook()` | Disable webhook notifications |
-| `setWebhookDebounceTime(ms)` | Set debounce interval in milliseconds (default: 5000) |
+| `setWebhookDebounceTime(ms)` | Set debounce interval in milliseconds (default: 5000, minimum: 5000) |
 
 **Verification Checklist:**
 - [ ] `enableWebhook()` called after Velt client initialized

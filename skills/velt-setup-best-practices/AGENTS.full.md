@@ -401,7 +401,18 @@ export class AppComponent implements OnInit {
       name: 'John Doe',
       email: 'john@example.com',
     };
-    await this.client.identify(user);
+    await this.client.setVeltAuthProvider({
+      user,
+      generateToken: async () => {
+        const resp = await fetch("/api/velt/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: user.userId, organizationId: user.organizationId }),
+        });
+        const { token } = await resp.json();
+        return token;
+      },
+    });
 
     // Set document (see document rules)
     await this.client.setDocument('my-document-id');
@@ -461,7 +472,18 @@ export default {
       name: 'John Doe',
       email: 'john@example.com',
     };
-    await this.client.identify(user);
+    await this.client.setVeltAuthProvider({
+      user,
+      generateToken: async () => {
+        const resp = await fetch("/api/velt/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: user.userId, organizationId: user.organizationId }),
+        });
+        const { token } = await resp.json();
+        return token;
+      },
+    });
 
     // Set document
     await this.client.setDocument('my-document-id');
@@ -506,7 +528,18 @@ export default {
         name: "John Doe",
         email: "john@example.com",
       };
-      await Velt.identify(user);
+      await Velt.setVeltAuthProvider({
+        user,
+        generateToken: async () => {
+          const resp = await fetch("/api/velt/token", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId: user.userId, organizationId: user.organizationId }),
+          });
+          const { token } = await resp.json();
+          return token;
+        },
+      });
 
       // Set document
       await Velt.setDocument('my-document-id');
@@ -739,19 +772,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Server configuration error: missing VELT_AUTH_TOKEN' }, { status: 500 });
     }
 
-    // Body structure with data wrapper (required by Velt API)
     const body = {
-      data: {
-        userId,
-        userProperties: {
-          organizationId,
-          ...(typeof isAdmin === "boolean" ? { isAdmin } : {}),
-          ...(email ? { email } : {}),
-        },
+      userId,
+      userProperties: {
+        ...(typeof isAdmin === "boolean" ? { isAdmin } : {}),
+        ...(email ? { email } : {}),
       },
+      ...(organizationId ? {
+        permissions: {
+          resources: [
+            { type: "organization", id: organizationId },
+          ],
+        },
+      } : {}),
     };
 
-    const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+    const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -819,7 +855,7 @@ app.post("/api/velt/token", async (req, res) => {
 
   // Validate user authentication here
 
-  const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+  const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -827,14 +863,18 @@ app.post("/api/velt/token", async (req, res) => {
       "x-velt-auth-token": VELT_AUTH_TOKEN,
     },
     body: JSON.stringify({
-      data: {
-        userId,
-        userProperties: {
-          organizationId,
-          ...(email ? { email } : {}),
-          ...(typeof isAdmin === "boolean" ? { isAdmin } : {}),
-        },
+      userId,
+      userProperties: {
+        ...(email ? { email } : {}),
+        ...(typeof isAdmin === "boolean" ? { isAdmin } : {}),
       },
+      ...(organizationId ? {
+        permissions: {
+          resources: [
+            { type: "organization", id: organizationId },
+          ],
+        },
+      } : {}),
     }),
   });
 
@@ -853,7 +893,7 @@ app.post("/api/velt/token", async (req, res) => {
 
 ```typescript
 // Request to Velt API
-POST https://api.velt.dev/v2/auth/token/get
+POST https://api.velt.dev/v2/auth/generate_token
 Headers:
   Content-Type: application/json
   x-velt-api-key: YOUR_API_KEY
@@ -861,13 +901,15 @@ Headers:
 
 Body:
 {
-  "data": {
-    "userId": "user-123",
-    "userProperties": {
-      "organizationId": "org-abc",
-      "email": "user@example.com",
-      "isAdmin": false
-    }
+  "userId": "user-123",
+  "userProperties": {
+    "email": "user@example.com",
+    "isAdmin": false
+  },
+  "permissions": {
+    "resources": [
+      { "type": "organization", "id": "org-abc" }
+    ]
   }
 }
 
@@ -926,7 +968,36 @@ const user = {
   email: currentUser.email,
 };
 
-await client.identify(user);
+// React (recommended)
+<VeltProvider
+  apiKey="YOUR_KEY"
+  authProvider={{
+    user,
+    generateToken: async () => {
+      const resp = await fetch("/api/velt/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.userId, organizationId: user.organizationId }),
+      });
+      const { token } = await resp.json();
+      return token;
+    },
+  }}
+>
+
+// Angular/Vue/HTML
+await client.setVeltAuthProvider({
+  user,
+  generateToken: async () => {
+    const resp = await fetch("/api/velt/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: user.userId, organizationId: user.organizationId }),
+    });
+    const { token } = await resp.json();
+    return token;
+  },
+});
 ```
 
 **Multi-Tenant Patterns:**
@@ -999,7 +1070,7 @@ const body = {
 
 **Impact: CRITICAL (Authentication will fail without correct user object structure)**
 
-The user object passed to Velt's identify method must include specific required fields. Missing or incorrect fields will cause authentication failures.
+The user object passed to Velt authentication must include specific required fields. Missing or incorrect fields will cause authentication failures.
 
 **Incorrect (missing required fields):**
 
@@ -1072,21 +1143,38 @@ const user = {
 **Using the User Object:**
 
 ```jsx
-// React with authProvider (recommended)
+// React (recommended)
 <VeltProvider
   apiKey="YOUR_KEY"
   authProvider={{
     user,
-    generateToken: async () => { /* ... */ },
+    retryConfig: { retryCount: 3, retryDelay: 1000 },
+    generateToken: async () => {
+      const resp = await fetch("/api/velt/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.userId, organizationId: user.organizationId }),
+      });
+      const { token } = await resp.json();
+      return token;
+    },
   }}
 >
 
-// React with useIdentify hook
-import { useIdentify } from '@veltdev/react';
-useIdentify(user);
-
 // Angular/Vue/HTML
-await client.identify(user);
+await client.setVeltAuthProvider({
+  user,
+  generateToken: async () => {
+    // Fetch JWT from your backend
+    const resp = await fetch("/api/velt/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: user.userId, organizationId: user.organizationId }),
+    });
+    const { token } = await resp.json();
+    return token;
+  },
+});
 ```
 
 ---
@@ -1478,7 +1566,7 @@ setDocuments([
 **Angular/Vue/HTML Pattern:**
 
 ```javascript
-// After initVelt() and identify()
+// After initVelt() and setVeltAuthProvider()
 await client.setDocuments([
   { id: "unique-document-id", metadata: { documentName: "My Document" } }
 ]);
@@ -1596,7 +1684,7 @@ const VELT_AUTH_TOKEN = "bd4d5226050470b6c658054fcdf1092a";
 
 async function generateToken() {
   // This code runs in the browser - token is visible!
-  const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+  const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
     headers: {
       "x-velt-auth-token": VELT_AUTH_TOKEN,  // Exposed!
     },
@@ -1637,17 +1725,21 @@ export async function POST(req: NextRequest) {
     }
 
     const body = {
-      data: {
-        userId,
-        userProperties: {
-          organizationId,
-          ...(typeof isAdmin === 'boolean' ? { isAdmin } : {}),
-          ...(email ? { email } : {}),
-        },
+      userId,
+      userProperties: {
+        ...(typeof isAdmin === 'boolean' ? { isAdmin } : {}),
+        ...(email ? { email } : {}),
       },
+      ...(organizationId ? {
+        permissions: {
+          resources: [
+            { type: 'organization', id: organizationId },
+          ],
+        },
+      } : {}),
     };
 
-    const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+    const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -2479,7 +2571,7 @@ const VELT_AUTH_TOKEN = process.env.VELT_AUTH_TOKEN;
 console.log("Auth token defined:", !!VELT_AUTH_TOKEN);  // Should be true
 
 // 2. Check API response format
-const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
@@ -2487,12 +2579,14 @@ const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
     "x-velt-auth-token": process.env.VELT_AUTH_TOKEN,
   },
   body: JSON.stringify({
-    data: {
-      userId,
-      userProperties: {
-        organizationId,
-        ...(email ? { email } : {}),
-      },
+    userId,
+    userProperties: {
+      ...(email ? { email } : {}),
+    },
+    permissions: {
+      resources: [
+        { type: "organization", id: organizationId },
+      ],
     },
   }),
 });

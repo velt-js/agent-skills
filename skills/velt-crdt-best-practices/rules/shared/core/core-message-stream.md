@@ -86,8 +86,8 @@ async function checkpointAndPrune(client: any, docId: string, ydoc: Y.Doc) {
 
   await crdtElement.saveSnapshot({
     id: docId,
-    state: Array.from(Y.encodeStateAsUpdate(ydoc)),
-    vector: Array.from(Y.encodeStateVector(ydoc)),
+    state: Y.encodeStateAsUpdate(ydoc),
+    vector: Y.encodeStateVector(ydoc),
     source: 'tiptap',
   });
 
@@ -103,11 +103,11 @@ async function checkpointAndPrune(client: any, docId: string, ydoc: Y.Doc) {
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `getSnapshot` | `(query: { id: string }) => Promise<{ state: number[]; timestamp: number; vector: number[] } \| null>` | Retrieve the latest full-state snapshot as a replay baseline |
+| `getSnapshot` | `(query: { id: string }) => Promise<{ state: Uint8Array; timestamp: number; vector: Uint8Array } \| null>` | Retrieve the latest full-state snapshot as a replay baseline |
 | `getMessages` | `(query: { id: string; afterTs: number }) => Promise<Array<{ data: number[] }>>` | Fetch all messages newer than `afterTs` (Unix ms) for incremental replay |
 | `onMessage` | `(query: { id: string; callback: (msg: { data: number[] }) => void }) => () => void` | Subscribe to real-time incoming messages; returns an unsubscribe function |
 | `pushMessage` | `(query: { id: string; data: number[]; yjsClientId: number; messageType: 'sync' \| 'awareness'; source?: string }) => Promise<void>` | Push a lib0-encoded sync or awareness update to the stream |
-| `saveSnapshot` | `(query: { id: string; state: number[]; vector: number[]; source?: string }) => Promise<void>` | Checkpoint the current Y.Doc state and vector clock |
+| `saveSnapshot` | `(query: { id: string; state: Uint8Array; vector: Uint8Array; source?: string }) => Promise<void>` | Checkpoint the current Y.Doc state and vector clock |
 | `pruneMessages` | `(query: { id: string; beforeTs: number }) => Promise<void>` | Delete messages older than `beforeTs` (Unix ms) to bound storage |
 
 **Verification Checklist:**

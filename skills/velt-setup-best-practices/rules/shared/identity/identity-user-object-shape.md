@@ -7,7 +7,7 @@ tags: user, userid, organizationid, authentication, identity
 
 ## Structure User Object with Required Fields
 
-The user object passed to Velt's identify method must include specific required fields. Missing or incorrect fields will cause authentication failures.
+The user object passed to Velt authentication must include specific required fields. Missing or incorrect fields will cause authentication failures.
 
 **Incorrect (missing required fields):**
 
@@ -92,21 +92,38 @@ const user = {
 **Using the User Object:**
 
 ```jsx
-// React with authProvider (recommended)
+// React (recommended)
 <VeltProvider
   apiKey="YOUR_KEY"
   authProvider={{
     user,
-    generateToken: async () => { /* ... */ },
+    retryConfig: { retryCount: 3, retryDelay: 1000 },
+    generateToken: async () => {
+      const resp = await fetch("/api/velt/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: user.userId, organizationId: user.organizationId }),
+      });
+      const { token } = await resp.json();
+      return token;
+    },
   }}
 >
 
-// React with useIdentify hook
-import { useIdentify } from '@veltdev/react';
-useIdentify(user);
-
 // Angular/Vue/HTML
-await client.identify(user);
+await client.setVeltAuthProvider({
+  user,
+  generateToken: async () => {
+    // Fetch JWT from your backend
+    const resp = await fetch("/api/velt/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: user.userId, organizationId: user.organizationId }),
+    });
+    const { token } = await resp.json();
+    return token;
+  },
+});
 ```
 
 **Common Mistakes:**
@@ -116,7 +133,7 @@ await client.identify(user);
 | Using integer IDs | May cause type mismatches | Convert to string: `String(id)` |
 | Missing organizationId | Users see all docs | Always include organization scoping |
 | Null email | Breaks @mentions | Provide fallback: `email \|\| 'no-email@example.com'` |
-| Empty string userId | Auth fails silently | Validate userId before calling identify |
+| Empty string userId | Auth fails silently | Validate userId before authentication |
 
 **Verification:**
 - [ ] userId is a non-empty string

@@ -18,7 +18,7 @@ Common problems and solutions when implementing Velt notifications.
 
 **Solution:**
 1. Verify notifications enabled in [Velt Console](https://console.velt.dev)
-2. Check user is authenticated with `identify()`
+2. Check user is authenticated with `authProvider`
 3. Confirm document is set with `setDocument()`
 4. Check browser console for errors
 
@@ -73,7 +73,7 @@ function DebugUnreadCount() {
 - [ ] SendGrid API key configured in Velt Console
 - [ ] Sender email verified in SendGrid
 - [ ] User has email preference set to ALL or MINE
-- [ ] User email is valid in `identify()` call
+- [ ] User email is valid in authProvider user object
 - [ ] Comment contains @mention (for MINE setting)
 
 **Issue 4: Custom notifications not appearing**
@@ -137,7 +137,7 @@ function NotificationNavigation() {
 **Verification:**
 - [ ] Velt Console: Notifications feature enabled
 - [ ] VeltProvider: API key correct
-- [ ] User: `identify()` called with valid user object
+- [ ] User: authProvider configured with valid user object
 - [ ] Document: `setDocument()` called with document ID
 - [ ] Network: No CORS or auth errors in console
 - [ ] Hooks: Used within VeltProvider context
