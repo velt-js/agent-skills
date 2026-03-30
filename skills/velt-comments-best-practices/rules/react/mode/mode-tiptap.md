@@ -36,10 +36,16 @@ import { VeltProvider, VeltComments } from '@veltdev/react';
 
 **Step 3: Add extension to TipTap editor**
 ```jsx
-import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react';
+// Tiptap v3: BubbleMenu is in @tiptap/react/menus (NOT @tiptap/react)
+import { useEditor, EditorContent } from '@tiptap/react';
+import { BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
-import { TiptapVeltComments, addComment, renderComments } from '@veltdev/tiptap-velt-comments';
+import { TiptapVeltComments } from '@veltdev/tiptap-velt-comments';
 import { useCommentAnnotations } from '@veltdev/react';
+
+// API differs by version:
+// v4: import { triggerAddComment, highlightComments } from '@veltdev/tiptap-velt-comments'
+// v5: import { addComment, renderComments } from '@veltdev/tiptap-velt-comments'
 
 export default function TipTapComponent() {
   const commentAnnotations = useCommentAnnotations();
@@ -50,18 +56,24 @@ export default function TipTapComponent() {
       TiptapVeltComments,
     ],
     content: '<p>Hello Velt!</p>',
+    immediatelyRender: false,
   });
 
   // Render comments when annotations change
+  // v4: highlightComments(editor, commentAnnotations)
+  // v5: renderComments({ editor, commentAnnotations })
   useEffect(() => {
     if (editor && commentAnnotations?.length) {
-      renderComments({ editor, commentAnnotations });
+      // Use whichever function your installed version exports
+      highlightComments(editor, commentAnnotations);
     }
   }, [editor, commentAnnotations]);
 
   const handleAddComment = () => {
     if (editor) {
-      addComment({ editor });
+      // v4: triggerAddComment(editor)
+      // v5: addComment({ editor })
+      triggerAddComment(editor);
     }
   };
 
@@ -70,7 +82,7 @@ export default function TipTapComponent() {
       <EditorContent editor={editor} />
 
       {editor && (
-        <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }}>
+        <BubbleMenu editor={editor}>
           <button
             onMouseDown={(e) => {
               e.preventDefault();
@@ -87,11 +99,19 @@ export default function TipTapComponent() {
 }
 ```
 
-**Key Functions:**
-- `TiptapVeltComments` - Extension to add to editor
-- `addComment({ editor })` - Create comment on selected text
-- `renderComments({ editor, commentAnnotations })` - Render existing comments
-- `useCommentAnnotations()` - Hook to get comment data
+**Key Functions (check your installed version):**
+
+| v4 API | v5 API | Purpose |
+|--------|--------|---------|
+| `TiptapVeltComments` | `TiptapVeltComments` | Extension to add to editor |
+| `triggerAddComment(editor)` | `addComment({ editor })` | Create comment on selected text |
+| `highlightComments(editor, annotations)` | `renderComments({ editor, commentAnnotations })` | Render existing comments |
+| `useCommentAnnotations()` | `useCommentAnnotations()` | Hook to get comment data |
+
+**Tiptap v3 notes:**
+- `BubbleMenu` import: `@tiptap/react/menus` (NOT `@tiptap/react`)
+- `tippyOptions` prop was removed in v3 — do not use it
+- `@floating-ui/dom` is a required peer dependency for BubbleMenu
 
 **With Custom Metadata (Context):**
 ```jsx

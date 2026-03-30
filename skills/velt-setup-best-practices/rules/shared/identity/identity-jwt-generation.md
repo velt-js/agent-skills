@@ -16,7 +16,7 @@ JWT tokens for Velt must be generated on your server, not in the browser. This r
 const VELT_AUTH_TOKEN = "bd4d5226...";  // Never do this!
 
 const generateToken = async () => {
-  const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
+  const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
     headers: {
       "x-velt-auth-token": VELT_AUTH_TOKEN,  // Exposed to users!
     },
@@ -63,14 +63,14 @@ export async function POST(req: NextRequest) {
       } : {}),
     };
 
-    const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
+    const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-velt-api-key": VELT_API_KEY,
         "x-velt-auth-token": VELT_AUTH_TOKEN,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ data: body }),
     });
 
     const json = await response.json();
@@ -138,7 +138,7 @@ app.post("/api/velt/token", async (req, res) => {
 
   // Validate user authentication here
 
-  const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
+  const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -146,18 +146,14 @@ app.post("/api/velt/token", async (req, res) => {
       "x-velt-auth-token": VELT_AUTH_TOKEN,
     },
     body: JSON.stringify({
-      userId,
-      userProperties: {
-        ...(email ? { email } : {}),
-        ...(typeof isAdmin === "boolean" ? { isAdmin } : {}),
-      },
-      ...(organizationId ? {
-        permissions: {
-          resources: [
-            { type: "organization", id: organizationId },
-          ],
+      data: {
+        userId,
+        userProperties: {
+          ...(organizationId ? { organizationId } : {}),
+          ...(email ? { email } : {}),
+          ...(typeof isAdmin === "boolean" ? { isAdmin } : {}),
         },
-      } : {}),
+      },
     }),
   });
 
@@ -184,7 +180,7 @@ app.post("/api/velt/token", async (req, res) => {
 
 ```typescript
 // Request to Velt API
-POST https://api.velt.dev/v2/auth/generate_token
+POST https://api.velt.dev/v2/auth/token/get
 Headers:
   Content-Type: application/json
   x-velt-api-key: YOUR_API_KEY
@@ -192,15 +188,13 @@ Headers:
 
 Body:
 {
-  "userId": "user-123",
-  "userProperties": {
-    "email": "user@example.com",
-    "isAdmin": false
-  },
-  "permissions": {
-    "resources": [
-      { "type": "organization", "id": "org-abc" }
-    ]
+  "data": {
+    "userId": "user-123",
+    "userProperties": {
+      "organizationId": "org-abc",
+      "email": "user@example.com",
+      "isAdmin": false
+    }
   }
 }
 

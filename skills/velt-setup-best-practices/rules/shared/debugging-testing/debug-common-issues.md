@@ -113,7 +113,7 @@ const VELT_AUTH_TOKEN = process.env.VELT_AUTH_TOKEN;
 console.log("Auth token defined:", !!VELT_AUTH_TOKEN);  // Should be true
 
 // 2. Check API response format
-const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
+const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
@@ -121,14 +121,12 @@ const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
     "x-velt-auth-token": process.env.VELT_AUTH_TOKEN,
   },
   body: JSON.stringify({
-    userId,
-    userProperties: {
-      ...(email ? { email } : {}),
-    },
-    permissions: {
-      resources: [
-        { type: "organization", id: organizationId },
-      ],
+    data: {
+      userId,
+      userProperties: {
+        ...(organizationId ? { organizationId } : {}),
+        ...(email ? { email } : {}),
+      },
     },
   }),
 });
