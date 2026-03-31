@@ -1762,10 +1762,16 @@ import { VeltProvider, VeltComments } from '@veltdev/react';
 <VeltProvider apiKey="API_KEY">
   <VeltComments textMode={false} />
 </VeltProvider>
-import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react';
+// Tiptap v3: BubbleMenu is in @tiptap/react/menus (NOT @tiptap/react)
+import { useEditor, EditorContent } from '@tiptap/react';
+import { BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
-import { TiptapVeltComments, addComment, renderComments } from '@veltdev/tiptap-velt-comments';
+import { TiptapVeltComments } from '@veltdev/tiptap-velt-comments';
 import { useCommentAnnotations } from '@veltdev/react';
+
+// API differs by version:
+// v4: import { triggerAddComment, highlightComments } from '@veltdev/tiptap-velt-comments'
+// v5: import { addComment, renderComments } from '@veltdev/tiptap-velt-comments'
 
 export default function TipTapComponent() {
   const commentAnnotations = useCommentAnnotations();
@@ -1776,18 +1782,24 @@ export default function TipTapComponent() {
       TiptapVeltComments,
     ],
     content: '<p>Hello Velt!</p>',
+    immediatelyRender: false,
   });
 
   // Render comments when annotations change
+  // v4: highlightComments(editor, commentAnnotations)
+  // v5: renderComments({ editor, commentAnnotations })
   useEffect(() => {
     if (editor && commentAnnotations?.length) {
-      renderComments({ editor, commentAnnotations });
+      // Use whichever function your installed version exports
+      highlightComments(editor, commentAnnotations);
     }
   }, [editor, commentAnnotations]);
 
   const handleAddComment = () => {
     if (editor) {
-      addComment({ editor });
+      // v4: triggerAddComment(editor)
+      // v5: addComment({ editor })
+      triggerAddComment(editor);
     }
   };
 
@@ -1796,7 +1808,7 @@ export default function TipTapComponent() {
       <EditorContent editor={editor} />
 
       {editor && (
-        <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }}>
+        <BubbleMenu editor={editor}>
           <button
             onMouseDown={(e) => {
               e.preventDefault();
@@ -4575,6 +4587,8 @@ Access control and moderation features for comments. Includes comment visibility
 ### 8.1 Control Comment Visibility with Private Mode and Per-Annotation Updates
 
 **Impact: LOW (Prevent unintended comment exposure by restricting visibility globally or per annotation to organization members or specific users)**
+
+> **Prerequisite:** Before using any visibility API (`enablePrivateMode`, `updateVisibility`, visibility options), you must first **enable** the visibility feature in [Velt Console](https://console.velt.dev/dashboard/config/appconfig). Without this, visibility API calls will have no effect.
 
 Use `enablePrivateMode()` to set a global visibility default for all new comments in a session, and `updateVisibility()` to change the visibility of a specific existing annotation. Without explicit visibility control, all new comments are public by default.
 

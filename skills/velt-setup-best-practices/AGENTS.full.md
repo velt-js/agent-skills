@@ -54,8 +54,9 @@ Comprehensive setup guide for integrating Velt collaboration SDK into web applic
    - 7.2 [Place Velt UI Components Correctly](#72-place-velt-ui-components-correctly)
 
 8. [Debugging & Testing](#8-debugging-testing) — **LOW-MEDIUM**
-   - 8.1 [Troubleshoot Common Configuration Errors](#81-troubleshoot-common-configuration-errors)
-   - 8.2 [Verify Velt Setup is Correct](#82-verify-velt-setup-is-correct)
+   - 8.1 [Set Up Two-User Testing for Collaboration Features](#81-set-up-two-user-testing-for-collaboration-features)
+   - 8.2 [Troubleshoot Common Configuration Errors](#82-troubleshoot-common-configuration-errors)
+   - 8.3 [Verify Velt Setup is Correct](#83-verify-velt-setup-is-correct)
 
 ---
 
@@ -794,7 +795,7 @@ export async function POST(req: NextRequest) {
         "x-velt-api-key": VELT_API_KEY,
         "x-velt-auth-token": VELT_AUTH_TOKEN,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ data: body }),
     });
 
     const json = await response.json();
@@ -863,18 +864,14 @@ app.post("/api/velt/token", async (req, res) => {
       "x-velt-auth-token": VELT_AUTH_TOKEN,
     },
     body: JSON.stringify({
-      userId,
-      userProperties: {
-        ...(email ? { email } : {}),
-        ...(typeof isAdmin === "boolean" ? { isAdmin } : {}),
-      },
-      ...(organizationId ? {
-        permissions: {
-          resources: [
-            { type: "organization", id: organizationId },
-          ],
+      data: {
+        userId,
+        userProperties: {
+          ...(organizationId ? { organizationId } : {}),
+          ...(email ? { email } : {}),
+          ...(typeof isAdmin === "boolean" ? { isAdmin } : {}),
         },
-      } : {}),
+      },
     }),
   });
 
@@ -901,15 +898,13 @@ Headers:
 
 Body:
 {
-  "userId": "user-123",
-  "userProperties": {
-    "email": "user@example.com",
-    "isAdmin": false
-  },
-  "permissions": {
-    "resources": [
-      { "type": "organization", "id": "org-abc" }
-    ]
+  "data": {
+    "userId": "user-123",
+    "userProperties": {
+      "organizationId": "org-abc",
+      "email": "user@example.com",
+      "isAdmin": false
+    }
   }
 }
 
@@ -1725,18 +1720,14 @@ export async function POST(req: NextRequest) {
     }
 
     const body = {
-      userId,
-      userProperties: {
-        ...(typeof isAdmin === 'boolean' ? { isAdmin } : {}),
-        ...(email ? { email } : {}),
-      },
-      ...(organizationId ? {
-        permissions: {
-          resources: [
-            { type: 'organization', id: organizationId },
-          ],
+      data: {
+        userId,
+        userProperties: {
+          ...(organizationId ? { organizationId } : {}),
+          ...(typeof isAdmin === 'boolean' ? { isAdmin } : {}),
+          ...(email ? { email } : {}),
         },
-      } : {}),
+      },
     };
 
     const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
@@ -2484,7 +2475,53 @@ function VeltCollaboration({ showSidebar = true, showPresence = true }) {
 
 Setup verification and troubleshooting common configuration errors. Helps identify and fix issues when Velt features don't work as expected.
 
-### 8.1 Troubleshoot Common Configuration Errors
+### 8.1 Set Up Two-User Testing for Collaboration Features
+
+**Impact: MEDIUM (Without two-user testing support, presence, cursors, and CRDT features cannot be verified)**
+
+Collaboration features (presence, cursors, CRDT sync, comments) require at least two users to test. The generated app must have a built-in mechanism for signing in as different users.
+
+**Common pitfall — auto-login bypasses sign-in screen:**
+
+```tsx
+// WRONG: Defaults to user-1, sign-in page never renders
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const uid = params.get("user") || "user-1"; // Always logs in!
+  const found = DEMO_USERS[uid];
+  if (found) setUser(found);
+}, []);
+
+// CORRECT: Only login via explicit URL param or button click
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const uid = params.get("user"); // No default — sign-in page renders
+  if (uid) {
+    const found = DEMO_USERS[uid];
+    if (found) setUser(found);
+  }
+}, []);
+```
+
+**Required sign-in page elements:**
+
+```tsx
+if (!isLoggedIn) {
+  return (
+    <div>
+      <h1>Sign In</h1>
+      <button onClick={() => login("user-1")}>Sign in as Alice</button>
+      <button onClick={() => login("user-2")}>Sign in as Bob</button>
+    </div>
+  );
+}
+```
+
+Reference: `https://docs.velt.dev/get-started/quickstart`
+
+---
+
+### 8.2 Troubleshoot Common Configuration Errors
 
 **Impact: LOW-MEDIUM (Quick reference for resolving frequent setup issues)**
 
@@ -2579,14 +2616,12 @@ const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
     "x-velt-auth-token": process.env.VELT_AUTH_TOKEN,
   },
   body: JSON.stringify({
-    userId,
-    userProperties: {
-      ...(email ? { email } : {}),
-    },
-    permissions: {
-      resources: [
-        { type: "organization", id: organizationId },
-      ],
+    data: {
+      userId,
+      userProperties: {
+        ...(organizationId ? { organizationId } : {}),
+        ...(email ? { email } : {}),
+      },
     },
   }),
 });
@@ -2690,6 +2725,25 @@ const documentId = searchParams.get("documentId") || localStorage.getItem("docId
 
 See `document-id-generation` rule for proper patterns.
 ---
+
+**Symptom:**
+
+```typescript
+ENOENT: no such file or directory, open '.next/server/app/...'
+Module not found: Can't resolve '...'
+```
+
+**Cause:** Stale `.next` build cache after changing import patterns (e.g., adding `next/dynamic` with `ssr: false`, modifying component imports).
+
+**Solution:**
+
+```bash
+rm -rf .next
+npm run dev
+```
+
+Always clear `.next` after modifying SSR patterns or dynamic imports. The old build cache references files at their previous paths, which no longer exist after restructuring imports.
+---
 | Issue | Check |
 |-------|-------|
 | Nothing works | API key valid? Domain whitelisted? |
@@ -2699,10 +2753,11 @@ See `document-id-generation` rule for proper patterns.
 | Hooks error | Inside VeltProvider? In child component? |
 | Inconsistent state | Only one VeltProvider? |
 | Data not persisting | Document ID consistent? |
+| ENOENT after import changes | Clear `.next` cache? |
 
 ---
 
-### 8.2 Verify Velt Setup is Correct
+### 8.3 Verify Velt Setup is Correct
 
 **Impact: LOW-MEDIUM (Systematic verification helps identify setup issues early)**
 

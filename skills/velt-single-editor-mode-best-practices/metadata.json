@@ -1,0 +1,13 @@
+{
+  "version": "1.0.0",
+  "organization": "Velt",
+  "date": "March 2026",
+  "abstract": "Velt Single Editor Mode implementation guide covering exclusive editing access control, editor state management, access request flows, element-level sync control, timeout configuration, event subscriptions, and heartbeat presence detection. This skill provides evidence-backed patterns for integrating Velt's Single Editor Mode into React, Next.js, and other web applications. Covers enableSingleEditorMode, setUserAsEditor with error handling, editor/viewer access request workflows, container scoping, data-velt-sync-access attributes, auto-sync text elements, timeout transfer behavior, and all 7 SEM event types.",
+  "references": [
+    "https://docs.velt.dev",
+    "https://docs.velt.dev/realtime-collaboration/single-editor-mode/overview",
+    "https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup",
+    "https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior",
+    "https://console.velt.dev"
+  ]
+}

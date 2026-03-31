@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "organization": "Velt",
+  "date": "March 2026",
+  "abstract": "Comprehensive guide for Velt self-hosting data feature, enabling storage of sensitive user-generated content (comments, attachments, reactions, recordings, user PII) on your own infrastructure. Covers endpoint-based and function-based data providers, VeltProvider dataProviders configuration, backend API route patterns, database schemas, file storage, retry and timeout configuration, and debugging. All guidance is evidence-backed from official Velt documentation and sample applications.",
+  "references": [
+    "https://docs.velt.dev",
+    "https://docs.velt.dev/self-host-data/overview",
+    "https://docs.velt.dev/self-host-data/comments",
+    "https://docs.velt.dev/self-host-data/attachments",
+    "https://docs.velt.dev/self-host-data/reactions",
+    "https://docs.velt.dev/self-host-data/recordings",
+    "https://docs.velt.dev/self-host-data/users",
+    "https://console.velt.dev"
+  ]
+}

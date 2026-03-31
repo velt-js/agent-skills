@@ -47,9 +47,11 @@ Comprehensive best practices guide for implementing real-time collaborative edit
    - 2.3 [Add CSS for Collaboration Cursors in Tiptap](#23-add-css-for-collaboration-cursors-in-tiptap)
    - 2.4 [Disable Tiptap History When Using CRDT](#24-disable-tiptap-history-when-using-crdt)
    - 2.5 [Install Tiptap CRDT Packages Correctly](#25-install-tiptap-crdt-packages-correctly)
-   - 2.6 [Test Tiptap Collaboration with Multiple Users](#26-test-tiptap-collaboration-with-multiple-users)
-   - 2.7 [Use Unique editorId for Each Tiptap Instance](#27-use-unique-editorid-for-each-tiptap-instance)
-   - 2.8 [Use createVeltTipTapStore for Non-React Tiptap](#28-use-createvelttiptapstore-for-non-react-tiptap)
+   - 2.6 [Integrate TiptapVeltComments Extension When Using Comments with CRDT](#26-integrate-tiptapveltcomments-extension-when-using-comments-with-crdt)
+   - 2.7 [Test Tiptap Collaboration with Multiple Users](#27-test-tiptap-collaboration-with-multiple-users)
+   - 2.8 [Use HTML String Format for Tiptap CRDT Initial Content](#28-use-html-string-format-for-tiptap-crdt-initial-content)
+   - 2.9 [Use Unique editorId for Each Tiptap Instance](#29-use-unique-editorid-for-each-tiptap-instance)
+   - 2.10 [Use createVeltTipTapStore for Non-React Tiptap](#210-use-createvelttiptapstore-for-non-react-tiptap)
 
 3. [BlockNote Integration](#3-blocknote-integration) — **HIGH**
    - 3.1 [Install BlockNote CRDT Package](#31-install-blocknote-crdt-package)
@@ -1307,14 +1309,54 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (###
 
 ### 2.3 Add CSS for Collaboration Cursors in Tiptap
 
-**Impact: MEDIUM (Makes remote user cursors visible)**
+**Impact: CRITICAL (Without this CSS, remote user cursors render as thick full-width blocks instead of thin carets)**
 
-Add CSS styles to make collaboration cursors/carets visible. Without styling, you won't see where other users are typing.
+Add CSS styles to make collaboration cursors/carets visible as thin lines. Without styling, cursors appear as thick full-width blocks.
 
-**Required CSS:**
+**Required CSS (add to `globals.css`):**
 
 ```css
-/* Collaboration cursor styling */
+/* ===== y-prosemirror cursors (used by Velt CRDT) ===== */
+
+/* Thin caret line */
+.ProseMirror .ProseMirror-yjs-cursor {
+  position: relative;
+  border-left: 2px solid #0d0d0d;
+  border-right: none;
+  margin-left: -1px;
+  margin-right: -1px;
+  pointer-events: none;
+  word-break: normal;
+}
+
+/* Force the inner span to inline so cursor doesn't expand to full width */
+.ProseMirror .ProseMirror-yjs-cursor > span {
+  display: inline !important;
+}
+
+/* Floating username label above the caret */
+.ProseMirror .ProseMirror-yjs-cursor > div {
+  position: absolute;
+  top: -1.4em;
+  left: -1px;
+  font-size: 12px;
+  font-weight: 600;
+  font-style: normal;
+  line-height: normal;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px 3px 3px 0;
+  color: white;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Selection highlight for remote users */
+.ProseMirror .ProseMirror-yjs-selection {
+  opacity: 0.3;
+}
+
+/* ===== Tiptap collaboration-cursor extension (alternative integration) ===== */
+
 .ProseMirror .collaboration-cursor__caret,
 .ProseMirror .collaboration-carets__caret {
   border-left: 1px solid #0d0d0d !important;
@@ -1344,12 +1386,13 @@ Add CSS styles to make collaboration cursors/carets visible. Without styling, yo
 }
 ```
 
-The `!important` flags and `.ProseMirror` parent selector are required because y-prosemirror applies inline `background-color` styles that override class-based styling without them.
+The `!important` flags and `.ProseMirror` parent selector are required because y-prosemirror applies inline `background-color` styles that override class-based styling without them. The `> span { display: inline !important }` rule is critical for the y-prosemirror integration — without it, the cursor span renders as a block element spanning the full editor width.
 
 **Optional: Custom cursor colors per user:**
 
 ```css
-/* Override with user-specific colors */
+/* y-prosemirror: colors are set via inline styles by the extension */
+/* Tiptap collaboration-cursor: override with data attributes */
 .collaboration-cursor__caret[data-user-id="user-1"] {
   border-color: #3b82f6;
 }
@@ -1421,7 +1464,53 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (###
 
 ---
 
-### 2.6 Test Tiptap Collaboration with Multiple Users
+### 2.6 Integrate TiptapVeltComments Extension When Using Comments with CRDT
+
+**Impact: CRITICAL (Without the TiptapVeltComments extension in the editor, the app will FREEZE when users try to add comments)**
+
+When both Comments and CRDT features are selected for a Tiptap editor, the `TiptapVeltComments` extension **must** be added to the editor's extensions array. The global `<VeltComments>` component alone is not sufficient — it initializes the comment infrastructure but the editor needs the extension to handle comment creation and rendering. Without it, the app freezes when a user tries to add a comment.
+
+**Required integration (3 parts):**
+
+```tsx
+import { TiptapVeltComments, triggerAddComment, highlightComments } from "@veltdev/tiptap-velt-comments";
+import { useCommentAnnotations } from "@veltdev/react";
+
+const editor = useEditor({
+  extensions: [
+    StarterKit.configure({ undoRedo: false }),
+    TiptapVeltComments,              // MUST be before CRDT extension
+    ...(VeltCrdt ? [VeltCrdt] : []), // CRDT extension last
+  ],
+  immediatelyRender: false,
+}, [VeltCrdt]);
+const commentAnnotations = useCommentAnnotations();
+
+useEffect(() => {
+  if (editor && commentAnnotations?.length) {
+    highlightComments(editor, commentAnnotations);
+  }
+}, [editor, commentAnnotations]);
+<button onClick={() => triggerAddComment(editor)}>💬 Comment</button>
+```
+
+**Common mistake — causes FREEZE:**
+
+```tsx
+// WRONG: VeltComments wrapper without editor extension
+<VeltComments textMode={false} />  // Global wrapper — necessary but NOT sufficient
+<TiptapEditor /> // Editor WITHOUT TiptapVeltComments in extensions — FREEZE on comment
+
+// CORRECT: Both global wrapper AND editor extension
+<VeltComments textMode={false} />  // Global wrapper
+<TiptapEditor /> // Editor WITH TiptapVeltComments in extensions array
+```
+
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap`
+
+---
+
+### 2.7 Test Tiptap Collaboration with Multiple Users
 
 **Impact: LOW (Validates collaboration works correctly)**
 
@@ -1441,7 +1530,65 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (## 
 
 ---
 
-### 2.7 Use Unique editorId for Each Tiptap Instance
+### 2.8 Use HTML String Format for Tiptap CRDT Initial Content
+
+**Impact: HIGH (Passing JSON objects as initialContent renders raw JSON text in the editor instead of formatted content)**
+
+The `initialContent` parameter of `useVeltTiptapCrdtExtension` accepts an **HTML string**, not a JSON object. Passing a JSON object will render raw JSON text in the editor.
+
+**Incorrect (JSON object — renders as raw text):**
+
+```tsx
+const { VeltCrdt } = useVeltTiptapCrdtExtension({
+  editorId: 'my-editor',
+  // WRONG: This renders as literal JSON text in the editor
+  initialContent: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hello' }] }] },
+});
+```
+
+**Correct (HTML string):**
+
+```tsx
+const { VeltCrdt } = useVeltTiptapCrdtExtension({
+  editorId: 'my-editor',
+  // CORRECT: HTML string renders as formatted content
+  initialContent: '<p>Hello world</p>',
+});
+```
+
+**Correct (no initial content — let CRDT handle it):**
+
+```tsx
+const { VeltCrdt } = useVeltTiptapCrdtExtension({
+  editorId: 'my-editor',
+  // CORRECT: Omit initialContent for new documents — CRDT manages content
+});
+```
+
+**If your backend returns ProseMirror JSON, convert to HTML first:**
+
+```tsx
+import { generateHTML } from '@tiptap/html';
+import StarterKit from '@tiptap/starter-kit';
+
+const veltInitialContent = useMemo(() => {
+  if (!backendContent) return undefined;
+  if (typeof backendContent === 'string') return backendContent; // Already HTML
+  // Convert ProseMirror JSON to HTML
+  return generateHTML(backendContent, [StarterKit]);
+}, [backendContent]);
+
+const { VeltCrdt } = useVeltTiptapCrdtExtension({
+  editorId: 'my-editor',
+  initialContent: veltInitialContent,
+});
+```
+
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap`
+
+---
+
+### 2.9 Use Unique editorId for Each Tiptap Instance
 
 **Impact: HIGH (Prevents content cross-contamination)**
 
@@ -1479,7 +1626,7 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (## 
 
 ---
 
-### 2.8 Use createVeltTipTapStore for Non-React Tiptap
+### 2.10 Use createVeltTipTapStore for Non-React Tiptap
 
 **Impact: CRITICAL (Required for Tiptap collaboration in Vue/Angular/vanilla)**
 

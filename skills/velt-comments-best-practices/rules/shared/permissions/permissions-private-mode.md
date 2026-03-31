@@ -7,6 +7,8 @@ tags: private, visibility, private-mode, enablePrivateMode, disablePrivateMode, 
 
 ## Control Comment Visibility with Private Mode and Per-Annotation Updates
 
+> **Prerequisite:** Before using any visibility API (`enablePrivateMode`, `updateVisibility`, visibility options), you must first **enable** the visibility feature in [Velt Console](https://console.velt.dev/dashboard/config/appconfig). Without this, visibility API calls will have no effect.
+
 Use `enablePrivateMode()` to set a global visibility default for all new comments in a session, and `updateVisibility()` to change the visibility of a specific existing annotation. Without explicit visibility control, all new comments are public by default.
 
 > **Breaking Change (v5.0.1-beta.4):** `CommentVisibilityType` string literal values were renamed. `'organization'` is now `'organizationPrivate'` and `'self'` is now `'restricted'`. Passing the old values will silently apply incorrect visibility. See the Breaking Change section below.
@@ -265,6 +267,7 @@ commentElement.enablePrivateMode({ type: 'organizationPrivate' });              
 - [ ] Audit any serialized `CommentVisibilityType` values stored in databases or localStorage
 
 **Verification Checklist:**
+- [ ] Visibility feature is enabled in [Velt Console](https://console.velt.dev/dashboard/config/appconfig) before using any visibility API
 - [ ] `enablePrivateMode()` called before the user creates any new comments in the session
 - [ ] `disablePrivateMode()` called in cleanup (e.g., `useEffect` return) to avoid leaking visibility state across routes
 - [ ] `CommentVisibilityType` values use the new names: `'public'`, `'organizationPrivate'`, `'restricted'`

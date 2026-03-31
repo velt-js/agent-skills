@@ -28,4 +28,4 @@
 |react/routing-surfaces:{surface-collaboration-wrapper.md,surface-component-placement.md}
 
 ## 8. Debugging & Testing — LOW-MEDIUM
-|shared/debugging-testing:{debug-common-issues.md,debug-setup-verification.md}
+|shared/debugging-testing:{debug-multi-user-testing.md,debug-common-issues.md,debug-setup-verification.md}
