@@ -39,6 +39,7 @@ Comprehensive setup guide for integrating Velt collaboration SDK into web applic
    - 4.1 [Attach Metadata to Documents](#41-attach-metadata-to-documents)
    - 4.2 [Generate and Manage Document IDs](#42-generate-and-manage-document-ids)
    - 4.3 [Initialize Documents with setDocuments API](#43-initialize-documents-with-setdocuments-api)
+   - 4.4 [Use Folders for Hierarchical Document Organization](#44-use-folders-for-hierarchical-document-organization)
 
 5. [Config](#5-config) — **HIGH**
    - 5.1 [Configure API Key from Console](#51-configure-api-key-from-console)
@@ -53,9 +54,13 @@ Comprehensive setup guide for integrating Velt collaboration SDK into web applic
    - 7.1 [Create VeltCollaboration Wrapper Component](#71-create-veltcollaboration-wrapper-component)
    - 7.2 [Place Velt UI Components Correctly](#72-place-velt-ui-components-correctly)
 
-8. [Debugging & Testing](#8-debugging-testing) — **LOW-MEDIUM**
-   - 8.1 [Troubleshoot Common Configuration Errors](#81-troubleshoot-common-configuration-errors)
-   - 8.2 [Verify Velt Setup is Correct](#82-verify-velt-setup-is-correct)
+8. [Events](#8-events) — **MEDIUM**
+   - 8.1 [Subscribe to Client Lifecycle Events](#81-subscribe-to-client-lifecycle-events)
+
+9. [Debugging & Testing](#9-debugging-testing) — **LOW-MEDIUM**
+   - 9.1 [Set Up Two-User Testing for Collaboration Features](#91-set-up-two-user-testing-for-collaboration-features)
+   - 9.2 [Troubleshoot Common Configuration Errors](#92-troubleshoot-common-configuration-errors)
+   - 9.3 [Verify Velt Setup is Correct](#93-verify-velt-setup-is-correct)
 
 ---
 
@@ -742,7 +747,7 @@ JWT tokens for Velt must be generated on your server, not in the browser. This r
 const VELT_AUTH_TOKEN = "bd4d5226...";  // Never do this!
 
 const generateToken = async () => {
-  const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+  const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
     headers: {
       "x-velt-auth-token": VELT_AUTH_TOKEN,  // Exposed to users!
     },
@@ -787,14 +792,14 @@ export async function POST(req: NextRequest) {
       } : {}),
     };
 
-    const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+    const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-velt-api-key": VELT_API_KEY,
         "x-velt-auth-token": VELT_AUTH_TOKEN,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ data: body }),
     });
 
     const json = await response.json();
@@ -855,7 +860,7 @@ app.post("/api/velt/token", async (req, res) => {
 
   // Validate user authentication here
 
-  const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+  const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -863,18 +868,14 @@ app.post("/api/velt/token", async (req, res) => {
       "x-velt-auth-token": VELT_AUTH_TOKEN,
     },
     body: JSON.stringify({
-      userId,
-      userProperties: {
-        ...(email ? { email } : {}),
-        ...(typeof isAdmin === "boolean" ? { isAdmin } : {}),
-      },
-      ...(organizationId ? {
-        permissions: {
-          resources: [
-            { type: "organization", id: organizationId },
-          ],
+      data: {
+        userId,
+        userProperties: {
+          ...(organizationId ? { organizationId } : {}),
+          ...(email ? { email } : {}),
+          ...(typeof isAdmin === "boolean" ? { isAdmin } : {}),
         },
-      } : {}),
+      },
     }),
   });
 
@@ -893,7 +894,7 @@ app.post("/api/velt/token", async (req, res) => {
 
 ```typescript
 // Request to Velt API
-POST https://api.velt.dev/v2/auth/token/get
+POST https://api.velt.dev/v2/auth/generate_token
 Headers:
   Content-Type: application/json
   x-velt-api-key: YOUR_API_KEY
@@ -901,15 +902,13 @@ Headers:
 
 Body:
 {
-  "userId": "user-123",
-  "userProperties": {
-    "email": "user@example.com",
-    "isAdmin": false
-  },
-  "permissions": {
-    "resources": [
-      { "type": "organization", "id": "org-abc" }
-    ]
+  "data": {
+    "userId": "user-123",
+    "userProperties": {
+      "organizationId": "org-abc",
+      "email": "user@example.com",
+      "isAdmin": false
+    }
   }
 }
 
@@ -1527,7 +1526,7 @@ export default function VeltInitializeDocument() {
 }
 ```
 
-**Using useSetDocument Hook (Alternative):**
+**Using useSetDocument Hook (single document shorthand):**
 
 ```jsx
 import { useSetDocument } from "@veltdev/react";
@@ -1536,19 +1535,54 @@ import { useSetDocument } from "@veltdev/react";
 useSetDocument("my-document-id", { documentName: "My Document" });
 ```
 
+**Using useSetDocuments Hook (multi-document with options):**
+
+```jsx
+import { useSetDocuments } from "@veltdev/react";
+
+function VeltInitializeDocument() {
+  const { setDocuments } = useSetDocuments();
+
+  useEffect(() => {
+    // Basic usage
+    setDocuments([
+      { id: "doc-1", metadata: { documentName: "Document 1" } },
+    ]);
+
+    // With folder options
+    setDocuments(
+      [{ id: "doc-1", metadata: { documentName: "Document 1" } }],
+      { folderId: "folder1", allDocuments: true }
+    );
+  }, [setDocuments]);
+
+  return null;
+}
+```
+
 **setDocuments API Reference:**
 
 ```typescript
 // Method signature
-client.setDocuments(documents: DocumentConfig[]): void;
+client.setDocuments(documents: Document[], options?: SetDocumentsRequestOptions): Promise<void>;
 
-// DocumentConfig shape
-interface DocumentConfig {
+// Document shape
+interface Document {
   id: string;              // Required: unique document identifier
-  metadata?: {             // Optional: document metadata
+  metadata: {              // Document metadata
     documentName?: string;
     [key: string]: any;    // Custom metadata fields
   };
+}
+
+// SetDocumentsRequestOptions shape
+interface SetDocumentsRequestOptions {
+  folderId?: string;         // Folder to scope documents under
+  allDocuments?: boolean;    // Subscribe to all docs in folder (limit: 50)
+  organizationId?: string;   // Organization scope
+  locationId?: string;       // Location scope
+  rootDocumentId?: string;   // Root document ID
+  context?: Record<string, any>; // Additional context
 }
 ```
 
@@ -1575,6 +1609,86 @@ await client.setDocuments([
 await Velt.setDocuments([
   { id: "unique-document-id", metadata: { documentName: "My Document" } }
 ]);
+```
+
+---
+
+### 4.4 Use Folders for Hierarchical Document Organization
+
+**Impact: MEDIUM (Enables structured document management with inherited permissions)**
+
+Folders group documents hierarchically, like a file system. Folders inherit permissions from their organization, and all folder users get access to all folder resources (subfolders, documents, locations, contacts). Use the `folderId` option in `setDocuments` to subscribe to folder-scoped documents.
+
+**Incorrect (no folder organization - flat document list):**
+
+```jsx
+// All documents at the same level, no grouping
+setDocuments([
+  { id: "project-a-doc-1", metadata: { documentName: "Doc 1" } },
+  { id: "project-a-doc-2", metadata: { documentName: "Doc 2" } },
+  { id: "project-b-doc-1", metadata: { documentName: "Doc 3" } },
+]);
+```
+
+**Correct (folder-scoped document subscription):**
+
+```jsx
+import { useSetDocuments } from "@veltdev/react";
+
+function FolderDocuments({ folderId }) {
+  const { setDocuments } = useSetDocuments();
+
+  useEffect(() => {
+    // Subscribe to all documents in a folder (limit: 50)
+    setDocuments(
+      [{ id: "root-doc", metadata: { documentName: "Root Document" } }],
+      { folderId: folderId, allDocuments: true }
+    );
+  }, [folderId, setDocuments]);
+
+  return null;
+}
+// Subscribe to specific documents in a folder (limit: 30)
+setDocuments(
+  [
+    { id: "doc-1", metadata: { documentName: "Document 1" } },
+    { id: "doc-2", metadata: { documentName: "Document 2" } },
+  ],
+  { folderId: "folder1" }
+);
+```
+
+**Fetching Folder Metadata:**
+
+```jsx
+// Get all folders for an organization
+const folderMetadata = await client.fetchFolders({
+  organizationId: "org-1",
+});
+
+// Get a specific folder with its subfolders
+const folderMetadata = await client.fetchFolders({
+  organizationId: "org-1",
+  folderId: "folder1",
+});
+
+console.log(folderMetadata);
+// { data: { folder1: { ... } }, nextPageToken: '...' }
+```
+
+**Non-React Frameworks:**
+
+```javascript
+// Subscribe to folder with all documents
+await Velt.setDocuments(
+  [{ id: "root-doc", metadata: { documentName: "Root Document" } }],
+  { folderId: "folder1", allDocuments: true }
+);
+
+// Fetch folder metadata
+const folderMetadata = await Velt.fetchFolders({
+  organizationId: "org-1",
+});
 ```
 
 ---
@@ -1684,7 +1798,7 @@ const VELT_AUTH_TOKEN = "bd4d5226050470b6c658054fcdf1092a";
 
 async function generateToken() {
   // This code runs in the browser - token is visible!
-  const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+  const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
     headers: {
       "x-velt-auth-token": VELT_AUTH_TOKEN,  // Exposed!
     },
@@ -1725,21 +1839,17 @@ export async function POST(req: NextRequest) {
     }
 
     const body = {
-      userId,
-      userProperties: {
-        ...(typeof isAdmin === 'boolean' ? { isAdmin } : {}),
-        ...(email ? { email } : {}),
-      },
-      ...(organizationId ? {
-        permissions: {
-          resources: [
-            { type: 'organization', id: organizationId },
-          ],
+      data: {
+        userId,
+        userProperties: {
+          ...(organizationId ? { organizationId } : {}),
+          ...(typeof isAdmin === 'boolean' ? { isAdmin } : {}),
+          ...(email ? { email } : {}),
         },
-      } : {}),
+      },
     };
 
-    const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+    const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -2478,13 +2588,165 @@ function VeltCollaboration({ showSidebar = true, showPresence = true }) {
 
 ---
 
-## 8. Debugging & Testing
+## 8. Events
+
+**Impact: MEDIUM**
+
+Client lifecycle event subscriptions for reacting to initialization, user changes, errors, and other SDK events.
+
+### 8.1 Subscribe to Client Lifecycle Events
+
+**Impact: MEDIUM (Enables reacting to init, user, document, and error state changes)**
+
+The Velt client exposes an event subscription API via `client.on(eventType)` that returns an Observable. Use this to react to initialization updates, user changes, document init, errors (e.g., token expiry), button clicks, permission events, and data provider events.
+
+**Incorrect (no event handling for token expiry or init state):**
+
+```jsx
+// No error handling - token_expired goes unnoticed
+"use client";
+import { VeltProvider } from "@veltdev/react";
+
+export default function App() {
+  return (
+    <VeltProvider apiKey="KEY" authProvider={authProvider}>
+      <Content />
+    </VeltProvider>
+  );
+}
+```
+
+**Correct (subscribe to lifecycle events):**
+
+```jsx
+import { useEffect } from 'react';
+import { useVeltClient } from '@veltdev/react';
+
+export default function CoreEventsListener() {
+  const { client } = useVeltClient();
+
+  useEffect(() => {
+    if (!client) return;
+
+    // Listen to initialization updates
+    const initSub = client.on('initUpdate').subscribe((event) => {
+      console.log('Init update:', event);
+    });
+
+    // Listen to user changes
+    const userSub = client.on('userUpdate').subscribe((event) => {
+      console.log('User update:', event);
+    });
+
+    // Listen to token lifecycle errors (e.g., token_expired)
+    const errorSub = client.on('error').subscribe((error) => {
+      if (error?.code === 'token_expired') {
+        // Refresh token logic here
+      }
+    });
+
+    return () => {
+      initSub?.unsubscribe();
+      userSub?.unsubscribe();
+      errorSub?.unsubscribe();
+    };
+  }, [client]);
+
+  return null;
+}
+```
+
+**React Hook Alternative (useVeltEventCallback):**
+
+```jsx
+import { useEffect } from 'react';
+import { useVeltEventCallback } from '@veltdev/react';
+
+export default function ErrorHandler() {
+  const errorEvent = useVeltEventCallback('error');
+
+  useEffect(() => {
+    if (errorEvent?.code === 'token_expired') {
+      // Re-authenticate with fresh token
+    }
+  }, [errorEvent]);
+
+  return null;
+}
+```
+
+**Non-React Frameworks:**
+
+```javascript
+// Subscribe using Velt global or client instance
+const initSub = Velt.on('initUpdate').subscribe((event) => {
+  console.log('Init update:', event);
+});
+
+const errorSub = Velt.on('error').subscribe((error) => {
+  console.log('Velt error:', error);
+});
+
+// Unsubscribe when done
+initSub?.unsubscribe();
+errorSub?.unsubscribe();
+```
+
+---
+
+## 9. Debugging & Testing
 
 **Impact: LOW-MEDIUM**
 
 Setup verification and troubleshooting common configuration errors. Helps identify and fix issues when Velt features don't work as expected.
 
-### 8.1 Troubleshoot Common Configuration Errors
+### 9.1 Set Up Two-User Testing for Collaboration Features
+
+**Impact: MEDIUM (Without two-user testing support, presence, cursors, and CRDT features cannot be verified)**
+
+Collaboration features (presence, cursors, CRDT sync, comments) require at least two users to test. The generated app must have a built-in mechanism for signing in as different users.
+
+**Common pitfall — auto-login bypasses sign-in screen:**
+
+```tsx
+// WRONG: Defaults to user-1, sign-in page never renders
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const uid = params.get("user") || "user-1"; // Always logs in!
+  const found = DEMO_USERS[uid];
+  if (found) setUser(found);
+}, []);
+
+// CORRECT: Only login via explicit URL param or button click
+useEffect(() => {
+  const params = new URLSearchParams(window.location.search);
+  const uid = params.get("user"); // No default — sign-in page renders
+  if (uid) {
+    const found = DEMO_USERS[uid];
+    if (found) setUser(found);
+  }
+}, []);
+```
+
+**Required sign-in page elements:**
+
+```tsx
+if (!isLoggedIn) {
+  return (
+    <div>
+      <h1>Sign In</h1>
+      <button onClick={() => login("user-1")}>Sign in as Alice</button>
+      <button onClick={() => login("user-2")}>Sign in as Bob</button>
+    </div>
+  );
+}
+```
+
+Reference: `https://docs.velt.dev/get-started/quickstart`
+
+---
+
+### 9.2 Troubleshoot Common Configuration Errors
 
 **Impact: LOW-MEDIUM (Quick reference for resolving frequent setup issues)**
 
@@ -2571,7 +2833,7 @@ const VELT_AUTH_TOKEN = process.env.VELT_AUTH_TOKEN;
 console.log("Auth token defined:", !!VELT_AUTH_TOKEN);  // Should be true
 
 // 2. Check API response format
-const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
@@ -2579,14 +2841,12 @@ const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
     "x-velt-auth-token": process.env.VELT_AUTH_TOKEN,
   },
   body: JSON.stringify({
-    userId,
-    userProperties: {
-      ...(email ? { email } : {}),
-    },
-    permissions: {
-      resources: [
-        { type: "organization", id: organizationId },
-      ],
+    data: {
+      userId,
+      userProperties: {
+        ...(organizationId ? { organizationId } : {}),
+        ...(email ? { email } : {}),
+      },
     },
   }),
 });
@@ -2690,6 +2950,25 @@ const documentId = searchParams.get("documentId") || localStorage.getItem("docId
 
 See `document-id-generation` rule for proper patterns.
 ---
+
+**Symptom:**
+
+```typescript
+ENOENT: no such file or directory, open '.next/server/app/...'
+Module not found: Can't resolve '...'
+```
+
+**Cause:** Stale `.next` build cache after changing import patterns (e.g., adding `next/dynamic` with `ssr: false`, modifying component imports).
+
+**Solution:**
+
+```bash
+rm -rf .next
+npm run dev
+```
+
+Always clear `.next` after modifying SSR patterns or dynamic imports. The old build cache references files at their previous paths, which no longer exist after restructuring imports.
+---
 | Issue | Check |
 |-------|-------|
 | Nothing works | API key valid? Domain whitelisted? |
@@ -2699,10 +2978,11 @@ See `document-id-generation` rule for proper patterns.
 | Hooks error | Inside VeltProvider? In child component? |
 | Inconsistent state | Only one VeltProvider? |
 | Data not persisting | Document ID consistent? |
+| ENOENT after import changes | Clear `.next` cache? |
 
 ---
 
-### 8.2 Verify Velt Setup is Correct
+### 9.3 Verify Velt Setup is Correct
 
 **Impact: LOW-MEDIUM (Systematic verification helps identify setup issues early)**
 
@@ -2822,6 +3102,22 @@ export function VeltDebug() {
     </div>
   );
 }
+// One-time snapshot of debug info
+const { client } = useVeltClient();
+const debugInfo = await client.fetchDebugInfo();
+console.log('SDK Version:', debugInfo.veltVersion);
+console.log('API Key:', debugInfo.apiKey);
+console.log('Server State:', debugInfo.serverMap);
+console.log('Client State:', debugInfo.clientMap);
+
+// Real-time debug info subscription
+useEffect(() => {
+  if (!client) return;
+  const subscription = client.getDebugInfo().subscribe((info) => {
+    console.log('Debug Info Updated:', info);
+  });
+  return () => subscription.unsubscribe();
+}, [client]);
 ```
 
 ---

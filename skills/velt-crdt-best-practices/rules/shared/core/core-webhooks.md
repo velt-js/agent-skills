@@ -67,6 +67,19 @@ function CrdtChangeListener() {
 | `enableWebhook()` | Enable webhook notifications for CRDT data changes |
 | `disableWebhook()` | Disable webhook notifications |
 | `setWebhookDebounceTime(ms)` | Set debounce interval in milliseconds (default: 5000, minimum: 5000) |
+| `setActivityDebounceTime(ms)` | Set activity log flush interval (default: 10 min, minimum: 10 sec) |
+
+**Activity Log Debounce:**
+
+`setActivityDebounceTime()` controls how long CRDT editor keystrokes are batched before a single activity log record is flushed to the activity log feed. This is distinct from the webhook debounce.
+
+```jsx
+useEffect(() => {
+  if (!client) return;
+  const crdtElement = client.getCrdtElement();
+  crdtElement.setActivityDebounceTime(30000); // 30 seconds
+}, [client]);
+```
 
 **Verification Checklist:**
 - [ ] `enableWebhook()` called after Velt client initialized

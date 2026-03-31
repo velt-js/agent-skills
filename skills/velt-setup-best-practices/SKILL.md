@@ -9,7 +9,7 @@ metadata:
 
 # Velt Setup Best Practices
 
-Comprehensive setup guide for Velt collaboration SDK. Contains 21 rules across 8 categories covering installation, authentication, document setup, and project organization.
+Comprehensive setup guide for Velt collaboration SDK. Contains 24 rules across 9 categories covering installation, authentication, document setup, and project organization.
 
 ## When to Apply
 
@@ -32,7 +32,8 @@ Reference these guidelines when:
 | 5 | Config | HIGH | `config-` |
 | 6 | Project Structure | MEDIUM | `structure-` |
 | 7 | Routing Surfaces | MEDIUM | `surface-` |
-| 8 | Debugging & Testing | LOW-MEDIUM | `debug-` |
+| 8 | Events | MEDIUM | `events-` |
+| 9 | Debugging & Testing | LOW-MEDIUM | `debug-` |
 
 ## How to Use
 

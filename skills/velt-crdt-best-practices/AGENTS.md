@@ -10,7 +10,7 @@
 
 ## 2. Tiptap Integration — CRITICAL
 |react/tiptap:{tiptap-nextjs-ssr.md,tiptap-setup-react.md}
-|shared/tiptap:{tiptap-cursor-css.md,tiptap-disable-history.md,tiptap-install.md,tiptap-testing.md,tiptap-editor-id.md}
+|shared/tiptap:{tiptap-cursor-css.md,tiptap-disable-history.md,tiptap-install.md,tiptap-comments-integration.md,tiptap-testing.md,tiptap-initial-content.md,tiptap-editor-id.md}
 |non-react/tiptap:{tiptap-setup-vanilla.md}
 
 ## 3. BlockNote Integration — HIGH

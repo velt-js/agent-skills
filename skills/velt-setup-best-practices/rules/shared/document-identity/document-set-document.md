@@ -94,7 +94,7 @@ export default function VeltInitializeDocument() {
 }
 ```
 
-**Using useSetDocument Hook (Alternative):**
+**Using useSetDocument Hook (single document shorthand):**
 
 ```jsx
 import { useSetDocument } from "@veltdev/react";
@@ -103,19 +103,54 @@ import { useSetDocument } from "@veltdev/react";
 useSetDocument("my-document-id", { documentName: "My Document" });
 ```
 
+**Using useSetDocuments Hook (multi-document with options):**
+
+```jsx
+import { useSetDocuments } from "@veltdev/react";
+
+function VeltInitializeDocument() {
+  const { setDocuments } = useSetDocuments();
+
+  useEffect(() => {
+    // Basic usage
+    setDocuments([
+      { id: "doc-1", metadata: { documentName: "Document 1" } },
+    ]);
+
+    // With folder options
+    setDocuments(
+      [{ id: "doc-1", metadata: { documentName: "Document 1" } }],
+      { folderId: "folder1", allDocuments: true }
+    );
+  }, [setDocuments]);
+
+  return null;
+}
+```
+
 **setDocuments API Reference:**
 
 ```typescript
 // Method signature
-client.setDocuments(documents: DocumentConfig[]): void;
+client.setDocuments(documents: Document[], options?: SetDocumentsRequestOptions): Promise<void>;
 
-// DocumentConfig shape
-interface DocumentConfig {
+// Document shape
+interface Document {
   id: string;              // Required: unique document identifier
-  metadata?: {             // Optional: document metadata
+  metadata: {              // Document metadata
     documentName?: string;
     [key: string]: any;    // Custom metadata fields
   };
+}
+
+// SetDocumentsRequestOptions shape
+interface SetDocumentsRequestOptions {
+  folderId?: string;         // Folder to scope documents under
+  allDocuments?: boolean;    // Subscribe to all docs in folder (limit: 50)
+  organizationId?: string;   // Organization scope
+  locationId?: string;       // Location scope
+  rootDocumentId?: string;   // Root document ID
+  context?: Record<string, any>; // Additional context
 }
 ```
 
@@ -143,6 +178,15 @@ await Velt.setDocuments([
   { id: "unique-document-id", metadata: { documentName: "My Document" } }
 ]);
 ```
+
+**Document Count Limits:**
+
+| Scenario | Max Documents |
+|----------|---------------|
+| `setDocuments(docs)` (no folder) | 30 per call |
+| `setDocuments(docs, { folderId, allDocuments: true })` | 50 (folder-wide) |
+
+Documents exceeding the limit are silently dropped. When using `allDocuments: true`, inaccessible documents are silently filtered out rather than failing the entire operation.
 
 **Key Rules:**
 

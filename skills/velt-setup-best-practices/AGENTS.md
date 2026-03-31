@@ -16,7 +16,7 @@
 |shared/identity:{identity-jwt-generation.md,identity-organization-id.md,identity-user-object-shape.md}
 
 ## 4. Document Identity — CRITICAL
-|shared/document-identity:{document-metadata.md,document-id-generation.md,document-set-document.md}
+|shared/document-identity:{document-metadata.md,document-id-generation.md,document-set-document.md,document-folders.md}
 
 ## 5. Config — HIGH
 |shared/config:{config-api-key.md,config-auth-token-security.md,config-domain-safelist.md}
@@ -27,5 +27,8 @@
 ## 7. Routing Surfaces — MEDIUM
 |react/routing-surfaces:{surface-collaboration-wrapper.md,surface-component-placement.md}
 
-## 8. Debugging & Testing — LOW-MEDIUM
-|shared/debugging-testing:{debug-common-issues.md,debug-setup-verification.md}
+## 8. Events — MEDIUM
+|shared/events:{events-client-lifecycle.md}
+
+## 9. Debugging & Testing — LOW-MEDIUM
+|shared/debugging-testing:{debug-multi-user-testing.md,debug-common-issues.md,debug-setup-verification.md}

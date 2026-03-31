@@ -49,8 +49,8 @@ const user = {
 |-------|------|----------|-------------|
 | userId | string | Yes | Unique user identifier (from your auth system) |
 | organizationId | string | Yes | Organization/tenant for access control |
-| name | string | Yes | Display name shown in UI |
-| email | string | Yes | Email for @mentions and notifications |
+| name | string | No (Recommended) | Display name shown in UI |
+| email | string | No (Recommended) | Email for @mentions and notifications |
 | photoUrl | string | No | URL to user's avatar image |
 | color | string | No | Hex color for avatar background |
 | textColor | string | No | Hex color for avatar text/initials |

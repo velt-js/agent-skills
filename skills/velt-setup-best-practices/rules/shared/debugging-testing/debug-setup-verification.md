@@ -160,6 +160,36 @@ export function VeltDebug() {
 }
 ```
 
+### 8. Programmatic Debug APIs
+
+```jsx
+// One-time snapshot of debug info
+const { client } = useVeltClient();
+const debugInfo = await client.fetchDebugInfo();
+console.log('SDK Version:', debugInfo.veltVersion);
+console.log('API Key:', debugInfo.apiKey);
+console.log('Server State:', debugInfo.serverMap);
+console.log('Client State:', debugInfo.clientMap);
+
+// Real-time debug info subscription
+useEffect(() => {
+  if (!client) return;
+  const subscription = client.getDebugInfo().subscribe((info) => {
+    console.log('Debug Info Updated:', info);
+  });
+  return () => subscription.unsubscribe();
+}, [client]);
+```
+
+**Debug API Methods:**
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `client.fetchDebugInfo()` | `Promise<VeltDebugInfo>` | One-time snapshot of SDK version, API key, user, org, document, folder, locations |
+| `client.getDebugInfo()` | `Observable<VeltDebugInfo>` | Real-time subscription to debug info updates |
+
+You can also use the [Velt Chrome DevTools extension](https://chromewebstore.google.com/detail/velt-devtools/nfldoicbagllmegffdapcnohakpamlnl) to access this information visually.
+
 **Expected Final State:**
 
 | Item | Expected Value |

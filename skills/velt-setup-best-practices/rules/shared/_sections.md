@@ -53,11 +53,22 @@ This file defines all rule categories for velt-setup-best-practices.
 
 ---
 
-## 8. Debugging & Testing (debugging-testing/)
+## 8. Events (events/)
+
+**Impact:** MEDIUM
+**Description:** Client lifecycle event subscriptions for reacting to initialization, user changes, errors, and other SDK events.
+
+**Rules:**
+- `events-client-lifecycle` - Subscribe to client lifecycle events (initUpdate, userUpdate, error, etc.)
+
+---
+
+## 9. Debugging & Testing (debugging-testing/)
 
 **Impact:** LOW-MEDIUM
 **Description:** Setup verification and troubleshooting common configuration errors. Helps identify and fix issues when Velt features don't work as expected.
 
 **Rules:**
 - `debug-common-issues` - Troubleshoot common configuration errors (9 issues)
+- `debug-setup-verification` - Systematic setup verification checklist with debug APIs
 - `debug-multi-user-testing` - Set up two-user testing for collaboration features

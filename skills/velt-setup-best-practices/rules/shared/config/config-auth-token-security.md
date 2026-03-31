@@ -19,7 +19,7 @@ const VELT_AUTH_TOKEN = "bd4d5226050470b6c658054fcdf1092a";
 
 async function generateToken() {
   // This code runs in the browser - token is visible!
-  const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+  const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
     headers: {
       "x-velt-auth-token": VELT_AUTH_TOKEN,  // Exposed!
     },
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+    const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

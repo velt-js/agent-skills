@@ -27,7 +27,7 @@ const editor = useEditor({
 const editor = useEditor({
   extensions: [
     StarterKit.configure({
-      undoRedo: false,  // CRITICAL: Disable history (Tiptap v3 uses undoRedo)
+      history: false,  // CRITICAL: Disable Tiptap's built-in history (Tiptap v2)
     }),
     ...(VeltCrdt ? [VeltCrdt] : []),
   ],
@@ -48,7 +48,7 @@ const editor = useEditor({
 - Random content jumps
 
 **Verification:**
-- [ ] `StarterKit.configure({ undoRedo: false })` is set
+- [ ] `StarterKit.configure({ history: false })` is set
 - [ ] Undo/redo works correctly across collaborators
 - [ ] No content flashing or jumping
 

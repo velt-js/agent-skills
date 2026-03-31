@@ -16,7 +16,7 @@ JWT tokens for Velt must be generated on your server, not in the browser. This r
 const VELT_AUTH_TOKEN = "bd4d5226...";  // Never do this!
 
 const generateToken = async () => {
-  const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+  const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
     headers: {
       "x-velt-auth-token": VELT_AUTH_TOKEN,  // Exposed to users!
     },
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       } : {}),
     };
 
-    const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+    const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -138,7 +138,7 @@ app.post("/api/velt/token", async (req, res) => {
 
   // Validate user authentication here
 
-  const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+  const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -180,7 +180,7 @@ app.post("/api/velt/token", async (req, res) => {
 
 ```typescript
 // Request to Velt API
-POST https://api.velt.dev/v2/auth/token/get
+POST https://api.velt.dev/v2/auth/generate_token
 Headers:
   Content-Type: application/json
   x-velt-api-key: YOUR_API_KEY
