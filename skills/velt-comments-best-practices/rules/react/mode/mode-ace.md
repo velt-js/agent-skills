@@ -75,7 +75,7 @@ function AceEditorComponent() {
   return (
     <div>
       <button
-        onMouseDown={(e) => e.preventDefault()}
+        onClick={(e) => e.preventDefault()}
         onClick={() => {
           if (editorRef.current) {
             addComment({ editor: editorRef.current });

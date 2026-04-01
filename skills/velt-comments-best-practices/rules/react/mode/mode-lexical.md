@@ -77,7 +77,7 @@ function CommentPlugin() {
   };
 
   return (
-    <button onMouseDown={(e) => {
+    <button onClick={(e) => {
       e.preventDefault();
       handleAddComment();
     }}>

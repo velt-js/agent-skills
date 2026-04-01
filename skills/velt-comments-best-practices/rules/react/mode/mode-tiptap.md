@@ -84,7 +84,7 @@ export default function TipTapComponent() {
       {editor && (
         <BubbleMenu editor={editor}>
           <button
-            onMouseDown={(e) => {
+            onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               handleAddComment();

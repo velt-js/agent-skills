@@ -69,7 +69,7 @@ export default function PlateEditorComponent() {
   return (
     <div>
       <button
-        onMouseDown={(e) => {
+        onClick={(e) => {
           e.preventDefault();
           handleAddComment();
         }}
@@ -129,7 +129,7 @@ velt-comment-text {
 - [ ] VeltComments has textMode={false}
 - [ ] VeltCommentsPlugin added to editor plugins
 - [ ] renderComments called when annotations change
-- [ ] Comment button uses onMouseDown with preventDefault
+- [ ] Comment button uses onClick with preventDefault
 
 **Source Pointers:**
 - https://docs.velt.dev/async-collaboration/comments/setup/plate - Complete setup

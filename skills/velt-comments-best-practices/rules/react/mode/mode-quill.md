@@ -88,7 +88,7 @@ function QuillEditorComponent() {
   return (
     <div>
       <button
-        onMouseDown={(e) => {
+        onClick={(e) => {
           e.preventDefault();
           const sel = quill?.getSelection();
           if (sel?.length > 0) savedSelectionRef.current = sel;

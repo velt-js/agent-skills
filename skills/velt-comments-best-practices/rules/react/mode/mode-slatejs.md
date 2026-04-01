@@ -80,7 +80,7 @@ function SlateEditor() {
 
   return (
     <Slate editor={editor} initialValue={initialValue}>
-      <button onMouseDown={(e) => {
+      <button onClick={(e) => {
         e.preventDefault();
         handleAddComment();
       }}>

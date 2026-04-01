@@ -100,7 +100,7 @@ function CodeMirrorEditorComponent() {
   return (
     <div>
       <button
-        onMouseDown={(e) => {
+        onClick={(e) => {
           e.preventDefault();
           saveSelection();
         }}
