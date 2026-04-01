@@ -20,6 +20,15 @@ const userDataProvider = {
 };
 ```
 
+**⚠️ CRITICAL: The user provider has a DIFFERENT interface from all other providers.**
+
+| | Comment/Reaction/Attachment providers | User provider |
+|---|---|---|
+| **Input** | Request object `{ organizationId, ... }` | Plain `string[]` array of userIds |
+| **Return** | `{ data, success, statusCode }` | `Record<string, User>` directly |
+
+DO NOT wrap the user provider's return in `{ data, success, statusCode }` — the SDK expects `Record<string, User>` directly.
+
 **Correct (get-only user resolver with TypeScript types):**
 
 ```tsx
@@ -34,27 +43,23 @@ type User = {
   [key: string]: unknown;
 };
 
-type DataProviderResponse = {
-  data?: unknown;
-  success: boolean;
-  statusCode: number;
-};
-
 const USERS_URL = '/api/velt/users';
 
-const fetchUsersFromDB = async (userIds: string[]): Promise<DataProviderResponse> => {
+// SDK calls this with a plain string[] of userIds
+// Must return Record<string, User> DIRECTLY — NOT { data, success, statusCode }
+const fetchUsersFromDB = async (userIds: string[]): Promise<Record<string, User>> => {
   try {
     const response = await fetch(`${USERS_URL}/get`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userIds }),
     });
-    if (!response.ok) return { data: {}, success: false, statusCode: response.status };
+    if (!response.ok) return {};
     const data = await response.json();
-    return { data: data.result || {}, success: true, statusCode: response.status };
+    return data.result || {};
   } catch (error) {
     console.error('[Velt Self-Host] Error fetching users:', error);
-    return { data: {}, success: false, statusCode: 500 };
+    return {};
   }
 };
 
@@ -77,62 +82,48 @@ export const userDataProvider = {
 };
 ```
 
-**Important:** The SDK only calls `get` — it never calls save/delete for users. However, your app MUST have a `users/save` route so that when users log in, their PII (name, email, photoUrl) is persisted to your database. Call `saveCurrentUserToDB()` from your auth flow (e.g., in `VeltInitializeUser.tsx` after the user is identified).
+**User seeding — users MUST be in the database BEFORE Velt tries to resolve them:**
 
-**Or endpoint-based:**
+When Velt renders a comment thread, it calls the user provider to resolve names and avatars. If the user data isn't in your database yet, comments show generic "U" / "Me" labels instead of names.
 
-```jsx
-const userDataProvider = {
-  config: {
-    getConfig: {
-      url: `${BACKEND_URL}/users/get`,
-      headers: { 'Content-Type': 'application/json' }
-    },
-    resolveTimeout: 5000,
-    getRetryConfig: { retryCount: 3, retryDelay: 1000 },
-  }
-};
-```
-
-**Backend response format** (data keyed by userId):
-
-```js
-// Request: { organizationId: "org-1", userIds: ["user-1", "user-2"] }
-// Response:
-{
-  data: {
-    "user-1": {
-      userId: "user-1",
-      name: "Alex Smith",
-      email: "alex@example.com",
-      photoUrl: "https://example.com/photos/alex.jpg",
-      color: "#4A90D9",
-      textColor: "#FFFFFF",
-      isAdmin: false
-    },
-    "user-2": {
-      userId: "user-2",
-      name: "Sam Johnson",
-      email: "sam@example.com",
-      photoUrl: "https://example.com/photos/sam.jpg"
-    }
-  },
-  success: true,
-  statusCode: 200
+For demo apps with hardcoded users, seed them on app startup:
+```tsx
+// In your app initialization or a /api/velt/init-db route:
+const DEMO_USERS = [
+  { userId: "user-1", name: "Alice Johnson", email: "alice@example.com", photoUrl: "https://i.pravatar.cc/150?u=alice" },
+  { userId: "user-2", name: "Bob Smith", email: "bob@example.com", photoUrl: "https://i.pravatar.cc/150?u=bob" },
+];
+for (const user of DEMO_USERS) {
+  await saveUser(user); // UPSERT into users table
 }
 ```
 
+For production apps, persist user data when users log in:
+```tsx
+// In VeltInitializeUser.tsx or your auth flow:
+useEffect(() => {
+  if (user?.userId) {
+    saveCurrentUserToDB(user);
+  }
+}, [user]);
+```
+
+**Important:** The SDK only calls `get` — it never calls save/delete for users. However, your app MUST have a `users/save` route so that when users log in, their PII (name, email, photoUrl) is persisted to your database. Call `saveCurrentUserToDB()` from your auth flow. For demos, also seed users into the DB at startup.
+
 **Key details:**
 - Only `get` is supported — the SDK uses this to hydrate user data in comment threads, notifications, and presence UIs
-- Request contains `userIds` array — return data for all requested users
-- Response data must be keyed by `userId`
+- `get` receives a plain `string[]` of userIds — NOT a request object
+- `get` must return `Record<string, User>` directly — NOT `{ data, success, statusCode }`
 - Must be set before `identify()` is called
+- Users must already exist in your database when Velt calls `get` — seed demo users or persist on login
 - Without this provider, user PII (name, email, photo URL) is stored on Velt servers by default
 
 **Verification:**
 - [ ] Only `get` implemented (no save/delete)
-- [ ] Response data keyed by userId
-- [ ] All requested userIds resolved (missing users may show as "Unknown")
+- [ ] `get` receives `string[]` and returns `Record<string, User>` directly (NO `{ data, success, statusCode }` wrapper)
+- [ ] All requested userIds resolved (missing users show as "Unknown")
 - [ ] Provider set before `identify()` is called
+- [ ] Demo users seeded into database at startup
+- [ ] `saveCurrentUserToDB()` called from auth flow to persist user PII on login
 
 **Source Pointer:** https://docs.velt.dev/self-host-data/users
