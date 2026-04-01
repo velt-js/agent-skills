@@ -174,10 +174,27 @@ export default function DocumentPage() {
 ```
 
 **Critical attributes on the content element:**
-- `id="document-content"` — unique ID required for sync and container scoping
-- `contentEditable` — makes content editable (SEM controls who can actually edit)
-- `data-velt-sync-access="true"` — SEM controls read-only state on this element
+- `id="document-content"` — unique ID required for sync and container scoping. MUST match the ID passed to `singleEditorModeContainerIds()` in VeltCollaboration
+- `contentEditable` — ALWAYS set to `true`. NEVER make this conditional on `isEditor`. With `customMode: false`, the Velt SDK auto-manages read-only state for viewers via `data-velt-sync-access`. If you toggle `contentEditable` yourself, you fight the SDK and break sync.
+- `suppressContentEditableWarning` — suppresses React warning for `contentEditable` with children
+- `data-velt-sync-access="true"` — tells the SDK to control read-only state on this element. Viewers automatically get read-only; editor gets editable. This is how SEM enforces exclusive editing WITHOUT conditional `contentEditable`.
 - `data-velt-sync-state="true"` — auto-syncs content between users via Velt backend
+
+### Common Mistakes — DO NOT
+
+These are the most common mistakes when implementing or debugging SEM. Each one will break SEM:
+
+1. **DO NOT add timeouts or delays to `setUserAsEditor()`** — Use `useVeltInitState()` as the ONLY gate. If `veltInitState` is truthy, Velt is ready. Timeouts (500ms, 1s, etc.) are unreliable and mask the real issue.
+
+2. **DO NOT make `contentEditable` conditional on `isEditor`** — With `customMode: false`, the SDK auto-manages read-only state via `data-velt-sync-access="true"`. Writing `contentEditable={isEditor}` fights the SDK and prevents content sync from working. Always use `contentEditable` (which means `contentEditable={true}`).
+
+3. **DO NOT use `useCurrentUser()` to gate `setUserAsEditor()`** — Use `useVeltInitState()` instead. `useCurrentUser()` tells you about user auth, but `useVeltInitState()` tells you when the ENTIRE Velt system (including document context) is ready.
+
+4. **DO NOT inline `VeltInitializeDocument` into `VeltCollaboration`** — Keep it as a separate child component. Inlining and adding state tracking (`documentReady` flags) creates race conditions. The SDK handles initialization timing internally.
+
+5. **DO NOT gate `VeltInitializeDocument` on `useCurrentUser()`** — `setDocuments()` does not require the user to be initialized. The SDK processes the document context when it's ready.
+
+**If SEM isn't working after implementation:** Re-read this rule file and diff your code against the code examples above line-by-line. The code examples are the canonical implementation — do not deviate from them.
 
 **How it works:**
 - First user loads the page → `setUserAsEditor()` claims editor role → green banner "You are the editor" → can edit content

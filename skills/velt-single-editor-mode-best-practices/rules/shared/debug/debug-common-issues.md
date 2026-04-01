@@ -89,6 +89,56 @@ liveStateSyncElement.resetUserAccess();
 // This clears the current editor and allows any user to take over
 ```
 
+**Issue 7: Both users show as "viewer" (no one becomes editor)**
+
+The most common cause is `setUserAsEditor()` firing before Velt is fully initialized.
+
+```jsx
+// WRONG — using useCurrentUser() or timeouts to gate setUserAsEditor:
+const veltUser = useCurrentUser();
+useEffect(() => {
+  if (!veltUser) return;
+  setTimeout(() => {
+    liveStateSyncElement.setUserAsEditor(); // Unreliable — Velt may not be ready
+  }, 500);
+}, [veltUser]);
+
+// CORRECT — use useVeltInitState() as the ONLY gate:
+const veltInitState = useVeltInitState();
+useEffect(() => {
+  if (!veltInitState || !liveStateSyncElement) return;
+  const claimEditor = async () => {
+    const result = await liveStateSyncElement.setUserAsEditor();
+    if (result?.error) {
+      // Handle all 3 error codes — see core-setup rule
+    }
+  };
+  claimEditor();
+}, [veltInitState, liveStateSyncElement]);
+```
+
+**Issue 8: Both users can edit despite one being a viewer**
+
+The content element has `contentEditable` but the SDK isn't controlling read-only state.
+
+```jsx
+// WRONG — making contentEditable conditional on isEditor:
+<article contentEditable={isEditor}>  // Fights the SDK, breaks sync
+
+// CORRECT — contentEditable is ALWAYS true, SDK manages read-only:
+<article
+  id="document-content"
+  contentEditable                    // Always true
+  data-velt-sync-access="true"      // SDK controls read-only for viewers
+  data-velt-sync-state="true"       // SDK syncs content between users
+>
+
+// Also verify these are called in VeltCollaboration:
+// - enableSingleEditorMode({ customMode: false }) — customMode MUST be false
+// - singleEditorModeContainerIds(['document-content']) — ID must match
+// - enableAutoSyncState()
+```
+
 **Testing checklist:**
 1. Open the same document as 2 different users in separate browser profiles
 2. Verify only one user can edit at a time
