@@ -50,12 +50,91 @@ const recordingDataProvider = {
   }
 };
 
-// Or function-based (same pattern as comments)
-const reactionDataProvider = {
+// Function-based reaction provider with TypeScript types (same pattern as comments)
+
+type ReactionAnnotation = {
+  annotationId: string;
+  documentId?: string;
+  organizationId?: string;
+  metadata?: unknown;
+  icon?: string;
+};
+
+type ReactionGetRequest = {
+  organizationId: string;
+  reactionAnnotationIds?: string[];
+  documentIds?: string[];
+  folderId?: string;
+  allDocuments?: boolean;
+};
+
+type ReactionSaveRequest = {
+  reactionAnnotation: Record<string, ReactionAnnotation>;
+};
+
+type ReactionDeleteRequest = {
+  reactionAnnotationId: string;
+  metadata?: unknown;
+};
+
+type DataProviderResponse = {
+  data?: unknown;
+  success: boolean;
+  statusCode: number;
+};
+
+const REACTIONS_URL = '/api/velt/reactions';
+
+const fetchReactionsFromDB = async (request: ReactionGetRequest): Promise<DataProviderResponse> => {
+  try {
+    const response = await fetch(`${REACTIONS_URL}/get`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (!response.ok) return { data: {}, success: false, statusCode: response.status };
+    const data = await response.json();
+    return { data: data.result || {}, success: true, statusCode: response.status };
+  } catch (error) {
+    return { data: {}, success: false, statusCode: 500 };
+  }
+};
+
+const saveReactionsToDB = async (request: ReactionSaveRequest): Promise<DataProviderResponse> => {
+  try {
+    const response = await fetch(`${REACTIONS_URL}/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (!response.ok) return { success: false, statusCode: response.status };
+    await response.json();
+    return { success: true, statusCode: 200 };
+  } catch (error) {
+    return { success: false, statusCode: 500 };
+  }
+};
+
+const deleteReactionFromDB = async (request: ReactionDeleteRequest): Promise<DataProviderResponse> => {
+  try {
+    const response = await fetch(`${REACTIONS_URL}/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (!response.ok) return { success: false, statusCode: response.status };
+    await response.json();
+    return { success: true, statusCode: 200 };
+  } catch (error) {
+    return { success: false, statusCode: 500 };
+  }
+};
+
+export const reactionDataProvider = {
   get: fetchReactionsFromDB,
   save: saveReactionsToDB,
-  delete: deleteReactionsFromDB,
-  config: { resolveTimeout: 10000 }
+  delete: deleteReactionFromDB,
+  config: { resolveTimeout: 10000 },
 };
 
 <VeltProvider apiKey="KEY" dataProviders={{

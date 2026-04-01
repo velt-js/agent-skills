@@ -45,36 +45,124 @@ const attachmentDataProvider = {
 <VeltProvider apiKey="KEY" dataProviders={{ attachment: attachmentDataProvider }} />
 ```
 
-**Correct (function-based attachment provider):**
+**Correct (function-based attachment provider with TypeScript types):**
 
-```jsx
-const saveAttachment = async (request) => {
-  const formData = new FormData();
-  formData.append('file', request.file);
-  formData.append('request', JSON.stringify(request.metadata));
+For Next.js API routes, use the **base64 approach** (convert File to base64, send as JSON) since Next.js API routes don't natively support multipart parsing without extra libraries:
 
-  const response = await fetch('/api/velt/attachments/save', {
-    method: 'POST',
-    body: formData,  // No Content-Type header — browser adds it with boundary
+```tsx
+type AttachmentSaveRequest = {
+  attachment: {
+    attachmentId?: number;
+    name?: string;
+    url?: string;
+    mimeType?: string;
+    size?: number;
+    base64Data?: string;
+    file?: File;
+  };
+  metadata?: unknown;
+};
+
+type AttachmentDeleteRequest = {
+  attachmentId: number;
+  metadata?: unknown;
+};
+
+type DataProviderResponse = {
+  data?: unknown;
+  success: boolean;
+  statusCode: number;
+};
+
+const ATTACHMENTS_URL = '/api/velt/attachments';
+
+// Helper: convert File to base64 data URL
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
-  return await response.json();
-  // Must return: { data: { url: 'https://...' }, success: true, statusCode: 200 }
 };
 
-const deleteAttachment = async (request) => {
-  const response = await fetch('/api/velt/attachments/delete', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request),
+const saveAttachmentToDB = async (request: AttachmentSaveRequest): Promise<DataProviderResponse> => {
+  try {
+    const { file, ...attachmentWithoutFile } = request.attachment;
+    let base64Data = request.attachment.base64Data;
+
+    // Convert File object to base64 if present
+    if (file && file instanceof File) {
+      base64Data = await fileToBase64(file);
+    }
+
+    const payload = {
+      attachment: { ...attachmentWithoutFile, base64Data },
+      metadata: request.metadata,
+    };
+
+    const response = await fetch(`${ATTACHMENTS_URL}/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) return { success: false, statusCode: response.status };
+    const data = await response.json();
+    // data.result MUST contain { url } pointing to where the file can be fetched
+    return { success: true, statusCode: 200, data: data.result };
+  } catch (error) {
+    console.error('[Velt Self-Host] Error saving attachment:', error);
+    return { success: false, statusCode: 500 };
+  }
+};
+
+const deleteAttachmentFromDB = async (request: AttachmentDeleteRequest): Promise<DataProviderResponse> => {
+  try {
+    const response = await fetch(`${ATTACHMENTS_URL}/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (!response.ok) return { success: false, statusCode: response.status };
+    await response.json();
+    return { success: true, statusCode: 200 };
+  } catch (error) {
+    console.error('[Velt Self-Host] Error deleting attachment:', error);
+    return { success: false, statusCode: 500 };
+  }
+};
+
+export const attachmentDataProvider = {
+  save: saveAttachmentToDB,
+  delete: deleteAttachmentFromDB,
+  config: {
+    resolveTimeout: 30000,
+    saveRetryConfig: { retryCount: 3, retryDelay: 2000 },
+    deleteRetryConfig: { retryCount: 2, retryDelay: 1000 },
+  },
+};
+```
+
+The backend attachment GET route must also exist to serve stored files:
+
+```tsx
+// app/api/velt/attachments/get/[attachmentId]/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { getAttachment } from '../../../store';
+
+export async function GET(request: NextRequest, { params }: { params: { attachmentId: string } }) {
+  const attachment = await getAttachment(Number(params.attachmentId));
+  if (!attachment?.base64Data) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+  // Decode base64 data URL and serve as binary
+  const [header, base64] = attachment.base64Data.split(',');
+  const mimeType = header.match(/data:(.*?);/)?.[1] || 'application/octet-stream';
+  const buffer = Buffer.from(base64, 'base64');
+  return new NextResponse(buffer, {
+    headers: { 'Content-Type': mimeType, 'Content-Length': String(buffer.length) },
   });
-  return await response.json();
-};
-
-const attachmentDataProvider = {
-  save: saveAttachment,
-  delete: deleteAttachment,
-  config: { resolveTimeout: 30000 }
-};
+}
 ```
 
 **Backend handling (multipart parsing):**

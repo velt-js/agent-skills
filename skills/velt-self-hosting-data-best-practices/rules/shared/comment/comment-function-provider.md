@@ -26,41 +26,89 @@ const fetchComments = async (request) => {
 };
 ```
 
-**Correct (all three operations with standard response format):**
+**Correct (all three operations with TypeScript types and standard response format):**
 
-```jsx
-const fetchCommentsFromDB = async (request) => {
-  const { organizationId, documentIds, commentAnnotationIds } = request;
-  const response = await fetch('/api/velt/comments/get', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ organizationId, documentIds, commentAnnotationIds }),
-  });
-  const result = await response.json();
-  return { data: result.data || {}, success: result.success, statusCode: response.status };
+```tsx
+// Standard response format — ALL data provider functions must return this shape
+type DataProviderResponse = {
+  data?: unknown;
+  success: boolean;
+  statusCode: number;
 };
 
-const saveCommentsToDB = async (request) => {
-  const response = await fetch('/api/velt/comments/save', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request),
-  });
-  const result = await response.json();
-  return { data: result.data, success: result.success, statusCode: response.status };
+// Comment provider request types
+type CommentGetRequest = {
+  organizationId: string;
+  documentIds?: string[];
+  commentAnnotationIds?: string[];
+  folderId?: string;
+  allDocuments?: boolean;
 };
 
-const deleteCommentsFromDB = async (request) => {
-  const response = await fetch('/api/velt/comments/delete', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request),
-  });
-  const result = await response.json();
-  return { data: result.data, success: result.success, statusCode: response.status };
+type CommentSaveRequest = {
+  commentAnnotation: Record<string, {
+    annotationId: string;
+    metadata?: unknown;
+    comments: Record<string, { commentId: string | number; commentHtml?: string; commentText?: string }>;
+  }>;
 };
 
-const commentDataProvider = {
+type CommentDeleteRequest = {
+  commentAnnotationId: string;
+  metadata?: unknown;
+};
+
+const COMMENTS_URL = '/api/velt/comments';
+
+const fetchCommentsFromDB = async (request: CommentGetRequest): Promise<DataProviderResponse> => {
+  try {
+    const response = await fetch(`${COMMENTS_URL}/get`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (!response.ok) return { data: {}, success: false, statusCode: response.status };
+    const data = await response.json();
+    return { data: data.result || {}, success: true, statusCode: response.status };
+  } catch (error) {
+    console.error('[Velt Self-Host] Error fetching comments:', error);
+    return { data: {}, success: false, statusCode: 500 };
+  }
+};
+
+const saveCommentsToDB = async (request: CommentSaveRequest): Promise<DataProviderResponse> => {
+  try {
+    const response = await fetch(`${COMMENTS_URL}/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (!response.ok) return { success: false, statusCode: response.status };
+    await response.json();
+    return { success: true, statusCode: 200 };
+  } catch (error) {
+    console.error('[Velt Self-Host] Error saving comments:', error);
+    return { success: false, statusCode: 500 };
+  }
+};
+
+const deleteCommentsFromDB = async (request: CommentDeleteRequest): Promise<DataProviderResponse> => {
+  try {
+    const response = await fetch(`${COMMENTS_URL}/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (!response.ok) return { success: false, statusCode: response.status };
+    await response.json();
+    return { success: true, statusCode: 200 };
+  } catch (error) {
+    console.error('[Velt Self-Host] Error deleting comments:', error);
+    return { success: false, statusCode: 500 };
+  }
+};
+
+export const commentDataProvider = {
   get: fetchCommentsFromDB,
   save: saveCommentsToDB,
   delete: deleteCommentsFromDB,
@@ -69,23 +117,8 @@ const commentDataProvider = {
     saveRetryConfig: { retryCount: 3, retryDelay: 2000 },
     deleteRetryConfig: { retryCount: 2, retryDelay: 1000 },
     getRetryConfig: { retryCount: 3, retryDelay: 2000 },
-  }
+  },
 };
-
-<VeltProvider apiKey="KEY" dataProviders={{ comment: commentDataProvider }} />
-```
-
-**Request objects received by each function:**
-
-```typescript
-// get receives:
-{ organizationId: string, documentIds?: string[], commentAnnotationIds?: string[] }
-
-// save receives:
-{ commentAnnotation: Record<string, PartialCommentAnnotation>, metadata: { documentId, organizationId } }
-
-// delete receives:
-{ commentAnnotationId: string, metadata: { documentId, organizationId } }
 ```
 
 **When to use function-based over endpoint-based:**

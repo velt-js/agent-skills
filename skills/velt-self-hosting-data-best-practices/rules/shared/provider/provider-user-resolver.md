@@ -20,26 +20,64 @@ const userDataProvider = {
 };
 ```
 
-**Correct (get-only user resolver):**
+**Correct (get-only user resolver with TypeScript types):**
 
-```jsx
-const fetchUsersFromDB = async (request) => {
-  const { organizationId, userIds } = request;
-  const response = await fetch('/api/velt/users/get', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ organizationId, userIds }),
-  });
-  const result = await response.json();
-  return { data: result.data, success: true, statusCode: 200 };
+```tsx
+type User = {
+  userId: string;
+  name?: string;
+  email?: string;
+  photoUrl?: string;
+  color?: string;
+  textColor?: string;
+  isAdmin?: boolean;
+  [key: string]: unknown;
 };
 
-const userDataProvider = {
+type DataProviderResponse = {
+  data?: unknown;
+  success: boolean;
+  statusCode: number;
+};
+
+const USERS_URL = '/api/velt/users';
+
+const fetchUsersFromDB = async (userIds: string[]): Promise<DataProviderResponse> => {
+  try {
+    const response = await fetch(`${USERS_URL}/get`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userIds }),
+    });
+    if (!response.ok) return { data: {}, success: false, statusCode: response.status };
+    const data = await response.json();
+    return { data: data.result || {}, success: true, statusCode: response.status };
+  } catch (error) {
+    console.error('[Velt Self-Host] Error fetching users:', error);
+    return { data: {}, success: false, statusCode: 500 };
+  }
+};
+
+// Save current user to your database when they log in
+// This is called by YOUR app code (not by the Velt SDK)
+export const saveCurrentUserToDB = async (user: User): Promise<void> => {
+  try {
+    await fetch(`${USERS_URL}/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user }),
+    });
+  } catch (error) {
+    console.error('[Velt Self-Host] Error saving user:', error);
+  }
+};
+
+export const userDataProvider = {
   get: fetchUsersFromDB,
 };
-
-<VeltProvider apiKey="KEY" dataProviders={{ user: userDataProvider }} />
 ```
+
+**Important:** The SDK only calls `get` — it never calls save/delete for users. However, your app MUST have a `users/save` route so that when users log in, their PII (name, email, photoUrl) is persisted to your database. Call `saveCurrentUserToDB()` from your auth flow (e.g., in `VeltInitializeUser.tsx` after the user is identified).
 
 **Or endpoint-based:**
 

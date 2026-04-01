@@ -6,6 +6,9 @@
 	"description": "Official Velt agent skills",
 	"scripts": {
 		"build": "npm --prefix packages/skills-build run build",
-		"validate": "npm --prefix packages/skills-build run validate"
+		"validate": "npm --prefix packages/skills-build run validate",
+		"deploy": "node scripts/deploy.mjs",
+		"deploy:cursor": "node scripts/deploy.mjs --cursor",
+		"deploy:claude": "node scripts/deploy.mjs --claude"
 	}
 }
