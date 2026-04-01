@@ -29,7 +29,6 @@ export default function App() {
     <VeltProvider apiKey="API_KEY">
       <VeltVideoPlayer
         src="https://example.com/video.mp4"
-        darkMode={false}
         sync={true}
       />
     </VeltProvider>
@@ -42,7 +41,6 @@ export default function App() {
 | Prop | Type | Description |
 |------|------|-------------|
 | `src` | string | Video source URL |
-| `darkMode` | boolean | Enable dark theme |
 | `sync` | boolean | Enable synchronized playback |
 
 **For HTML:**
@@ -50,7 +48,6 @@ export default function App() {
 ```html
 <velt-video-player
   src="https://example.com/video.mp4"
-  dark-mode="false"
   sync="true"
 >
 </velt-video-player>
@@ -68,7 +65,6 @@ export default function App() {
 **Verification Checklist:**
 - [ ] VeltVideoPlayer is inside VeltProvider
 - [ ] src prop points to valid video URL
-- [ ] darkMode matches app theme
 - [ ] sync enabled if collaborative playback needed
 
 **Source Pointers:**

@@ -2,7 +2,7 @@
 title: Embed the Standalone VeltVideoEditor Component
 impact: MEDIUM
 impactDescription: Adds video viewing and editing outside the standard recorder flow
-tags: VeltVideoEditor, standalone, blob, url, recorderId, darkMode, variant
+tags: VeltVideoEditor, standalone, blob, url, recorderId,  variant
 ---
 
 ## Embed the Standalone VeltVideoEditor Component
@@ -24,20 +24,17 @@ import { VeltVideoEditor } from '@veltdev/react';
 // Load from a recorded video by recorder ID
 <VeltVideoEditor
   recorderId="zK3iEAfvs1Htu3QYPy5S"
-  darkMode={false}
 />
 
 // Load from a URL
 <VeltVideoEditor
   url="https://example.com/video.mp4"
-  darkMode={false}
   variant="compact"
 />
 
 // Load from a Blob object
 <VeltVideoEditor
   blob={videoBlob}
-  darkMode={false}
 />
 ```
 
@@ -46,12 +43,10 @@ import { VeltVideoEditor } from '@veltdev/react';
 ```html
 <velt-video-editor
   recorder-id="zK3iEAfvs1Htu3QYPy5S"
-  dark-mode="false"
 ></velt-video-editor>
 
 <velt-video-editor
   url="https://example.com/video.mp4"
-  dark-mode="false"
   variant="compact"
 ></velt-video-editor>
 ```
@@ -63,7 +58,6 @@ import { VeltVideoEditor } from '@veltdev/react';
 | `blob` | `Blob` | Video blob object |
 | `url` | `string` | URL to video file |
 | `recorderId` | `string` | Recorder ID to load a specific recording |
-| `darkMode` | `boolean` | Enable dark mode styling |
 | `variant` | `string` | Variant styling option |
 
 **Key details:**

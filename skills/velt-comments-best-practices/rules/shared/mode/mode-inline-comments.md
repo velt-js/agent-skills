@@ -83,7 +83,6 @@ export default function App() {
   shadowDom={false}
   dialogVariant="dialog-variant"
   variant="inline-section-variant"
-  darkMode={false}
 />
 ```
 
