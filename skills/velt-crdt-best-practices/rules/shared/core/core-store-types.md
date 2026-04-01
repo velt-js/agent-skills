@@ -25,7 +25,7 @@ Velt CRDT supports four Yjs-backed types: `text`, `array`, `map`, and `xml`. Eac
 const store = await createVeltStore({
   id: 'settings',
   type: 'text',
-  initialValue: JSON.stringify({ theme: 'dark', fontSize: 14 }),
+  initialValue: JSON.stringify({ theme: 'light', fontSize: 14 }),
 });
 ```
 
@@ -36,7 +36,7 @@ const store = await createVeltStore({
 const store = await createVeltStore<{ theme: string; fontSize: number }>({
   id: 'settings',
   type: 'map',
-  initialValue: { theme: 'dark', fontSize: 14 },
+  initialValue: { theme: 'light', fontSize: 14 },
 });
 ```
 

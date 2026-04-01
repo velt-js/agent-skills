@@ -24,20 +24,20 @@ import { VeltVideoEditor } from '@veltdev/react';
 // Load from a recorded video by recorder ID
 <VeltVideoEditor
   recorderId="zK3iEAfvs1Htu3QYPy5S"
-  darkMode={true}
+  darkMode={false}
 />
 
 // Load from a URL
 <VeltVideoEditor
   url="https://example.com/video.mp4"
-  darkMode={true}
+  darkMode={false}
   variant="compact"
 />
 
 // Load from a Blob object
 <VeltVideoEditor
   blob={videoBlob}
-  darkMode={true}
+  darkMode={false}
 />
 ```
 
@@ -46,12 +46,12 @@ import { VeltVideoEditor } from '@veltdev/react';
 ```html
 <velt-video-editor
   recorder-id="zK3iEAfvs1Htu3QYPy5S"
-  dark-mode="true"
+  dark-mode="false"
 ></velt-video-editor>
 
 <velt-video-editor
   url="https://example.com/video.mp4"
-  dark-mode="true"
+  dark-mode="false"
   variant="compact"
 ></velt-video-editor>
 ```

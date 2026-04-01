@@ -106,8 +106,8 @@ function CustomNotificationsPanel() {
 **Dark Mode:**
 
 ```jsx
-<VeltNotificationsTool darkMode={true} />
-<VeltNotificationsPanel darkMode={true} />
+<VeltNotificationsTool darkMode={false} />
+<VeltNotificationsPanel darkMode={false} />
 ```
 
 **Variants:**

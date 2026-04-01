@@ -110,7 +110,7 @@ export default function KanbanBoard() {
 <VeltCommentThread
   annotationId={annotation.annotationId}
   dialogVariant="custom-variant"
-  darkMode={true}
+  darkMode={false}
 />
 ```
 

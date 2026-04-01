@@ -18,7 +18,7 @@ Customize comment dialog appearance using variants, styling, and wireframe compo
 **Dark Mode:**
 
 ```jsx
-<VeltComments darkMode={true} />
+<VeltComments darkMode={false} />
 ```
 
 **Disable Shadow DOM (for CSS access):**
@@ -73,7 +73,7 @@ velt-comment-dialog {
 ```html
 <velt-comments
   dialog-variant="variant-name"
-  dark-mode="true"
+  dark-mode="false"
   shadow-dom="false"
 ></velt-comments>
 ```
@@ -85,7 +85,7 @@ velt-comment-dialog {
   targetElementId="container-id"
   dialogVariant="custom-variant"
   variant="inline-section-variant"
-  darkMode={true}
+  darkMode={false}
   shadowDom={false}
 />
 ```
