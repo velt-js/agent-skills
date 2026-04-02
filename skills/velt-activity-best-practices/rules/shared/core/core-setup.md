@@ -7,6 +7,8 @@ tags: activity, setup, console, enable
 
 ## Enable Activity Logs in Velt Console
 
+**Requires `@veltdev/react@5.0.2-beta.13` or later.** The `useAllActivities` and `useActivityUtils` hooks are not available in earlier versions. If the installed SDK is older, upgrade: `npm install @veltdev/react@5.0.2-beta.13`
+
 Activity Logs are disabled by default. They must be enabled in the Velt Console before any SDK hooks, API subscriptions, or REST API calls will return data.
 
 **Incorrect (using activity APIs without console setup):**

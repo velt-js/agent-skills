@@ -28,10 +28,11 @@ function App() {
 client.setDocument('doc-id'); // NOT compatible with self-hosting
 ```
 
-**Correct (providers set on VeltProvider, setDocuments used):**
+**Correct (providers set on VeltProvider, using existing VeltInitializeDocument):**
 
 ```jsx
-import { VeltProvider, useSetDocuments } from '@veltdev/react';
+import { VeltProvider } from '@veltdev/react';
+import VeltInitializeDocument from './VeltInitializeDocument';
 
 // Define providers as stable references (outside component or useMemo)
 const dataProviders = {
@@ -47,26 +48,14 @@ function App() {
     // Data providers set BEFORE any identify/auth calls
     <VeltProvider apiKey="YOUR_API_KEY" dataProviders={dataProviders}>
       <AuthComponent />
-      <DocumentSetup />
+      <VeltInitializeDocument documentId={docId} />
       <YourApp />
     </VeltProvider>
   );
 }
-
-function DocumentSetup() {
-  const { setDocuments } = useSetDocuments();
-
-  useEffect(() => {
-    // Must use setDocuments (plural) for self-hosting
-    setDocuments([{
-      id: 'your-document-id',
-      metadata: { documentName: 'My Document' }
-    }]);
-  }, [setDocuments]);
-
-  return null;
-}
 ```
+
+**IMPORTANT:** Use the existing `VeltInitializeDocument` component from the setup skill for document identity. Do NOT create a custom `DocumentSetup` component — the existing one handles the `setDocuments` lifecycle correctly and avoids infinite render loops. The document shape is `{ id: string, metadata: { documentName: string } }` — NOT `{ documentId, documentName }`.
 
 **Available provider keys:**
 

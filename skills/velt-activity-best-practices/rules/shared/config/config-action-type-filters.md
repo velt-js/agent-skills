@@ -32,9 +32,9 @@ function CommentActivityFeed() {
   const activities = useAllActivities({
     featureTypes: ['comment'],
     actionTypes: [
-      CommentActivityActionTypes.COMMENT_ADDED,
-      CommentActivityActionTypes.COMMENT_UPDATED,
-      CommentActivityActionTypes.COMMENT_DELETED,
+      CommentActivityActionTypes.COMMENT_ADD,
+      CommentActivityActionTypes.COMMENT_UPDATE,
+      CommentActivityActionTypes.COMMENT_DELETE,
     ],
   });
 
@@ -51,8 +51,8 @@ import { ReactionActivityActionTypes } from '@veltdev/react';
 const activities = useAllActivities({
   featureTypes: ['reaction'],
   actionTypes: [
-    ReactionActivityActionTypes.REACTION_ADDED,
-    ReactionActivityActionTypes.REACTION_REMOVED,
+    ReactionActivityActionTypes.REACTION_ADD,
+    ReactionActivityActionTypes.REACTION_DELETE,
   ],
 });
 ```
@@ -68,7 +68,7 @@ import {
 const activities = useAllActivities({
   featureTypes: ['comment', 'recorder'],
   actionTypes: [
-    CommentActivityActionTypes.COMMENT_ADDED,
+    CommentActivityActionTypes.COMMENT_ADD,
     RecorderActivityActionTypes.RECORDING_STARTED,
   ],
 });
@@ -76,9 +76,32 @@ const activities = useAllActivities({
 
 **Available constant objects:**
 
-| Constant Object | Feature | Example Values |
-|-----------------|---------|----------------|
-| `CommentActivityActionTypes` | Comments | `COMMENT_ADDED`, `COMMENT_UPDATED`, `COMMENT_DELETED`, `STATUS_CHANGED`, `MENTION_ADDED` |
+**CommentActivityActionTypes** (union type: `CommentActivityActionType`):
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `ANNOTATION_ADD` | `'comment_annotation.add'` | Comment annotation added |
+| `ANNOTATION_DELETE` | `'comment_annotation.delete'` | Comment annotation deleted |
+| `COMMENT_ADD` | `'comment.add'` | Comment added |
+| `COMMENT_UPDATE` | `'comment.update'` | Comment updated |
+| `COMMENT_DELETE` | `'comment.delete'` | Comment deleted |
+| `STATUS_CHANGE` | `'comment_annotation.status_change'` | Status changed |
+| `PRIORITY_CHANGE` | `'comment_annotation.priority_change'` | Priority changed |
+| `ASSIGN` | `'comment_annotation.assign'` | Assigned |
+| `ACCESS_MODE_CHANGE` | `'comment_annotation.access_mode_change'` | Access mode changed |
+| `CUSTOM_LIST_CHANGE` | `'comment_annotation.custom_list_change'` | Custom list changed |
+| `APPROVE` | `'comment_annotation.approve'` | Approved |
+| `ACCEPT` | `'comment.accept'` | Comment accepted |
+| `REJECT` | `'comment.reject'` | Comment rejected |
+| `REACTION_ADD` | `'comment.reaction_add'` | Reaction added to comment |
+| `REACTION_DELETE` | `'comment.reaction_delete'` | Reaction removed from comment |
+| `SUBSCRIBE` | `'comment_annotation.subscribe'` | Subscribed to annotation |
+| `UNSUBSCRIBE` | `'comment_annotation.unsubscribe'` | Unsubscribed from annotation |
+
+**Other feature constants:**
+
+| Constant Object | Feature | Key Values |
+|-----------------|---------|------------|
 | `RecorderActivityActionTypes` | Recorder | `RECORDING_STARTED`, `RECORDING_STOPPED` |
 | `ReactionActivityActionTypes` | Reactions | `REACTION_ADDED`, `REACTION_REMOVED` |
 | `CrdtActivityActionTypes` | CRDT | `CRDT_EDITED` |
