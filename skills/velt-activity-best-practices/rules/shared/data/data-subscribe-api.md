@@ -95,6 +95,7 @@ subscription.unsubscribe();
 - Must call `.subscribe()` — it returns an Observable, not a Promise
 - Emits `null` while loading, `[]` when no activities
 - Emits the full list on every change
+- `ActivityRecord.isActivityResolverUsed?: boolean` — present and `true` when the activity resolver hydrated (re-enriched) this record after stripping PII on write; use this to detect resolver-hydrated records vs. raw records
 - In React, prefer `useAllActivities()` hook for simpler code (see `data-subscribe-hook` rule)
 
 **Verification:**

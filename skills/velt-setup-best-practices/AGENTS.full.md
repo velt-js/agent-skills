@@ -41,9 +41,11 @@ Comprehensive setup guide for integrating Velt collaboration SDK into web applic
    - 4.3 [Initialize Documents with setDocuments API](#43-initialize-documents-with-setdocuments-api)
 
 5. [Config](#5-config) — **HIGH**
-   - 5.1 [Configure API Key from Console](#51-configure-api-key-from-console)
-   - 5.2 [Secure Auth Tokens on Server Side](#52-secure-auth-tokens-on-server-side)
-   - 5.3 [Whitelist Domains in Velt Console](#53-whitelist-domains-in-velt-console)
+   - 5.1 [Call enableFirestorePersistentCache Before identify to Enable Offline and Multi-Tab Sync](#51-call-enablefirestorepersistentcache-before-identify-to-enable-offline-and-multi-tab-sync)
+   - 5.2 [Configure API Key from Console](#52-configure-api-key-from-console)
+   - 5.3 [Configure Firebase Reverse Proxy via proxyConfig](#53-configure-firebase-reverse-proxy-via-proxyconfig)
+   - 5.4 [Secure Auth Tokens on Server Side](#54-secure-auth-tokens-on-server-side)
+   - 5.5 [Whitelist Domains in Velt Console](#55-whitelist-domains-in-velt-console)
 
 6. [Project Structure](#6-project-structure) — **MEDIUM**
    - 6.1 [Organize Velt Files in components/velt](#61-organize-velt-files-in-componentsvelt)
@@ -1578,9 +1580,80 @@ await Velt.setDocuments([
 
 **Impact: HIGH**
 
-API keys, environment variables, and security configuration. Includes console.velt.dev setup, domain whitelisting, and auth token security practices.
+API keys, environment variables, and security configuration. Includes console.velt.dev setup, domain whitelisting, auth token security practices, and Firestore persistent cache configuration.
 
-### 5.1 Configure API Key from Console
+### 5.1 Call enableFirestorePersistentCache Before identify to Enable Offline and Multi-Tab Sync
+
+**Impact: HIGH (Enables offline reads and multi-tab sync via Firestore persistent local cache)**
+
+`client.enableFirestorePersistentCache()` initializes Firestore with `persistentLocalCache` and `persistentMultipleTabManager`, enabling offline reads and cross-tab data sync. It **must** be called before `identify()` — calling it after authentication has no effect.
+
+**Incorrect (called after identify):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function App() {
+  const { client } = useVeltClient();
+
+  useEffect(() => {
+    if (!client) return;
+    // Wrong: identify runs before cache is configured
+    client.identify(user);
+    client.enableFirestorePersistentCache({ ha: true }); // Too late — ignored
+  }, [client]);
+}
+```
+
+**Correct (called before identify):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function VeltAuth({ user }) {
+  const { client } = useVeltClient();
+
+  useEffect(() => {
+    if (!client || !user) return;
+
+    async function init() {
+      // Must be called before identify()
+      client.enableFirestorePersistentCache({ ha: true });
+      await client.identify(user);
+    }
+
+    init();
+  }, [client, user]);
+
+  return null;
+}
+```
+
+**Correct (non-React / vanilla JS):**
+
+```js
+import { initVelt } from '@veltdev/client';
+
+const client = await initVelt('YOUR_API_KEY');
+
+// Call before identify
+client.enableFirestorePersistentCache({ ha: true });
+await client.identify(user);
+```
+
+**Disabling the cache:**
+
+```js
+// Also must be called before identify()
+client.disableFirestorePersistentCache({ ha: true });
+await client.identify(user);
+```
+
+---
+
+### 5.2 Configure API Key from Console
 
 **Impact: HIGH (API key is required for all Velt functionality)**
 
@@ -1663,7 +1736,84 @@ NEXT_PUBLIC_VELT_API_KEY=prod-api-key
 
 ---
 
-### 5.2 Secure Auth Tokens on Server Side
+### 5.3 Configure Firebase Reverse Proxy via proxyConfig
+
+**Impact: HIGH (Enables routing all Velt SDK traffic through a Firebase reverse proxy for enterprise network control)**
+
+Use the `proxyConfig` field on the `VeltProvider` config prop (React) or the second argument to `initVelt()` (non-React) to route all Velt SDK traffic through a Firebase reverse proxy. This replaces the deprecated `apiProxyDomain` top-level field added in earlier versions.
+
+**Incorrect (deprecated top-level apiProxyDomain field):**
+
+```jsx
+// DEPRECATED — still functional but will be removed in a future version
+<VeltProvider
+  apiKey="YOUR_API_KEY"
+  config={{ apiProxyDomain: 'https://proxy.example.com/api' }}
+>
+  {/* app */}
+</VeltProvider>
+```
+
+**Correct (React — nested proxyConfig object):**
+
+```jsx
+import { VeltProvider } from '@veltdev/react';
+
+function App() {
+  return (
+    <VeltProvider
+      apiKey="YOUR_API_KEY"
+      config={{
+        proxyConfig: {
+          cdnHost: 'https://proxy.example.com/cdn',
+          apiHost: 'https://proxy.example.com/api',
+          v2DbHost: 'https://proxy.example.com/rtdb-v2',
+          v1DbHost: 'https://proxy.example.com/rtdb-v1',
+          storageHost: 'https://proxy.example.com/storage',
+          authHost: 'https://proxy.example.com/auth',
+          forceLongPolling: true,
+        },
+      }}
+    >
+      {/* app */}
+    </VeltProvider>
+  );
+}
+```
+
+**Correct (non-React — Angular, Vue, HTML):**
+
+```typescript
+import { initVelt } from '@veltdev/client';
+
+const client = await initVelt('YOUR_API_KEY', {
+  proxyConfig: {
+    cdnHost: 'https://proxy.example.com/cdn',
+    apiHost: 'https://proxy.example.com/api',
+    v2DbHost: 'https://proxy.example.com/rtdb-v2',
+    v1DbHost: 'https://proxy.example.com/rtdb-v1',
+    storageHost: 'https://proxy.example.com/storage',
+    authHost: 'https://proxy.example.com/auth',
+    forceLongPolling: true,
+  },
+});
+```
+
+**Migrating from apiProxyDomain (v5.0.2-beta.11+):**
+
+```jsx
+// BEFORE — deprecated (still functional, removal timeline not yet announced)
+<VeltProvider config={{ apiProxyDomain: 'https://proxy.example.com/api' }} />
+
+// AFTER — use proxyConfig.apiHost
+<VeltProvider config={{ proxyConfig: { apiHost: 'https://proxy.example.com/api' } }} />
+```
+
+All seven `ProxyConfig` fields are optional. Configure only the hosts you need to proxy; omitted fields use Velt's default endpoints.
+
+---
+
+### 5.4 Secure Auth Tokens on Server Side
 
 **Impact: HIGH (Auth token exposure enables unauthorized JWT generation)**
 
@@ -1772,7 +1922,7 @@ REACT_APP_VELT_API_KEY=key      # Client-accessible (OK for API key)
 
 ---
 
-### 5.3 Whitelist Domains in Velt Console
+### 5.5 Whitelist Domains in Velt Console
 
 **Impact: HIGH (Requests from non-whitelisted domains will be rejected)**
 

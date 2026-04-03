@@ -21,7 +21,7 @@ Velt Single Editor Mode implementation guide covering exclusive editing access c
 ## Table of Contents
 
 1. [Core Setup](#1-core-setup) — **CRITICAL**
-   - 1.1 [Enable Single Editor Mode with Configuration and Default UI](#11-enable-single-editor-mode-with-configuration-and-default-ui)
+   - 1.1 [Enable Single Editor Mode with Auto-Sync and Editor Status UI](#11-enable-single-editor-mode-with-auto-sync-and-editor-status-ui)
 
 2. [Editor State Management](#2-editor-state-management) — **CRITICAL**
    - 2.1 [Use React Hooks for Editor State](#21-use-react-hooks-for-editor-state)
@@ -56,87 +56,166 @@ Velt Single Editor Mode implementation guide covering exclusive editing access c
 
 Essential setup for enabling Single Editor Mode. Includes initializing via useLiveStateSyncUtils() or Velt.getLiveStateSyncElement(), enabling the mode with config options (customMode, singleTabEditor), embedding the VeltSingleEditorModePanel, and enabling the default UI.
 
-### 1.1 Enable Single Editor Mode with Configuration and Default UI
+### 1.1 Enable Single Editor Mode with Auto-Sync and Editor Status UI
 
-**Impact: CRITICAL (Required for Single Editor Mode to function)**
+**Impact: CRITICAL (Required for Single Editor Mode to function with live content sync)**
 
-Single Editor Mode must be explicitly enabled via the Live State Sync element. Configure `customMode` and `singleTabEditor` options, and either use the default UI panel or build a custom interface.
+Single Editor Mode restricts editing to one user at a time. Other users see content in read-only mode with live sync. The first user to load the page claims the editor role automatically.
 
-**Incorrect (enabling without cleanup or UI):**
+**Setup requires changes in two places:**
 
-```jsx
-import { useLiveStateSyncUtils } from '@veltdev/react';
+```tsx
+"use client";
 
-function App() {
-  const liveStateSyncElement = useLiveStateSyncUtils();
-
-  useEffect(() => {
-    // No cleanup — SEM stays enabled even after unmount
-    liveStateSyncElement.enableSingleEditorMode();
-    // No UI — users can't see editor status or request access
-  }, [liveStateSyncElement]);
-
-  return <YourApp />;
-}
-```
-
-**Correct (full setup with config, default UI, and cleanup):**
-
-```jsx
+import { useEffect } from "react";
 import {
+  VeltComments,
+  VeltCommentTool,
+  VeltCursor,
+  VeltPresence,
+  VeltNotificationsTool,
+  VeltSingleEditorModePanel,
   useLiveStateSyncUtils,
-  VeltSingleEditorModePanel
-} from '@veltdev/react';
+  useVeltInitState,
+} from "@veltdev/react";
+import VeltInitializeDocument from "./VeltInitializeDocument";
 
-function App() {
+interface VeltCollaborationProps {
+  documentId: string;
+  documentName?: string;
+}
+
+export function VeltCollaboration({ documentId, documentName }: VeltCollaborationProps) {
   const liveStateSyncElement = useLiveStateSyncUtils();
+  const veltInitState = useVeltInitState();
 
+  // Enable Single Editor Mode with auto-sync and container scoping
   useEffect(() => {
-    // Enable with configuration
+    if (!liveStateSyncElement) return;
     liveStateSyncElement.enableSingleEditorMode({
-      customMode: false,        // SDK auto-manages read-only state (default)
-      singleTabEditor: true,    // Restrict editing to one tab (default)
+      customMode: false,
+      singleTabEditor: true,
     });
-
-    // Enable default UI for editor status and access requests
     liveStateSyncElement.enableDefaultSingleEditorUI();
+    // Scope SEM to only the document content area — viewers can still click nav, toolbar, comments
+    liveStateSyncElement.singleEditorModeContainerIds(['document-content']);
+    // Auto-sync text content between users
+    liveStateSyncElement.enableAutoSyncState();
 
-    // Cleanup on unmount
     return () => {
       liveStateSyncElement.disableSingleEditorMode();
     };
   }, [liveStateSyncElement]);
 
+  // Claim editor role once Velt is fully initialized
+  useEffect(() => {
+    if (!veltInitState || !liveStateSyncElement) return;
+
+    const claimEditor = async () => {
+      const result = await liveStateSyncElement.setUserAsEditor();
+      if (result?.error) {
+        switch (result.error.code) {
+          case 'same_user_editor_current_tab':
+            console.log('[SEM] Already editing on this tab');
+            break;
+          case 'same_user_editor_different_tab':
+            console.log('[SEM] Already editing on another tab, switching here');
+            liveStateSyncElement.editCurrentTab();
+            break;
+          case 'another_user_editor':
+            console.log('[SEM] Another user is currently editing');
+            break;
+        }
+      } else {
+        console.log('[SEM] Successfully claimed editor role');
+      }
+    };
+
+    claimEditor();
+  }, [veltInitState, liveStateSyncElement]);
+
   return (
-    <div>
-      {/* Render the panel component for access request UI */}
+    <>
+      <VeltInitializeDocument documentId={documentId} documentName={documentName} />
+      <VeltComments shadowDom={false} />
+      <VeltCursor />
       <VeltSingleEditorModePanel shadowDom={false} />
-      <YourApp />
-    </div>
+
+      {/* Toolbar */}
+      <div style={{ position: "fixed", top: 16, right: 16, zIndex: 50, display: "flex", alignItems: "center", gap: 8 }}>
+        <VeltPresence flockMode={false} />
+        <VeltNotificationsTool />
+        <VeltCommentTool />
+      </div>
+    </>
+  );
+}
+"use client";
+
+import { VeltProvider, useUserEditorState, useEditor } from "@veltdev/react";
+import { useVeltAuthProvider } from "@/components/velt/VeltInitializeUser";
+import { VeltCollaboration } from "@/components/velt/VeltCollaboration";
+
+function DocumentContent({ doc, docId, userName, orgId }: {
+  doc: { title: string; content: string };
+  docId: string;
+  userName?: string;
+  orgId?: string;
+}) {
+  const editorState = useUserEditorState();
+  const editor = useEditor();
+  const isEditor = editorState?.isEditor ?? false;
+  const isEditorOnCurrentTab = editorState?.isEditorOnCurrentTab ?? false;
+
+  return (
+    <main style={{ maxWidth: 800, margin: "40px auto", padding: "0 24px" }}>
+      {/* Editor status banner */}
+      <div style={{
+        padding: "8px 16px",
+        marginBottom: 16,
+        borderRadius: 6,
+        background: isEditor ? "#dcfce7" : "#fef3c7",
+        color: isEditor ? "#166534" : "#92400e",
+        fontSize: 13,
+      }}>
+        {isEditor
+          ? isEditorOnCurrentTab
+            ? "You are the editor"
+            : "You are editing on another tab"
+          : editor
+            ? `${editor.name} is currently editing`
+            : "Waiting for editor assignment..."}
+      </div>
+
+      {/* Document content — synced between users */}
+      <article
+        id="document-content"
+        contentEditable
+        suppressContentEditableWarning
+        data-velt-sync-access="true"
+        data-velt-sync-state="true"
+        style={{ minHeight: 400, padding: 24, border: "1px solid #e5e7eb", borderRadius: 8, lineHeight: 1.8, fontSize: 15, outline: "none" }}
+      >
+        <p>{doc.content}</p>
+      </article>
+    </main>
+  );
+}
+
+export default function DocumentPage() {
+  // ... useParams, useAppUser, useVeltAuthProvider setup ...
+  return (
+    <VeltProvider apiKey={VELT_API_KEY} authProvider={authProvider}>
+      <VeltCollaboration documentId={docId} documentName={doc.title} />
+      <DocumentContent doc={doc} docId={docId} userName={user?.name} orgId={user?.organizationId} />
+    </VeltProvider>
   );
 }
 ```
 
-**For non-React frameworks:**
+The document content MUST be in a child component of VeltProvider so hooks can access context:
 
-```js
-const liveStateSyncElement = Velt.getLiveStateSyncElement();
-
-liveStateSyncElement.enableSingleEditorMode({
-  customMode: false,
-  singleTabEditor: true,
-});
-
-liveStateSyncElement.enableDefaultSingleEditorUI();
-```
-
-**For HTML:**
-
-```html
-<velt-single-editor-mode-panel shadow-dom="false"></velt-single-editor-mode-panel>
-```
-
-Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup - Initialize Single Editor Mode; https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - enableSingleEditorMode, enableDefaultSingleEditorUI
+Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup; https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior
 
 ---
 

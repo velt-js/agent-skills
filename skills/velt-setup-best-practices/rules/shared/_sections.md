@@ -35,7 +35,14 @@ This file defines all rule categories for velt-setup-best-practices.
 ## 5. Config (config/)
 
 **Impact:** HIGH
-**Description:** API keys, environment variables, and security configuration. Includes console.velt.dev setup, domain whitelisting, and auth token security practices.
+**Description:** API keys, environment variables, and security configuration. Includes console.velt.dev setup, domain whitelisting, auth token security practices, and Firestore persistent cache configuration.
+
+**Rules:**
+- `config-api-key` - Configure API key from console.velt.dev
+- `config-auth-token-security` - Secure auth token generation
+- `config-domain-safelist` - Whitelist allowed domains
+- `config-firestore-persistent-cache` - Enable offline reads and multi-tab sync via Firestore persistent cache
+- `config-proxy-config` - Configure Firebase reverse proxy via proxyConfig (replaces deprecated apiProxyDomain)
 
 ---
 

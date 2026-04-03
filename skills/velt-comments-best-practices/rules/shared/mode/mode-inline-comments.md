@@ -102,11 +102,37 @@ export default function App() {
 </section>
 ```
 
+**Wireframe `context` Variable Resolution (v5.0.2-beta.11+):**
+
+Inside wireframe templates for `VeltInlineCommentsSection`, the `context` data variable resolves from `parentLocalUIState.context` — the document/location context for the section. This is the corrected behavior as of v5.0.2-beta.11.
+
+```jsx
+// Inside a VeltInlineCommentsSection wireframe template:
+// `context` resolves from parentLocalUIState.context (document/location context).
+// Use field="context.someProperty" to access location-level context data.
+<velt-data field="context.someProperty" />
+
+// For annotation-level context in other (non-Inline-Section) components,
+// use field="annotation.context.someProperty" instead.
+<velt-data field="annotation.context.someProperty" />
+```
+
+```html
+<!-- HTML — same distinction applies in velt-data field expressions -->
+<!-- Inside VeltInlineCommentsSection wireframe: context = parentLocalUIState.context -->
+<velt-data field="context.someProperty"></velt-data>
+
+<!-- Inside other component wireframes: annotation-level context -->
+<velt-data field="annotation.context.someProperty"></velt-data>
+```
+
 **Verification Checklist:**
 - [ ] Container has unique ID
 - [ ] VeltInlineCommentsSection is inside container
 - [ ] targetElementId matches container ID
 - [ ] multiThread setting matches requirements
+- [ ] In Inline Comments Section wireframe templates, `field="context.someProperty"` is used for document/location context (resolves from `parentLocalUIState.context`); use `field="annotation.context.someProperty"` for annotation-level context in other component wireframes
 
 **Source Pointers:**
 - https://docs.velt.dev/async-collaboration/comments/setup/inline-comments - Complete setup
+- https://docs.velt.dev/ui-customization/overview - Wireframe data variable resolution

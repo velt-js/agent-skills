@@ -59,10 +59,11 @@ const response = await fetch('https://api.velt.dev/v2/activities/add', {
       organizationId: 'org-123',
       documentId: 'doc-456',
       activities: [{
-        featureType: 'custom',
+        id: 'build-789-unique',       // optional: stable ID for idempotency
+        featureType: 'custom',         // one of: comment | reaction | recorder | crdt | custom
         actionType: 'custom',
         actionUser: { userId: 'system', name: 'CI Bot' },
-        targetEntityId: 'build-789',
+        targetEntityId: 'build-789',   // required for 'custom'; optional for built-in types
         displayMessageTemplate: '{{actionUser.name}} completed build {{buildId}}',
         displayMessageTemplateData: { buildId: '#789' },
       }]
@@ -106,6 +107,9 @@ const response = await fetch('https://api.velt.dev/v2/activities/delete', {
 - Delete accepts `documentId`, `targetEntityId`, or `activityIds` (at least one required)
 - Update and Delete fail for immutable records (see `config-immutability` rule)
 - Get supports pagination via `pageSize`, `pageToken`, and `order` parameters
+- `featureType` is validated against `'comment' | 'reaction' | 'recorder' | 'crdt' | 'custom'` — invalid values are rejected by the API
+- `targetEntityId` is required in activity objects only when `featureType` is `'custom'`; it is optional for built-in featureTypes
+- `id` (optional) — provide a stable document ID for idempotent writes; Firestore uses this as the document key to prevent duplicate records
 
 **Verification:**
 - [ ] API key stored securely (environment variable, not client-side)

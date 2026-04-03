@@ -61,8 +61,9 @@ Comprehensive Velt Comments implementation guide covering comment modes, setup p
 5. [UI Customization](#5-ui-customization) — **MEDIUM**
    - 5.1 [Customize Comment Bubble Display](#51-customize-comment-bubble-display)
    - 5.2 [Customize Comment Dialog Appearance](#52-customize-comment-dialog-appearance)
-   - 5.3 [Use Standalone Autocomplete Primitives for Custom Autocomplete UIs](#53-use-standalone-autocomplete-primitives-for-custom-autocomplete-uis)
-   - 5.4 [Use Wireframe Components for Custom UI](#54-use-wireframe-components-for-custom-ui)
+   - 5.3 [Set defaultCondition on V2 Primitive Sub-Components to Control Default Rendering](#53-set-defaultcondition-on-v2-primitive-sub-components-to-control-default-rendering)
+   - 5.4 [Use Standalone Autocomplete Primitives for Custom Autocomplete UIs](#54-use-standalone-autocomplete-primitives-for-custom-autocomplete-uis)
+   - 5.5 [Use Wireframe Components for Custom UI](#55-use-wireframe-components-for-custom-ui)
 
 6. [Data Model](#6-data-model) — **MEDIUM**
    - 6.1 [Filter and Group Comments](#61-filter-and-group-comments)
@@ -205,6 +206,31 @@ export default function App() {
       <VeltComments />
     </VeltProvider>
   );
+}
+```
+
+**Correct (with SetDocumentsRequestOptions — v5.0.2-beta.10):**
+
+```jsx
+import { useEffect } from 'react';
+import { VeltProvider, VeltComments, useVeltClient } from '@veltdev/react';
+
+function DocumentSetup() {
+  const { client } = useVeltClient();
+
+  useEffect(() => {
+    if (client) {
+      client.setDocuments(
+        [{ id: 'unique-document-id', metadata: { documentName: 'My Document' } }],
+        {
+          debounceTime: 1000,          // Override global 5000ms debounce for this call
+          optimisticPermissions: false // Await permission validation before returning
+        }
+      );
+    }
+  }, [client]);
+
+  return null;
 }
 ```
 
@@ -1101,7 +1127,7 @@ function AceEditorComponent() {
   return (
     <div>
       <button
-        onMouseDown={(e) => e.preventDefault()}
+        onClick={(e) => e.preventDefault()}
         onClick={() => {
           if (editorRef.current) {
             addComment({ editor: editorRef.current });
@@ -1248,7 +1274,7 @@ function CodeMirrorEditorComponent() {
   return (
     <div>
       <button
-        onMouseDown={(e) => {
+        onClick={(e) => {
           e.preventDefault();
           saveSelection();
         }}
@@ -1364,7 +1390,7 @@ function CommentPlugin() {
   };
 
   return (
-    <button onMouseDown={(e) => {
+    <button onClick={(e) => {
       e.preventDefault();
       handleAddComment();
     }}>
@@ -1454,7 +1480,7 @@ export default function PlateEditorComponent() {
   return (
     <div>
       <button
-        onMouseDown={(e) => {
+        onClick={(e) => {
           e.preventDefault();
           handleAddComment();
         }}
@@ -1587,7 +1613,7 @@ function QuillEditorComponent() {
   return (
     <div>
       <button
-        onMouseDown={(e) => {
+        onClick={(e) => {
           e.preventDefault();
           const sel = quill?.getSelection();
           if (sel?.length > 0) savedSelectionRef.current = sel;
@@ -1703,7 +1729,7 @@ function SlateEditor() {
 
   return (
     <Slate editor={editor} initialValue={initialValue}>
-      <button onMouseDown={(e) => {
+      <button onClick={(e) => {
         e.preventDefault();
         handleAddComment();
       }}>
@@ -1810,7 +1836,7 @@ export default function TipTapComponent() {
       {editor && (
         <BubbleMenu editor={editor}>
           <button
-            onMouseDown={(e) => {
+            onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
               handleAddComment();
@@ -2304,7 +2330,6 @@ export default function App() {
   shadowDom={false}
   dialogVariant="dialog-variant"
   variant="inline-section-variant"
-  darkMode={true}
 />
 ```
 
@@ -2322,6 +2347,25 @@ export default function App() {
   >
   </velt-inline-comments-section>
 </section>
+```
+
+**Wireframe `context` Variable Resolution (v5.0.2-beta.11+):**
+
+```html
+// Inside a VeltInlineCommentsSection wireframe template:
+// `context` resolves from parentLocalUIState.context (document/location context).
+// Use field="context.someProperty" to access location-level context data.
+<velt-data field="context.someProperty" />
+
+// For annotation-level context in other (non-Inline-Section) components,
+// use field="annotation.context.someProperty" instead.
+<velt-data field="annotation.context.someProperty" />
+<!-- HTML — same distinction applies in velt-data field expressions -->
+<!-- Inside VeltInlineCommentsSection wireframe: context = parentLocalUIState.context -->
+<velt-data field="context.someProperty"></velt-data>
+
+<!-- Inside other component wireframes: annotation-level context -->
+<velt-data field="annotation.context.someProperty"></velt-data>
 ```
 
 ---
@@ -2552,7 +2596,6 @@ export default function App() {
     <VeltProvider apiKey="API_KEY">
       <VeltVideoPlayer
         src="https://example.com/video.mp4"
-        darkMode={false}
         sync={true}
       />
     </VeltProvider>
@@ -2565,7 +2608,6 @@ export default function App() {
 ```html
 <velt-video-player
   src="https://example.com/video.mp4"
-  dark-mode="false"
   sync="true"
 >
 </velt-video-player>
@@ -3073,7 +3115,6 @@ export default function KanbanBoard() {
 <VeltCommentThread
   annotationId={annotation.annotationId}
   dialogVariant="custom-variant"
-  darkMode={true}
 />
 ```
 
@@ -3159,14 +3200,14 @@ export default function App() {
 />
 ```
 
-**Opt into V2 via the existing tag (v5.0.2-beta.9+):**
+**V1 defers to V2 when both are mounted (v5.0.2-beta.13+):**
 
-```html
-// Routes velt-comments-sidebar to the full VeltCommentsSidebarV2
-// implementation, forwarding all supported props automatically.
+```jsx
+// Before (no longer valid — version prop removed):
 <VeltCommentsSidebar version="2" />
-<!-- HTML -->
-<velt-comments-sidebar version="2"></velt-comments-sidebar>
+
+// After — use VeltCommentsSidebarV2 directly:
+<VeltCommentsSidebarV2 />
 ```
 
 **For HTML:**
@@ -3338,15 +3379,6 @@ export default function App() {
 ></velt-comments-sidebar-v2>
 ```
 
-**Alternate: opt into V2 via the existing sidebar tag:**
-
-```jsx
-// Routes <VeltCommentsSidebar> to the full V2 implementation,
-// forwarding pageMode, focusedThreadMode, readOnly, embedMode,
-// floatingMode, position, variant, and forceClose automatically.
-<VeltCommentsSidebar version="2" />
-```
-
 ---
 
 ## 5. UI Customization
@@ -3424,6 +3456,22 @@ import { VeltCommentBubble } from '@veltdev/react';
 </div>
 ```
 
+**React Primitive Sub-Components (v5.0.2-beta.13+):**
+
+```jsx
+import {
+  VeltCommentBubbleAvatar,
+  VeltCommentBubbleCommentsCount,
+  VeltCommentBubbleUnreadIcon,
+} from '@veltdev/react';
+
+// Each primitive accepts defaultCondition to bypass the SDK's
+// default show/hide logic when composing inside a wireframe.
+<VeltCommentBubbleAvatar defaultCondition={false} />
+<VeltCommentBubbleCommentsCount defaultCondition={false} />
+<VeltCommentBubbleUnreadIcon defaultCondition={false} />
+```
+
 ---
 
 ### 5.2 Customize Comment Dialog Appearance
@@ -3436,12 +3484,6 @@ Customize comment dialog appearance using variants, styling, and wireframe compo
 
 ```jsx
 <VeltComments dialogVariant="variant-name" />
-```
-
-**Dark Mode:**
-
-```jsx
-<VeltComments darkMode={true} />
 ```
 
 **Disable Shadow DOM (for CSS access):**
@@ -3482,7 +3524,6 @@ velt-comment-dialog {
 ```html
 <velt-comments
   dialog-variant="variant-name"
-  dark-mode="true"
   shadow-dom="false"
 ></velt-comments>
 ```
@@ -3494,14 +3535,60 @@ velt-comment-dialog {
   targetElementId="container-id"
   dialogVariant="custom-variant"
   variant="inline-section-variant"
-  darkMode={true}
   shadowDom={false}
 />
 ```
 
 ---
 
-### 5.3 Use Standalone Autocomplete Primitives for Custom Autocomplete UIs
+### 5.3 Set defaultCondition on V2 Primitive Sub-Components to Control Default Rendering
+
+**Impact: MEDIUM (Prevents the SDK's default show/hide logic from conflicting with custom wireframe compositions in V2 primitive component families)**
+
+Six comment component families have been migrated to the V2 primitive architecture: Comment Pin (6 primitives), Comment Bubble (3, HTML-only), Text Comment (7), Inline Comments Section (23), Multi-Thread Comment Dialog (24), and Sidebar Button (3). Every primitive in these families accepts a `defaultCondition` / `default-condition` prop. When a wireframe replaces a section of the UI, set `defaultCondition={false}` to bypass the SDK's built-in default show/hide logic and prevent double-rendering or unintended visibility toggles.
+
+<!-- TODO (v5.0.2-beta.11): Verify the exact primitive component names within each family (e.g., the individual identifiers for the 6 Comment Pin primitives). Release note confirms primitive counts per family and the `defaultCondition` prop name, but does not enumerate individual primitive names. -->
+
+**Incorrect (omitting defaultCondition when overriding a primitive section):**
+
+```jsx
+// The SDK's default show/hide logic still runs, causing the primitive
+// to render in its default state alongside the custom wireframe content.
+<VeltCommentPinWireframe.SomePrimitive>
+  <MyCustomContent />
+</VeltCommentPinWireframe.SomePrimitive>
+```
+
+**Correct (React — set defaultCondition={false} to bypass default rendering logic):**
+
+```jsx
+import { VeltWireframe } from '@veltdev/react';
+
+// Inside a VeltWireframe block, pass defaultCondition={false} to any
+// V2 primitive whose section is being replaced by custom content.
+// Applies to all families: Comment Pin, Comment Bubble, Text Comment,
+// Inline Comments Section, Multi-Thread Comment Dialog, Sidebar Button.
+<VeltWireframe>
+  <VeltCommentPinWireframe.SomePrimitive defaultCondition={false}>
+    <MyCustomContent />
+  </VeltCommentPinWireframe.SomePrimitive>
+</VeltWireframe>
+```
+
+**Correct (HTML — use default-condition attribute):**
+
+```html
+<!-- Inside a <velt-wireframe style="display:none;"> wrapper -->
+<velt-wireframe style="display:none;">
+  <velt-comment-pin-primitive-wireframe default-condition="false">
+    <!-- Custom content replaces the default primitive rendering -->
+  </velt-comment-pin-primitive-wireframe>
+</velt-wireframe>
+```
+
+---
+
+### 5.4 Use Standalone Autocomplete Primitives for Custom Autocomplete UIs
 
 **Impact: MEDIUM (Build fully custom autocomplete UIs without requiring the full VeltAutocomplete panel, using independently importable primitive components)**
 
@@ -3623,7 +3710,7 @@ import { VeltWireframe, VeltAutocompleteEmptyWireframe } from '@veltdev/react';
 
 ---
 
-### 5.4 Use Wireframe Components for Custom UI
+### 5.5 Use Wireframe Components for Custom UI
 
 **Impact: MEDIUM (Build fully custom comment UIs with wireframe building blocks)**
 
@@ -3787,6 +3874,25 @@ function CustomSidebar() {
     <velt-comment-dialog-wireframe-status></velt-comment-dialog-wireframe-status>
   </velt-comment-dialog-wireframe-header>
 </velt-comment-dialog-wireframe>
+```
+
+**Wireframe Data Variables (v5.0.2-beta.11+):**
+
+```html
+// React — reference annotation data via the annotations shorthand variable
+// inside a wireframe template for a list-level component (e.g., Inline Comments Section)
+<VeltWireframe>
+  {/* annotations.0.annotationId resolves the first annotation's ID */}
+  <velt-data field="annotations.0.annotationId" />
+
+  {/* allAnnotations gives access to all annotations regardless of filter state */}
+  <velt-data field="allAnnotations" />
+</VeltWireframe>
+<!-- HTML — same shorthand variables work inside velt-data field expressions -->
+<velt-wireframe style="display:none;">
+  <velt-data field="annotations.0.annotationId"></velt-data>
+  <velt-data field="allAnnotations"></velt-data>
+</velt-wireframe>
 ```
 
 ---

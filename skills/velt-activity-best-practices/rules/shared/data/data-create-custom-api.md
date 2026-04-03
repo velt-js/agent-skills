@@ -51,22 +51,21 @@ function EscalationButton({ ticketId }) {
 ```js
 const activityElement = Velt.getActivityElement();
 
-// Deployment event
+// Custom featureType — targetEntityId required; id for idempotency
 await activityElement.createActivity({
+  id: 'deploy-abc123',         // optional — stable ID for deduplication
   featureType: 'custom',
   actionType: 'custom',
-  targetEntityId: 'deploy-v2',
+  targetEntityId: 'deploy-v2', // required for 'custom' featureType
   displayMessageTemplate: '{{actionUser.name}} deployed version {{version}}',
   displayMessageTemplateData: { version: 'v2.3.1' },
 });
 
-// AI agent action logging
+// Built-in featureType — targetEntityId is optional
 await activityElement.createActivity({
-  featureType: 'custom',
+  featureType: 'comment',      // one of: comment | reaction | recorder | crdt | custom
   actionType: 'custom',
-  targetEntityId: 'agent-task-42',
-  displayMessageTemplate: '{{actionUser.name}} ran automated review on {{documentName}}',
-  displayMessageTemplateData: { documentName: 'Q4 Report' },
+  displayMessageTemplate: '{{actionUser.name}} added a comment',
 });
 ```
 
@@ -79,7 +78,9 @@ await activityElement.createActivity({
 
 **Key details:**
 - `createActivity()` returns `Promise<void>` — always await for proper error handling
-- Same `CreateActivityData` schema as the hook version (featureType, actionType, targetEntityId, displayMessageTemplate, displayMessageTemplateData)
+- `featureType` is validated against an enum: `'comment' | 'reaction' | 'recorder' | 'crdt' | 'custom'` — invalid values are rejected
+- `targetEntityId` is **required** when `featureType` is `'custom'`; it is **optional** for built-in featureTypes (`comment`, `reaction`, `recorder`, `crdt`)
+- `id` (optional) — provide a stable string to make the Firestore write idempotent; if the same ID is submitted twice, only one record is created
 - Custom activities merge into the same feed as Velt-generated activities
 - In React, prefer `useActivityUtils()` hook for simpler code (see `data-create-custom-hook` rule)
 

@@ -8,7 +8,7 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 1. Core Setup (core)
 
 **Impact:** CRITICAL
-**Description:** Essential setup required for any Velt activity log implementation. Activity Logs must be enabled in the Velt Console before any SDK or REST API calls will work.
+**Description:** Essential setup required for any Velt activity log implementation. Activity Logs must be enabled in the Velt Console before any SDK or REST API calls will work. Includes the VeltActivityLog drop-in UI component for displaying activity feeds.
 
 ---
 

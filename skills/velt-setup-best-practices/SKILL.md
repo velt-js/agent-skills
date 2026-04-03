@@ -9,7 +9,7 @@ metadata:
 
 # Velt Setup Best Practices
 
-Comprehensive setup guide for Velt collaboration SDK. Contains 21 rules across 8 categories covering installation, authentication, document setup, and project organization.
+Comprehensive setup guide for Velt collaboration SDK. Contains 24 rules across 8 categories covering installation, authentication, document setup, and project organization.
 
 ## When to Apply
 

@@ -8,7 +8,12 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 1. Core Setup (core)
 
 **Impact:** CRITICAL
-**Description:** Essential setup patterns for any Velt Recorder implementation. Includes adding VeltRecorderTool, VeltRecorderControlPanel, and VeltRecorderPlayer in the correct combination, connecting recorded data via event callbacks, and requesting device permissions.
+**Description:** Essential setup patterns for any Velt Recorder implementation. Includes adding VeltRecorderTool, VeltRecorderControlPanel, and VeltRecorderPlayer in the correct combination, connecting recorded data via event callbacks, requesting device permissions, and handling the recorder.done server-side webhook event.
+
+**Rules:**
+- `core-setup` - Add VeltRecorderTool, ControlPanel, Player, and Notes components
+- `core-permissions` - Request device permissions for camera, microphone, and screen capture
+- `core-webhooks` - Handle the recorder.done webhook event for completed recordings
 
 ---
 
@@ -22,7 +27,13 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 3. Data Management (data)
 
 **Impact:** HIGH
-**Description:** Patterns for accessing, subscribing to, and managing recording data. Includes reactive subscriptions via React hooks, one-time fetches, Observable subscriptions, deletion by recorder ID, and video downloads.
+**Description:** Patterns for accessing, subscribing to, and managing recording data. Includes reactive subscriptions via React hooks, one-time fetches, Observable subscriptions, deletion by recorder ID, video downloads, and server-side retrieval via REST API.
+
+**Rules:**
+- `data-hooks` - Use React hooks (useRecordings, useRecorderAddHandler) for reactive data
+- `data-fetch-subscribe` - Fetch or subscribe to recording data via API
+- `data-delete-download` - Delete recordings and download latest video version
+- `data-rest-api` - Retrieve recordings via REST API endpoint (server-side)
 
 ---
 

@@ -4,14 +4,14 @@
 |root: ./rules
 
 ## 1. Core Setup — CRITICAL
-|shared/core:{core-setup.md,core-permissions.md}
+|shared/core:{core-setup.md,core-webhooks.md,core-permissions.md}
 
 ## 2. Recording Configuration — HIGH
 |shared/config:{config-quality-encoding.md,config-picture-in-picture.md,config-type-and-mode.md,config-max-length.md}
 
 ## 3. Data Management — HIGH
 |react/data:{data-hooks.md}
-|shared/data:{data-delete-download.md,data-fetch-subscribe.md}
+|shared/data:{data-delete-download.md,data-fetch-subscribe.md,data-rest-api.md}
 
 ## 4. Event Handling — MEDIUM-HIGH
 |react/events:{events-hooks.md}

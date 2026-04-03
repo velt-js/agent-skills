@@ -201,11 +201,31 @@ app.post('/api/velt/attachments/save', upload.single('file'), async (req, res) =
 - Set a longer `resolveTimeout` (15-30s) for file uploads
 - Attachment data is stored alongside comment data — when a comment has attachments, the URLs are embedded in the comment annotation stored on your database
 
+**Delete handler metadata contract (v5.0.2-beta.11+):**
+
+As of v5.0.2-beta.11, the `metadata` field passed to the attachment delete handler contains only client-facing metadata — internal Velt fields are stripped before the call. Do not rely on internal Velt fields (such as `commentAnnotationId` or `attachmentId`) being present in `metadata`; use the top-level `attachmentId` field on the request object instead.
+
+```tsx
+// BEFORE v5.0.2-beta.11: metadata may have included internal Velt fields
+const deleteAttachmentFromDB = async (request: AttachmentDeleteRequest) => {
+  // Do NOT rely on internal fields in request.metadata
+};
+
+// AFTER v5.0.2-beta.11: metadata contains only client-set fields
+const deleteAttachmentFromDB = async (request: AttachmentDeleteRequest) => {
+  // Use top-level request.attachmentId — always present
+  const { attachmentId } = request;
+  await db.deleteAttachment(attachmentId);
+  return { success: true, statusCode: 200 };
+};
+```
+
 **Verification:**
 - [ ] Backend parses multipart/form-data (not JSON) for save
 - [ ] Content-Type header NOT manually set for save requests
 - [ ] Save response includes `{ data: { url } }`
 - [ ] Delete uses standard JSON format
 - [ ] Timeout is longer than for other providers (file upload latency)
+- [ ] Delete handler reads `attachmentId` from the top-level request field, not from `metadata`
 
 **Source Pointer:** https://docs.velt.dev/self-host-data/attachments - Endpoint-Based, Function-Based

@@ -22,6 +22,7 @@ Velt Activity Logs implementation guide covering real-time activity subscription
 
 1. [Core Setup](#1-core-setup) — **CRITICAL**
    - 1.1 [Enable Activity Logs in Velt Console](#11-enable-activity-logs-in-velt-console)
+   - 1.2 [Use VeltActivityLog Component to Display Activity Feed UI](#12-use-veltactivitylog-component-to-display-activity-feed-ui)
 
 2. [Data Access](#2-data-access) — **HIGH**
    - 2.1 [Use useActivityUtils to Create Custom Activity Records](#21-use-useactivityutils-to-create-custom-activity-records)
@@ -46,11 +47,13 @@ Velt Activity Logs implementation guide covering real-time activity subscription
 
 **Impact: CRITICAL**
 
-Essential setup required for any Velt activity log implementation. Activity Logs must be enabled in the Velt Console before any SDK or REST API calls will work.
+Essential setup required for any Velt activity log implementation. Activity Logs must be enabled in the Velt Console before any SDK or REST API calls will work. Includes the VeltActivityLog drop-in UI component for displaying activity feeds.
 
 ### 1.1 Enable Activity Logs in Velt Console
 
 **Impact: CRITICAL (Required for activity logs to function)**
+
+**Requires `@veltdev/react@5.0.2-beta.13` or later.** The `useAllActivities` and `useActivityUtils` hooks are not available in earlier versions. If the installed SDK is older, upgrade: `npm install @veltdev/react@5.0.2-beta.13`
 
 Activity Logs are disabled by default. They must be enabled in the Velt Console before any SDK hooks, API subscriptions, or REST API calls will return data.
 
@@ -107,6 +110,58 @@ activityElement.getAllActivities().subscribe((activities) => {
 ```
 
 Reference: https://docs.velt.dev/async-collaboration/activity/setup - Enable Activity Logs in the Velt Console
+
+---
+
+### 1.2 Use VeltActivityLog Component to Display Activity Feed UI
+
+**Impact: HIGH (Drop-in activity feed UI with date grouping, filtering, and wireframe customization)**
+
+The `VeltActivityLog` / `<velt-activity-log>` component renders a prebuilt activity feed that groups entries by calendar date, supports filtering by feature type, and displays loading and empty states. Without it, you must build all feed UI from scratch using raw subscription data.
+
+**Incorrect (rendering raw subscription data without the component):**
+
+```jsx
+import { useAllActivities } from '@veltdev/react';
+
+function ActivityFeed() {
+  const activities = useAllActivities();
+  // No date grouping, no loading state, no empty state
+  return (
+    <ul>
+      {activities?.map(a => <li key={a.id}>{a.displayMessage}</li>)}
+    </ul>
+  );
+}
+```
+
+**Correct (React — drop-in component with props):**
+
+```jsx
+import { VeltActivityLog } from '@veltdev/react';
+
+function ActivitySidebar() {
+  return (
+    <VeltActivityLog
+      darkMode={false}
+      useDummyData={false}
+      variant="sidebar"
+    />
+  );
+}
+```
+
+**Correct (HTML — web component):**
+
+```html
+<!-- Basic usage -->
+<velt-activity-log></velt-activity-log>
+
+<!-- With dummy data for development -->
+<velt-activity-log use-dummy-data="true"></velt-activity-log>
+```
+
+Reference: https://docs.velt.dev/async-collaboration/activity/customize-ui - VeltActivityLog Component
 
 ---
 
@@ -331,22 +386,21 @@ function EscalationButton({ ticketId }) {
 ```js
 const activityElement = Velt.getActivityElement();
 
-// Deployment event
+// Custom featureType — targetEntityId required; id for idempotency
 await activityElement.createActivity({
+  id: 'deploy-abc123',         // optional — stable ID for deduplication
   featureType: 'custom',
   actionType: 'custom',
-  targetEntityId: 'deploy-v2',
+  targetEntityId: 'deploy-v2', // required for 'custom' featureType
   displayMessageTemplate: '{{actionUser.name}} deployed version {{version}}',
   displayMessageTemplateData: { version: 'v2.3.1' },
 });
 
-// AI agent action logging
+// Built-in featureType — targetEntityId is optional
 await activityElement.createActivity({
-  featureType: 'custom',
+  featureType: 'comment',      // one of: comment | reaction | recorder | crdt | custom
   actionType: 'custom',
-  targetEntityId: 'agent-task-42',
-  displayMessageTemplate: '{{actionUser.name}} ran automated review on {{documentName}}',
-  displayMessageTemplateData: { documentName: 'Q4 Report' },
+  displayMessageTemplate: '{{actionUser.name}} added a comment',
 });
 ```
 
@@ -564,9 +618,9 @@ function CommentActivityFeed() {
   const activities = useAllActivities({
     featureTypes: ['comment'],
     actionTypes: [
-      CommentActivityActionTypes.COMMENT_ADDED,
-      CommentActivityActionTypes.COMMENT_UPDATED,
-      CommentActivityActionTypes.COMMENT_DELETED,
+      CommentActivityActionTypes.COMMENT_ADD,
+      CommentActivityActionTypes.COMMENT_UPDATE,
+      CommentActivityActionTypes.COMMENT_DELETE,
     ],
   });
 
@@ -583,8 +637,8 @@ import { ReactionActivityActionTypes } from '@veltdev/react';
 const activities = useAllActivities({
   featureTypes: ['reaction'],
   actionTypes: [
-    ReactionActivityActionTypes.REACTION_ADDED,
-    ReactionActivityActionTypes.REACTION_REMOVED,
+    ReactionActivityActionTypes.REACTION_ADD,
+    ReactionActivityActionTypes.REACTION_DELETE,
   ],
 });
 ```
@@ -600,7 +654,7 @@ import {
 const activities = useAllActivities({
   featureTypes: ['comment', 'recorder'],
   actionTypes: [
-    CommentActivityActionTypes.COMMENT_ADDED,
+    CommentActivityActionTypes.COMMENT_ADD,
     RecorderActivityActionTypes.RECORDING_STARTED,
   ],
 });
@@ -685,10 +739,11 @@ const response = await fetch('https://api.velt.dev/v2/activities/add', {
       organizationId: 'org-123',
       documentId: 'doc-456',
       activities: [{
-        featureType: 'custom',
+        id: 'build-789-unique',       // optional: stable ID for idempotency
+        featureType: 'custom',         // one of: comment | reaction | recorder | crdt | custom
         actionType: 'custom',
         actionUser: { userId: 'system', name: 'CI Bot' },
-        targetEntityId: 'build-789',
+        targetEntityId: 'build-789',   // required for 'custom'; optional for built-in types
         displayMessageTemplate: '{{actionUser.name}} completed build {{buildId}}',
         displayMessageTemplateData: { buildId: '#789' },
       }]

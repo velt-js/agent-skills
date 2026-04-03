@@ -226,11 +226,43 @@ As of v5.0.1-beta.2, the wireframe template for the resolve and unresolve button
 </velt-comment-dialog-wireframe>
 ```
 
+**Wireframe Data Variables (v5.0.2-beta.11+):**
+
+Two shorthand variables are now available inside `<velt-data field="...">` expressions within wireframe templates:
+
+| Variable | Resolves To | Notes |
+|----------|-------------|-------|
+| `annotations` | `componentConfigSignal.data.annotations` | Supports nested access, e.g. `field="annotations.0.annotationId"` |
+| `allAnnotations` | `componentConfigSignal.data.allAnnotations` | All annotations regardless of current filter context |
+
+These variables are useful for list-level UIs such as Inline Comments Section wireframes where you need to iterate over or reference annotation data directly.
+
+```jsx
+// React — reference annotation data via the annotations shorthand variable
+// inside a wireframe template for a list-level component (e.g., Inline Comments Section)
+<VeltWireframe>
+  {/* annotations.0.annotationId resolves the first annotation's ID */}
+  <velt-data field="annotations.0.annotationId" />
+
+  {/* allAnnotations gives access to all annotations regardless of filter state */}
+  <velt-data field="allAnnotations" />
+</VeltWireframe>
+```
+
+```html
+<!-- HTML — same shorthand variables work inside velt-data field expressions -->
+<velt-wireframe style="display:none;">
+  <velt-data field="annotations.0.annotationId"></velt-data>
+  <velt-data field="allAnnotations"></velt-data>
+</velt-wireframe>
+```
+
 **Verification Checklist:**
 - [ ] Correct wireframe component imported
 - [ ] Proper nesting of child components
 - [ ] Framework naming convention followed
 - [ ] Required subcomponents included
+- [ ] When accessing annotation data in wireframe templates, use `annotations` or `allAnnotations` shorthand variables (v5.0.2-beta.11+) instead of long-form signal paths
 
 **Source Pointers:**
 - https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog-structure - Dialog wireframe

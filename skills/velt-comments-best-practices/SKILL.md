@@ -9,7 +9,7 @@ metadata:
 
 # Velt Comments Best Practices
 
-Comprehensive implementation guide for Velt's collaborative comments feature in React and Next.js applications. Contains 47 rules across 9 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's collaborative comments feature in React and Next.js applications. Contains 48 rules across 9 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
@@ -81,6 +81,7 @@ Reference these guidelines when:
 - `ui-comment-bubble` - Customize comment bubble
 - `ui-wireframes` - Use wireframe components
 - `ui-autocomplete-primitives` - Use standalone autocomplete primitive components to build custom autocomplete UIs without requiring the full VeltAutocomplete panel
+- `ui-v2-primitives` - Set defaultCondition={false} on V2 primitive sub-components to bypass SDK default show/hide logic when overriding sections in wireframe compositions
 
 ### 6. Data Model (MEDIUM)
 

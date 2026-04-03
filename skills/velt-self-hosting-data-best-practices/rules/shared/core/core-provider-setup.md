@@ -66,6 +66,36 @@ function App() {
 | `reaction` | Emoji reactions | get, save, delete |
 | `recording` | Recording annotations | get, save, delete |
 | `user` | User PII (name, email, photo) | get only |
+| `activity` | Activity log records | get, save |
+
+**ActivityAnnotationDataProvider shape:**
+
+The `activity` provider uses `ActivityAnnotationDataProvider` with `get` for re-hydrating PII-stripped records on read and `save` for stripping PII before persisting on write:
+
+```typescript
+const activityDataProvider = {
+  get: async (req: GetActivityResolverRequest) => {
+    // req: { activityIds?, documentIds?, organizationId? }
+    // Re-hydrate and return activity records
+    // Returns: ResolverResponse<Record<string, PartialActivityRecord>>
+  },
+  save: async (req: SaveActivityResolverRequest) => {
+    // req: { activity: Record<string, PartialActivityRecord>, event?, metadata? }
+    // Strip PII and persist; returns: ResolverResponse<undefined>
+  },
+  config: {
+    resolveTimeout: 5000,          // ms to wait for resolver response
+    fieldsToRemove: ['email', 'photoUrl'], // PII fields to strip on write
+  },
+};
+
+const dataProviders = {
+  comment: commentDataProvider,
+  activity: activityDataProvider,
+};
+```
+
+<!-- TODO (v5.0.2-beta.10): Verify the exact shapes of GetActivityResolverRequest, SaveActivityResolverRequest, and PartialActivityRecord. Release note confirms the field names and config keys but does not enumerate all request/response fields. See https://docs.velt.dev/self-host-data/activity for the complete type reference. -->
 
 **Key constraints:**
 - Data providers must be set **before** `identify()` is called

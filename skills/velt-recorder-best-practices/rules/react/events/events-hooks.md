@@ -36,6 +36,7 @@ import { useRecorderEventCallback } from '@veltdev/react';
 function RecorderEvents() {
   // Declarative subscription — cleanup is automatic
   const transcriptionData = useRecorderEventCallback('transcriptionDone');
+  const recordingDoneLocalData = useRecorderEventCallback('recordingDoneLocal');
   const recordingDoneData = useRecorderEventCallback('recordingDone');
   const errorData = useRecorderEventCallback('error');
 
@@ -44,6 +45,13 @@ function RecorderEvents() {
       console.log('Transcription ready:', transcriptionData);
     }
   }, [transcriptionData]);
+
+  useEffect(() => {
+    if (recordingDoneLocalData) {
+      // attachmentUrl is a blob URL (not CDN) — only fires when sourceFeature === 'recording'
+      console.log('Local save complete:', recordingDoneLocalData);
+    }
+  }, [recordingDoneLocalData]);
 
   useEffect(() => {
     if (recordingDoneData) {
@@ -62,7 +70,9 @@ function RecorderEvents() {
 ```
 
 **Supported event types:**
-All 11 events from the lifecycle API are supported: `recordingStarted`, `recordingPaused`, `recordingResumed`, `recordingStopped`, `recordingCancelled`, `recordingDone`, `recordingSaveInitiated`, `recordingEditDone`, `transcriptionDone`, `deleteRecording`, `error`.
+All 12 events from the lifecycle API are supported: `recordingStarted`, `recordingPaused`, `recordingResumed`, `recordingStopped`, `recordingCancelled`, `recordingDoneLocal`, `recordingDone`, `recordingSaveInitiated`, `recordingEditDone`, `transcriptionDone`, `deleteRecording`, `error`.
+
+Note: `recordingDoneLocal` fires before cloud upload completes — `attachmentUrl` is a blob URL at this stage, not a CDN URL. It only fires when `sourceFeature === 'recording'`. Use the existing `recordingDone` event when the permanent CDN URL is needed.
 
 **Key details:**
 - `useRecorderEventCallback('eventType')` returns the event data or null

@@ -1541,13 +1541,6 @@ function CustomNotificationsPanel() {
 <VeltNotificationsPanel shadowDom={false} />
 ```
 
-**Dark Mode:**
-
-```jsx
-<VeltNotificationsTool darkMode={true} />
-<VeltNotificationsPanel darkMode={true} />
-```
-
 **Variants:**
 
 ```jsx

@@ -2,12 +2,12 @@
 title: Subscribe to Recorder Lifecycle Events via API
 impact: MEDIUM-HIGH
 impactDescription: React to recording state changes and handle errors
-tags: events, on, subscribe, recordingStarted, recordingDone, transcriptionDone, error, lifecycle
+tags: events, on, subscribe, recordingStarted, recordingDone, recordingDoneLocal, transcriptionDone, error, lifecycle
 ---
 
 ## Subscribe to Recorder Lifecycle Events via API
 
-The Velt Recorder emits 11 lifecycle events covering recording state changes, completion, transcription, and errors. Use `recorderElement.on('eventType').subscribe()` to listen for these events in any framework.
+The Velt Recorder emits 12 lifecycle events covering recording state changes, completion, transcription, and errors. Use `recorderElement.on('eventType').subscribe()` to listen for these events in any framework.
 
 **Incorrect (not subscribing to error events):**
 
@@ -47,6 +47,12 @@ recorderElement.on('recordingCancelled').subscribe((event) => {
 });
 
 // Completion events
+recorderElement.on('recordingDoneLocal').subscribe((event) => {
+  // Fires immediately after local save, before cloud upload/transcription
+  // event.attachmentUrl is a blob URL (not CDN) — only fires when event.sourceFeature === 'recording'
+  console.log('Local save complete:', event);
+});
+
 recorderElement.on('recordingDone').subscribe((event) => {
   console.log('Recording completed:', event);
 });
@@ -91,7 +97,8 @@ recorderElement.on('error').subscribe((event) => {
 | `recordingResumed` | Recording resumed after pause | RecordingResumedEvent |
 | `recordingStopped` | Recording stopped | RecordingStoppedEvent |
 | `recordingCancelled` | Recording cancelled | RecordingCancelledEvent |
-| `recordingDone` | Recording completed | RecordingDoneEvent |
+| `recordingDoneLocal` | Fires immediately after recording annotation saved locally, before cloud processing. Attachment URL is a blob URL. Only fires when sourceFeature === 'recording'. | RecordingDoneLocalEvent |
+| `recordingDone` | Recording completed (permanent CDN URL available) | RecordingDoneEvent |
 | `recordingSaveInitiated` | Recording save started | RecordingSaveInitiatedEvent |
 | `recordingEditDone` | Video editor "Done" clicked | RecordingEditDoneEvent |
 | `transcriptionDone` | AI transcription ready | TranscriptionDoneEvent |

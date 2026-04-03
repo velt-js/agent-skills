@@ -48,6 +48,7 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 - `ui-comment-bubble` - Customize comment bubble appearance
 - `ui-wireframes` - Use wireframe components for custom UI
 - `ui-autocomplete-primitives` - Use standalone autocomplete primitive components to build custom autocomplete UIs without requiring the full VeltAutocomplete panel
+- `ui-v2-primitives` - Set defaultCondition on V2 primitive sub-components (Comment Pin, Comment Bubble, Text Comment, Inline Comments Section, Multi-Thread Comment Dialog, Sidebar Button) to bypass SDK default show/hide logic in wireframe compositions
 
 ---
 

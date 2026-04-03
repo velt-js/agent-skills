@@ -9,7 +9,7 @@ metadata:
 
 # Velt Recorder Best Practices
 
-Comprehensive implementation guide for Velt's Recorder system in React and Next.js applications. Contains 18 rules across 7 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's Recorder system in React and Next.js applications. Contains 20 rules across 7 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
@@ -45,6 +45,7 @@ Reference these guidelines when:
 
 - `core-setup` — Add VeltRecorderTool, VeltRecorderControlPanel, and VeltRecorderPlayer
 - `core-permissions` — Request device permissions for camera, microphone, and screen capture
+- `core-webhooks` — Handle the recorder.done server-side webhook event (RecorderPayload, RecorderTrigger)
 
 ### 2. Recording Configuration (HIGH)
 
@@ -58,6 +59,7 @@ Reference these guidelines when:
 - `data-hooks` — Use React hooks (useRecordings, useRecorderAddHandler) for reactive data
 - `data-fetch-subscribe` — Fetch or subscribe to recording data via API
 - `data-delete-download` — Delete recordings and download latest video version
+- `data-rest-api` — Retrieve recordings via REST API (server-side, with pagination)
 
 ### 4. Event Handling (MEDIUM-HIGH)
 

@@ -9,7 +9,7 @@ metadata:
 
 # Velt Activity Logs Best Practices
 
-Comprehensive implementation guide for Velt's activity log system in React and Next.js applications. Contains 10 rules across 5 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's activity log system in React and Next.js applications. Contains 11 rules across 5 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
@@ -38,6 +38,7 @@ Reference these guidelines when:
 ### 1. Core Setup (CRITICAL)
 
 - `core-setup` — Enable Activity Logs in Velt Console
+- `core-activity-log-component` — Use VeltActivityLog component to display activity feed UI
 
 ### 2. Data Access (HIGH)
 

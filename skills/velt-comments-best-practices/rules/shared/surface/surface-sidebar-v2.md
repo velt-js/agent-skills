@@ -62,15 +62,6 @@ export default function App() {
 ></velt-comments-sidebar-v2>
 ```
 
-**Alternate: opt into V2 via the existing sidebar tag:**
-
-```jsx
-// Routes <VeltCommentsSidebar> to the full V2 implementation,
-// forwarding pageMode, focusedThreadMode, readOnly, embedMode,
-// floatingMode, position, variant, and forceClose automatically.
-<VeltCommentsSidebar version="2" />
-```
-
 **VeltCommentsSidebarV2 Props:**
 
 | Prop | Type | Optional | Description |
@@ -96,7 +87,7 @@ export default function App() {
 - **Primitive tree** — every section of the sidebar UI (header, filter bar, comment list item, thread view, actions dropdown) is an independently importable primitive that accepts `parentLocalUIState` and supports `velt-class` conditional styling.
 
 **Verification Checklist:**
-- [ ] `VeltCommentsSidebarV2` (or `VeltCommentsSidebar version="2"`) is used when per-section customization is required
+- [ ] `VeltCommentsSidebarV2` is used when per-section customization is required (the removed `version="2"` opt-in on `VeltCommentsSidebar` is no longer valid as of v5.0.2-beta.13)
 - [ ] `focusedThreadMode` is set explicitly when inline thread expansion is needed
 - [ ] `forceClose` is driven by state, not hardcoded to `true`
 - [ ] Event callbacks (`onSidebarOpen`, `onSidebarClose`, `onCommentClick`) clean up any side effects on unmount

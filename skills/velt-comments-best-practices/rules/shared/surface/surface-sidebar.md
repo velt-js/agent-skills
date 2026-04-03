@@ -75,19 +75,21 @@ export default function App() {
 | `pageMode` | boolean | Enable page-level comments |
 | `groupConfig` | object | Configure comment grouping |
 | `onCommentClick` | function | Handle comment selection |
-| `version` | string | Set to `"2"` to route the existing tag to the full V2 primitive-architecture implementation, forwarding `pageMode`, `focusedThreadMode`, `readOnly`, `embedMode`, `floatingMode`, `position`, `variant`, and `forceClose`. |
 
-**Opt into V2 via the existing tag (v5.0.2-beta.9+):**
+> **Breaking change (v5.0.2-beta.13):** The `version` prop has been removed from `VeltCommentsSidebar`. The `version="2"` opt-in pattern is no longer valid. Use `VeltCommentsSidebarV2` / `velt-comments-sidebar-v2` directly instead.
+
+**V1 defers to V2 when both are mounted (v5.0.2-beta.13+):**
+
+<!-- TODO (v5.0.2-beta.13): Verify exact rendering behavior when both are present — whether V1 renders nothing, hides itself, or suppresses open. Release note states V1 "defers to V2" but does not specify the internal mechanism. -->
+
+When `velt-comments-sidebar` (V1) and `velt-comments-sidebar-v2` (V2) are both present in the DOM simultaneously, V1 defers to V2 and will not open. `setSidebarVisibility` and `toggleSidebarVisibility` APIs also detect the V2 element. Do not mount both components at the same time; use only V2 when V2 behavior is required.
 
 ```jsx
-// Routes velt-comments-sidebar to the full VeltCommentsSidebarV2
-// implementation, forwarding all supported props automatically.
+// Before (no longer valid — version prop removed):
 <VeltCommentsSidebar version="2" />
-```
 
-```html
-<!-- HTML -->
-<velt-comments-sidebar version="2"></velt-comments-sidebar>
+// After — use VeltCommentsSidebarV2 directly:
+<VeltCommentsSidebarV2 />
 ```
 
 **For HTML:**

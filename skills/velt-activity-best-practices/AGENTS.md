@@ -4,7 +4,7 @@
 |root: ./rules
 
 ## 1. Core Setup — CRITICAL
-|shared/core:{core-setup.md}
+|shared/core:{core-setup.md,core-activity-log-component.md}
 
 ## 2. Data Access — HIGH
 |react/data:{data-create-custom-hook.md,data-subscribe-hook.md}

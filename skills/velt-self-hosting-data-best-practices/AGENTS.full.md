@@ -77,10 +77,11 @@ function App() {
 client.setDocument('doc-id'); // NOT compatible with self-hosting
 ```
 
-**Correct (providers set on VeltProvider, setDocuments used):**
+**Correct (providers set on VeltProvider, using existing VeltInitializeDocument):**
 
 ```jsx
-import { VeltProvider, useSetDocuments } from '@veltdev/react';
+import { VeltProvider } from '@veltdev/react';
+import VeltInitializeDocument from './VeltInitializeDocument';
 
 // Define providers as stable references (outside component or useMemo)
 const dataProviders = {
@@ -96,26 +97,83 @@ function App() {
     // Data providers set BEFORE any identify/auth calls
     <VeltProvider apiKey="YOUR_API_KEY" dataProviders={dataProviders}>
       <AuthComponent />
-      <DocumentSetup />
+      <VeltInitializeDocument documentId={docId} />
       <YourApp />
     </VeltProvider>
   );
 }
+```
 
-function DocumentSetup() {
-  const { setDocuments } = useSetDocuments();
+**IMPORTANT:** Use the existing `VeltInitializeDocument` component from the setup skill for document identity. Do NOT create a custom `DocumentSetup` component — the existing one handles the `setDocuments` lifecycle correctly and avoids infinite render loops. The document shape is `{ id: string, metadata: { documentName: string } }` — NOT `{ documentId, documentName }`.
 
-  useEffect(() => {
-    // Must use setDocuments (plural) for self-hosting
-    setDocuments([{
-      id: 'your-document-id',
-      metadata: { documentName: 'My Document' }
-    }]);
-  }, [setDocuments]);
+**ActivityAnnotationDataProvider shape:**
 
-  return null;
+```typescript
+const activityDataProvider = {
+  get: async (req: GetActivityResolverRequest) => {
+    // req: { activityIds?, documentIds?, organizationId? }
+    // Re-hydrate and return activity records
+    // Returns: ResolverResponse<Record<string, PartialActivityRecord>>
+  },
+  save: async (req: SaveActivityResolverRequest) => {
+    // req: { activity: Record<string, PartialActivityRecord>, event?, metadata? }
+    // Strip PII and persist; returns: ResolverResponse<undefined>
+  },
+  config: {
+    resolveTimeout: 5000,          // ms to wait for resolver response
+    fieldsToRemove: ['email', 'photoUrl'], // PII fields to strip on write
+  },
+};
+
+const dataProviders = {
+  comment: commentDataProvider,
+  activity: activityDataProvider,
+};
+```
+
+<!-- TODO (v5.0.2-beta.10): Verify the exact shapes of GetActivityResolverRequest, SaveActivityResolverRequest, and PartialActivityRecord. Release note confirms the field names and config keys but does not enumerate all request/response fields. See https://docs.velt.dev/self-host-data/activity for the complete type reference. -->
+
+**Key constraints:**
+
+```tsx
+"use client";
+
+import { VeltProvider } from "@veltdev/react";
+import { useVeltAuthProvider } from "@/components/velt/VeltInitializeUser";
+import { VeltCollaboration } from "@/components/velt/VeltCollaboration";
+import {
+  commentDataProvider,
+  userDataProvider,
+  attachmentDataProvider,
+  reactionDataProvider,
+} from "@/components/velt/VeltDataProviders";
+
+const VELT_API_KEY = process.env.NEXT_PUBLIC_VELT_API_KEY!;
+
+export default function DocumentPage() {
+  const { authProvider } = useVeltAuthProvider();
+
+  return (
+    <VeltProvider
+      apiKey={VELT_API_KEY}
+      authProvider={authProvider}
+      dataProviders={{
+        comment: commentDataProvider,
+        user: userDataProvider,
+        attachment: attachmentDataProvider,
+        reaction: reactionDataProvider,
+      }}
+    >
+      <VeltCollaboration documentId={docId} />
+      {/* Your page content */}
+    </VeltProvider>
+  );
 }
 ```
+
+**The `VeltDataProviders.ts` file** must export each provider with function-based resolvers. Each resolver calls your API routes and returns `{ data, success, statusCode }`. See the `comment-function-provider`, `attachment-multipart-provider`, `provider-user-resolver`, and `provider-reaction-recording` rules for complete implementations.
+**The API routes** follow the pattern `app/api/velt/{provider}/{operation}/route.ts` — see the `backend-api-routes` rule. Each route calls your database store and returns the standard response format.
+**The database store** (`app/api/velt/store.ts`) handles PostgreSQL connection pooling, table initialization, and UPSERT operations — see the `backend-database-patterns` rule.
 
 Reference: https://docs.velt.dev/self-host-data/overview; https://docs.velt.dev/self-host-data/comments - Important Notes
 
@@ -302,41 +360,89 @@ const fetchComments = async (request) => {
 };
 ```
 
-**Correct (all three operations with standard response format):**
+**Correct (all three operations with TypeScript types and standard response format):**
 
-```jsx
-const fetchCommentsFromDB = async (request) => {
-  const { organizationId, documentIds, commentAnnotationIds } = request;
-  const response = await fetch('/api/velt/comments/get', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ organizationId, documentIds, commentAnnotationIds }),
-  });
-  const result = await response.json();
-  return { data: result.data || {}, success: result.success, statusCode: response.status };
+```tsx
+// Standard response format — ALL data provider functions must return this shape
+type DataProviderResponse = {
+  data?: unknown;
+  success: boolean;
+  statusCode: number;
 };
 
-const saveCommentsToDB = async (request) => {
-  const response = await fetch('/api/velt/comments/save', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request),
-  });
-  const result = await response.json();
-  return { data: result.data, success: result.success, statusCode: response.status };
+// Comment provider request types
+type CommentGetRequest = {
+  organizationId: string;
+  documentIds?: string[];
+  commentAnnotationIds?: string[];
+  folderId?: string;
+  allDocuments?: boolean;
 };
 
-const deleteCommentsFromDB = async (request) => {
-  const response = await fetch('/api/velt/comments/delete', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request),
-  });
-  const result = await response.json();
-  return { data: result.data, success: result.success, statusCode: response.status };
+type CommentSaveRequest = {
+  commentAnnotation: Record<string, {
+    annotationId: string;
+    metadata?: unknown;
+    comments: Record<string, { commentId: string | number; commentHtml?: string; commentText?: string }>;
+  }>;
 };
 
-const commentDataProvider = {
+type CommentDeleteRequest = {
+  commentAnnotationId: string;
+  metadata?: unknown;
+};
+
+const COMMENTS_URL = '/api/velt/comments';
+
+const fetchCommentsFromDB = async (request: CommentGetRequest): Promise<DataProviderResponse> => {
+  try {
+    const response = await fetch(`${COMMENTS_URL}/get`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (!response.ok) return { data: {}, success: false, statusCode: response.status };
+    const data = await response.json();
+    return { data: data.result || {}, success: true, statusCode: response.status };
+  } catch (error) {
+    console.error('[Velt Self-Host] Error fetching comments:', error);
+    return { data: {}, success: false, statusCode: 500 };
+  }
+};
+
+const saveCommentsToDB = async (request: CommentSaveRequest): Promise<DataProviderResponse> => {
+  try {
+    const response = await fetch(`${COMMENTS_URL}/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (!response.ok) return { success: false, statusCode: response.status };
+    await response.json();
+    return { success: true, statusCode: 200 };
+  } catch (error) {
+    console.error('[Velt Self-Host] Error saving comments:', error);
+    return { success: false, statusCode: 500 };
+  }
+};
+
+const deleteCommentsFromDB = async (request: CommentDeleteRequest): Promise<DataProviderResponse> => {
+  try {
+    const response = await fetch(`${COMMENTS_URL}/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (!response.ok) return { success: false, statusCode: response.status };
+    await response.json();
+    return { success: true, statusCode: 200 };
+  } catch (error) {
+    console.error('[Velt Self-Host] Error deleting comments:', error);
+    return { success: false, statusCode: 500 };
+  }
+};
+
+export const commentDataProvider = {
   get: fetchCommentsFromDB,
   save: saveCommentsToDB,
   delete: deleteCommentsFromDB,
@@ -345,23 +451,8 @@ const commentDataProvider = {
     saveRetryConfig: { retryCount: 3, retryDelay: 2000 },
     deleteRetryConfig: { retryCount: 2, retryDelay: 1000 },
     getRetryConfig: { retryCount: 3, retryDelay: 2000 },
-  }
+  },
 };
-
-<VeltProvider apiKey="KEY" dataProviders={{ comment: commentDataProvider }} />
-```
-
-**Request objects received by each function:**
-
-```typescript
-// get receives:
-{ organizationId: string, documentIds?: string[], commentAnnotationIds?: string[] }
-
-// save receives:
-{ commentAnnotation: Record<string, PartialCommentAnnotation>, metadata: { documentId, organizationId } }
-
-// delete receives:
-{ commentAnnotationId: string, metadata: { documentId, organizationId } }
 ```
 
 Reference: https://docs.velt.dev/self-host-data/comments - Function-Based approach
@@ -416,37 +507,120 @@ const attachmentDataProvider = {
 <VeltProvider apiKey="KEY" dataProviders={{ attachment: attachmentDataProvider }} />
 ```
 
-**Correct (function-based attachment provider):**
+**Correct (function-based attachment provider with TypeScript types):**
 
-```jsx
-const saveAttachment = async (request) => {
-  const formData = new FormData();
-  formData.append('file', request.file);
-  formData.append('request', JSON.stringify(request.metadata));
+```tsx
+type AttachmentSaveRequest = {
+  attachment: {
+    attachmentId?: number;
+    name?: string;
+    url?: string;
+    mimeType?: string;
+    size?: number;
+    base64Data?: string;
+    file?: File;
+  };
+  metadata?: unknown;
+};
 
-  const response = await fetch('/api/velt/attachments/save', {
-    method: 'POST',
-    body: formData,  // No Content-Type header — browser adds it with boundary
+type AttachmentDeleteRequest = {
+  attachmentId: number;
+  metadata?: unknown;
+};
+
+type DataProviderResponse = {
+  data?: unknown;
+  success: boolean;
+  statusCode: number;
+};
+
+const ATTACHMENTS_URL = '/api/velt/attachments';
+
+// Helper: convert File to base64 data URL
+const fileToBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
   });
-  return await response.json();
-  // Must return: { data: { url: 'https://...' }, success: true, statusCode: 200 }
 };
 
-const deleteAttachment = async (request) => {
-  const response = await fetch('/api/velt/attachments/delete', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request),
+const saveAttachmentToDB = async (request: AttachmentSaveRequest): Promise<DataProviderResponse> => {
+  try {
+    const { file, ...attachmentWithoutFile } = request.attachment;
+    let base64Data = request.attachment.base64Data;
+
+    // Convert File object to base64 if present
+    if (file && file instanceof File) {
+      base64Data = await fileToBase64(file);
+    }
+
+    const payload = {
+      attachment: { ...attachmentWithoutFile, base64Data },
+      metadata: request.metadata,
+    };
+
+    const response = await fetch(`${ATTACHMENTS_URL}/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) return { success: false, statusCode: response.status };
+    const data = await response.json();
+    // data.result MUST contain { url } pointing to where the file can be fetched
+    return { success: true, statusCode: 200, data: data.result };
+  } catch (error) {
+    console.error('[Velt Self-Host] Error saving attachment:', error);
+    return { success: false, statusCode: 500 };
+  }
+};
+
+const deleteAttachmentFromDB = async (request: AttachmentDeleteRequest): Promise<DataProviderResponse> => {
+  try {
+    const response = await fetch(`${ATTACHMENTS_URL}/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (!response.ok) return { success: false, statusCode: response.status };
+    await response.json();
+    return { success: true, statusCode: 200 };
+  } catch (error) {
+    console.error('[Velt Self-Host] Error deleting attachment:', error);
+    return { success: false, statusCode: 500 };
+  }
+};
+
+export const attachmentDataProvider = {
+  save: saveAttachmentToDB,
+  delete: deleteAttachmentFromDB,
+  config: {
+    resolveTimeout: 30000,
+    saveRetryConfig: { retryCount: 3, retryDelay: 2000 },
+    deleteRetryConfig: { retryCount: 2, retryDelay: 1000 },
+  },
+};
+// app/api/velt/attachments/get/[attachmentId]/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { getAttachment } from '../../../store';
+
+export async function GET(request: NextRequest, { params }: { params: { attachmentId: string } }) {
+  const attachment = await getAttachment(Number(params.attachmentId));
+  if (!attachment?.base64Data) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 });
+  }
+  // Decode base64 data URL and serve as binary
+  const [header, base64] = attachment.base64Data.split(',');
+  const mimeType = header.match(/data:(.*?);/)?.[1] || 'application/octet-stream';
+  const buffer = Buffer.from(base64, 'base64');
+  return new NextResponse(buffer, {
+    headers: { 'Content-Type': mimeType, 'Content-Length': String(buffer.length) },
   });
-  return await response.json();
-};
-
-const attachmentDataProvider = {
-  save: saveAttachment,
-  delete: deleteAttachment,
-  config: { resolveTimeout: 30000 }
-};
+}
 ```
+
+The backend attachment GET route must also exist to serve stored files:
 
 **Backend handling (multipart parsing):**
 
@@ -466,6 +640,23 @@ app.post('/api/velt/attachments/save', upload.single('file'), async (req, res) =
     statusCode: 200
   });
 });
+```
+
+**Delete handler metadata contract (v5.0.2-beta.11+):**
+
+```tsx
+// BEFORE v5.0.2-beta.11: metadata may have included internal Velt fields
+const deleteAttachmentFromDB = async (request: AttachmentDeleteRequest) => {
+  // Do NOT rely on internal fields in request.metadata
+};
+
+// AFTER v5.0.2-beta.11: metadata contains only client-set fields
+const deleteAttachmentFromDB = async (request: AttachmentDeleteRequest) => {
+  // Use top-level request.attachmentId — always present
+  const { attachmentId } = request;
+  await db.deleteAttachment(attachmentId);
+  return { success: true, statusCode: 200 };
+};
 ```
 
 Reference: https://docs.velt.dev/self-host-data/attachments - Endpoint-Based, Function-Based
@@ -525,12 +716,91 @@ const recordingDataProvider = {
   }
 };
 
-// Or function-based (same pattern as comments)
-const reactionDataProvider = {
+// Function-based reaction provider with TypeScript types (same pattern as comments)
+
+type ReactionAnnotation = {
+  annotationId: string;
+  documentId?: string;
+  organizationId?: string;
+  metadata?: unknown;
+  icon?: string;
+};
+
+type ReactionGetRequest = {
+  organizationId: string;
+  reactionAnnotationIds?: string[];
+  documentIds?: string[];
+  folderId?: string;
+  allDocuments?: boolean;
+};
+
+type ReactionSaveRequest = {
+  reactionAnnotation: Record<string, ReactionAnnotation>;
+};
+
+type ReactionDeleteRequest = {
+  reactionAnnotationId: string;
+  metadata?: unknown;
+};
+
+type DataProviderResponse = {
+  data?: unknown;
+  success: boolean;
+  statusCode: number;
+};
+
+const REACTIONS_URL = '/api/velt/reactions';
+
+const fetchReactionsFromDB = async (request: ReactionGetRequest): Promise<DataProviderResponse> => {
+  try {
+    const response = await fetch(`${REACTIONS_URL}/get`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (!response.ok) return { data: {}, success: false, statusCode: response.status };
+    const data = await response.json();
+    return { data: data.result || {}, success: true, statusCode: response.status };
+  } catch (error) {
+    return { data: {}, success: false, statusCode: 500 };
+  }
+};
+
+const saveReactionsToDB = async (request: ReactionSaveRequest): Promise<DataProviderResponse> => {
+  try {
+    const response = await fetch(`${REACTIONS_URL}/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (!response.ok) return { success: false, statusCode: response.status };
+    await response.json();
+    return { success: true, statusCode: 200 };
+  } catch (error) {
+    return { success: false, statusCode: 500 };
+  }
+};
+
+const deleteReactionFromDB = async (request: ReactionDeleteRequest): Promise<DataProviderResponse> => {
+  try {
+    const response = await fetch(`${REACTIONS_URL}/delete`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    if (!response.ok) return { success: false, statusCode: response.status };
+    await response.json();
+    return { success: true, statusCode: 200 };
+  } catch (error) {
+    return { success: false, statusCode: 500 };
+  }
+};
+
+export const reactionDataProvider = {
   get: fetchReactionsFromDB,
   save: saveReactionsToDB,
-  delete: deleteReactionsFromDB,
-  config: { resolveTimeout: 10000 }
+  delete: deleteReactionFromDB,
+  config: { resolveTimeout: 10000 },
 };
 
 <VeltProvider apiKey="KEY" dataProviders={{
@@ -638,66 +908,87 @@ const userDataProvider = {
 };
 ```
 
-**Correct (get-only user resolver):**
+**⚠️ CRITICAL: The user provider has a DIFFERENT interface from all other providers.**
+| | Comment/Reaction/Attachment providers | User provider |
+|---|---|---|
+| **Input** | Request object `{ organizationId, ... }` | Plain `string[]` array of userIds |
+| **Return** | `{ data, success, statusCode }` | `Record<string, User>` directly |
+DO NOT wrap the user provider's return in `{ data, success, statusCode }` — the SDK expects `Record<string, User>` directly.
 
-```jsx
-const fetchUsersFromDB = async (request) => {
-  const { organizationId, userIds } = request;
-  const response = await fetch('/api/velt/users/get', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ organizationId, userIds }),
-  });
-  const result = await response.json();
-  return { data: result.data, success: true, statusCode: 200 };
+**Correct (get-only user resolver with TypeScript types):**
+
+```tsx
+type User = {
+  userId: string;
+  name?: string;
+  email?: string;
+  photoUrl?: string;
+  color?: string;
+  textColor?: string;
+  isAdmin?: boolean;
+  [key: string]: unknown;
 };
 
-const userDataProvider = {
-  get: fetchUsersFromDB,
-};
+const USERS_URL = '/api/velt/users';
 
-<VeltProvider apiKey="KEY" dataProviders={{ user: userDataProvider }} />
-```
-
-**Or endpoint-based:**
-
-```js
-const userDataProvider = {
-  config: {
-    getConfig: {
-      url: `${BACKEND_URL}/users/get`,
-      headers: { 'Content-Type': 'application/json' }
-    },
-    resolveTimeout: 5000,
-    getRetryConfig: { retryCount: 3, retryDelay: 1000 },
+// SDK calls this with a plain string[] of userIds
+// Must return Record<string, User> DIRECTLY — NOT { data, success, statusCode }
+const fetchUsersFromDB = async (userIds: string[]): Promise<Record<string, User>> => {
+  try {
+    const response = await fetch(`${USERS_URL}/get`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userIds }),
+    });
+    if (!response.ok) return {};
+    const data = await response.json();
+    return data.result || {};
+  } catch (error) {
+    console.error('[Velt Self-Host] Error fetching users:', error);
+    return {};
   }
 };
-// Request: { organizationId: "org-1", userIds: ["user-1", "user-2"] }
-// Response:
-{
-  data: {
-    "user-1": {
-      userId: "user-1",
-      name: "Alex Smith",
-      email: "alex@example.com",
-      photoUrl: "https://example.com/photos/alex.jpg",
-      color: "#4A90D9",
-      textColor: "#FFFFFF",
-      isAdmin: false
-    },
-    "user-2": {
-      userId: "user-2",
-      name: "Sam Johnson",
-      email: "sam@example.com",
-      photoUrl: "https://example.com/photos/sam.jpg"
-    }
-  },
-  success: true,
-  statusCode: 200
-}
+
+// Save current user to your database when they log in
+// This is called by YOUR app code (not by the Velt SDK)
+export const saveCurrentUserToDB = async (user: User): Promise<void> => {
+  try {
+    await fetch(`${USERS_URL}/save`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ user }),
+    });
+  } catch (error) {
+    console.error('[Velt Self-Host] Error saving user:', error);
+  }
+};
+
+export const userDataProvider = {
+  get: fetchUsersFromDB,
+};
 ```
 
-**Backend response format** (data keyed by userId):
+**User seeding — users MUST be in the database BEFORE Velt tries to resolve them:**
+
+```tsx
+// In your app initialization or a /api/velt/init-db route:
+const DEMO_USERS = [
+  { userId: "user-1", name: "Alice Johnson", email: "alice@example.com", photoUrl: "https://i.pravatar.cc/150?u=alice" },
+  { userId: "user-2", name: "Bob Smith", email: "bob@example.com", photoUrl: "https://i.pravatar.cc/150?u=bob" },
+];
+for (const user of DEMO_USERS) {
+  await saveUser(user); // UPSERT into users table
+}
+// In VeltInitializeUser.tsx or your auth flow:
+useEffect(() => {
+  if (user?.userId) {
+    saveCurrentUserToDB(user);
+  }
+}, [user]);
+```
+
+For production apps, persist user data when users log in:
+**Important:** The SDK only calls `get` — it never calls save/delete for users. However, your app MUST have a `users/save` route so that when users log in, their PII (name, email, photoUrl) is persisted to your database. Call `saveCurrentUserToDB()` from your auth flow. For demos, also seed users into the DB at startup.
 
 Reference: https://docs.velt.dev/self-host-data/users
 

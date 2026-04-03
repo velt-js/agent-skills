@@ -57,6 +57,43 @@ export default function App() {
 }
 ```
 
+**Correct (with SetDocumentsRequestOptions — v5.0.2-beta.10):**
+
+```jsx
+import { useEffect } from 'react';
+import { VeltProvider, VeltComments, useVeltClient } from '@veltdev/react';
+
+function DocumentSetup() {
+  const { client } = useVeltClient();
+
+  useEffect(() => {
+    if (client) {
+      client.setDocuments(
+        [{ id: 'unique-document-id', metadata: { documentName: 'My Document' } }],
+        {
+          debounceTime: 1000,          // Override global 5000ms debounce for this call
+          optimisticPermissions: false // Await permission validation before returning
+        }
+      );
+    }
+  }, [client]);
+
+  return null;
+}
+```
+
+**`SetDocumentsRequestOptions` fields:**
+
+<!-- TODO (v5.0.2-beta.10): Verify exact type and default value of debounceTime and precise semantics of optimisticPermissions against the API reference once released. Release note text: "SetDocumentsRequestOptions — New debounceTime and optimisticPermissions fields". -->
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `locationId` | string | No | Scopes documents to a specific location |
+| `rootDocumentId` | string | No | Sets a root document for hierarchical contexts |
+| `context` | SetDocumentsContext | No | Additional context passed with the document set |
+| `debounceTime` | number | No | Per-call debounce window in ms (default: 5000). Overrides the global debounce for this call only. |
+| `optimisticPermissions` | boolean | No | When `false`, awaits server permission validation before returning permitted documents. When `true` (default), applies permissions optimistically. |
+
 **Correct (using useSetDocument hook):**
 
 ```jsx

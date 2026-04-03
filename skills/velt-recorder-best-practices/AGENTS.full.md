@@ -21,8 +21,9 @@ Comprehensive Velt Recorder implementation guide covering audio, video, and scre
 ## Table of Contents
 
 1. [Core Setup](#1-core-setup) — **CRITICAL**
-   - 1.1 [Add VeltRecorderTool, ControlPanel, and Player Components](#11-add-veltrecordertool-controlpanel-and-player-components)
-   - 1.2 [Request Device Permissions Before Recording](#12-request-device-permissions-before-recording)
+   - 1.1 [Add VeltRecorderTool, ControlPanel, Player, and Notes Components](#11-add-veltrecordertool-controlpanel-player-and-notes-components)
+   - 1.2 [Handle the recorder.done Webhook Event for Completed Recordings](#12-handle-the-recorderdone-webhook-event-for-completed-recordings)
+   - 1.3 [Request Device Permissions Before Recording](#13-request-device-permissions-before-recording)
 
 2. [Recording Configuration](#2-recording-configuration) — **HIGH**
    - 2.1 [Configure Recording Quality Constraints and Encoding Options](#21-configure-recording-quality-constraints-and-encoding-options)
@@ -34,6 +35,7 @@ Comprehensive Velt Recorder implementation guide covering audio, video, and scre
    - 3.1 [Use React Hooks for Reactive Recording Data](#31-use-react-hooks-for-reactive-recording-data)
    - 3.2 [Delete Recordings and Download Latest Video](#32-delete-recordings-and-download-latest-video)
    - 3.3 [Fetch or Subscribe to Recording Data via API](#33-fetch-or-subscribe-to-recording-data-via-api)
+   - 3.4 [Retrieve Recordings via REST API Endpoint](#34-retrieve-recordings-via-rest-api-endpoint)
 
 4. [Event Handling](#4-event-handling) — **MEDIUM-HIGH**
    - 4.1 [Use useRecorderEventCallback for React Event Handling](#41-use-userecordereventcallback-for-react-event-handling)
@@ -58,15 +60,15 @@ Comprehensive Velt Recorder implementation guide covering audio, video, and scre
 
 **Impact: CRITICAL**
 
-Essential setup patterns for any Velt Recorder implementation. Includes adding VeltRecorderTool, VeltRecorderControlPanel, and VeltRecorderPlayer in the correct combination, connecting recorded data via event callbacks, and requesting device permissions.
+Essential setup patterns for any Velt Recorder implementation. Includes adding VeltRecorderTool, VeltRecorderControlPanel, and VeltRecorderPlayer in the correct combination, connecting recorded data via event callbacks, requesting device permissions, and handling the recorder.done server-side webhook event.
 
-### 1.1 Add VeltRecorderTool, ControlPanel, and Player Components
+### 1.1 Add VeltRecorderTool, ControlPanel, Player, and Notes Components
 
-**Impact: CRITICAL (Required for recorder to function)**
+**Impact: CRITICAL (Required for recorder to function with full playback support)**
 
-The Velt Recorder requires three components working together: VeltRecorderTool to initiate recordings, VeltRecorderControlPanel to manage active recordings, and VeltRecorderPlayer to play back completed recordings. The player requires a `recorderId` obtained from the recording completion event.
+The Velt Recorder requires four components working together: VeltRecorderTool to initiate recordings, VeltRecorderControlPanel to manage active recordings, VeltRecorderNotes for pinned recordings on the page, and a RecordingPlayback component using VeltRecorderPlayer to play back completed recordings.
 
-**Incorrect (missing control panel or player not connected):**
+**Incorrect (missing control panel, notes, or player not connected):**
 
 ```jsx
 import { VeltProvider, VeltRecorderTool } from '@veltdev/react';
@@ -75,7 +77,8 @@ function App() {
   return (
     <VeltProvider apiKey="API_KEY">
       {/* Missing VeltRecorderControlPanel - no way to manage active recording */}
-      {/* Missing VeltRecorderPlayer - no way to play back recordings */}
+      {/* Missing VeltRecorderNotes - no pinned recordings on page */}
+      {/* Missing RecordingPlayback - no way to play back recordings */}
       <VeltRecorderTool type="all" />
       <YourApp />
     </VeltProvider>
@@ -83,73 +86,158 @@ function App() {
 }
 ```
 
-**Correct (all three components with event wiring):**
+**Correct (all components with floating playback and pinned notes):**
 
-```jsx
-import { useState } from 'react';
+```tsx
+"use client";
+
+import { useState, useEffect } from "react";
 import {
-  VeltProvider,
   VeltRecorderTool,
   VeltRecorderControlPanel,
   VeltRecorderPlayer,
-  useRecorderAddHandler
-} from '@veltdev/react';
+  VeltRecorderNotes,
+  useRecorderAddHandler,
+} from "@veltdev/react";
 
-function App() {
-  return (
-    <VeltProvider apiKey="API_KEY">
-      {/* Step 1: Tool to initiate recordings */}
-      <VeltRecorderTool type="all" />
+// Add these to your collaboration component alongside comments, presence, etc.
 
-      {/* Step 2: Control panel to manage active recording */}
-      <VeltRecorderControlPanel mode="thread" />
+// 1. Recorder tool button — place in your toolbar
+<VeltRecorderTool type="all" />
 
-      {/* Step 3: Player renders in child component with recorderId */}
-      <RecordingPlayback />
-    </VeltProvider>
-  );
-}
+// 2. Floating control panel — manages active recording state
+<VeltRecorderControlPanel mode="floating" />
 
+// 3. Pinned recordings — appear where they were created on the page (like comment pins)
+<VeltRecorderNotes />
+
+// 4. Floating playback — shows latest recording in bottom-left corner
+<RecordingPlayback />
+```
+
+**RecordingPlayback component (include in your collaboration component):**
+
+```tsx
 function RecordingPlayback() {
-  const [recorderId, setRecorderId] = useState(null);
-
-  // Capture recorderId when recording completes
+  const [recorderId, setRecorderId] = useState<string | null>(null);
   const recorderAddEvent = useRecorderAddHandler();
+
   useEffect(() => {
-    if (recorderAddEvent) {
+    if (recorderAddEvent?.id) {
       setRecorderId(recorderAddEvent.id);
     }
   }, [recorderAddEvent]);
 
   if (!recorderId) return null;
-  return <VeltRecorderPlayer recorderId={recorderId} />;
+
+  return (
+    <div style={{
+      position: "fixed",
+      bottom: 24,
+      left: 24,
+      zIndex: 50,
+      background: "white",
+      border: "1px solid #e5e7eb",
+      borderRadius: 12,
+      padding: 12,
+      boxShadow: "0 4px 24px rgba(0,0,0,0.12)",
+    }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+        <span style={{ fontSize: 13, fontWeight: 600 }}>Latest Recording</span>
+        <button
+          onClick={() => setRecorderId(null)}
+          style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16 }}
+        >
+          &times;
+        </button>
+      </div>
+      <VeltRecorderPlayer recorderId={recorderId} />
+    </div>
+  );
 }
 ```
 
 **For HTML:**
 
-```jsx
+```html
 <!-- Step 1: Tool to initiate recordings -->
 <velt-recorder-tool type="all"></velt-recorder-tool>
 
-<!-- Step 2: Control panel to manage active recording -->
-<velt-recorder-control-panel mode="thread"></velt-recorder-control-panel>
+<!-- Step 2: Floating control panel -->
+<velt-recorder-control-panel mode="floating"></velt-recorder-control-panel>
 
-<!-- Step 3: Player for playback (set recorderId dynamically) -->
+<!-- Step 3: Pinned recordings on the page -->
+<velt-recorder-notes></velt-recorder-notes>
+
+<!-- Step 4: Player for playback (set recorderId dynamically) -->
 <velt-recorder-player recorderId="RECORDER_ID"></velt-recorder-player>
-import { VeltRecorderNotes } from '@veltdev/react';
-
-// Add alongside other recorder components for location-pinned recordings
-<VeltRecorderNotes />
 ```
-
-**Optional: VeltRecorderNotes** pins recordings to specific screen locations:
 
 Reference: https://docs.velt.dev/async-collaboration/recorder/setup - Add Velt Recorder Tool, Add Velt Recorder Control Panel, Render Velt Recorder Player
 
 ---
 
-### 1.2 Request Device Permissions Before Recording
+### 1.2 Handle the recorder.done Webhook Event for Completed Recordings
+
+**Impact: MEDIUM-HIGH (Enables server-side processing of completed recordings including assets and AI transcription)**
+
+Velt fires a `recorder.done` server-side webhook when a recording session completes. The event delivers a `RecorderPayload` containing recording assets and AI transcription data. Toggle the event via `triggers.recorder.done` (defaults to `true`).
+
+**Incorrect (ignoring the event field before processing payload):**
+
+```typescript
+// Missing event type check — will process all webhook events as recorder.done
+app.post('/webhook', express.json(), (req, res) => {
+  const { assets, transcription } = req.body; // Wrong — payload is nested
+  processRecording(assets);
+  res.sendStatus(200);
+});
+```
+
+**Correct (Express webhook handler with event guard and nested payload):**
+
+```typescript
+import express from 'express';
+
+app.post('/webhook', express.json(), (req, res) => {
+  const { event, payload } = req.body;
+
+  if (event === 'recorder.done') {
+    const { assets, transcription } = payload as RecorderPayload;
+
+    // Process each recording asset
+    for (const asset of assets ?? []) {
+      console.log('Asset URL:', asset.url);
+      console.log('Format:', asset.fileFormat); // 'mp3' | 'mp4' | 'webm'
+      console.log('Transcript segments:', asset.transcription?.transcriptSegments);
+    }
+
+    // Process top-level transcription data
+    if (transcription) {
+      console.log('VTT file:', transcription.vttFileUrl);
+      console.log('Summary:', transcription.contentSummary);
+    }
+  }
+
+  res.sendStatus(200);
+});
+```
+
+**Toggling the webhook via TriggersConfig:**
+
+```typescript
+// RecorderTrigger type (added in v5.0.2-beta.11)
+type RecorderTrigger = {
+  done?: boolean; // defaults to true
+};
+
+// Disable the recorder.done webhook
+// triggers: { recorder: { done: false } }
+```
+
+---
+
+### 1.3 Request Device Permissions Before Recording
 
 **Impact: HIGH (Prevents permission-denied errors during recording)**
 
@@ -497,7 +585,7 @@ Reference: https://docs.velt.dev/async-collaboration/recorder/customize-behavior
 
 **Impact: HIGH**
 
-Patterns for accessing, subscribing to, and managing recording data. Includes reactive subscriptions via React hooks, one-time fetches, Observable subscriptions, deletion by recorder ID, and video downloads.
+Patterns for accessing, subscribing to, and managing recording data. Includes reactive subscriptions via React hooks, one-time fetches, Observable subscriptions, deletion by recorder ID, video downloads, and server-side retrieval via REST API.
 
 ### 3.1 Use React Hooks for Reactive Recording Data
 
@@ -734,6 +822,52 @@ Reference: https://docs.velt.dev/async-collaboration/recorder/customize-behavior
 
 ---
 
+### 3.4 Retrieve Recordings via REST API Endpoint
+
+**Impact: MEDIUM (Enables server-side retrieval of recording data without the client SDK)**
+
+Use the `POST https://api.velt.dev/v2/recordings/get` REST endpoint to retrieve recordings server-side without the client SDK. This is distinct from the client-side `fetchRecordings()` / `getRecordings()` methods (see `data-fetch-subscribe` rule). The endpoint supports pagination and filtering by document or specific recording IDs.
+
+**Incorrect (using GET method — endpoint uses POST):**
+
+```typescript
+// Wrong HTTP method — this endpoint requires POST
+const response = await fetch('https://api.velt.dev/v2/recordings/get', {
+  method: 'GET',
+});
+```
+
+**Correct (server-side fetch with required headers and body):**
+
+```typescript
+// Server-side REST call to retrieve recordings
+// Authentication: x-velt-api-key + x-velt-auth-token headers
+const response = await fetch('https://api.velt.dev/v2/recordings/get', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY!,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN!,
+  },
+  body: JSON.stringify({
+    organizationId: 'YOUR_ORG_ID',   // required
+    documentId: 'YOUR_DOC_ID',       // optional
+    recordingIds: ['RECORDER_ID_1'], // optional — filter by specific recording IDs
+    pageSize: 20,                    // optional
+    pageToken: undefined,            // optional — pass nextPageToken from previous response
+  }),
+});
+
+const data = await response.json();
+// data.nextPageToken present when more results are available
+```
+
+<!-- TODO (v5.0.2-beta.11): Verify exact response shape for POST /v2/recordings/get. Release note confirms the endpoint path and pagination support but does not specify the response schema (field names, nesting, error format). Validate against official Velt REST API documentation before relying on field names. -->
+<!-- TODO (v5.0.2-beta.11): Verify authentication mechanism. x-velt-api-key and x-velt-auth-token headers follow the pattern used by other Velt v2 REST endpoints, but this should be confirmed against the recordings endpoint documentation specifically. -->
+<!-- TODO (v5.0.2-beta.11): Verify whether recordingIds is the correct filter parameter name. The release note names it but does not confirm the exact JSON body field name for filtering. -->
+
+---
+
 ## 4. Event Handling
 
 **Impact: MEDIUM-HIGH**
@@ -773,6 +907,7 @@ import { useRecorderEventCallback } from '@veltdev/react';
 function RecorderEvents() {
   // Declarative subscription — cleanup is automatic
   const transcriptionData = useRecorderEventCallback('transcriptionDone');
+  const recordingDoneLocalData = useRecorderEventCallback('recordingDoneLocal');
   const recordingDoneData = useRecorderEventCallback('recordingDone');
   const errorData = useRecorderEventCallback('error');
 
@@ -781,6 +916,13 @@ function RecorderEvents() {
       console.log('Transcription ready:', transcriptionData);
     }
   }, [transcriptionData]);
+
+  useEffect(() => {
+    if (recordingDoneLocalData) {
+      // attachmentUrl is a blob URL (not CDN) — only fires when sourceFeature === 'recording'
+      console.log('Local save complete:', recordingDoneLocalData);
+    }
+  }, [recordingDoneLocalData]);
 
   useEffect(() => {
     if (recordingDoneData) {
@@ -806,7 +948,7 @@ Reference: https://docs.velt.dev/async-collaboration/recorder/customize-behavior
 
 **Impact: MEDIUM-HIGH (React to recording state changes and handle errors)**
 
-The Velt Recorder emits 11 lifecycle events covering recording state changes, completion, transcription, and errors. Use `recorderElement.on('eventType').subscribe()` to listen for these events in any framework.
+The Velt Recorder emits 12 lifecycle events covering recording state changes, completion, transcription, and errors. Use `recorderElement.on('eventType').subscribe()` to listen for these events in any framework.
 
 **Incorrect (not subscribing to error events):**
 
@@ -846,6 +988,12 @@ recorderElement.on('recordingCancelled').subscribe((event) => {
 });
 
 // Completion events
+recorderElement.on('recordingDoneLocal').subscribe((event) => {
+  // Fires immediately after local save, before cloud upload/transcription
+  // event.attachmentUrl is a blob URL (not CDN) — only fires when event.sourceFeature === 'recording'
+  console.log('Local save complete:', event);
+});
+
 recorderElement.on('recordingDone').subscribe((event) => {
   console.log('Recording completed:', event);
 });
@@ -912,20 +1060,17 @@ import { VeltVideoEditor } from '@veltdev/react';
 // Load from a recorded video by recorder ID
 <VeltVideoEditor
   recorderId="zK3iEAfvs1Htu3QYPy5S"
-  darkMode={true}
 />
 
 // Load from a URL
 <VeltVideoEditor
   url="https://example.com/video.mp4"
-  darkMode={true}
   variant="compact"
 />
 
 // Load from a Blob object
 <VeltVideoEditor
   blob={videoBlob}
-  darkMode={true}
 />
 ```
 
@@ -934,12 +1079,10 @@ import { VeltVideoEditor } from '@veltdev/react';
 ```html
 <velt-video-editor
   recorder-id="zK3iEAfvs1Htu3QYPy5S"
-  dark-mode="true"
 ></velt-video-editor>
 
 <velt-video-editor
   url="https://example.com/video.mp4"
-  dark-mode="true"
   variant="compact"
 ></velt-video-editor>
 ```

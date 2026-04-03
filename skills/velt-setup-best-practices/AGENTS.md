@@ -19,7 +19,7 @@
 |shared/document-identity:{document-metadata.md,document-id-generation.md,document-set-document.md}
 
 ## 5. Config — HIGH
-|shared/config:{config-api-key.md,config-auth-token-security.md,config-domain-safelist.md}
+|shared/config:{config-firestore-persistent-cache.md,config-api-key.md,config-proxy-config.md,config-auth-token-security.md,config-domain-safelist.md}
 
 ## 6. Project Structure — MEDIUM
 |react/project-structure:{structure-folder-organization.md,structure-separation-of-concerns.md}

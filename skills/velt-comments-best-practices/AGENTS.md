@@ -19,7 +19,7 @@
 |shared/surface:{surface-sidebar.md,surface-sidebar-button.md,surface-sidebar-v2.md}
 
 ## 5. UI Customization — MEDIUM
-|shared/ui:{ui-comment-bubble.md,ui-comment-dialog.md,ui-autocomplete-primitives.md,ui-wireframes.md}
+|shared/ui:{ui-comment-bubble.md,ui-comment-dialog.md,ui-v2-primitives.md,ui-autocomplete-primitives.md,ui-wireframes.md}
 
 ## 6. Data Model — MEDIUM
 |react/data:{data-filtering-grouping.md,data-comment-annotations.md}
