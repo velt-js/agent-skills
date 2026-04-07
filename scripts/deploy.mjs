@@ -22,7 +22,7 @@
  *   node scripts/deploy.mjs --claude  # Deploy to Claude Code only
  */
 
-import { existsSync, cpSync, readdirSync, mkdirSync } from "node:fs";
+import { existsSync, cpSync, rmSync, readdirSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { homedir } from "node:os";
@@ -34,21 +34,32 @@ const ROOT = resolve(__dirname, "..");
 const CURSOR_PLUGIN = resolve(ROOT, "..", "velt-plugin-cursor");
 const CLAUDE_PLUGIN = resolve(ROOT, "..", "velt-plugin-claude");
 
+// Agent-skills source (this repo)
+const AGENT_SKILLS_SOURCE = resolve(ROOT, "skills");
+
 // IDE home directories
 const CURSOR_HOME = resolve(homedir(), ".cursor");
 const CLAUDE_HOME = resolve(homedir(), ".claude");
 
-// Plugin-specific skills to deploy (not agent-skills — those are installed via npx)
-const SKILLS_TO_DEPLOY = [
+// Plugin-specific skills to deploy
+const PLUGIN_SKILLS = [
   "install-velt",
   "velt-help",
 ];
 
-function deploySkills(sourcePluginDir, targetSkillsDir, ideName) {
+// Auto-discover agent-skills from source directory
+function discoverAgentSkills() {
+  if (!existsSync(AGENT_SKILLS_SOURCE)) return [];
+  return readdirSync(AGENT_SKILLS_SOURCE, { withFileTypes: true })
+    .filter(d => d.isDirectory() && existsSync(resolve(AGENT_SKILLS_SOURCE, d.name, "SKILL.md")))
+    .map(d => d.name);
+}
+
+function deployPluginSkills(sourcePluginDir, targetSkillsDir) {
   mkdirSync(targetSkillsDir, { recursive: true });
   let count = 0;
 
-  for (const skill of SKILLS_TO_DEPLOY) {
+  for (const skill of PLUGIN_SKILLS) {
     const src = resolve(sourcePluginDir, "skills", skill, "SKILL.md");
     if (!existsSync(src)) {
       console.warn(`  ⚠ ${skill} — not found in ${sourcePluginDir}/skills/`);
@@ -58,6 +69,37 @@ function deploySkills(sourcePluginDir, targetSkillsDir, ideName) {
     const destDir = resolve(targetSkillsDir, skill);
     mkdirSync(destDir, { recursive: true });
     cpSync(src, resolve(destDir, "SKILL.md"));
+    console.log(`  ✓ ${skill}`);
+    count++;
+  }
+
+  return count;
+}
+
+function deployAgentSkills(targetSkillsDir) {
+  const skills = discoverAgentSkills();
+  let count = 0;
+
+  for (const skill of skills) {
+    const src = resolve(AGENT_SKILLS_SOURCE, skill);
+    const dest = resolve(targetSkillsDir, skill);
+
+    // Clean existing copy
+    if (existsSync(dest)) {
+      rmSync(dest, { recursive: true, force: true });
+    }
+
+    mkdirSync(dest, { recursive: true });
+    cpSync(src, dest, {
+      recursive: true,
+      filter: (path) => {
+        if (path.includes("/.git/") || path.includes("/node_modules/")) return false;
+        if (path.endsWith("/.git") || path.endsWith("/node_modules")) return false;
+        if (path.endsWith("/AGENTS.full.md")) return false;
+        return true;
+      },
+    });
+
     console.log(`  ✓ ${skill}`);
     count++;
   }
@@ -92,12 +134,15 @@ function main() {
 
   // Deploy to Cursor
   if (deployBoth || cursorOnly) {
-    console.log("[deploy] Cursor — skills");
+    console.log("[deploy] Cursor — plugin skills");
     if (existsSync(CURSOR_PLUGIN)) {
-      totalDeployed += deploySkills(CURSOR_PLUGIN, resolve(CURSOR_HOME, "skills"), "Cursor");
+      totalDeployed += deployPluginSkills(CURSOR_PLUGIN, resolve(CURSOR_HOME, "skills"));
     } else {
-      console.warn("  ⚠ velt-plugin-cursor not found, skipping Cursor skills");
+      console.warn("  ⚠ velt-plugin-cursor not found, skipping Cursor plugin skills");
     }
+
+    console.log("\n[deploy] Cursor — agent-skills");
+    totalDeployed += deployAgentSkills(resolve(CURSOR_HOME, "skills"));
 
     console.log("\n[deploy] Cursor — rules");
     if (existsSync(CURSOR_PLUGIN)) {
@@ -110,16 +155,18 @@ function main() {
 
   // Deploy to Claude Code
   if (deployBoth || claudeOnly) {
-    console.log("[deploy] Claude Code — skills");
+    console.log("[deploy] Claude Code — plugin skills");
     if (existsSync(CLAUDE_PLUGIN)) {
-      totalDeployed += deploySkills(CLAUDE_PLUGIN, resolve(CLAUDE_HOME, "skills"), "Claude");
+      totalDeployed += deployPluginSkills(CLAUDE_PLUGIN, resolve(CLAUDE_HOME, "skills"));
     } else if (existsSync(CURSOR_PLUGIN)) {
-      // Fallback: use Cursor plugin skills (they should be the same)
       console.log("  (using velt-plugin-cursor as source — velt-plugin-claude not found)");
-      totalDeployed += deploySkills(CURSOR_PLUGIN, resolve(CLAUDE_HOME, "skills"), "Claude");
+      totalDeployed += deployPluginSkills(CURSOR_PLUGIN, resolve(CLAUDE_HOME, "skills"));
     } else {
-      console.warn("  ⚠ No plugin repo found, skipping Claude skills");
+      console.warn("  ⚠ No plugin repo found, skipping Claude plugin skills");
     }
+
+    console.log("\n[deploy] Claude Code — agent-skills");
+    totalDeployed += deployAgentSkills(resolve(CLAUDE_HOME, "skills"));
     console.log("");
   }
 
