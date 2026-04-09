@@ -41,7 +41,8 @@ export default function App() {
 | Prop | Type | Description |
 |------|------|-------------|
 | `src` | string | Video source URL |
-| `sync` | boolean | Enable synchronized playback |
+| `sync` | boolean | Enable synchronized playback across users |
+| `darkMode` | boolean | Enable dark mode styling |
 
 **For HTML:**
 

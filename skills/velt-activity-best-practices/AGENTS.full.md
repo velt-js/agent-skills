@@ -135,31 +135,106 @@ function ActivityFeed() {
 }
 ```
 
-**Correct (React — drop-in component with props):**
+**Correct (complete toggleable Activity Log panel in a VeltCollaboration component):**
 
-```jsx
-import { VeltActivityLog } from '@veltdev/react';
+```tsx
+"use client";
 
-function ActivitySidebar() {
+import { useState } from "react";
+import { VeltActivityLog } from "@veltdev/react";
+
+// Place this inside your VeltCollaboration component alongside other Velt features.
+// The activity panel is always mounted but hidden when closed — this keeps the
+// web component's backend connection alive so activities load instantly on open.
+
+export function ActivityLogPanel() {
+  const [activityOpen, setActivityOpen] = useState(false);
+
   return (
-    <VeltActivityLog
-      darkMode={false}
-      useDummyData={false}
-      variant="sidebar"
-    />
+    <>
+      {/* Toggle button — place in your toolbar or document header */}
+      <button
+        onClick={() => setActivityOpen(!activityOpen)}
+        style={{
+          padding: "6px 14px",
+          fontSize: 13,
+          border: "1px solid var(--border, #e0e0e0)",
+          borderRadius: 20,
+          background: activityOpen ? "var(--primary, #2563eb)" : "transparent",
+          color: activityOpen ? "#fff" : "var(--text, #111)",
+          cursor: "pointer",
+        }}
+      >
+        {activityOpen ? "Hide Activity Log" : "View Activity Log"}
+      </button>
+
+      {/* Activity panel — ALWAYS mounted, toggle with display: none */}
+      <div
+        style={{
+          display: activityOpen ? "flex" : "none",
+          position: "fixed",
+          top: 0,
+          right: 0,
+          bottom: 0,
+          width: 380,
+          zIndex: 40,
+          flexDirection: "column",
+          borderLeft: "1px solid var(--border, #e0e0e0)",
+          background: "var(--bg, #fff)",
+          boxShadow: "0 0 24px rgba(0,0,0,0.08)",
+        }}
+      >
+        <div style={{
+          padding: "16px 20px",
+          borderBottom: "1px solid var(--border, #e0e0e0)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+        }}>
+          <span style={{ fontWeight: 600, fontSize: 16 }}>Activity Log</span>
+          <button
+            onClick={() => setActivityOpen(false)}
+            style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer" }}
+          >
+            &times;
+          </button>
+        </div>
+        <div style={{ flex: 1, overflow: "auto" }}>
+          <VeltActivityLog />
+        </div>
+      </div>
+    </>
   );
 }
 ```
 
-**Correct (HTML — web component):**
+**Minimal usage (HTML — web component):**
 
 ```html
-<!-- Basic usage -->
+<!-- Always mounted, toggle visibility with CSS -->
 <velt-activity-log></velt-activity-log>
-
-<!-- With dummy data for development -->
-<velt-activity-log use-dummy-data="true"></velt-activity-log>
 ```
+
+**Wireframe customization:**
+
+```jsx
+// WRONG — remounts on every toggle, loses connection
+{showPanel && <VeltActivityLog />}
+
+// CORRECT — always mounted, toggle visibility
+<div style={{ display: showPanel ? "flex" : "none" }}>
+  <VeltActivityLog />
+</div>
+// WRONG — style prop is ignored, component may not render
+<VeltActivityLog style={{ flex: 1 }} />
+
+// CORRECT — wrap in a styled div
+<div style={{ flex: 1 }}>
+  <VeltActivityLog />
+</div>
+```
+
+**3. DO NOT pass `style` or `className` as props to `VeltActivityLog`.** It is a Velt web component, not a standard React element. Styling props are silently ignored and can prevent the component from rendering. To control sizing/positioning, wrap it in a `<div>` with your styles:
 
 Reference: https://docs.velt.dev/async-collaboration/activity/customize-ui - VeltActivityLog Component
 

@@ -95,7 +95,6 @@ function deployAgentSkills(targetSkillsDir) {
       filter: (path) => {
         if (path.includes("/.git/") || path.includes("/node_modules/")) return false;
         if (path.endsWith("/.git") || path.endsWith("/node_modules")) return false;
-        if (path.endsWith("/AGENTS.full.md")) return false;
         return true;
       },
     });

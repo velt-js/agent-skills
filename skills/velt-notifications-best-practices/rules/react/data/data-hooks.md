@@ -139,6 +139,75 @@ function NotificationData() {
 }
 ```
 
+**Notification Model:**
+
+```typescript
+interface Notification {
+  id: string;                          // Unique notification ID
+  notificationSource: string;          // 'comment', 'huddle', 'crdt', 'custom'
+  actionType?: string;                 // e.g., 'added'
+  isUnread?: boolean;                  // Read/unread state
+  actionUser?: User;                   // User who triggered the notification
+  timestamp?: number;                  // Unix timestamp
+  displayHeadlineMessage?: string;     // Resolved headline text
+  displayBodyMessage?: string;         // Body text
+  displayHeadlineMessageTemplate?: string;  // Template with {variables}
+  displayHeadlineMessageTemplateData?: object; // Template variable values
+  forYou?: boolean;                    // Appears in For You tab
+  targetAnnotationId?: string;         // Related annotation ID
+  notificationSourceData?: any;        // Custom data from source
+  metadata?: NotificationMetadata;     // Document/org context
+  notifyUsers?: Record<string, boolean>;       // Users by email hash
+  notifyUsersByUserId?: Record<string, boolean>; // Users by user ID hash
+  isNotificationResolverUsed?: boolean; // True when resolver handled PII
+}
+```
+
+**SettingsUpdatedEvent:**
+
+```typescript
+interface SettingsUpdatedEvent {
+  settings: NotificationSettingsConfig; // Updated channel settings
+  isMutedAll: boolean;                  // True if all channels muted
+}
+```
+
+**GetNotificationsDataQuery:**
+
+```typescript
+interface GetNotificationsDataQuery {
+  type?: 'all' | 'forYou' | 'documents'; // Filter by tab type
+}
+```
+
+**NotificationMetadata:**
+
+```typescript
+interface NotificationMetadata {
+  apiKey?: string;                     // Velt API key
+  organizationId?: string;             // Organization ID
+  clientOrganizationId?: string;       // Client-side org ID
+  documentId?: string;                 // Document ID
+  clientDocumentId?: string;           // Client-side document ID
+  locationId?: number;                 // Location within document
+  location?: Location;                 // Location object
+  folderId?: string;                   // Folder ID
+  veltFolderId?: string;               // Velt folder ID
+  documentMetadata?: object;           // Custom document metadata
+  organizationMetadata?: object;       // Custom org metadata
+  sdkVersion?: string | null;          // SDK version that created notification
+}
+```
+
+**Notification Sources:**
+
+| Source | Description | Triggered by |
+|--------|-------------|-------------|
+| `'comment'` | Comment-related notifications | Adding comments, @mentions, replies |
+| `'huddle'` | Huddle/call notifications | Starting or joining huddles |
+| `'crdt'` | CRDT editing notifications | Collaborative editing events |
+| `'custom'` | Custom notifications | REST API `/v2/notifications/add` — routed through Notification Resolver if configured |
+
 **Verification:**
 - [ ] Hooks imported from @veltdev/react
 - [ ] Component re-renders when data changes

@@ -66,6 +66,35 @@ const response = await fetch('https://api.velt.dev/v2/notifications/add', {
 });
 ```
 
+**Correct (resolver write-side — structural data only, PII omitted):**
+
+```javascript
+// POST https://api.velt.dev/v2/notifications/add
+// When isNotificationResolverUsed: true, displayHeadlineMessageTemplate
+// and displayBodyMessage are not required — the resolver supplies them at read time.
+
+const response = await fetch('https://api.velt.dev/v2/notifications/add', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': 'YOUR_API_KEY',
+    'x-velt-auth-token': 'YOUR_AUTH_TOKEN'
+  },
+  body: JSON.stringify({
+    data: {
+      apiKey: 'YOUR_API_KEY',
+      organizationId: 'org-abc',
+      documentId: 'doc-789',
+      notificationSource: 'custom',
+      isNotificationResolverUsed: true,
+      actionUser: { userId: 'user-123' },
+      notifyUsers: [{ userId: 'user-456' }]
+      // displayHeadlineMessageTemplate and displayBodyMessage omitted
+    }
+  })
+});
+```
+
 **Template Variables:**
 
 Use curly braces `{variableName}` in templates. Built-in variables:
@@ -81,12 +110,14 @@ Custom variables can be any string value in `displayHeadlineMessageTemplateData`
 | `organizationId` | string | Required. Your organization |
 | `documentId` | string | Required. Document context |
 | `actionUser` | User | Required. Who triggered the notification |
-| `displayHeadlineMessageTemplate` | string | Main message with variables |
+| `displayHeadlineMessageTemplate` | string | Main message with variables. Optional when `isNotificationResolverUsed: true` |
 | `displayHeadlineMessageTemplateData` | object | Variable values |
-| `displayBodyMessage` | string | Secondary message text |
+| `displayBodyMessage` | string | Secondary message text. Optional when `isNotificationResolverUsed: true` |
 | `notifyUsers` | User[] | Specific users to notify |
 | `notifyAll` | boolean | Notify all document users |
 | `verifyUserPermissions` | boolean | Check document access (default: false) |
+| `isNotificationResolverUsed` | boolean | Optional. When `true`, marks this notification as resolver-eligible. `displayHeadlineMessageTemplate` and `displayBodyMessage` are not required; the notification resolver supplies PII content at read time via the registered data provider |
+| `notificationSource` | string | Optional. Must be `'custom'` for resolver routing. Only custom-source notifications are routed through the resolver pipeline |
 
 **Example Use Cases:**
 

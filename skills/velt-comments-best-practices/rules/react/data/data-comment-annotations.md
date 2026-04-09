@@ -120,9 +120,15 @@ commentElement.getCommentAnnotationsCount({
 
 | Hook | Description |
 |------|-------------|
-| `useCommentAnnotations()` | Get all annotations |
-| `useAddCommentAnnotation()` | Add new annotation |
-| `useCommentModeState()` | Get comment mode status |
+| `useCommentAnnotations()` | Get all annotations for current document |
+| `useAddCommentAnnotation()` | Add new annotation programmatically |
+| `useDeleteCommentAnnotation()` | Delete annotation by ID |
+| `useGetCommentAnnotations()` | Advanced query with CommentRequestQuery filters |
+| `useCommentAnnotationsCount()` | Get counts (total + unread) with filtering |
+| `useUnreadCommentAnnotationCountByLocationId()` | Unread count scoped to a location |
+| `useCommentModeState()` | Get comment mode status (active/inactive) |
+| `useCommentEventCallback()` | Subscribe to comment events |
+| `useVeltEventCallback()` | Subscribe to Velt UI events |
 
 **Verification Checklist:**
 - [ ] useCommentAnnotations returns array

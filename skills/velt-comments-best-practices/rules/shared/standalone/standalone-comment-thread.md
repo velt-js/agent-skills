@@ -104,6 +104,27 @@ export default function KanbanBoard() {
 }
 ```
 
+**Pass annotation object directly (cross-document, read-only):**
+
+```jsx
+// Alternative: pass the full annotation object instead of just the ID.
+// When using annotation prop: comments are READ-ONLY, reactions and recordings don't render.
+// Use this for displaying comments from other documents or archived threads.
+<VeltCommentThread annotation={annotationObject} />
+```
+
+**Handle comment clicks:**
+
+```jsx
+<VeltCommentThread
+  annotationId={annotation.annotationId}
+  onCommentClick={(event) => {
+    console.log('Clicked comment:', event.annotationId);
+    router.push(`/doc/${event.documentId}#${event.annotationId}`);
+  }}
+/>
+```
+
 **Styling the Thread:**
 
 ```jsx

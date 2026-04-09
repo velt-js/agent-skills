@@ -2,7 +2,7 @@
 title: Use REST APIs for Server-Side Notification Management
 impact: HIGH
 impactDescription: Programmatic access to notifications from backend services
-tags: rest-api, server, get, update, notifications
+tags: rest-api, server, get, update, delete, notifications
 ---
 
 ## Use REST APIs for Server-Side Notification Management
@@ -108,6 +108,30 @@ const response = await fetch('https://api.velt.dev/v2/notifications/update', {
   }
 }
 ```
+
+**Delete Notifications:**
+
+```javascript
+// POST https://api.velt.dev/v2/notifications/delete
+
+const response = await fetch('https://api.velt.dev/v2/notifications/delete', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': 'YOUR_API_KEY',
+    'x-velt-auth-token': 'YOUR_AUTH_TOKEN'
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'your-org-id',
+      documentId: 'your-doc-id',             // Optional: delete all for document
+      notificationIds: ['notif-1', 'notif-2'] // Optional: delete specific IDs
+    }
+  })
+});
+```
+
+At least one of `documentId`, `userId`, or `notificationIds` is required alongside `organizationId`.
 
 **Prerequisites:**
 - Enable "Advanced Queries" in [Velt Console](https://console.velt.dev/dashboard/config/appconfig)

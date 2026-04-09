@@ -92,15 +92,52 @@ function CommentActivityFeed() {
 
 | Property | Type | Description |
 |----------|------|-------------|
+| `organizationId` | `string` | Scope feed to specific organization |
 | `documentIds` | `string[]` | Filter to specific documents |
+| `currentDocumentOnly` | `boolean` | Limit to current document (auto-switches on setDocument) |
+| `maxDays` | `number` | Max age in days (default: 30) |
 | `featureTypes` | `ActivityFeatureType[]` | Filter by feature: `'comment'`, `'reaction'`, `'recorder'`, `'crdt'`, `'custom'` |
+| `excludeFeatureTypes` | `ActivityFeatureType[]` | Exclude specific feature areas |
 | `actionTypes` | `string[]` | Filter by action type (use exported constants) |
+| `excludeActionTypes` | `string[]` | Exclude specific action types |
+| `userIds` | `string[]` | Filter by specific user IDs |
+| `excludeUserIds` | `string[]` | Exclude specific user IDs |
+
+**ActivityRecord (returned by useAllActivities):**
+
+```typescript
+interface ActivityRecord {
+  id: string;                                    // Unique activity log ID
+  featureType: ActivityFeatureType;              // 'comment' | 'reaction' | 'recorder' | 'crdt' | 'custom'
+  actionType: string;                            // Specific action (use constants from config-action-type-filters rule)
+  eventType?: string;                            // Sub-event type within the action
+  actionUser: User;                              // User who performed the action
+  timestamp: number;                             // Unix timestamp (ms)
+  metadata: ActivityMetadata;                    // Document/org context
+  targetEntityId?: string;                       // ID of entity this log targets
+  targetSubEntityId?: string | null;             // ID of sub-entity within target
+  changes?: ActivityChanges;                     // Before/after field changes: { [key]: { from, to } }
+  entityData?: unknown;                          // Full entity object at time of action
+  entityTargetData?: unknown;                    // Full target entity object at time of action
+  displayMessageTemplate?: string;               // Template with {{variable}} placeholders
+  displayMessageTemplateData?: Record<string, unknown>; // Data to resolve template
+  displayMessage?: string;                       // Resolved human-readable message (computed client-side)
+  actionIcon?: string;                           // Icon URL or identifier for action
+  immutable?: boolean;                           // Cannot be updated/deleted if true
+  isActivityResolverUsed?: boolean;              // True when PII was stripped by resolver
+}
+
+interface ActivityChanges {
+  [key: string]: { from: unknown | null; to: unknown | null } | undefined;
+}
+```
 
 **Key details:**
 - Returns `null` while loading — always check before rendering
 - Returns `[]` when no activities match
 - Emits the full activity list on every change (not incremental diffs)
 - Hook handles subscription lifecycle automatically — no cleanup needed
+- `displayMessage` is the resolved string; `displayMessageTemplate` is the raw template
 
 **Verification:**
 - [ ] Null loading state handled (not rendered as empty list)

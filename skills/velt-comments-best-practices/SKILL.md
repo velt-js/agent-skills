@@ -9,7 +9,7 @@ metadata:
 
 # Velt Comments Best Practices
 
-Comprehensive implementation guide for Velt's collaborative comments feature in React and Next.js applications. Contains 48 rules across 9 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's collaborative comments feature in React and Next.js applications. Contains 71 rules across 12 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 

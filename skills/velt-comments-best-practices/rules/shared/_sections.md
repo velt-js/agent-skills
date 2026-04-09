@@ -55,14 +55,19 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 6. Data Model (data)
 
 **Impact:** MEDIUM
-**Description:** Patterns for working with comment data structures. Includes custom metadata, comment annotations, and filtering/grouping.
+**Description:** Patterns for working with comment data structures. Includes CRUD operations, metadata, annotations, composer control, read status, and data type reference.
 
 **Rules:**
 - `data-context-metadata` - Add custom metadata to comments with context
 - `data-activity-action-types` - Type-safe comment activity filtering with CommentActivityActionTypes
 - `data-trigger-activities` - Set triggerActivities on CommentData to create activity records via POST /v2/commentannotations/add (v5.0.2-beta.7)
 - `data-comment-annotation-data-provider` - get/save/delete callbacks on CommentAnnotationDataProvider are now optional when using config-based URL endpoints; ResolverConfig.additionalFields replicates fields to resolver while retaining in Velt storage; ResolverConfig.fieldsToRemove strips fields from Velt's DB (PII removal)
-- `data-agent-fields-query` - Use agentFields on CommentRequestQuery to filter getCommentAnnotationCount() to annotations where agent.agentFields contains any of the provided values; unread count equals total count when agentFields is set
+- `data-agent-fields-query` - Use agentFields on CommentRequestQuery to filter getCommentAnnotationCount()
+- `data-annotation-crud` - Programmatic annotation CRUD — create, query, delete threads with hooks and API methods
+- `data-comment-crud` - Individual comment CRUD — add, update, delete, get comments within threads
+- `data-read-status` - Mark comments as read/unread
+- `data-composer-api` - Programmatic composer control — submit, clear, read state
+- `data-types-reference` - Core data type reference — CommentAnnotation, Comment, Status, Priority, Attachment, Location, TargetElement
 
 ---
 
@@ -92,3 +97,43 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 
 **Impact:** MEDIUM
 **Description:** File attachment control and emoji reaction features. Includes attachment download behavior, click interception events, and CSS state classes for attachment loading and edit-mode states.
+
+---
+
+## 10. Configuration (config)
+
+**Impact:** MEDIUM
+**Description:** Advanced configuration methods for comment features — mentions/contacts, status/priority, reactions, attachments, text formatting, navigation/deep linking, DOM controls, sidebar management, UI behavior toggles, and moderation.
+
+**Rules:**
+- `config-mentions-contacts` - @Mentions, contacts, user assignment, autocomplete
+- `config-status-priority` - Custom status and priority levels, resolve/update workflows
+- `config-reactions` - Emoji reactions — enable, customize, add/delete/toggle
+- `config-attachments` - File attachments — enable, upload, delete, allowed types
+- `config-text-formatting` - Rich text formatting options in composer
+- `config-navigation` - Navigation, deep linking, scroll-to-comment, shareable links
+- `config-dom-controls` - Restrict comment placement to specific DOM elements
+- `config-sidebar-management` - Programmatic sidebar data, filtering, and configuration
+- `config-ui-behavior` - UI/UX toggle methods — display, interaction, behavior (20+ methods)
+- `config-moderation` - Moderation workflows — approve, accept, reject, read-only
+
+---
+
+## 11. Events (events)
+
+**Impact:** MEDIUM
+**Description:** Comment lifecycle event subscriptions for custom workflows.
+
+**Rules:**
+- `events-comment-lifecycle` - Pin clicks, add events with addContext, custom button clicks, autocomplete search
+
+---
+
+## 12. REST API (rest)
+
+**Impact:** HIGH
+**Description:** Server-side comment management via REST API.
+
+**Rules:**
+- `rest-comment-annotations-api` - Annotation CRUD (add, get, update, delete, count)
+- `rest-comments-api` - Individual comment CRUD within annotations (add, get, update, delete)

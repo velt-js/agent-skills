@@ -51,8 +51,8 @@ import { ReactionActivityActionTypes } from '@veltdev/react';
 const activities = useAllActivities({
   featureTypes: ['reaction'],
   actionTypes: [
-    ReactionActivityActionTypes.REACTION_ADD,
-    ReactionActivityActionTypes.REACTION_DELETE,
+    ReactionActivityActionTypes.REACTION_ADD,   // 'reaction.add'
+    ReactionActivityActionTypes.REACTION_DELETE, // 'reaction.delete'
   ],
 });
 ```
@@ -100,11 +100,25 @@ const activities = useAllActivities({
 
 **Other feature constants:**
 
-| Constant Object | Feature | Key Values |
-|-----------------|---------|------------|
-| `RecorderActivityActionTypes` | Recorder | `RECORDING_STARTED`, `RECORDING_STOPPED` |
-| `ReactionActivityActionTypes` | Reactions | `REACTION_ADDED`, `REACTION_REMOVED` |
-| `CrdtActivityActionTypes` | CRDT | `CRDT_EDITED` |
+**RecorderActivityActionTypes** (union type: `RecorderActivityActionType`):
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `RECORDING_ADD` | `'recording.add'` | Recording added |
+| `RECORDING_DELETE` | `'recording.delete'` | Recording deleted |
+
+**ReactionActivityActionTypes** (union type: `ReactionActivityActionType`):
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `REACTION_ADD` | `'reaction.add'` | Reaction added |
+| `REACTION_DELETE` | `'reaction.delete'` | Reaction removed |
+
+**CrdtActivityActionTypes** (union type: `CrdtActivityActionType`):
+
+| Constant | Value | Description |
+|----------|-------|-------------|
+| `EDITOR_EDIT` | `'crdt.editor_edit'` | CRDT editor edit occurred |
 
 **For non-React frameworks:**
 
@@ -113,7 +127,7 @@ const activities = useAllActivities({
 const activityElement = Velt.getActivityElement();
 activityElement.getAllActivities({
   featureTypes: ['comment'],
-  actionTypes: ['commentAdded', 'commentUpdated'],
+  actionTypes: ['comment.add', 'comment.update'],
 }).subscribe((activities) => {
   // Handle activities
 });

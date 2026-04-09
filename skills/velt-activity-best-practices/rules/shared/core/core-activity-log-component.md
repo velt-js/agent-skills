@@ -120,11 +120,85 @@ export function ActivityLogPanel() {
 | `useDummyData` | `boolean` | `false` | Show placeholder data for development/testing |
 | `variant` | `string` | `undefined` | Layout variant (e.g. `"sidebar"`); consult docs for available values |
 
-**Wireframe customization:**
+**Wireframe customization (27 primitives):**
 
-The component supports full structural customization via `VeltActivityLogWireframe` / `<velt-activity-log-wireframe>`. It exposes 27 standalone primitive components, each accepting a `defaultCondition` prop to control render conditions. Exact primitive names and hierarchy are not enumerated in this rule — refer to the Velt docs for the complete wireframe API.
+Customize the entire layout using `VeltActivityLogWireframe`. Each sub-component accepts `defaultCondition?: boolean` to control visibility.
 
-<!-- TODO (v5.0.2-beta.10): Verify the full list of 27 wireframe primitive component names and the accepted variant values. Release note confirms 27 primitives and wireframe support but does not enumerate them. See https://docs.velt.dev/async-collaboration/activity/customize-ui for the complete wireframe primitive reference. -->
+```tsx
+import VeltActivityLogWireframe from '@veltdev/react/VeltActivityLogWireframe';
+
+<VeltActivityLog>
+  <VeltActivityLogWireframe>
+    <VeltActivityLogWireframe.Header>
+      <VeltActivityLogWireframe.Header.Title />
+      <VeltActivityLogWireframe.Header.CloseButton />
+      <VeltActivityLogWireframe.Header.Filter>
+        <VeltActivityLogWireframe.Header.Filter.Trigger>
+          <VeltActivityLogWireframe.Header.Filter.Trigger.Icon />
+          <VeltActivityLogWireframe.Header.Filter.Trigger.Label />
+        </VeltActivityLogWireframe.Header.Filter.Trigger>
+        <VeltActivityLogWireframe.Header.Filter.Content>
+          <VeltActivityLogWireframe.Header.Filter.Content.Item>
+            <VeltActivityLogWireframe.Header.Filter.Content.Item.Icon />
+            <VeltActivityLogWireframe.Header.Filter.Content.Item.Label />
+          </VeltActivityLogWireframe.Header.Filter.Content.Item>
+        </VeltActivityLogWireframe.Header.Filter.Content>
+      </VeltActivityLogWireframe.Header.Filter>
+    </VeltActivityLogWireframe.Header>
+    <VeltActivityLogWireframe.Loading />
+    <VeltActivityLogWireframe.List>
+      <VeltActivityLogWireframe.List.DateGroup>
+        <VeltActivityLogWireframe.List.DateGroup.Label />
+      </VeltActivityLogWireframe.List.DateGroup>
+      <VeltActivityLogWireframe.List.Item>
+        <VeltActivityLogWireframe.List.Item.Icon />
+        <VeltActivityLogWireframe.List.Item.Avatar />
+        <VeltActivityLogWireframe.List.Item.Time />
+        <VeltActivityLogWireframe.List.Item.Content>
+          <VeltActivityLogWireframe.List.Item.Content.User />
+          <VeltActivityLogWireframe.List.Item.Content.Action />
+          <VeltActivityLogWireframe.List.Item.Content.Target />
+          <VeltActivityLogWireframe.List.Item.Content.Detail />
+        </VeltActivityLogWireframe.List.Item.Content>
+      </VeltActivityLogWireframe.List.Item>
+      <VeltActivityLogWireframe.List.ShowMore />
+    </VeltActivityLogWireframe.List>
+    <VeltActivityLogWireframe.Empty />
+  </VeltActivityLogWireframe>
+</VeltActivityLog>
+```
+
+**All 27 standalone primitive components:**
+
+| React | HTML |
+|-------|------|
+| `VeltActivityLog` | `velt-activity-log` |
+| `VeltActivityLogHeader` | `velt-activity-log-header` |
+| `VeltActivityLogHeaderTitle` | `velt-activity-log-header-title` |
+| `VeltActivityLogHeaderCloseButton` | `velt-activity-log-header-close-button` |
+| `VeltActivityLogHeaderFilter` | `velt-activity-log-header-filter` |
+| `VeltActivityLogHeaderFilterTrigger` | `velt-activity-log-header-filter-trigger` |
+| `VeltActivityLogHeaderFilterTriggerIcon` | `velt-activity-log-header-filter-trigger-icon` |
+| `VeltActivityLogHeaderFilterTriggerLabel` | `velt-activity-log-header-filter-trigger-label` |
+| `VeltActivityLogHeaderFilterContent` | `velt-activity-log-header-filter-content` |
+| `VeltActivityLogHeaderFilterContentItem` | `velt-activity-log-header-filter-content-item` |
+| `VeltActivityLogHeaderFilterContentItemIcon` | `velt-activity-log-header-filter-content-item-icon` |
+| `VeltActivityLogHeaderFilterContentItemLabel` | `velt-activity-log-header-filter-content-item-label` |
+| `VeltActivityLogLoading` | `velt-activity-log-loading` |
+| `VeltActivityLogEmpty` | `velt-activity-log-empty` |
+| `VeltActivityLogList` | `velt-activity-log-list` |
+| `VeltActivityLogListDateGroup` | `velt-activity-log-list-date-group` |
+| `VeltActivityLogListDateGroupLabel` | `velt-activity-log-list-date-group-label` |
+| `VeltActivityLogListItem` | `velt-activity-log-list-item` |
+| `VeltActivityLogListItemIcon` | `velt-activity-log-list-item-icon` |
+| `VeltActivityLogListItemAvatar` | `velt-activity-log-list-item-avatar` |
+| `VeltActivityLogListItemTime` | `velt-activity-log-list-item-time` |
+| `VeltActivityLogListItemContent` | `velt-activity-log-list-item-content` |
+| `VeltActivityLogListItemContentUser` | `velt-activity-log-list-item-content-user` |
+| `VeltActivityLogListItemContentAction` | `velt-activity-log-list-item-content-action` |
+| `VeltActivityLogListItemContentTarget` | `velt-activity-log-list-item-content-target` |
+| `VeltActivityLogListItemContentDetail` | `velt-activity-log-list-item-content-detail` |
+| `VeltActivityLogListShowMore` | `velt-activity-log-list-show-more` |
 
 ### Common Mistakes — DO NOT
 

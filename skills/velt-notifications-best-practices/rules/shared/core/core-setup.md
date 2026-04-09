@@ -55,6 +55,26 @@ function App() {
 2. **Add Tool Component**: Place `VeltNotificationsTool` in your app's toolbar/header
 3. **Embed Panel (optional)**: Use `VeltNotificationsPanel` for embedded display instead of popover
 
+**Component Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `tabConfig` | `object` | All tabs enabled | Configure tab names and visibility |
+| `panelOpenMode` | `'popover' \| 'sidebar'` | `'popover'` | How the panel opens |
+| `pageSize` | `number` | 50 (For You) / 15 (others) | Initial notification load count |
+| `settings` | `boolean` | `false` | Show settings gear icon |
+| `selfNotifications` | `boolean` | `false` | Include user's own actions |
+| `considerAllNotifications` | `boolean` | `false` | Include all tabs in unread badge count (default: For You only) |
+| `readNotificationsOnForYouTab` | `boolean` | `false` | Show read notifications in For You tab |
+| `enableSettingsAtOrganizationLevel` | `boolean` | `false` | Apply settings as org-wide defaults |
+| `settingsLayout` | `'accordion' \| 'dropdown'` | `'accordion'` | Settings UI layout |
+| `darkMode` | `boolean` | `false` | Dark mode |
+| `shadowDom` | `boolean` | `true` | Component shadow DOM |
+| `panelShadowDom` | `boolean` | `true` | Panel shadow DOM (set `false` for custom CSS) |
+| `variant` | `string` | — | Component variant |
+| `panelVariant` | `string` | — | Panel variant |
+| `onNotificationClick` | `callback` | — | Notification click handler |
+
 **Default Behavior:**
 
 - Panel shows up to 50 notifications in "For You" tab

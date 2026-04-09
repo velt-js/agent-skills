@@ -44,9 +44,10 @@ crdtElement.setActivityDebounceTime(5000); // 5 seconds
 
 **Key details:**
 - Parameter is in **milliseconds** (e.g., 5000 = 5 seconds)
+- **Default: 10 minutes (600,000ms)** — without setting this, edits are batched every 10 minutes
+- **Minimum: 10 seconds (10,000ms)** — values below 10,000ms are ignored
 - Called on the **CRDT element** (`getCrdtElement()`), not the activity element
 - All edits within the debounce window are batched into a single activity record
-- Recommended values: 2000-10000ms depending on editing frequency
 - Lower values = more granular records; higher values = less noise
 
 **Verification:**

@@ -106,13 +106,17 @@ function FullCustomInterface() {
 }
 ```
 
-**Composer Props (v4.7.3+):**
+**Composer Props:**
 
 ```jsx
 <VeltCommentComposer
-  placeholder="Leave a comment..."       // Custom placeholder text (v4.7.3+)
-  readOnly={false}                        // Disable input (v4.7.9+)
-  targetComposerElementId="my-composer"   // Associate with specific element (v4.7.4+)
+  placeholder="Leave a comment..."       // Custom placeholder text
+  readOnly={false}                        // Disable input — makes composer view-only
+  targetComposerElementId="my-composer"   // Associate with specific element for programmatic submit
+  context={{ projectId: 'proj-1', section: 'header' }} // Custom metadata on comments
+  documentId="doc-123"                    // Associate comments with specific document
+  folderId="folder-1"                     // Associate comments with specific folder
+  locationId={1}                          // Associate comments with specific location
 />
 ```
 
@@ -137,10 +141,18 @@ function ComposerControls() {
     commentElement.clearComposer();
   };
 
+  const readState = () => {
+    const commentElement = client.getCommentElement();
+    const data = commentElement.getComposerData();
+    // Returns: { text, html, attachments, taggedUsers, ... }
+    console.log('Composer state:', data);
+  };
+
   return (
     <>
       <button onClick={submit}>Submit</button>
       <button onClick={clear}>Clear</button>
+      <button onClick={readState}>Read State</button>
     </>
   );
 }

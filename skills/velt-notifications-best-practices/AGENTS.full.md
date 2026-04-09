@@ -1067,6 +1067,35 @@ const response = await fetch('https://api.velt.dev/v2/notifications/add', {
 });
 ```
 
+**Correct (resolver write-side — structural data only, PII omitted):**
+
+```javascript
+// POST https://api.velt.dev/v2/notifications/add
+// When isNotificationResolverUsed: true, displayHeadlineMessageTemplate
+// and displayBodyMessage are not required — the resolver supplies them at read time.
+
+const response = await fetch('https://api.velt.dev/v2/notifications/add', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': 'YOUR_API_KEY',
+    'x-velt-auth-token': 'YOUR_AUTH_TOKEN'
+  },
+  body: JSON.stringify({
+    data: {
+      apiKey: 'YOUR_API_KEY',
+      organizationId: 'org-abc',
+      documentId: 'doc-789',
+      notificationSource: 'custom',
+      isNotificationResolverUsed: true,
+      actionUser: { userId: 'user-123' },
+      notifyUsers: [{ userId: 'user-456' }]
+      // displayHeadlineMessageTemplate and displayBodyMessage omitted
+    }
+  })
+});
+```
+
 **Example Use Cases:**
 
 ```javascript

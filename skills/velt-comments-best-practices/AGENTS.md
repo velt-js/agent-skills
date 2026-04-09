@@ -23,7 +23,7 @@
 
 ## 6. Data Model — MEDIUM
 |react/data:{data-filtering-grouping.md,data-comment-annotations.md}
-|shared/data:{data-context-metadata.md,data-agent-fields-query.md,data-activity-action-types.md,data-comment-annotation-data-provider.md,data-trigger-activities.md}
+|shared/data:{data-context-metadata.md,data-agent-fields-query.md,data-activity-action-types.md,data-comment-annotation-data-provider.md,data-trigger-activities.md,data-annotation-crud.md,data-comment-crud.md,data-read-status.md,data-composer-api.md,data-types-reference.md}
 
 ## 7. Debugging & Testing — LOW-MEDIUM
 |react/debug:{debug-common-issues.md,debug-verification.md}
@@ -33,3 +33,12 @@
 
 ## 9. Attachments & Reactions — MEDIUM
 |shared/attach:{attach-download-control.md}
+
+## 10. Configuration — MEDIUM
+|shared/config:{config-mentions-contacts.md,config-status-priority.md,config-reactions.md,config-attachments.md,config-text-formatting.md,config-navigation.md,config-dom-controls.md,config-sidebar-management.md,config-ui-behavior.md,config-moderation.md}
+
+## 11. Events — MEDIUM
+|shared/events:{events-comment-lifecycle.md}
+
+## 12. REST API — HIGH
+|shared/rest:{rest-comment-annotations-api.md,rest-comments-api.md}

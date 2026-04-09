@@ -141,6 +141,33 @@ notificationElement.disableSettings();
 notificationElement.enableSettings();
 ```
 
+**Organization-Level Settings:**
+
+```jsx
+// Apply settings as org-wide defaults (all users inherit unless overridden)
+notificationElement.enableSettingsAtOrganizationLevel();
+
+// Revert to per-user settings
+notificationElement.disableSettingsAtOrganizationLevel();
+
+// Or via component prop:
+<VeltNotificationsTool enableSettingsAtOrganizationLevel={true} />
+```
+
+**Read Notifications on For You Tab:**
+
+```jsx
+// By default, read notifications are hidden in the For You tab.
+// Enable to show them:
+notificationElement.enableReadNotificationsOnForYouTab();
+
+// Disable again:
+notificationElement.disableReadNotificationsOnForYouTab();
+
+// Or via component prop:
+<VeltNotificationsTool readNotificationsOnForYouTab={true} />
+```
+
 **Verification:**
 - [ ] setSettingsInitialConfig called before user interaction
 - [ ] Each channel has id, name, enable, default, and values
