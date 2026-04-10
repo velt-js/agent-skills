@@ -115,7 +115,7 @@ export default function App() {
 
 1. Place VeltProvider in page component (not layout) for Next.js App Router
 2. The file must have `'use client'` directive for Next.js
-3. Do not call identify() or setDocument() in the same file as VeltProvider
+3. Do not call auth hooks or setDocument() in the same file as VeltProvider — use child components
 4. Use child components for authentication and document setup
 
 **Verification:**

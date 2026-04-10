@@ -1,6 +1,7 @@
 # Velt Setup Best Practices
 |v1.0.0|Velt|January 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
+|IMPORTANT: VeltProvider requires the `authProvider` prop for authentication. Do NOT use the deprecated `useIdentify` hook. See identity-auth-provider.md for the full pattern.
 |root: ./rules
 
 ## 1. Installation — CRITICAL

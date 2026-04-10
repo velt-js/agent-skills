@@ -1,0 +1,132 @@
+{
+  "skill_name": "velt-comments-best-practices",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I have a Next.js app at /Users/yoenzhang/Downloads/velt-test-demo-scaffolding with Velt already set up (VeltProvider with authProvider in the dashboard page). I want to add freestyle comments to the document pages at /dashboard/[docId]. Users should be able to pin comments on the page content, see a sidebar with all comments, and toggle the sidebar from a button in the header. The commenting should be restricted to only the main content area (not the header or navigation).",
+      "expected_output": "VeltComments with textMode={false} and allowedElementIds restricting to content area, VeltCommentTool in header, VeltCommentsSidebar, VeltSidebarButton, shadowDom={false}, proper component coordination.",
+      "files": [
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/page.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/layout.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/providers.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/userAuth/AppUserContext.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/package.json"
+      ],
+      "assertions": [
+        {
+          "id": "freestyle-textmode-false",
+          "text": "VeltComments has textMode={false} since freestyle mode is being used",
+          "type": "code_check"
+        },
+        {
+          "id": "allowed-element-ids",
+          "text": "VeltComments uses allowedElementIds to restrict commenting to the content area",
+          "type": "code_check"
+        },
+        {
+          "id": "sidebar-present",
+          "text": "VeltCommentsSidebar is included alongside VeltComments",
+          "type": "code_check"
+        },
+        {
+          "id": "sidebar-button",
+          "text": "VeltSidebarButton or equivalent toggle is in the header/toolbar",
+          "type": "code_check"
+        },
+        {
+          "id": "comment-tool",
+          "text": "VeltCommentTool is included for adding comments",
+          "type": "code_check"
+        },
+        {
+          "id": "shadow-dom-false",
+          "text": "shadowDom={false} is set on VeltComments for CSS customization access",
+          "type": "code_check"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "I need to add TipTap editor commenting to my Next.js app at /Users/yoenzhang/Downloads/velt-test-demo-scaffolding. The app has document pages at /dashboard/[docId] with Velt already configured. I want users to select text in the TipTap editor and add comments via a bubble menu button. Comments should highlight the text and show in a sidebar. Make sure the editor scroll position is preserved when adding comments.",
+      "expected_output": "TiptapVeltComments extension, BubbleMenu from @tiptap/react/menus (not @tiptap/react), addComment and renderComments from v5 API, scroll preservation pattern, useCommentAnnotations hook, VeltComments with textMode={false}.",
+      "files": [
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/page.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/layout.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/providers.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/userAuth/AppUserContext.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/package.json"
+      ],
+      "assertions": [
+        {
+          "id": "tiptap-extension",
+          "text": "TiptapVeltComments extension is added to the TipTap editor configuration",
+          "type": "code_check"
+        },
+        {
+          "id": "bubble-menu-correct-import",
+          "text": "BubbleMenu is imported from @tiptap/react/menus (not @tiptap/react)",
+          "type": "code_check"
+        },
+        {
+          "id": "v5-api-usage",
+          "text": "Uses renderComments (v5 API), not highlightComments (v4 API)",
+          "type": "code_check"
+        },
+        {
+          "id": "scroll-preservation",
+          "text": "Scroll position is preserved when adding comments (scrollTop saved/restored or requestAnimationFrame used)",
+          "type": "code_check"
+        },
+        {
+          "id": "comment-annotations-hook",
+          "text": "useCommentAnnotations hook is used to get annotations and pass to renderComments",
+          "type": "code_check"
+        },
+        {
+          "id": "textmode-false-with-editor",
+          "text": "VeltComments has textMode={false} since TipTap editor handles text comments",
+          "type": "code_check"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Add inline comments to my Next.js dashboard at /Users/yoenzhang/Downloads/velt-test-demo-scaffolding. The dashboard page at /dashboard/[docId] shows a list of items (like tasks or rows). I want each item to have its own inline comment section where users can discuss that specific item. Each comment section should include context metadata about which item it belongs to (like an item ID and status). Comments should appear below each item with the composer at the bottom.",
+      "expected_output": "VeltInlineCommentsSection with targetElementId per item, context prop with item metadata, composerPosition='bottom', VeltComments configured for inline mode (popoverMode, textMode={false}), shadowDom={false}.",
+      "files": [
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/page.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/layout.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/providers.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/userAuth/AppUserContext.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/package.json"
+      ],
+      "assertions": [
+        {
+          "id": "inline-section-per-item",
+          "text": "VeltInlineCommentsSection is rendered per item with unique targetElementId",
+          "type": "code_check"
+        },
+        {
+          "id": "context-metadata",
+          "text": "VeltInlineCommentsSection includes context prop with item-specific metadata (e.g., itemId, status)",
+          "type": "code_check"
+        },
+        {
+          "id": "composer-position-bottom",
+          "text": "composerPosition is set to 'bottom' on VeltInlineCommentsSection",
+          "type": "code_check"
+        },
+        {
+          "id": "textmode-false-inline",
+          "text": "VeltComments has textMode={false} when using inline comment sections",
+          "type": "code_check"
+        },
+        {
+          "id": "shadow-dom-false-inline",
+          "text": "shadowDom={false} is set for CSS customization",
+          "type": "code_check"
+        }
+      ]
+    }
+  ]
+}

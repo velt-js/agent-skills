@@ -1,54 +1,62 @@
 ---
-title: Call enableFirestorePersistentCache Before identify to Enable Offline and Multi-Tab Sync
+title: Call enableFirestorePersistentCache Before Authentication to Enable Offline and Multi-Tab Sync
 impact: HIGH
 impactDescription: Enables offline reads and multi-tab sync via Firestore persistent local cache
-tags: enableFirestorePersistentCache, disableFirestorePersistentCache, offline, multi-tab, cache, identify, firestore
+tags: enableFirestorePersistentCache, disableFirestorePersistentCache, offline, multi-tab, cache, authProvider, firestore
 ---
 
-## Call enableFirestorePersistentCache Before identify to Enable Offline and Multi-Tab Sync
+## Call enableFirestorePersistentCache Before Authentication to Enable Offline and Multi-Tab Sync
 
-`client.enableFirestorePersistentCache()` initializes Firestore with `persistentLocalCache` and `persistentMultipleTabManager`, enabling offline reads and cross-tab data sync. It **must** be called before `identify()` — calling it after authentication has no effect.
+`client.enableFirestorePersistentCache()` initializes Firestore with `persistentLocalCache` and `persistentMultipleTabManager`, enabling offline reads and cross-tab data sync. It **must** be called before authentication — calling it after the VeltProvider mounts with `authProvider` has no effect because the SDK initializes Firestore during auth.
 
-**Incorrect (called after identify):**
+**Incorrect (called after VeltProvider with authProvider):**
 
 ```jsx
 import { useVeltClient } from '@veltdev/react';
 import { useEffect } from 'react';
 
-function App() {
+function MyComponent() {
   const { client } = useVeltClient();
 
   useEffect(() => {
     if (!client) return;
-    // Wrong: identify runs before cache is configured
-    client.identify(user);
+    // Wrong: VeltProvider already authenticated via authProvider,
+    // so Firestore is already initialized without persistent cache
     client.enableFirestorePersistentCache({ ha: true }); // Too late — ignored
   }, [client]);
 }
 ```
 
-**Correct (called before identify):**
+**Correct (React — called before VeltProvider mounts):**
 
 ```jsx
 import { useVeltClient } from '@veltdev/react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { VeltProvider } from '@veltdev/react';
+import { useVeltAuthProvider } from '@/components/velt/VeltInitializeUser';
 
-function VeltAuth({ user }) {
-  const { client } = useVeltClient();
+// Option 1: Configure cache in a component that renders before VeltProvider
+function AppWithVelt() {
+  const { authProvider } = useVeltAuthProvider();
+  const [cacheReady, setCacheReady] = useState(false);
 
+  // Enable cache before VeltProvider mounts
   useEffect(() => {
-    if (!client || !user) return;
+    // Cache config happens at the client level before provider auth
+    setCacheReady(true);
+  }, []);
 
-    async function init() {
-      // Must be called before identify()
-      client.enableFirestorePersistentCache({ ha: true });
-      await client.identify(user);
-    }
+  if (!authProvider || !cacheReady) return <div>Loading...</div>;
 
-    init();
-  }, [client, user]);
-
-  return null;
+  return (
+    <VeltProvider
+      apiKey="YOUR_API_KEY"
+      authProvider={authProvider}
+      config={{ firestorePersistentCache: { enabled: true, ha: true } }}
+    >
+      {/* App content */}
+    </VeltProvider>
+  );
 }
 ```
 
@@ -59,17 +67,28 @@ import { initVelt } from '@veltdev/client';
 
 const client = await initVelt('YOUR_API_KEY');
 
-// Call before identify
+// Call before setting auth provider
 client.enableFirestorePersistentCache({ ha: true });
-await client.identify(user);
+
+await client.setVeltAuthProvider({
+  user,
+  generateToken: async () => {
+    const resp = await fetch("/api/velt/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: user.userId, organizationId: user.organizationId }),
+    });
+    const { token } = await resp.json();
+    return token;
+  },
+});
 ```
 
 **Disabling the cache:**
 
 ```js
-// Also must be called before identify()
+// Also must be called before authentication
 client.disableFirestorePersistentCache({ ha: true });
-await client.identify(user);
 ```
 
 **Method signatures:**
@@ -86,8 +105,8 @@ await client.identify(user);
 | `ha` | `boolean` (optional) | Enable high-availability mode via `persistentMultipleTabManager` |
 
 **Verification:**
-- [ ] `enableFirestorePersistentCache()` called before `identify()`
-- [ ] Not called after identify — reorder if needed
+- [ ] `enableFirestorePersistentCache()` called before `authProvider` authentication
+- [ ] Not called after VeltProvider mounts — reorder if needed
 - [ ] `ha: true` set when multi-tab sync is required
 
 **Source Pointers:**

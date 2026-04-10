@@ -9,29 +9,9 @@ tags: authprovider, authentication, jwt, token, veltprovider
 
 The authProvider prop on VeltProvider is the recommended way to authenticate users. It provides automatic token refresh and proper error handling for production applications.
 
-**Incorrect (development-only approach):**
+**Do not use the deprecated `useIdentify` hook.** It lacks token refresh, error handling, and retry logic. Always use `authProvider` on VeltProvider instead.
 
-```jsx
-// Using useIdentify without tokens - OK for dev, insecure for prod
-"use client";
-import { VeltProvider, useIdentify } from "@veltdev/react";
-
-function AuthComponent() {
-  const user = { userId: "123", organizationId: "org", name: "John", email: "j@e.com" };
-  useIdentify(user);  // No JWT token - development only
-  return null;
-}
-
-export default function App() {
-  return (
-    <VeltProvider apiKey="YOUR_KEY">
-      <AuthComponent />
-    </VeltProvider>
-  );
-}
-```
-
-**Correct (production with authProvider):**
+**Correct (authProvider on VeltProvider):**
 
 ```jsx
 "use client";

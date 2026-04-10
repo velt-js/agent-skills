@@ -27,23 +27,7 @@ export default function App() {
 }
 ```
 
-**Incorrect (in same file as VeltProvider without separation):**
-
-```jsx
-// Calling identify in same component as VeltProvider
-"use client";
-import { VeltProvider, useIdentify, VeltComments } from "@veltdev/react";
-
-export default function App() {
-  useIdentify(user);  // Won't work - provider not mounted yet
-
-  return (
-    <VeltProvider apiKey="KEY">
-      <VeltComments />
-    </VeltProvider>
-  );
-}
-```
+**Incorrect (auth hooks in same component as VeltProvider):** Do not call auth hooks or document setup hooks in the same component that renders VeltProvider — the provider isn't mounted yet when those hooks run. Use child components for authentication (via `authProvider` prop) and document setup.
 
 **Correct (components in VeltCollaboration wrapper):**
 

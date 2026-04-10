@@ -1,0 +1,44 @@
+{
+  "skill_name": "velt-activity-best-practices",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I have a Next.js app at /Users/yoenzhang/Downloads/velt-test-demo-scaffolding with Velt set up. I want to add an activity feed to the document pages at /dashboard/[docId] that shows all collaboration events (comments added, edits, etc.). The activity feed should be in a sidebar panel that users can toggle. Use the built-in VeltActivityLog component.",
+      "expected_output": "VeltActivityLog component rendered (not conditionally — use display:none for toggling), activity feed in sidebar, toggle button, proper document setup.",
+      "files": [],
+      "assertions": [
+        {"id": "activity-log-component", "text": "VeltActivityLog component is rendered in the page", "type": "code_check"},
+        {"id": "no-conditional-render", "text": "VeltActivityLog is NOT conditionally rendered with && or ternary — uses display:none or CSS for toggling", "type": "code_check"},
+        {"id": "shadow-dom-false", "text": "shadowDom={false} is set on VeltActivityLog for CSS customization", "type": "code_check"},
+        {"id": "document-setup", "text": "Document context is set using setDocuments or useSetDocument with the docId", "type": "code_check"},
+        {"id": "auth-provider", "text": "Uses authProvider pattern on VeltProvider, not identify()", "type": "code_check"}
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "Add a custom activity logging system to my Next.js app at /Users/yoenzhang/Downloads/velt-test-demo-scaffolding. When users perform actions in the dashboard (like updating a task status or assigning someone), I want to log those as custom activity records in Velt's activity feed. Use the useActivityUtils hook to create custom activity entries with action types and metadata.",
+      "expected_output": "useActivityUtils hook used, createActivity called with proper ActivityRecord structure including actionType, actionUser, and timestamp.",
+      "files": [],
+      "assertions": [
+        {"id": "use-activity-utils", "text": "useActivityUtils() hook is imported and used", "type": "code_check"},
+        {"id": "create-activity-call", "text": "createActivity() is called with an ActivityRecord object", "type": "code_check"},
+        {"id": "action-type-field", "text": "ActivityRecord includes actionType field", "type": "code_check"},
+        {"id": "action-user-field", "text": "ActivityRecord includes actionUser with userId and name", "type": "code_check"},
+        {"id": "auth-provider", "text": "Uses authProvider pattern on VeltProvider, not identify()", "type": "code_check"}
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "I want to subscribe to real-time activity updates in my Next.js app at /Users/yoenzhang/Downloads/velt-test-demo-scaffolding. On the dashboard page, I need to show a live count of recent activities and display the latest 5 activity items with user info and timestamps. Use the useAllActivities hook to get the data.",
+      "expected_output": "useAllActivities hook used with proper null handling, activity count displayed, latest items rendered with user info and timestamps.",
+      "files": [],
+      "assertions": [
+        {"id": "use-all-activities", "text": "useAllActivities() hook is imported and used", "type": "code_check"},
+        {"id": "null-handling", "text": "Handles the null loading state from useAllActivities (checks for null before rendering)", "type": "code_check"},
+        {"id": "activity-count", "text": "Displays a count of activities", "type": "code_check"},
+        {"id": "latest-items-rendered", "text": "Renders individual activity items with user info", "type": "code_check"},
+        {"id": "auth-provider", "text": "Uses authProvider pattern on VeltProvider, not identify()", "type": "code_check"}
+      ]
+    }
+  ]
+}

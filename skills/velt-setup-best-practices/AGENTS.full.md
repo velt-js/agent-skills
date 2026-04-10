@@ -41,7 +41,7 @@ Comprehensive setup guide for integrating Velt collaboration SDK into web applic
    - 4.3 [Initialize Documents with setDocuments API](#43-initialize-documents-with-setdocuments-api)
 
 5. [Config](#5-config) — **HIGH**
-   - 5.1 [Call enableFirestorePersistentCache Before identify to Enable Offline and Multi-Tab Sync](#51-call-enablefirestorepersistentcache-before-identify-to-enable-offline-and-multi-tab-sync)
+   - 5.1 [Call enableFirestorePersistentCache Before Authentication to Enable Offline and Multi-Tab Sync](#51-call-enablefirestorepersistentcache-before-authentication-to-enable-offline-and-multi-tab-sync)
    - 5.2 [Configure API Key from Console](#52-configure-api-key-from-console)
    - 5.3 [Configure Firebase Reverse Proxy via proxyConfig](#53-configure-firebase-reverse-proxy-via-proxyconfig)
    - 5.4 [Secure Auth Tokens on Server Side](#54-secure-auth-tokens-on-server-side)
@@ -571,29 +571,9 @@ User authentication and identity mapping. Velt requires authenticated users with
 
 The authProvider prop on VeltProvider is the recommended way to authenticate users. It provides automatic token refresh and proper error handling for production applications.
 
-**Incorrect (development-only approach):**
+**Do not use the deprecated `useIdentify` hook.** It lacks token refresh, error handling, and retry logic. Always use `authProvider` on VeltProvider instead.
 
-```jsx
-// Using useIdentify without tokens - OK for dev, insecure for prod
-"use client";
-import { VeltProvider, useIdentify } from "@veltdev/react";
-
-function AuthComponent() {
-  const user = { userId: "123", organizationId: "org", name: "John", email: "j@e.com" };
-  useIdentify(user);  // No JWT token - development only
-  return null;
-}
-
-export default function App() {
-  return (
-    <VeltProvider apiKey="YOUR_KEY">
-      <AuthComponent />
-    </VeltProvider>
-  );
-}
-```
-
-**Correct (production with authProvider):**
+**Correct (authProvider on VeltProvider):**
 
 ```jsx
 "use client";
@@ -939,7 +919,7 @@ const user = {
   // organizationId missing!
 };
 
-await client.identify(user);  // Access control won't work properly
+// If organizationId is missing from the authProvider user object, access control won't work
 ```
 
 **Incorrect (hardcoded for all users):**
@@ -1582,52 +1562,27 @@ await Velt.setDocuments([
 
 API keys, environment variables, and security configuration. Includes console.velt.dev setup, domain whitelisting, auth token security practices, and Firestore persistent cache configuration.
 
-### 5.1 Call enableFirestorePersistentCache Before identify to Enable Offline and Multi-Tab Sync
+### 5.1 Call enableFirestorePersistentCache Before Authentication to Enable Offline and Multi-Tab Sync
 
 **Impact: HIGH (Enables offline reads and multi-tab sync via Firestore persistent local cache)**
 
-`client.enableFirestorePersistentCache()` initializes Firestore with `persistentLocalCache` and `persistentMultipleTabManager`, enabling offline reads and cross-tab data sync. It **must** be called before `identify()` — calling it after authentication has no effect.
+`client.enableFirestorePersistentCache()` initializes Firestore with `persistentLocalCache` and `persistentMultipleTabManager`, enabling offline reads and cross-tab data sync. It **must** be called before authentication — calling it after the VeltProvider mounts with `authProvider` has no effect because the SDK initializes Firestore during auth.
 
-**Incorrect (called after identify):**
+**Incorrect (called after VeltProvider with authProvider):**
 
 ```jsx
 import { useVeltClient } from '@veltdev/react';
 import { useEffect } from 'react';
 
-function App() {
+function MyComponent() {
   const { client } = useVeltClient();
 
   useEffect(() => {
     if (!client) return;
-    // Wrong: identify runs before cache is configured
-    client.identify(user);
+    // Wrong: VeltProvider already authenticated via authProvider,
+    // so Firestore is already initialized without persistent cache
     client.enableFirestorePersistentCache({ ha: true }); // Too late — ignored
   }, [client]);
-}
-```
-
-**Correct (called before identify):**
-
-```jsx
-import { useVeltClient } from '@veltdev/react';
-import { useEffect } from 'react';
-
-function VeltAuth({ user }) {
-  const { client } = useVeltClient();
-
-  useEffect(() => {
-    if (!client || !user) return;
-
-    async function init() {
-      // Must be called before identify()
-      client.enableFirestorePersistentCache({ ha: true });
-      await client.identify(user);
-    }
-
-    init();
-  }, [client, user]);
-
-  return null;
 }
 ```
 
@@ -1638,17 +1593,28 @@ import { initVelt } from '@veltdev/client';
 
 const client = await initVelt('YOUR_API_KEY');
 
-// Call before identify
+// Call before setting auth provider
 client.enableFirestorePersistentCache({ ha: true });
-await client.identify(user);
+
+await client.setVeltAuthProvider({
+  user,
+  generateToken: async () => {
+    const resp = await fetch("/api/velt/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: user.userId, organizationId: user.organizationId }),
+    });
+    const { token } = await resp.json();
+    return token;
+  },
+});
 ```
 
 **Disabling the cache:**
 
 ```js
-// Also must be called before identify()
+// Also must be called before authentication
 client.disableFirestorePersistentCache({ ha: true });
-await client.identify(user);
 ```
 
 ---
@@ -1996,7 +1962,7 @@ Based on Velt sample applications, organize all Velt-specific components and hoo
 
 ```typescript
 app/
-├── page.tsx          # VeltProvider, identify, setDocument all here
+├── page.tsx          # VeltProvider, authProvider, setDocument all here
 ├── components/
 │   ├── Header.tsx    # VeltComments mixed in
 │   ├── Sidebar.tsx   # VeltPresence mixed in
@@ -2134,32 +2100,7 @@ export function VeltCollaboration() {
 
 Keep your application's authentication system separate from Velt integration. Your app owns user authentication; Velt receives user data from your auth system.
 
-**Incorrect (tightly coupled):**
-
-```jsx
-// Everything mixed together - hard to maintain
-"use client";
-import { VeltProvider, useIdentify } from "@veltdev/react";
-import { useAuth0 } from "@auth0/auth0-react";
-
-export default function App() {
-  const { user, isAuthenticated } = useAuth0();
-
-  // Velt identity directly coupled to Auth0
-  useIdentify(isAuthenticated ? {
-    userId: user.sub,
-    organizationId: user.org_id,
-    name: user.name,
-    email: user.email,
-  } : null);
-
-  return (
-    <VeltProvider apiKey="KEY">
-      {/* Everything else */}
-    </VeltProvider>
-  );
-}
-```
+**Incorrect (tightly coupled):** Mixing your app's auth provider (Auth0, Firebase, etc.) directly with VeltProvider in a single component makes it hard to test, maintain, or swap auth providers. Keep them separated into layers.
 
 **Correct (separated layers):**
 
@@ -2496,23 +2437,7 @@ export default function App() {
 }
 ```
 
-**Incorrect (in same file as VeltProvider without separation):**
-
-```jsx
-// Calling identify in same component as VeltProvider
-"use client";
-import { VeltProvider, useIdentify, VeltComments } from "@veltdev/react";
-
-export default function App() {
-  useIdentify(user);  // Won't work - provider not mounted yet
-
-  return (
-    <VeltProvider apiKey="KEY">
-      <VeltComments />
-    </VeltProvider>
-  );
-}
-```
+**Incorrect (auth hooks in same component as VeltProvider):** Do not call auth hooks or document setup hooks in the same component that renders VeltProvider — the provider isn't mounted yet when those hooks run. Use `authProvider` prop and child components instead.
 
 **Correct (components in VeltCollaboration wrapper):**
 

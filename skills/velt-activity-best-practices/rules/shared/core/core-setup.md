@@ -63,15 +63,47 @@ activityElement.getAllActivities().subscribe((activities) => {
 });
 ```
 
+**VeltProvider with authProvider (required for activity logs to work):**
+
+Activity logs require an authenticated user. Use `authProvider` on VeltProvider — not the deprecated `useIdentify` hook, which is legacy and will be removed.
+
+```jsx
+import { VeltProvider } from '@veltdev/react';
+
+// Build authProvider from your app's user context
+const authProvider = user ? {
+  user: {
+    userId: user.userId,
+    organizationId: user.organizationId,
+    name: user.name,
+    email: user.email,
+  },
+  retryConfig: { retryCount: 3, retryDelay: 1000 },
+  generateToken: async () => {
+    const resp = await fetch("/api/velt/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: user.userId, organizationId: user.organizationId }),
+    });
+    const { token } = await resp.json();
+    return token;
+  },
+} : undefined;
+
+<VeltProvider apiKey={process.env.NEXT_PUBLIC_VELT_API_KEY!} authProvider={authProvider}>
+  {/* Activity log components go here */}
+</VeltProvider>
+```
+
 **Setup Steps:**
 
 1. **Enable in Console**: Go to [console.velt.dev](https://console.velt.dev) > Dashboard > Configuration > Activity Logs and toggle on
-2. **Verify**: Subscribe to activities and confirm data flows
+2. **Configure VeltProvider** with `authProvider` (see above)
+3. **Verify**: Subscribe to activities and confirm data flows
 
 **Verification:**
 - [ ] Activity Logs enabled in Velt Console
-- [ ] VeltProvider configured with API key
-- [ ] User authenticated via Velt
+- [ ] VeltProvider configured with API key and `authProvider` prop (not `useIdentify`)
 - [ ] Basic subscription returns activity data (not perpetually null)
 
 **Source Pointer:** https://docs.velt.dev/async-collaboration/activity/setup - Enable Activity Logs in the Velt Console

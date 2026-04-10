@@ -13,7 +13,7 @@ Based on Velt sample applications, organize all Velt-specific components and hoo
 
 ```
 app/
-├── page.tsx          # VeltProvider, identify, setDocument all here
+├── page.tsx          # VeltProvider, authProvider, setDocument all here
 ├── components/
 │   ├── Header.tsx    # VeltComments mixed in
 │   ├── Sidebar.tsx   # VeltPresence mixed in

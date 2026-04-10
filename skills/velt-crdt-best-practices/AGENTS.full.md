@@ -1470,10 +1470,12 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (###
 
 When both Comments and CRDT features are selected for a Tiptap editor, the `TiptapVeltComments` extension **must** be added to the editor's extensions array. The global `<VeltComments>` component alone is not sufficient — it initializes the comment infrastructure but the editor needs the extension to handle comment creation and rendering. Without it, the app freezes when a user tries to add a comment.
 
-**Required integration (3 parts):**
+**Required integration (4 parts):**
+
+**Part 0: Configure VeltComments** — `<VeltComments textMode={false} shadowDom={false} />` is required when using TipTap editor integration. The editor extension handles text commenting, not the default text mode.
 
 ```tsx
-import { TiptapVeltComments, triggerAddComment, highlightComments } from "@veltdev/tiptap-velt-comments";
+import { TiptapVeltComments, addComment, renderComments } from "@veltdev/tiptap-velt-comments";
 import { useCommentAnnotations } from "@veltdev/react";
 
 const editor = useEditor({
@@ -1488,10 +1490,10 @@ const commentAnnotations = useCommentAnnotations();
 
 useEffect(() => {
   if (editor && commentAnnotations?.length) {
-    highlightComments(editor, commentAnnotations);
+    renderComments({ editor, commentAnnotations });
   }
 }, [editor, commentAnnotations]);
-<button onClick={() => triggerAddComment(editor)}>💬 Comment</button>
+<button onClick={() => addComment({ editor })}>Add Comment</button>
 ```
 
 **Common mistake — causes FREEZE:**

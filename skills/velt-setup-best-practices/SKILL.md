@@ -1,6 +1,6 @@
 ---
 name: velt-setup-best-practices
-description: Velt collaboration SDK setup guide for React, Next.js, Angular, Vue, and HTML applications. Use this skill when setting up Velt for the first time, configuring VeltProvider, implementing user authentication, or initializing document collaboration.
+description: Velt collaboration SDK setup guide for React, Next.js, Angular, Vue, and HTML applications. Use this skill when setting up Velt for the first time, configuring VeltProvider, implementing user authentication with authProvider and JWT tokens, initializing document collaboration with setDocuments, or debugging Velt setup issues. Triggers on any task involving Velt installation, VeltProvider configuration, auth token generation, document identity setup, or project structure for Velt integration — even if the user doesn't explicitly mention "setup".
 license: MIT
 metadata:
   author: velt

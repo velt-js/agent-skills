@@ -1,0 +1,127 @@
+{
+  "skill_name": "velt-setup-best-practices",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I have a Next.js app at /Users/yoenzhang/Downloads/velt-test-demo-scaffolding. I need to add Velt collaboration to it. Set up Velt with proper JWT authentication so it's production-ready. The app already has user auth in app/userAuth/AppUserContext.tsx and document routing at /dashboard/[docId]. Install the packages, set up VeltProvider with auth, create the JWT token endpoint, and initialize documents based on the route.",
+      "expected_output": "Velt packages installed, VeltProvider configured with authProvider (not identify), JWT server route created at /api/velt/token, document initialization using setDocuments with the docId from the route, proper separation of concerns with VeltInitializeUser and VeltCollaboration components.",
+      "files": [
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/page.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/layout.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/providers.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/userAuth/AppUserContext.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/package.json"
+      ],
+      "assertions": [
+        {
+          "id": "auth-uses-authprovider",
+          "text": "Uses authProvider prop on VeltProvider, not identify() or useIdentify()",
+          "type": "code_check"
+        },
+        {
+          "id": "jwt-server-route",
+          "text": "Creates a server-side API route for JWT token generation (not client-side)",
+          "type": "code_check"
+        },
+        {
+          "id": "org-id-included",
+          "text": "organizationId is included in the user object passed to authProvider",
+          "type": "code_check"
+        },
+        {
+          "id": "document-init",
+          "text": "Documents are initialized using setDocuments (or equivalent) with the docId from the route",
+          "type": "code_check"
+        },
+        {
+          "id": "separation-of-concerns",
+          "text": "Velt auth and components are in separate files from the main page (e.g., VeltInitializeUser, VeltCollaboration)",
+          "type": "code_check"
+        },
+        {
+          "id": "packages-installed",
+          "text": "@veltdev/react is added as a dependency",
+          "type": "code_check"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "I have a Next.js scaffolding at /Users/yoenzhang/Downloads/velt-test-demo-scaffolding. I want to add real-time collaboration to it using Velt. The app has pages at /dashboard/[docId] where users edit documents. Set it up so multiple users can collaborate on the same document. Make sure the auth is production-grade with JWT tokens.",
+      "expected_output": "Complete Velt setup with VeltProvider, authProvider with JWT, document identity tied to the [docId] route parameter, presence indicators, and proper component organization.",
+      "files": [
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/page.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/layout.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/providers.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/userAuth/AppUserContext.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/package.json"
+      ],
+      "assertions": [
+        {
+          "id": "auth-uses-authprovider",
+          "text": "Uses authProvider prop on VeltProvider, not identify() or useIdentify()",
+          "type": "code_check"
+        },
+        {
+          "id": "jwt-server-route",
+          "text": "Creates a server-side API route for JWT token generation",
+          "type": "code_check"
+        },
+        {
+          "id": "docid-from-route",
+          "text": "Document ID is derived from the [docId] route parameter, not hardcoded",
+          "type": "code_check"
+        },
+        {
+          "id": "retry-config",
+          "text": "authProvider includes retryConfig for resilient token generation",
+          "type": "code_check"
+        },
+        {
+          "id": "velt-types-import",
+          "text": "VeltAuthProvider type is imported from @veltdev/types",
+          "type": "code_check"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "Set up Velt in my Next.js app at /Users/yoenzhang/Downloads/velt-test-demo-scaffolding for a multi-tenant SaaS. Each organization should only see their own documents. Users belong to organizations (the org ID comes from AppUserContext). I need proper auth with JWT and document isolation per org.",
+      "expected_output": "Velt setup with organizationId from AppUserContext passed through authProvider, JWT endpoint that includes organizationId, document setup with org-scoped access.",
+      "files": [
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/page.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/layout.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/providers.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/app/userAuth/AppUserContext.tsx",
+        "/Users/yoenzhang/Downloads/velt-test-demo-scaffolding/package.json"
+      ],
+      "assertions": [
+        {
+          "id": "auth-uses-authprovider",
+          "text": "Uses authProvider prop on VeltProvider, not identify() or useIdentify()",
+          "type": "code_check"
+        },
+        {
+          "id": "org-id-from-context",
+          "text": "organizationId is sourced from AppUserContext, not hardcoded",
+          "type": "code_check"
+        },
+        {
+          "id": "jwt-includes-org",
+          "text": "JWT token endpoint receives and passes organizationId",
+          "type": "code_check"
+        },
+        {
+          "id": "no-identify",
+          "text": "No usage of client.identify() or useIdentify() anywhere in the output",
+          "type": "code_check"
+        },
+        {
+          "id": "api-key-not-hardcoded",
+          "text": "API key uses environment variable (process.env.NEXT_PUBLIC_VELT_API_KEY or similar)",
+          "type": "code_check"
+        }
+      ]
+    }
+  ]
+}

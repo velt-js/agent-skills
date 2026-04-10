@@ -9,32 +9,7 @@ tags: separation, concerns, auth, architecture, maintainability
 
 Keep your application's authentication system separate from Velt integration. Your app owns user authentication; Velt receives user data from your auth system.
 
-**Incorrect (tightly coupled):**
-
-```jsx
-// Everything mixed together - hard to maintain
-"use client";
-import { VeltProvider, useIdentify } from "@veltdev/react";
-import { useAuth0 } from "@auth0/auth0-react";
-
-export default function App() {
-  const { user, isAuthenticated } = useAuth0();
-
-  // Velt identity directly coupled to Auth0
-  useIdentify(isAuthenticated ? {
-    userId: user.sub,
-    organizationId: user.org_id,
-    name: user.name,
-    email: user.email,
-  } : null);
-
-  return (
-    <VeltProvider apiKey="KEY">
-      {/* Everything else */}
-    </VeltProvider>
-  );
-}
-```
+**Incorrect (tightly coupled):** Mixing your app's auth provider (Auth0, Firebase, etc.) directly with VeltProvider in a single component makes it hard to test, maintain, or swap auth providers. Keep them separated into layers.
 
 **Correct (separated layers):**
 

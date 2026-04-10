@@ -9,12 +9,20 @@ tags: tiptap, comments, crdt, freeze, extension, TiptapVeltComments
 
 When both Comments and CRDT features are selected for a Tiptap editor, the `TiptapVeltComments` extension **must** be added to the editor's extensions array. The global `<VeltComments>` component alone is not sufficient — it initializes the comment infrastructure but the editor needs the extension to handle comment creation and rendering. Without it, the app freezes when a user tries to add a comment.
 
-**Required integration (3 parts):**
+**Required integration (4 parts):**
+
+### Part 0: Configure VeltComments for editor mode
+
+```tsx
+// VeltComments must have textMode={false} and shadowDom={false} when using TipTap —
+// the editor extension handles text commenting, not the default text mode.
+<VeltComments textMode={false} shadowDom={false} />
+```
 
 ### Part 1: Add the extension to the editor
 
 ```tsx
-import { TiptapVeltComments, triggerAddComment, highlightComments } from "@veltdev/tiptap-velt-comments";
+import { TiptapVeltComments, addComment, renderComments } from "@veltdev/tiptap-velt-comments";
 import { useCommentAnnotations } from "@veltdev/react";
 
 const editor = useEditor({
@@ -34,7 +42,7 @@ const commentAnnotations = useCommentAnnotations();
 
 useEffect(() => {
   if (editor && commentAnnotations?.length) {
-    highlightComments(editor, commentAnnotations);
+    renderComments({ editor, commentAnnotations });
   }
 }, [editor, commentAnnotations]);
 ```
@@ -42,14 +50,10 @@ useEffect(() => {
 ### Part 3: Add a comment trigger button
 
 ```tsx
-<button onClick={() => triggerAddComment(editor)}>💬 Comment</button>
+<button onClick={() => addComment({ editor })}>Add Comment</button>
 ```
 
-**API version note:**
-- v4.x exports: `TiptapVeltComments`, `triggerAddComment`, `highlightComments`
-- v5.x exports: `TiptapVeltComments`, `addComment`, `renderComments`
-
-Check your installed version's actual exports if unsure.
+> Note: Older v4 packages exported `triggerAddComment` and `highlightComments` — these are deprecated. Use `addComment` and `renderComments` instead.
 
 **Common mistake — causes FREEZE:**
 
@@ -64,9 +68,9 @@ Check your installed version's actual exports if unsure.
 ```
 
 **Verification:**
-- [ ] `TiptapVeltComments` is in the editor's extensions array
-- [ ] `useCommentAnnotations()` is called and wired to `highlightComments`
-- [ ] Comment button calls `triggerAddComment(editor)` (v4) or `addComment({ editor })` (v5)
+- [ ] `TiptapVeltComments` is in the editor's extensions array (before the CRDT extension)
+- [ ] `useCommentAnnotations()` is called and wired to `renderComments`
+- [ ] Comment button calls `addComment({ editor })`
 - [ ] Selecting text and clicking comment does NOT freeze the page
 - [ ] Comment highlights appear on annotated text
 

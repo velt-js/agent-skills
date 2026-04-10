@@ -36,18 +36,14 @@ import { VeltProvider, VeltComments } from '@veltdev/react';
 
 **Step 3: Add extension to TipTap editor**
 ```jsx
-// Tiptap v3: BubbleMenu is in @tiptap/react/menus (NOT @tiptap/react)
+// BubbleMenu MUST be imported from @tiptap/react/menus (NOT @tiptap/react)
 import { useEditor, EditorContent } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
-import { TiptapVeltComments } from '@veltdev/tiptap-velt-comments';
+import { TiptapVeltComments, addComment, renderComments } from '@veltdev/tiptap-velt-comments';
 import { useCommentAnnotations } from '@veltdev/react';
 
-// API differs by version:
-// v4: import { triggerAddComment, highlightComments } from '@veltdev/tiptap-velt-comments'
-// v5: import { addComment, renderComments } from '@veltdev/tiptap-velt-comments'
-
-export default function TipTapComponent() {
+export default function TipTapComponent({ scrollContainerRef }) {
   const commentAnnotations = useCommentAnnotations();
 
   const editor = useEditor({
@@ -59,21 +55,23 @@ export default function TipTapComponent() {
     immediatelyRender: false,
   });
 
-  // Render comments when annotations change
-  // v4: highlightComments(editor, commentAnnotations)
-  // v5: renderComments({ editor, commentAnnotations })
+  // Render comment highlights when annotations change
   useEffect(() => {
     if (editor && commentAnnotations?.length) {
-      // Use whichever function your installed version exports
-      highlightComments(editor, commentAnnotations);
+      renderComments({ editor, commentAnnotations });
     }
   }, [editor, commentAnnotations]);
 
   const handleAddComment = () => {
-    if (editor) {
-      // v4: triggerAddComment(editor)
-      // v5: addComment({ editor })
-      triggerAddComment(editor);
+    if (!editor) return;
+    // Preserve scroll position — adding comments can cause the editor to jump
+    const scrollContainer = scrollContainerRef?.current;
+    const scrollTop = scrollContainer?.scrollTop ?? 0;
+    addComment({ editor });
+    if (scrollContainer) {
+      requestAnimationFrame(() => {
+        scrollContainer.scrollTop = scrollTop;
+      });
     }
   };
 
@@ -99,14 +97,16 @@ export default function TipTapComponent() {
 }
 ```
 
-**Key Functions (check your installed version):**
+**Key Functions:**
 
-| v4 API | v5 API | Purpose |
-|--------|--------|---------|
-| `TiptapVeltComments` | `TiptapVeltComments` | Extension to add to editor |
-| `triggerAddComment(editor)` | `addComment({ editor })` | Create comment on selected text |
-| `highlightComments(editor, annotations)` | `renderComments({ editor, commentAnnotations })` | Render existing comments |
-| `useCommentAnnotations()` | `useCommentAnnotations()` | Hook to get comment data |
+| Function | Purpose |
+|----------|---------|
+| `TiptapVeltComments` | Extension to add to editor config |
+| `addComment({ editor })` | Create comment on selected text |
+| `renderComments({ editor, commentAnnotations })` | Render existing comment highlights |
+| `useCommentAnnotations()` | Hook to get comment annotation data |
+
+> Note: Older v4 packages exported `triggerAddComment` and `highlightComments` — these are deprecated. Use `addComment` and `renderComments` instead.
 
 **Tiptap v3 notes:**
 - `BubbleMenu` import: `@tiptap/react/menus` (NOT `@tiptap/react`)

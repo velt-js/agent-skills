@@ -200,7 +200,7 @@ export function ActivityLogPanel() {
           </button>
         </div>
         <div style={{ flex: 1, overflow: "auto" }}>
-          <VeltActivityLog />
+          <VeltActivityLog shadowDom={false} />
         </div>
       </div>
     </>
@@ -221,16 +221,16 @@ export function ActivityLogPanel() {
 // WRONG — remounts on every toggle, loses connection
 {showPanel && <VeltActivityLog />}
 
-// CORRECT — always mounted, toggle visibility
+// CORRECT — always mounted, toggle visibility, shadowDom={false} for CSS access
 <div style={{ display: showPanel ? "flex" : "none" }}>
-  <VeltActivityLog />
+  <VeltActivityLog shadowDom={false} />
 </div>
 // WRONG — style prop is ignored, component may not render
 <VeltActivityLog style={{ flex: 1 }} />
 
 // CORRECT — wrap in a styled div
 <div style={{ flex: 1 }}>
-  <VeltActivityLog />
+  <VeltActivityLog shadowDom={false} />
 </div>
 ```
 

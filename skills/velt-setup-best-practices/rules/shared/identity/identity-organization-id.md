@@ -9,19 +9,7 @@ tags: organizationid, organization, tenant, access control, isolation
 
 The organizationId field is required in the user object and controls which documents users can access. By default, users can only see documents created within their organization.
 
-**Incorrect (missing organizationId):**
-
-```jsx
-// Missing organizationId - users may see documents from other orgs
-const user = {
-  userId: "user-123",
-  name: "John Doe",
-  email: "john@example.com",
-  // organizationId missing!
-};
-
-await client.identify(user);  // Access control won't work properly
-```
+**Incorrect (missing organizationId):** If the user object passed to `authProvider` is missing `organizationId`, access control won't work properly — users may see documents from other organizations.
 
 **Incorrect (hardcoded for all users):**
 

@@ -21,32 +21,54 @@ Inline Comments mode shows comment threads directly within content sections, sup
 </section>
 ```
 
-**Correct (with VeltInlineCommentsSection):**
+**Correct (with VeltInlineCommentsSection, context, and recommended props):**
 
 ```jsx
 import { VeltProvider, VeltComments, VeltInlineCommentsSection } from '@veltdev/react';
 
 export default function App() {
+  const items = [
+    { id: 'task-1', title: 'Design Review', status: 'in-progress' },
+    { id: 'task-2', title: 'API Integration', status: 'todo' },
+  ];
+
   return (
     <VeltProvider apiKey="API_KEY">
-      <VeltComments />
+      <VeltComments
+        shadowDom={false}
+        textMode={false}
+      />
 
-      <section id="container-id">
-        <div>Your Article Content</div>
+      {items.map((item) => (
+        <section key={item.id} id={`item-${item.id}`}>
+          <h3>{item.title}</h3>
+          <p>Status: {item.status}</p>
 
-        <VeltInlineCommentsSection
-          targetElementId="container-id"
-        />
-      </section>
+          <VeltInlineCommentsSection
+            targetElementId={`item-${item.id}`}
+            multiThread={true}
+            shadowDom={false}
+            composerPosition="bottom"
+            context={{ itemId: item.id, itemTitle: item.title, status: item.status }}
+          />
+        </section>
+      ))}
     </VeltProvider>
   );
 }
 ```
 
+**Why these props matter:**
+- `context={{}}` — attaches metadata to every comment in this section. Essential for filtering, grouping, and knowing which item a comment belongs to. Without this, comments are only tied to a DOM element ID which can break if your UI changes.
+- `composerPosition="bottom"` — places the comment composer below existing threads, which is the natural position for inline discussions (like GitHub PR comments)
+- `shadowDom={false}` — lets your CSS styles apply to inline comment components
+- `textMode={false}` on VeltComments — prevents conflicts with inline comment sections
+
 **Key Requirements:**
 1. Container element needs unique `id`
 2. `VeltInlineCommentsSection` inside the container
 3. `targetElementId` matches the container's ID
+4. `context` prop with item-specific metadata for filtering/grouping
 
 **Multi-threaded vs Single-threaded:**
 
@@ -127,11 +149,13 @@ Inside wireframe templates for `VeltInlineCommentsSection`, the `context` data v
 ```
 
 **Verification Checklist:**
+- [ ] VeltComments has `shadowDom={false}` and `textMode={false}`
 - [ ] Container has unique ID
-- [ ] VeltInlineCommentsSection is inside container
-- [ ] targetElementId matches container ID
+- [ ] VeltInlineCommentsSection is inside container with matching `targetElementId`
+- [ ] `context` prop includes item-specific metadata (IDs, status, etc.)
+- [ ] `composerPosition="bottom"` is set for natural thread layout
+- [ ] `shadowDom={false}` is set on VeltInlineCommentsSection
 - [ ] multiThread setting matches requirements
-- [ ] In Inline Comments Section wireframe templates, `field="context.someProperty"` is used for document/location context (resolves from `parentLocalUIState.context`); use `field="annotation.context.someProperty"` for annotation-level context in other component wireframes
 
 **Source Pointers:**
 - https://docs.velt.dev/async-collaboration/comments/setup/inline-comments - Complete setup

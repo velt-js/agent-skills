@@ -25,23 +25,41 @@ export default function App() {
 }
 ```
 
-**Correct (with VeltCommentTool):**
+**Correct (with VeltCommentTool, sidebar, and recommended props):**
 
 ```jsx
-import { VeltProvider, VeltComments, VeltCommentTool } from '@veltdev/react';
+import { VeltProvider, VeltComments, VeltCommentTool, VeltCommentsSidebar, VeltSidebarButton } from '@veltdev/react';
 
 export default function App() {
   return (
     <VeltProvider apiKey="API_KEY">
-      <VeltComments />
+      <VeltComments
+        shadowDom={false}
+        textMode={false}
+        allowedElementIds={['main-content']}
+        commentToNearestAllowedElement={true}
+      />
+      <VeltCommentsSidebar />
 
       <div className="toolbar">
         <VeltCommentTool />
+        <VeltSidebarButton />
       </div>
+
+      <main id="main-content">
+        {/* Comments can only be pinned inside this element */}
+        <YourContent />
+      </main>
     </VeltProvider>
   );
 }
 ```
+
+**Why these props matter:**
+- `shadowDom={false}` — lets your CSS styles apply to Velt comment components (nearly always needed)
+- `textMode={false}` — disables the default text selection comment mode, which conflicts with freestyle pin mode
+- `allowedElementIds` — restricts where comment pins can be placed. Without this, users can pin comments on headers, navbars, and other UI elements you don't want annotated
+- `commentToNearestAllowedElement={true}` — if a user clicks near the edge of the allowed area, the comment attaches to the nearest allowed element instead of failing
 
 **How Freestyle Works:**
 1. User clicks the `VeltCommentTool` button
@@ -74,10 +92,13 @@ export default function App() {
 ```
 
 **Verification Checklist:**
-- [ ] VeltComments is added to app root
-- [ ] VeltCommentTool is placed in accessible location
+- [ ] VeltComments is added with `shadowDom={false}` and `textMode={false}`
+- [ ] VeltCommentTool is placed in accessible location (toolbar/header)
+- [ ] VeltCommentsSidebar is included for viewing all comments
+- [ ] VeltSidebarButton is available to toggle the sidebar
+- [ ] `allowedElementIds` restricts commenting to the intended content area
 - [ ] Clicking tool changes cursor to comment pin
-- [ ] Clicking page creates comment at that location
+- [ ] Clicking inside allowed area creates comment at that location
 
 **Source Pointers:**
 - https://docs.velt.dev/async-collaboration/comments/setup/freestyle - Complete setup

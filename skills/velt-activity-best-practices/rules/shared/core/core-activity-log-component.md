@@ -90,7 +90,7 @@ export function ActivityLogPanel() {
           </button>
         </div>
         <div style={{ flex: 1, overflow: "auto" }}>
-          <VeltActivityLog />
+          <VeltActivityLog shadowDom={false} />
         </div>
       </div>
     </>
@@ -99,6 +99,7 @@ export function ActivityLogPanel() {
 ```
 
 **Key points about this pattern:**
+- `shadowDom={false}` lets your CSS styles apply to the activity log (nearly always needed for custom styling)
 - The panel div uses `display: activityOpen ? "flex" : "none"` — NOT conditional rendering
 - `VeltActivityLog` has NO `style` or `className` props — wrapped in a styled `<div>` instead
 - The toggle button can go in the toolbar or the document page header

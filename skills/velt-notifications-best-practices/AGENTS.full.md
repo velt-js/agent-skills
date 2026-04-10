@@ -93,7 +93,7 @@ function App() {
       {/* Step 1: Enable Notifications in Console at console.velt.dev */}
       {/* Step 2: Add VeltNotificationsTool in your toolbar */}
       <div className="toolbar">
-        <VeltNotificationsTool />
+        <VeltNotificationsTool shadowDom={false} />
       </div>
       <YourApp />
     </VeltProvider>
