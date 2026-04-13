@@ -110,6 +110,30 @@ async function checkpointAndPrune(client: any, docId: string, ydoc: Y.Doc) {
 | `saveSnapshot` | `(query: { id: string; state: Uint8Array; vector: Uint8Array; source?: string }) => Promise<void>` | Checkpoint the current Y.Doc state and vector clock |
 | `pruneMessages` | `(query: { id: string; beforeTs: number }) => Promise<void>` | Delete messages older than `beforeTs` (Unix ms) to bound storage |
 
+**Data types:**
+
+```typescript
+interface CrdtMessageData {
+  data: number[];        // Yjs update bytes (lib0-encoded)
+  source: string;        // Source identifier (e.g., 'tiptap')
+  timestamp: number;     // Unix timestamp (ms)
+}
+
+interface CrdtSnapshotData {
+  state: Uint8Array;     // Encoded Yjs state (Y.encodeStateAsUpdate output)
+  timestamp: number;     // Unix timestamp (ms)
+  vector?: Uint8Array;   // State vector (Y.encodeStateVector output)
+}
+
+interface CrdtPushMessageQuery {
+  id: string;                    // Document ID
+  data: number[];                // Yjs update bytes
+  yjsClientId: number;          // Yjs client ID (ydoc.clientID)
+  messageType: 'sync' | 'awareness'; // Message type
+  source?: string;               // Source identifier
+}
+```
+
 **Verification Checklist:**
 - [ ] `getSnapshot` called first on load to establish a baseline before `getMessages`
 - [ ] `afterTs` passed to `getMessages` uses `snapshot.timestamp ?? 0` (not a hardcoded 0)

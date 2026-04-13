@@ -9,7 +9,7 @@ metadata:
 
 # Velt Recorder Best Practices
 
-Comprehensive implementation guide for Velt's Recorder system in React and Next.js applications. Contains 20 rules across 7 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's Recorder system in React and Next.js applications. Contains 22 rules across 7 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 

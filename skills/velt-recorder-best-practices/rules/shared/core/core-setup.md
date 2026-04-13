@@ -27,27 +27,69 @@ function App() {
 }
 ```
 
-**Correct (all components with floating playback and pinned notes):**
+**Correct (VeltProvider with authProvider + all recorder components):**
 
 ```tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
+  VeltProvider,
   VeltRecorderTool,
   VeltRecorderControlPanel,
   VeltRecorderPlayer,
   VeltRecorderNotes,
   useRecorderAddHandler,
+  useSetDocuments,
+  useCurrentUser,
 } from "@veltdev/react";
+import type { VeltAuthProvider } from "@veltdev/types";
+import { useAppUser } from "@/app/userAuth/AppUserContext";
 
-// Add these to your collaboration component alongside comments, presence, etc.
+// Build authProvider from your app's user context — never use useIdentify
+function useVeltAuthProvider() {
+  const { user } = useAppUser();
+  const authProvider: VeltAuthProvider | undefined = useMemo(() => {
+    if (!user) return undefined;
+    return {
+      user: { userId: user.userId, organizationId: user.organizationId, name: user.name, email: user.email },
+      retryConfig: { retryCount: 3, retryDelay: 1000 },
+    };
+  }, [user]);
+  return { authProvider };
+}
 
-// 1. Recorder tool button — place in your toolbar
-<VeltRecorderTool type="all" />
+// Page component wrapping with VeltProvider + authProvider
+export default function DocumentPage({ docId }: { docId: string }) {
+  const { authProvider } = useVeltAuthProvider();
+  if (!authProvider) return <div>Loading...</div>;
+  return (
+    <VeltProvider apiKey={process.env.NEXT_PUBLIC_VELT_API_KEY!} authProvider={authProvider}>
+      <DocumentSetup docId={docId} />
+      <RecorderSetup />
+    </VeltProvider>
+  );
+}
 
-// 2. Floating control panel — manages active recording state
-<VeltRecorderControlPanel mode="floating" />
+// Document initialization in a child component (not alongside VeltProvider)
+function DocumentSetup({ docId }: { docId: string }) {
+  const { setDocuments } = useSetDocuments();
+  const veltUser = useCurrentUser();
+  useEffect(() => {
+    if (veltUser && docId) setDocuments([{ id: docId }]);
+  }, [veltUser, docId, setDocuments]);
+  return null;
+}
+
+// Recorder components
+function RecorderSetup() {
+  return (
+    <>
+      {/* 1. Recorder tool button — place in your toolbar */}
+      <VeltRecorderTool type="all" />
+
+      {/* 2. Floating control panel — manages active recording state */}
+      <VeltRecorderControlPanel mode="floating" />
 
 // 3. Pinned recordings — appear where they were created on the page (like comment pins)
 <VeltRecorderNotes />
@@ -119,6 +161,33 @@ function RecordingPlayback() {
 - `VeltRecorderControlPanel mode="floating"` — floating panel that follows the user during recording
 - `VeltRecorderNotes` — no props needed, automatically pins recordings to the page
 - `RecordingPlayback` — uses `useRecorderAddHandler()` to capture `recorderId` on completion, renders dismissible `VeltRecorderPlayer` in bottom-left corner
+
+**VeltRecorderTool props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `type` | `'all' \| 'audio' \| 'video' \| 'screen'` | `'audio'` | Recording type selector |
+| `buttonLabel` | `string` | — | Custom label for button |
+| `maxLength` | `number` | — | Max duration in seconds |
+| `darkMode` | `boolean` | `false` | Dark mode styling |
+| `shadowDom` | `boolean` | `true` | Render in shadow DOM (set `false` for custom CSS) |
+| `pictureInPicture` | `boolean` | `false` | Enable PiP mode |
+| `recordingCountdown` | `boolean` | `true` | Show countdown before recording |
+| `recordingTranscription` | `boolean` | `true` | Enable AI transcription |
+| `videoEditor` | `boolean` | `false` | Enable post-recording editor |
+| `retakeOnVideoEditor` | `boolean` | `false` | Show retake button |
+| `summary` | `boolean` | `true` | Display AI summary |
+| `playVideoInFullScreen` | `boolean` | `false` | Fullscreen playback |
+
+**VeltRecorderControlPanel props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `mode` | `'floating' \| 'thread'` | `'floating'` | Panel layout mode |
+| `onRecordedData` | `(data: RecordedData) => void` | — | Callback with recorded data on completion |
+| `settingsEmbedded` | `boolean` | `false` | Embed device settings in panel |
+| `autoOpenVideoEditor` | `boolean` | `false` | Auto-open editor after recording |
+| `videoEditorTimelinePreview` | `boolean` | `false` | Show timeline frame previews |
 
 **Verification:**
 - [ ] VeltRecorderTool renders in toolbar and is clickable

@@ -95,13 +95,34 @@ const dataProviders = {
 };
 ```
 
-<!-- TODO (v5.0.2-beta.10): Verify the exact shapes of GetActivityResolverRequest, SaveActivityResolverRequest, and PartialActivityRecord. Release note confirms the field names and config keys but does not enumerate all request/response fields. See https://docs.velt.dev/self-host-data/activity for the complete type reference. -->
+**SDK methods:**
+
+```tsx
+// Method 1: Via VeltProvider prop (recommended for React)
+<VeltProvider apiKey={KEY} authProvider={auth} dataProviders={dataProviders}>
+
+// Method 2: Via client API (for non-React or dynamic setup)
+client.setDataProviders(dataProviders);
+
+// Anonymous user resolution (resolve tagged contact emails to userIds at save time)
+client.setAnonymousUserDataProvider({
+  resolveUserIdsByEmail: async (request) => {
+    // request: { organizationId, documentId?, folderId?, emails: string[] }
+    const userIdMap = await myBackend.resolveEmails(request.emails);
+    return { data: userIdMap, success: true, statusCode: 200 };
+    // Returns: Record<email, userId>
+  },
+  config: { resolveTimeout: 5000, getRetryConfig: { retryCount: 3, retryDelay: 1000 } },
+});
+```
 
 **Key constraints:**
 - Data providers must be set **before** `identify()` is called
 - Self-hosting only works with `setDocuments` (plural), **not** `setDocument` (singular)
 - Each provider key is optional — only configure the data types you want to self-host
 - Define providers as module-level constants or `useMemo` to avoid unnecessary re-renders
+- `setDataProviders()` can be called programmatically as an alternative to the VeltProvider prop
+- `setAnonymousUserDataProvider()` is separate from the main dataProviders — it resolves tagged contact emails to userIds
 
 ### Complete VeltProvider Wiring for Self-Hosting
 

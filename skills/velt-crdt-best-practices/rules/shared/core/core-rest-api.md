@@ -92,12 +92,29 @@ curl -X POST https://api.velt.dev/v2/crdt/update \
 | `type` | string | Yes | `text`, `map`, `array`, or `xml` |
 | `contentKey` | string | No | Yjs content key (default: `content`, use `default` for TipTap) |
 
+**Get Response Type:**
+
+```typescript
+// GET response returns an array of CrdtDataObject
+interface CrdtDataObject {
+  data: string | object | unknown[];  // Content (type depends on store type)
+  id: string;                         // Editor ID
+  lastUpdate: string;                 // ISO timestamp of last update
+  lastUpdatedBy: string;              // User ID of last editor
+  sessionId: string | null;           // Session ID
+}
+
+// Response structure:
+// { result: { status: "success", data: CrdtDataObject[] } }
+```
+
 **Verification Checklist:**
 - [ ] API key and auth token configured
 - [ ] Correct organizationId, documentId, and editorId provided
 - [ ] Use `/v2/crdt/add` for new editors and `/v2/crdt/update` for existing ones
 - [ ] `data` field type matches the `type` field (string for text/xml, object for map, array for array)
 - [ ] Response parsed according to your data type (text, map, array, xml)
+- [ ] `contentKey` set to `'default'` for TipTap editors
 
 **Source Pointers:**
 - https://docs.velt.dev/api-reference/rest-apis/v2/crdt/get-crdt-data - Get CRDT Data

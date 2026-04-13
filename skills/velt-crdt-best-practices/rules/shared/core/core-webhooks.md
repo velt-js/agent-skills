@@ -68,11 +68,28 @@ function CrdtChangeListener() {
 | `disableWebhook()` | Disable webhook notifications |
 | `setWebhookDebounceTime(ms)` | Set debounce interval in milliseconds (default: 5000, minimum: 5000) |
 
+**Webhook payload structure (sent to your webhook URL):**
+
+```typescript
+// POST to your webhook endpoint
+{
+  notificationSource: 'crdt',
+  crdtData: {
+    id: string;               // Editor/store ID
+    data: unknown;             // Current content
+    lastUpdatedBy: string;     // User ID of last editor
+    sessionId: string | null;  // Session ID
+    lastUpdate: string;        // ISO timestamp
+  }
+}
+```
+
 **Verification Checklist:**
 - [ ] `enableWebhook()` called after Velt client initialized
 - [ ] Webhook endpoint configured in Velt Console
-- [ ] Debounce time tuned for your use case
+- [ ] Debounce time tuned for your use case (minimum 5000ms)
 - [ ] `updateData` event subscription cleaned up on unmount
+- [ ] Webhook handler parses `notificationSource: 'crdt'` to identify CRDT events
 
 **Source Pointers:**
 - https://docs.velt.dev/realtime-collaboration/crdt/setup/core - CRDT Setup

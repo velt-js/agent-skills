@@ -9,7 +9,7 @@ metadata:
 
 # Velt Self-Hosting Data Best Practices
 
-Comprehensive implementation guide for Velt's self-hosting data feature in React and Next.js applications. Contains 12 rules across 6 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's self-hosting data feature in React and Next.js applications. Contains 15 rules across 7 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 

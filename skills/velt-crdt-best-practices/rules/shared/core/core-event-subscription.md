@@ -90,6 +90,26 @@ crdtElement.on("updateData").subscribe((eventData) => {
 </script>
 ```
 
+**Event types:**
+
+```typescript
+interface CrdtUpdateDataEvent {
+  methodName: string;              // Method that triggered the update
+  uniqueId: string;                // Unique event ID
+  timestamp: number;               // Unix timestamp
+  source: string;                  // Source identifier
+  payload: CrdtUpdateDataPayload;  // Update data
+}
+
+interface CrdtUpdateDataPayload {
+  id: string;                      // Editor/store ID
+  data: unknown;                   // Updated content
+  lastUpdatedBy: string;           // User ID of last editor
+  sessionId: string | null;        // Session ID
+  lastUpdate: string;              // ISO timestamp of last update
+}
+```
+
 **Verification Checklist:**
 - [ ] Use `.subscribe()` on the Observable returned by `on("updateData")` (not a callback argument)
 - [ ] Subscription is cleaned up on component unmount via `subscription.unsubscribe()`

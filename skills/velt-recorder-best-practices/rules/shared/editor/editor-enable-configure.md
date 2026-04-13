@@ -95,6 +95,21 @@ function EditorConfig() {
 - `d`, `delete`, or `backspace` — Delete selected video section
 - `space` — Toggle play/pause
 
+**Disable methods (API):**
+
+```tsx
+const recorderElement = client.getRecorderElement();
+
+// Disable video editor
+recorderElement.disableVideoEditor();
+
+// Disable retake button
+recorderElement.disableRetakeOnVideoEditor();
+
+// Disable onboarding tooltip
+recorderElement.disableOnboardingTooltip();
+```
+
 **Constraints:**
 - Video editor only works for **video** and **screen** recordings (not audio)
 - `videoEditorTimelinePreview` requires `videoEditor` to also be `true`
