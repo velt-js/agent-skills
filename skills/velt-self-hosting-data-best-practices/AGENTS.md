@@ -5,7 +5,7 @@
 |root: ./rules
 
 ## 1. Core Setup — CRITICAL
-|shared/core:{core-auth-provider.md,core-provider-setup.md,core-response-format.md}
+|shared/core:{core-auth-provider.md,core-provider-setup.md,core-response-format.md,core-python-sdk-setup.md}
 
 ## 2. Comment Data Provider — HIGH
 |shared/comment:{comment-endpoint-provider.md,comment-function-provider.md}
@@ -22,5 +22,8 @@
 ## 6. Data Types — MEDIUM
 |shared/data:{data-types-reference.md}
 
-## 7. Debugging — LOW-MEDIUM
+## 7. Python SDK (velt-py) — HIGH
+|shared/python-sdk:{python-comments.md,python-attachments.md,python-users-reactions.md,python-frameworks.md}
+
+## 8. Debugging — LOW-MEDIUM
 |shared/debug:{debug-data-provider-events.md}
