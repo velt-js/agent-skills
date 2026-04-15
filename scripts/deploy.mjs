@@ -47,11 +47,14 @@ const PLUGIN_SKILLS = [
   "velt-help",
 ];
 
+// Skills to exclude from IDE deployment (kept in agent-skills source only)
+const EXCLUDED_SKILLS = ["yjs-best-practices"];
+
 // Auto-discover agent-skills from source directory
 function discoverAgentSkills() {
   if (!existsSync(AGENT_SKILLS_SOURCE)) return [];
   return readdirSync(AGENT_SKILLS_SOURCE, { withFileTypes: true })
-    .filter(d => d.isDirectory() && existsSync(resolve(AGENT_SKILLS_SOURCE, d.name, "SKILL.md")))
+    .filter(d => d.isDirectory() && !EXCLUDED_SKILLS.includes(d.name) && existsSync(resolve(AGENT_SKILLS_SOURCE, d.name, "SKILL.md")))
     .map(d => d.name);
 }
 
@@ -93,8 +96,8 @@ function deployAgentSkills(targetSkillsDir) {
     cpSync(src, dest, {
       recursive: true,
       filter: (path) => {
-        if (path.includes("/.git/") || path.includes("/node_modules/")) return false;
-        if (path.endsWith("/.git") || path.endsWith("/node_modules")) return false;
+        if (path.includes("/.git/") || path.includes("/node_modules/") || path.includes("/evals/")) return false;
+        if (path.endsWith("/.git") || path.endsWith("/node_modules") || path.endsWith("/evals")) return false;
         return true;
       },
     });
