@@ -80,57 +80,20 @@ tags: keywords
 | LOW-MEDIUM  | 1.2-2x or minor benefit       | Configuration, tooling, code organization                  |
 | LOW         | Incremental or edge cases     | Advanced techniques, rare scenarios, polish                |
 
-## Available Skills
+## Available Skills (13 skills, 277 rules)
 
-### velt-comments-best-practices
-
-Velt Comments implementation patterns and best practices for React, Next.js, and web applications. Contains 33 rules across 9 categories.
-
-**Use when:**
-- Adding collaborative commenting to a React/Next.js application
-- Implementing comment modes (Freestyle, Popover, Stream, Text, Page, Inline)
-- Integrating comments with rich text editors (TipTap, SlateJS, Lexical)
-- Adding comments to media players or charts
-- Building custom comment interfaces with standalone components
-
-**Categories covered:**
-- Core Setup (Critical)
-- Comment Modes (High)
-- Standalone Components (Medium-High)
-- Comment Surfaces (Medium-High)
-- UI Customization (Medium)
-
-### velt-notifications-best-practices
-
-Velt Notifications implementation patterns and best practices for React, Next.js, and web applications. Contains 11 rules across 8 categories.
-
-**Use when:**
-- Adding in-app notifications to a React/Next.js application
-- Setting up VeltNotificationsTool and VeltNotificationsPanel
-- Configuring notification tabs and delivery channels
-- Accessing notification data via hooks or REST APIs
-- Setting up email notifications or webhook integrations
-
-**Categories covered:**
-- Core Setup (Critical)
-- Panel Configuration (High)
-- Data Access (High)
-- Settings Management (Medium-High)
-- Delivery Channels (Medium)
-
-### velt-crdt-best-practices
-
-Velt CRDT (Yjs) collaborative editing best practices for real-time applications. Contains 33 rules across 5 categories.
-
-**Use when:**
-- Setting up Velt client and CRDT stores
-- Integrating with editors like Tiptap, BlockNote, CodeMirror, or ReactFlow
-- Implementing real-time synchronization
-- Debugging collaboration issues
-
-**Categories covered:**
-- Core CRDT (Critical)
-- Tiptap Integration (Critical)
-- BlockNote Integration (High)
-- CodeMirror Integration (High)
-- ReactFlow Integration (High)
+| Skill | Rules | Use When |
+|-------|-------|----------|
+| `velt-setup-best-practices` | 24 | Setting up Velt, VeltProvider, authProvider, JWT tokens, document identity |
+| `velt-comments-best-practices` | 71 | Comment modes, editor integrations, programmatic APIs, REST endpoints |
+| `velt-activity-best-practices` | 11 | Activity feeds, custom logging, audit trails, CRDT debounce |
+| `velt-crdt-best-practices` | 44 | CRDT stores, Tiptap/BlockNote/CodeMirror/ReactFlow, real-time sync |
+| `velt-notifications-best-practices` | 17 | In-app notifications, email, webhooks, notification preferences |
+| `velt-single-editor-mode-best-practices` | 14 | Exclusive editing, editor/viewer roles, access handoff |
+| `velt-recorder-best-practices` | 21 | Audio/video/screen recording, playback, transcription |
+| `velt-self-hosting-data-best-practices` | 13 | Self-hosting data, data providers, Python SDK (velt-py) |
+| `velt-presence-best-practices` | 13 | User presence avatars, online/away/offline status |
+| `velt-cursors-best-practices` | 11 | Real-time cursor tracking, avatar mode, element whitelisting |
+| `velt-huddle-best-practices` | 10 | Audio/video/screen sharing huddles, flock mode |
+| `velt-rest-apis-best-practices` | 9 | REST API v2, JWT token generation, webhooks |
+| `velt-proxy-server-best-practices` | 14 | Reverse proxy (nginx), proxyConfig, CSP, SRI integrity |

@@ -14,77 +14,22 @@ npx skills add velt-js/agent-skills
 
 ## Available Skills
 
-<details>
-<summary><strong>velt-comments-best-practices</strong></summary>
-
-Velt Comments implementation patterns and best practices for React, Next.js, and web applications.
-Contains 33 rules across 9 categories, prioritized by impact.
-
-**Use when:**
-
-- Adding collaborative commenting to a React/Next.js application
-- Implementing comment modes (Freestyle, Popover, Stream, Text, Page, Inline)
-- Integrating comments with rich text editors (TipTap, SlateJS, Lexical)
-- Adding comments to media players (Video, Lottie) or charts (Highcharts, ChartJS, Nivo)
-- Building custom comment interfaces with standalone components
-
-**Categories covered:**
-
-- Core Setup (Critical)
-- Comment Modes (High)
-- Standalone Components (Medium-High)
-- Comment Surfaces (Medium-High)
-- UI Customization (Medium)
-
-</details>
-
-<details>
-<summary><strong>velt-notifications-best-practices</strong></summary>
-
-Velt Notifications implementation patterns and best practices for React, Next.js, and web applications.
-Contains 11 rules across 8 categories, prioritized by impact.
-
-**Use when:**
-
-- Adding in-app notifications to a React/Next.js application
-- Setting up VeltNotificationsTool and VeltNotificationsPanel
-- Configuring notification tabs and delivery channels
-- Accessing notification data via hooks or REST APIs
-- Setting up email notifications with SendGrid or webhook integrations
-
-**Categories covered:**
-
-- Core Setup (Critical)
-- Panel Configuration (High)
-- Data Access (High)
-- Settings Management (Medium-High)
-- Delivery Channels (Medium)
-
-</details>
-
-<details>
-<summary><strong>velt-crdt-best-practices</strong></summary>
-
-Velt CRDT (Yjs) collaborative editing best practices for real-time applications.
-Contains 33 rules across 5 categories, prioritized by impact.
-
-**Use when:**
-
-- Setting up Velt client and CRDT stores
-- Integrating with editors (Tiptap, BlockNote, CodeMirror, ReactFlow)
-- Implementing real-time synchronization
-- Managing version history and checkpoints
-- Debugging collaboration issues
-
-**Categories covered:**
-
-- Core CRDT (Critical)
-- Tiptap Integration (Critical)
-- BlockNote Integration (High)
-- CodeMirror Integration (High)
-- ReactFlow Integration (High)
-
-</details>
+| Skill | Rules | Description |
+|-------|-------|-------------|
+| **velt-setup-best-practices** | 24 | SDK installation, VeltProvider, authProvider, JWT tokens, document identity |
+| **velt-comments-best-practices** | 71 | Comment modes (Freestyle, Popover, Stream, Text, Page, Inline), editor integrations (TipTap, SlateJS, Lexical), programmatic APIs, REST endpoints |
+| **velt-activity-best-practices** | 11 | Real-time activity feeds, custom activity logging, audit trails, CRDT debounce |
+| **velt-crdt-best-practices** | 44 | CRDT stores, Tiptap/BlockNote/CodeMirror/ReactFlow integrations, real-time sync |
+| **velt-notifications-best-practices** | 17 | In-app notifications, email (SendGrid), webhooks, notification preferences |
+| **velt-single-editor-mode-best-practices** | 14 | Exclusive editing, editor/viewer roles, access request handoff, timeout transfer |
+| **velt-recorder-best-practices** | 21 | Audio/video/screen recording, playback, transcription, lifecycle events |
+| **velt-self-hosting-data-best-practices** | 13 | Self-hosting user data, data providers, Python SDK (velt-py), backend API routes |
+| **velt-presence-best-practices** | 13 | User presence avatars, online/away/offline status, inactivity timeouts |
+| **velt-cursors-best-practices** | 11 | Real-time cursor tracking, avatar mode, element whitelisting, cursor callbacks |
+| **velt-huddle-best-practices** | 10 | Audio/video/screen sharing huddles, flock mode, ephemeral chat, webhooks |
+| **velt-rest-apis-best-practices** | 9 | REST API v2 endpoints, JWT token generation, webhooks v1/v2 |
+| **velt-proxy-server-best-practices** | 14 | Reverse proxy (nginx) setup, proxyConfig, CSP whitelisting, SRI integrity |
+| **Total** | **277** | |
 
 ## Usage
 
