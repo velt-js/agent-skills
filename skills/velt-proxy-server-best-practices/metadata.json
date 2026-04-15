@@ -1,0 +1,13 @@
+{
+  "name": "velt-proxy-server-best-practices",
+  "version": "1.0.0",
+  "author": "velt",
+  "ruleCount": 14,
+  "categories": [
+    "core",
+    "sdk-config",
+    "server-setup",
+    "security",
+    "debugging"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "skill_name": "velt-proxy-server-best-practices",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I need to set up a reverse proxy for Velt in our React app. Our security team requires all third-party traffic to go through our nginx proxy at proxy.acmecorp.com. Set up the full proxy config — SDK side and nginx side. We need to proxy everything: CDN, API, databases, storage, and auth.",
+      "expected_output": "Complete VeltProvider config with proxyConfig containing all 6 hosts, plus nginx server blocks for each upstream target. Should use authProvider (not useIdentify), include WebSocket support for ephemeral DB, and set Host headers correctly.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "We're adding Velt to our app but our corporate proxy doesn't support WebSocket upgrades. We only need to proxy the database connections (both persistence and ephemeral) through our proxy at db-proxy.internal.company.com. We're using vanilla JS (not React). Also our CSP is strict so tell me what to whitelist.",
+      "expected_output": "initVelt() call with proxyConfig for v1DbHost and v2DbHost plus forceLongPolling: true. CSP whitelist entries mixing proxy domains and default Velt domains for un-proxied services. Should use authProvider pattern awareness even though non-React.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "We already have Velt working with a proxy for the API (using the old apiProxyDomain config). Now we want to also proxy the CDN and enable integrity checking. Show me how to migrate the old config and add the new proxy. React/Next.js app.",
+      "expected_output": "Migration from apiProxyDomain to proxyConfig.apiHost, adding cdnHost, enabling integrity: true alongside proxyConfig. nginx config for CDN proxy pointing to cdn.velt.dev. Should NOT use deprecated apiProxyDomain.",
+      "files": []
+    }
+  ]
+}
