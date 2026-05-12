@@ -1,0 +1,142 @@
+name: skills-sync-guardrails
+
+# Runs on PRs labeled `skills-sync` to catch destructive automation before merge.
+# Companion to the docs-sync-skills pipeline in velt-js/docs.
+#
+# Checks (each is an independent step; failures aggregate so reviewers see all
+# violations at once, not just the first one):
+#   1. No edits inside *-workspace/** or **/evals/**
+#   2. No edits to metadata.json `abstract` (canonical) or `author` (compact)
+#      unless the PR is also labeled `manual-skill-rewrite`
+#   3. If any rule file changed, the corresponding metadata.json `version`
+#      must have changed too — unless the PR is labeled `docs-prose-only`
+#   4. AGENTS.md / AGENTS.full.md may only change when a sibling rule file
+#      also changed in the same skill
+#   5. Warn (not fail) if >5 skills or >30 rule files are touched
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  guardrails:
+    name: Skills-sync guardrails
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    # Only run on PRs labeled `skills-sync`. Non-bot PRs are exempt.
+    if: contains(github.event.pull_request.labels.*.name, 'skills-sync')
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # need history for base..head comparison
+
+      - name: Compute changed files
+        id: changes
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          git diff --name-only "$BASE_SHA" "$HEAD_SHA" > /tmp/changed-files.txt
+          echo "Changed files:"
+          cat /tmp/changed-files.txt
+
+      - name: 1. Reject workspace or evals edits
+        run: |
+          BAD=$(grep -E '(/.*-workspace/|/evals/)' /tmp/changed-files.txt || true)
+          if [ -n "$BAD" ]; then
+            echo "::error::PR edits files inside *-workspace/** or **/evals/**, which are out-of-scope for automation:"
+            echo "$BAD" | while read -r f; do echo "::error file=$f::out-of-scope path"; done
+            exit 1
+          fi
+
+      - name: 2. Reject abstract / author rewrites without manual-skill-rewrite label
+        env:
+          BASE_SHA:  ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA:  ${{ github.event.pull_request.head.sha }}
+          LABELS:    ${{ toJson(github.event.pull_request.labels.*.name) }}
+        run: |
+          HAS_MANUAL_LABEL=$(echo "$LABELS" | jq -r 'any(. == "manual-skill-rewrite")')
+
+          # Check every modified metadata.json
+          FAILED=0
+          for metadata_file in $(grep '/metadata\.json$' /tmp/changed-files.txt || true); do
+            # Compare abstract (canonical) field
+            BEFORE_ABS=$(git show "$BASE_SHA:$metadata_file" 2>/dev/null | jq -r '.abstract // empty')
+            AFTER_ABS=$(jq  -r '.abstract // empty' "$metadata_file")
+            if [ -n "$BEFORE_ABS" ] && [ "$BEFORE_ABS" != "$AFTER_ABS" ] && [ "$HAS_MANUAL_LABEL" != "true" ]; then
+              echo "::error file=$metadata_file::abstract field was modified without 'manual-skill-rewrite' label"
+              FAILED=1
+            fi
+            # Compare author (compact shape) field — same rule
+            BEFORE_AUTHOR=$(git show "$BASE_SHA:$metadata_file" 2>/dev/null | jq -r '.author // empty')
+            AFTER_AUTHOR=$(jq  -r '.author // empty' "$metadata_file")
+            if [ -n "$BEFORE_AUTHOR" ] && [ "$BEFORE_AUTHOR" != "$AFTER_AUTHOR" ] && [ "$HAS_MANUAL_LABEL" != "true" ]; then
+              echo "::error file=$metadata_file::author field was modified without 'manual-skill-rewrite' label"
+              FAILED=1
+            fi
+          done
+          [ "$FAILED" -eq 0 ]
+
+      - name: 3. Enforce version bump when rule files changed
+        env:
+          BASE_SHA:  ${{ github.event.pull_request.base.sha }}
+          LABELS:    ${{ toJson(github.event.pull_request.labels.*.name) }}
+        run: |
+          HAS_PROSE_LABEL=$(echo "$LABELS" | jq -r 'any(. == "docs-prose-only")')
+          if [ "$HAS_PROSE_LABEL" = "true" ]; then
+            echo "Label 'docs-prose-only' present — skipping version-bump check"
+            exit 0
+          fi
+
+          # For each skill that has rule changes, confirm metadata.json version moved.
+          FAILED=0
+          SKILLS_WITH_RULE_CHANGES=$(grep -E '/skills/[^/]+/rules/' /tmp/changed-files.txt \
+            | awk -F/ '{print $2"/"$3}' | sort -u || true)
+
+          for skill_path in $SKILLS_WITH_RULE_CHANGES; do
+            metadata="$skill_path/metadata.json"
+            if [ ! -f "$metadata" ]; then continue; fi
+
+            BEFORE_VERSION=$(git show "$BASE_SHA:$metadata" 2>/dev/null | jq -r '.version // empty')
+            AFTER_VERSION=$(jq -r '.version // empty' "$metadata")
+
+            if [ "$BEFORE_VERSION" = "$AFTER_VERSION" ]; then
+              echo "::error file=$metadata::rule files changed in $skill_path but version is still $AFTER_VERSION (expected a patch bump, or apply the 'docs-prose-only' label)"
+              FAILED=1
+            fi
+          done
+          [ "$FAILED" -eq 0 ]
+
+      - name: 4. AGENTS.md may only change when source rules also changed
+        run: |
+          FAILED=0
+          # For every changed AGENTS.md or AGENTS.full.md, ensure the same skill has a rule change.
+          for agents_file in $(grep -E '/AGENTS(\.full)?\.md$' /tmp/changed-files.txt || true); do
+            skill_dir=$(dirname "$agents_file")
+            if ! grep -qE "^${skill_dir}/rules/" /tmp/changed-files.txt; then
+              echo "::error file=$agents_file::AGENTS.md changed without any corresponding rule edit under $skill_dir/rules/ — likely a stale build artifact"
+              FAILED=1
+            fi
+          done
+          [ "$FAILED" -eq 0 ]
+
+      - name: 5. Warn on oversized diffs
+        run: |
+          NUM_SKILLS=$(grep -E '/skills/[^/]+/' /tmp/changed-files.txt | awk -F/ '{print $2"/"$3}' | sort -u | wc -l | tr -d ' ')
+          NUM_RULES=$(grep -E '/skills/[^/]+/rules/.*\.md$' /tmp/changed-files.txt | wc -l | tr -d ' ')
+
+          echo "Skills touched: $NUM_SKILLS"
+          echo "Rule files touched: $NUM_RULES"
+
+          if [ "$NUM_SKILLS" -gt 5 ]; then
+            echo "::warning::PR touches $NUM_SKILLS skills (>5). Review extra carefully — this might be a runaway pipeline run."
+          fi
+          if [ "$NUM_RULES" -gt 30 ]; then
+            echo "::warning::PR touches $NUM_RULES rule files (>30). Confirm the volume is intentional."
+          fi

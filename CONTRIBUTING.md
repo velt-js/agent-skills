@@ -2,14 +2,28 @@
 
 Thank you for contributing to Velt Agent Skills! Here's how to get started:
 
-[1. Getting Started](#getting-started) | [2. Issues](#issues) |
-[3. Pull Requests](#pull-requests) | [4. Contributing New Rules](#contributing-new-rules) |
-[5. Creating a New Skill](#creating-a-new-skill)
+[1. Getting Started](#getting-started) | [2. Auto-sync from docs](#auto-sync-from-docs) |
+[3. Issues](#issues) | [4. Pull Requests](#pull-requests) |
+[5. Contributing New Rules](#contributing-new-rules) |
+[6. Creating a New Skill](#creating-a-new-skill)
 
 ## Getting Started
 
 To ensure a positive and inclusive environment, please be respectful and
 constructive in all contributions.
+
+## Auto-sync from docs
+
+Skills in this repo are **automatically updated** by the [`docs-sync-skills`](https://github.com/velt-js/docs/blob/main/.github/workflows/docs-sync-skills.yml) workflow whenever a docs change merges to `main`. The pipeline opens a PR labeled `skills-sync` (look for the `skills-sync` label in PRs) and assigns reviewers per `.github/CODEOWNERS`.
+
+**What this means for contributors:**
+
+- **Don't manually re-sync** prose, prop names, or API URLs that should come from docs. The pipeline does this. If a skill rule is out of date with docs, the right fix is to update the docs (`velt-js/docs`) and let the next pipeline run sync it.
+- **Direct edits to `rules/**` are still welcome** for things the pipeline can't do well: improving example quality, fixing nuance, restructuring an explanation, fixing typos in skill prose. Just open a normal PR — the auto-sync PR will rebase or merge cleanly with yours.
+- **Reviewing bot PRs:** treat `skills-sync`-labeled PRs like any other PR. Reject if a rule's prose got worse; the bot can't always tell when it's degrading quality. CODEOWNERS will request your review when relevant skills change.
+- **Watch out for:** `metadata.json.abstract` changes (should be very rare from the bot; CI rejects unless labeled `manual-skill-rewrite`); `references` reordering (the bot only appends); `AGENTS.md` changes without rule changes (CI catches this).
+
+The pipeline files separate issues labeled `new-skill-proposal` when docs add features that have no skill counterpart. These are human decisions — review and either create the skill manually, extend an existing skill, or close as out-of-scope.
 
 ## Issues
 

@@ -1,0 +1,55 @@
+# CODEOWNERS for velt-js/agent-skills
+#
+# GitHub auto-requests review from the listed teams/users when a PR touches
+# matching paths. This file is the primary review-routing mechanism for the
+# skills-sync pipeline; the bot does not assign reviewers explicitly.
+#
+# ⚠ Replace the placeholder team/user names below with real GitHub handles
+#   before merging. The format is one of:
+#     @username                  — a single user
+#     @velt-js/team-slug         — a GitHub team within the org
+#     username@example.com       — a user by email (less common)
+#
+# Order matters: the LAST matching pattern wins. Specific paths must come
+# after general ones.
+
+# ─── Default owner for everything in the repo ──────────────────────────────
+*                                                       @velt-js/skills-maintainers
+
+# ─── Skill files: one row per skill (or per family if you prefer) ──────────
+
+# Frontend async
+/skills/velt-comments-best-practices/                   @velt-js/comments-owners
+/skills/velt-notifications-best-practices/              @velt-js/notifications-owners
+/skills/velt-activity-best-practices/                   @velt-js/activity-owners
+/skills/velt-recorder-best-practices/                   @velt-js/recorder-owners
+
+# Frontend realtime
+/skills/velt-presence-best-practices/                   @velt-js/presence-owners
+/skills/velt-cursors-best-practices/                    @velt-js/cursors-owners
+/skills/velt-huddle-best-practices/                     @velt-js/huddle-owners
+/skills/velt-single-editor-mode-best-practices/         @velt-js/single-editor-owners
+/skills/velt-crdt-best-practices/                       @velt-js/crdt-owners
+
+# Setup (cross-cutting)
+/skills/velt-setup-best-practices/                      @velt-js/setup-owners
+
+# Backend
+/skills/velt-rest-apis-best-practices/                  @velt-js/backend-owners
+/skills/velt-self-hosting-data-best-practices/          @velt-js/backend-owners
+
+# Infra & foundational
+/skills/velt-proxy-server-best-practices/               @velt-js/infra-owners
+/skills/yjs-best-practices/                             @velt-js/crdt-owners
+
+# ─── Build system + workflows ──────────────────────────────────────────────
+/packages/skills-build/                                 @velt-js/skills-maintainers
+/.github/workflows/                                     @velt-js/skills-maintainers
+/scripts/                                               @velt-js/skills-maintainers
+
+# ─── Generated files: anyone can approve regeneration ──────────────────────
+# (No owner = no required reviewer. Combined with the guardrails workflow
+#  these files are still protected — they must only change when their source
+#  rule files also changed.)
+/skills/*/AGENTS.md
+/skills/*/AGENTS.full.md
