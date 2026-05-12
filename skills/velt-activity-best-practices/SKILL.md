@@ -1,15 +1,15 @@
 ---
 name: velt-activity-best-practices
-description: Velt Activity Logs implementation patterns and best practices for React, Next.js, and web applications. Use when adding real-time activity feeds, custom activity logging, audit trails, CRDT debounce configuration, or server-side activity management via REST API.
+description: Velt Activity Logs implementation patterns and best practices for React, Next.js, and web applications. Use when adding real-time activity feeds, custom activity logging, audit trails, CRDT debounce configuration, server-side activity management via REST API, customizing the Activity Log wireframe with template variables (velt-data, velt-if, velt-class), or composing the VeltActivityLogWireframe sub-component tree (Header, Filter, List, DateGroup, Item, ShowMore, Empty, Loading).
 license: MIT
 metadata:
   author: velt
-  version: "1.0.0"
+  version: "1.2.0"
 ---
 
 # Velt Activity Logs Best Practices
 
-Comprehensive implementation guide for Velt's activity log system in React and Next.js applications. Contains 11 rules across 5 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's activity log system in React and Next.js applications. Contains 13 rules across 7 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
@@ -21,6 +21,8 @@ Reference these guidelines when:
 - Enabling immutability for compliance audit trails
 - Filtering activities by feature type or action type
 - Managing activity records server-side via REST API
+- Customizing the Activity Log wireframe with template variables (`velt-data`, `velt-if`, `velt-class`)
+- Composing the `VeltActivityLogWireframe` sub-component tree (Header, Filter, List, DateGroup, Item, ShowMore, Empty, Loading)
 - Debugging activity log issues (records not appearing, null loading states)
 
 ## Rule Categories by Priority
@@ -30,8 +32,10 @@ Reference these guidelines when:
 | 1 | Core Setup | CRITICAL | `core-` |
 | 2 | Data Access | HIGH | `data-` |
 | 3 | Configuration | MEDIUM | `config-` |
-| 4 | REST API | LOW-MEDIUM | `rest-` |
-| 5 | Debugging & Testing | LOW-MEDIUM | `debug-` |
+| 4 | Wireframe Variables | MEDIUM | `wireframe-variables-` |
+| 5 | UI Wireframes | MEDIUM | `ui-` |
+| 6 | REST API | LOW-MEDIUM | `rest-` |
+| 7 | Debugging & Testing | LOW-MEDIUM | `debug-` |
 
 ## Quick Reference
 
@@ -53,11 +57,19 @@ Reference these guidelines when:
 - `config-immutability` — Enable immutability for audit trails
 - `config-action-type-filters` — Use action type constants for type-safe filtering
 
-### 4. REST API (LOW-MEDIUM)
+### 4. Wireframe Variables (MEDIUM)
+
+- `wireframe-variables-activity-log` — Bind Activity Log wireframe slots using `velt-data`, `velt-if`, `velt-class`, the cross-cutting `defaultCondition` prop, and Angular signal inputs (`[componentConfigSignal]`, `[parentLocalUIState]`)
+
+### 5. UI Wireframes (MEDIUM)
+
+- `ui-wireframes` — Compose the `VeltActivityLogWireframe` sub-component tree (Header, Filter, List, DateGroup, Item, ShowMore, Empty, Loading) inside `VeltWireframe`
+
+### 6. REST API (LOW-MEDIUM)
 
 - `rest-api` — Use REST APIs for server-side activity management
 
-### 5. Debugging & Testing (LOW-MEDIUM)
+### 7. Debugging & Testing (LOW-MEDIUM)
 
 - `debug-common-issues` — Debug common activity log issues
 

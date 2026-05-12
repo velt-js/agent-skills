@@ -37,3 +37,17 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 
 **Impact:** LOW-MEDIUM
 **Description:** Troubleshooting patterns and verification checklists for Velt activity log integrations.
+
+---
+
+## 6. Wireframe Variables (wireframe-variables)
+
+**Impact:** MEDIUM
+**Description:** Template variables exposed inside Activity Log wireframe slots and consumed via `<velt-data field="...">`, `velt-if="{var} <op> 'value'"`, and `velt-class="'cls': {var}"`. Covers App State (`user`, `darkMode`), Feature State (`isEnabled`), Data State (`allActivities`, `filteredActivities`, `groupedActivities`, `virtualScrollItems`, `activeFilter`, `availableFilters`), UI State (`isOpen`, `darkMode`, `variant`, `expandedGroups`, `defaultVisibleCount`, `filterDropdownOpen`), loop-scope variables (`dateGroup`, `activity`/`activityRecord`, `filter`/`filterOption`, `isActive`, `isExpanded`, `remainingCount`), the cross-cutting `defaultCondition` / `default-condition` prop, and Angular signal inputs `[componentConfigSignal]` and `[parentLocalUIState]`.
+
+---
+
+## 7. UI Wireframes (ui)
+
+**Impact:** MEDIUM
+**Description:** Structural sub-component catalog for the `VeltActivityLogWireframe` tree. Enumerates the 26 named slots grouped by region (Root, Header, Header Filter, List, List Item, States) and shows the canonical React and HTML composition for each region. Pairs with `wireframe-variables` — this section answers "what slots exist and how do they nest"; `wireframe-variables` answers "how do I bind data into those slots".

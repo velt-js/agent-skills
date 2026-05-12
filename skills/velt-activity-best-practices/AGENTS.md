@@ -1,5 +1,5 @@
 # Velt Activity Best Practices
-|v1.0.0|Velt|March 2026
+|v1.2.0|Velt|March 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
 |root: ./rules
 
@@ -18,3 +18,9 @@
 
 ## 5. Debugging & Testing — LOW-MEDIUM
 |shared/debug:{debug-common-issues.md}
+
+## 6. Wireframe Variables — MEDIUM
+|shared/wireframe-variables:{wireframe-variables-activity-log.md}
+
+## 7. UI Wireframes — MEDIUM
+|shared/ui:{ui-wireframes.md}

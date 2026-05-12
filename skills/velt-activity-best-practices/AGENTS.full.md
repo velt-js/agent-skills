@@ -1,6 +1,6 @@
 # Velt Activity Best Practices
 
-**Version 1.0.0**  
+**Version 1.2.0**  
 Velt  
 March 2026
 
@@ -40,6 +40,12 @@ Velt Activity Logs implementation guide covering real-time activity subscription
 
 5. [Debugging & Testing](#5-debugging-testing) — **LOW-MEDIUM**
    - 5.1 [Debug Common Activity Log Issues](#51-debug-common-activity-log-issues)
+
+6. [Wireframe Variables](#6-wireframe-variables) — **MEDIUM**
+   - 6.1 [Bind Activity Log Wireframe Slots Using Template Variables](#61-bind-activity-log-wireframe-slots-using-template-variables)
+
+7. [UI Wireframes](#7-ui-wireframes) — **MEDIUM**
+   - 7.1 [Customize Activity Log Layout with Wireframe Sub-Components](#71-customize-activity-log-layout-with-wireframe-sub-components)
 
 ---
 
@@ -974,6 +980,302 @@ Reference: https://docs.velt.dev/async-collaboration/activity/setup; https://doc
 
 ---
 
+## 6. Wireframe Variables
+
+**Impact: MEDIUM**
+
+Template variables exposed inside Activity Log wireframe slots and consumed via `<velt-data field="...">`, `velt-if="{var} <op> 'value'"`, and `velt-class="'cls': {var}"`. Covers App State (`user`, `darkMode`), Feature State (`isEnabled`), Data State (`allActivities`, `filteredActivities`, `groupedActivities`, `virtualScrollItems`, `activeFilter`, `availableFilters`), UI State (`isOpen`, `darkMode`, `variant`, `expandedGroups`, `defaultVisibleCount`, `filterDropdownOpen`), loop-scope variables (`dateGroup`, `activity`/`activityRecord`, `filter`/`filterOption`, `isActive`, `isExpanded`, `remainingCount`), the cross-cutting `defaultCondition` / `default-condition` prop, and Angular signal inputs `[componentConfigSignal]` and `[parentLocalUIState]`.
+
+### 6.1 Bind Activity Log Wireframe Slots Using Template Variables
+
+**Impact: MEDIUM (Drives dynamic content, conditional rendering, and class toggling inside Activity Log wireframe slots without manual subscriptions)**
+
+The Activity Log wireframe exposes a fixed set of template variables that you read with three directives — `<velt-data field="...">` for text, `velt-if="{var} ..."` for conditional rendering, and `velt-class="'cls': {var}"` for class toggling. Use these instead of re-implementing date grouping, filtering, or actor lookups on top of `useAllActivities`. Variables are mapped — reference them by their short name, **never** as `componentConfig.var`.
+
+**Incorrect (rebuilding feed state from `useAllActivities` and conditionally mounting wireframe slots):**
+
+```jsx
+import { useAllActivities } from '@veltdev/react';
+import VeltActivityLogWireframe from '@veltdev/react/VeltActivityLogWireframe';
+
+function ActivityRow({ row }) {
+  const activities = useAllActivities();
+  const isMine = row.user.userId === currentUser.userId;
+  // Reimplements actor lookup, formatting, and visibility gating that the
+  // wireframe already exposes via {activity}, {user}, and shouldShow.
+  if (!activities) return null;
+  return (
+    <VeltActivityLogWireframe.List.Item className={isMine ? 'mine' : ''}>
+      <span>{row.user.name}</span>
+      <span>{row.action}</span>
+    </VeltActivityLogWireframe.List.Item>
+  );
+}
+```
+
+**Correct (read the slot's injected variables via `velt-data` / `velt-if` / `velt-class`):**
+
+```jsx
+import VeltActivityLogWireframe from '@veltdev/react/VeltActivityLogWireframe';
+
+<VeltActivityLogWireframe velt-if="{isEnabled} && {isOpen}">
+  <VeltActivityLogWireframe.List>
+    <VeltActivityLogWireframe.List.Item
+      velt-class="'mine': {activity.user.userId} === {user.userId}"
+    >
+      <VeltActivityLogWireframe.List.Item.Avatar />
+      <VeltActivityLogWireframe.List.Item.Content>
+        <VeltActivityLogWireframe.List.Item.Content.User />
+        <VeltActivityLogWireframe.List.Item.Content.Action />
+        <VeltActivityLogWireframe.List.Item.Content.Target />
+      </VeltActivityLogWireframe.List.Item.Content>
+      <VeltActivityLogWireframe.List.Item.Time />
+    </VeltActivityLogWireframe.List.Item>
+    <VeltActivityLogWireframe.List.ShowMore velt-if="{remainingCount} > 0">
+      <span>Show <velt-data field="remainingCount" /> more</span>
+    </VeltActivityLogWireframe.List.ShowMore>
+  </VeltActivityLogWireframe.List>
+</VeltActivityLogWireframe>
+```
+
+**HTML / web-component equivalent:**
+
+```typescript
+<velt-activity-log-wireframe velt-if="{isEnabled} && {isOpen}">
+  <velt-activity-log-list-wireframe>
+    <velt-activity-log-list-item-wireframe
+      velt-class="'mine': {activity.user.userId} === {user.userId}">
+      <velt-data field="activity.user.name"></velt-data>
+      <velt-data field="activity.action"></velt-data>
+    </velt-activity-log-list-item-wireframe>
+    <velt-activity-log-list-show-more-wireframe velt-if="{remainingCount} > 0">
+      <span>Show <velt-data field="remainingCount"></velt-data> more</span>
+    </velt-activity-log-list-show-more-wireframe>
+  </velt-activity-log-list-wireframe>
+</velt-activity-log-wireframe>
+// On any <velt-activity-log-...-wireframe> in an Angular template
+[componentConfigSignal]="config()"     // filtered activities, date groups,
+                                       // virtual scroll items, available filters
+[parentLocalUIState]="localUI()"       // darkMode, variant, isOpen, etc.
+```
+
+The wireframe injects four namespaces at the root of every slot, plus loop-scoped variables inside iteration primitives.
+**App State** — globally resolved identity / theme:
+| Variable | Type | Use |
+|---|---|---|
+| `user` | `User` | Currently identified end-user. Compare to `activity.user.userId` to highlight "mine". |
+| `darkMode` | `boolean` | Global dark-mode flag. Pair with `velt-class="'theme-dark': {darkMode}"`. |
+**Feature State** — SDK-level capability flag:
+| Variable | Type | Use |
+|---|---|---|
+| `isEnabled` | `boolean` | `true` when Activity Log is enabled in the SDK. Gate the root wireframe with `velt-if="{isEnabled}"`. |
+**Data State** — the activity pipeline (raw → filtered → grouped → virtualized):
+| Variable | Type | Notes |
+|---|---|---|
+| `allActivities` | `ActivityRecord[] \| null` | `null` while loading — the loading slot uses this to decide visibility. |
+| `filteredActivities` | `ActivityRecord[] \| null` | Result of applying `activeFilter`. Empty state checks `filteredActivities.length === 0`. |
+| `groupedActivities` | `ActivityDateGroup[]` | Activities bucketed by calendar date. |
+| `virtualScrollItems` | `ActivityScrollItem[]` | Flattened union (`'date-header' \| 'activity' \| 'show-more'`) the virtual scroller iterates. |
+| `activeFilter` | `'all' \| ActivityFeatureType` | Selected dropdown value. |
+| `availableFilters` | `ActivityFilterOption[]` | All filter rows shown in the dropdown. |
+**UI State** — per-instance view toggles:
+| Variable | Type | Notes |
+|---|---|---|
+| `isOpen` | `boolean` | Panel open/closed. |
+| `darkMode` | `boolean` | Per-instance dark-mode override (host attribute beats global config). |
+| `variant` | `string` | Variant tag from the host attribute. |
+| `expandedGroups` | `Set<string>` | Date-group keys that have been expanded past the truncation limit. Internal — read indirectly via `isExpanded` inside `show-more`. |
+| `defaultVisibleCount` | `number` | Items per date-group before "Show more" appears. Defaults to `5`. |
+| `filterDropdownOpen` | `boolean` | Filter dropdown menu open. |
+These are injected by the iterating parent; referencing them outside the listed slot returns `undefined`.
+| Variable | Type | Available in |
+|---|---|---|
+| `dateGroup` | `ActivityDateGroup` | `<velt-activity-log-list-date-group-wireframe>`, its label child, and `<velt-activity-log-list-show-more-wireframe>` |
+| `activity` | `ActivityRecord` | `<velt-activity-log-list-item-wireframe>` and all descendants |
+| `filter` | `ActivityFilterOption` | `<velt-activity-log-header-filter-content-item-wireframe>`, its icon and label children |
+| `isActive` | `boolean` | Same slots as `filter`. `true` when the row matches `activeFilter`. |
+| `isExpanded` | `boolean` | `<velt-activity-log-list-show-more-wireframe>` |
+| `remainingCount` | `number` | `<velt-activity-log-list-show-more-wireframe>`. Items still hidden in the date-group. |
+**Aliases:** `activity` and `activityRecord` resolve to the same record; `filter` and `filterOption` resolve to the same option. Prefer the short form (`activity`, `filter`) — the long form exists for backwards-compatibility.
+Every Activity Log primitive accepts one cross-cutting prop, plus two Angular signal inputs for parent-driven state:
+| React Prop | HTML Attribute | Type | Default | Behavior |
+|---|---|---|---|---|
+| `defaultCondition` | `default-condition` | `boolean \| "true" \| "false"` | `true` | When `false`, the component renders regardless of its internal `shouldShow` gate. Use to force-show a slot you would otherwise hide. |
+**Angular signal inputs** (parent-to-child wiring; React/HTML do not require these):
+The root `<velt-activity-log>` element additionally accepts attributes that map onto config and local UI state slots: `dark-mode`, `variant`, `is-open`, …
+Several slots have a built-in visibility predicate. Read them as a reference when debugging "why is nothing rendering":
+| Slot | `shouldShow` |
+|---|---|
+| `activity-log-wireframe` (root) | `isEnabled === true && isOpen === true` |
+| `activity-log-loading-wireframe` | `allActivities === null` |
+| `activity-log-empty-wireframe` | `filteredActivities !== null && filteredActivities.length === 0` |
+| `activity-log-list-show-more-wireframe` | `dateGroup.totalCount > defaultVisibleCount` |
+Override any of them with `defaultCondition={false}` (React) / `default-condition="false"` (HTML) when you need the slot to render unconditionally.
+**1. DO NOT prefix variables with `componentConfig.`** Variables are mapped to short names. `<velt-data field="componentConfig.filteredActivities" />` resolves to nothing — use `<velt-data field="filteredActivities" />`.
+**2. DO NOT reference loop-scope variables outside their slot.** `{activity}` is only defined inside `<velt-activity-log-list-item-wireframe>`. Referencing it from the header or the empty slot returns `undefined` silently.
+**3. DO NOT mix `defaultCondition` with `velt-if` to mean the same thing.** `defaultCondition={false}` *disables* the slot's internal gate (forcing render). `velt-if` *adds* a new gate on top. Combining them inverts the semantics you probably want.
+
+---
+
+## 7. UI Wireframes
+
+**Impact: MEDIUM**
+
+Structural sub-component catalog for the `VeltActivityLogWireframe` tree. Enumerates the 26 named slots grouped by region (Root, Header, Header Filter, List, List Item, States) and shows the canonical React and HTML composition for each region. Pairs with `wireframe-variables` — this section answers "what slots exist and how do they nest"; `wireframe-variables` answers "how do I bind data into those slots".
+
+### 7.1 Customize Activity Log Layout with Wireframe Sub-Components
+
+**Impact: MEDIUM (Full structural control over the Activity Log panel — swap, omit, reorder, or restyle any region without rebuilding the feed pipeline)**
+
+Wrap `VeltActivityLogWireframe` in a `VeltWireframe` block to override the default Activity Log layout. The wireframe is a structural catalog of named slots — each sub-component is a placeholder for a piece of the panel (header title, filter dropdown, list item avatar, empty state, etc.). You compose only the regions you want and the SDK fills them with live data. Without it, you would have to rebuild date grouping, filter dropdowns, and virtualization on top of `useAllActivities` by hand. For the variables and conditional directives (`velt-data`, `velt-if`, `velt-class`) that drive the slots, see `wireframe-variables-activity-log`.
+
+**Incorrect (rendering raw subscription state and skipping the wireframe entirely):**
+
+```jsx
+import { useAllActivities } from '@veltdev/react';
+
+function CustomActivityFeed() {
+  const activities = useAllActivities();
+  // Reimplements date grouping, filtering, empty/loading states, and
+  // virtual scrolling that the wireframe slots already provide.
+  return (
+    <ul>
+      {activities?.map(a => <li key={a.id}>{a.displayMessage}</li>)}
+    </ul>
+  );
+}
+```
+
+**Correct (compose the wireframe tree inside `VeltWireframe`):**
+
+```jsx
+import { VeltWireframe, VeltActivityLog } from '@veltdev/react';
+import VeltActivityLogWireframe from '@veltdev/react/VeltActivityLogWireframe';
+
+function CustomActivityLog() {
+  return (
+    <>
+      <VeltWireframe>
+        <VeltActivityLogWireframe>
+          <VeltActivityLogWireframe.Header />
+          <VeltActivityLogWireframe.Loading />
+          <VeltActivityLogWireframe.List />
+          <VeltActivityLogWireframe.Empty />
+        </VeltActivityLogWireframe>
+      </VeltWireframe>
+      <VeltActivityLog shadowDom={false} />
+    </>
+  );
+}
+```
+
+**For HTML / Vanilla JS:**
+
+```html
+<velt-wireframe style="display:none;">
+  <velt-activity-log-wireframe>
+    <velt-activity-log-header-wireframe></velt-activity-log-header-wireframe>
+    <velt-activity-log-loading-wireframe></velt-activity-log-loading-wireframe>
+    <velt-activity-log-list-wireframe></velt-activity-log-list-wireframe>
+    <velt-activity-log-empty-wireframe></velt-activity-log-empty-wireframe>
+  </velt-activity-log-wireframe>
+</velt-wireframe>
+<velt-activity-log></velt-activity-log>
+<VeltActivityLogWireframe.Header>
+  <VeltActivityLogWireframe.Header.Title />
+  <VeltActivityLogWireframe.Header.CloseButton />
+  <VeltActivityLogWireframe.Header.Filter>
+    <VeltActivityLogWireframe.Header.Filter.Trigger>
+      <VeltActivityLogWireframe.Header.Filter.Trigger.Icon />
+      <VeltActivityLogWireframe.Header.Filter.Trigger.Label />
+    </VeltActivityLogWireframe.Header.Filter.Trigger>
+    <VeltActivityLogWireframe.Header.Filter.Content>
+      <VeltActivityLogWireframe.Header.Filter.Content.Item>
+        <VeltActivityLogWireframe.Header.Filter.Content.Item.Icon />
+        <VeltActivityLogWireframe.Header.Filter.Content.Item.Label />
+      </VeltActivityLogWireframe.Header.Filter.Content.Item>
+    </VeltActivityLogWireframe.Header.Filter.Content>
+  </VeltActivityLogWireframe.Header.Filter>
+</VeltActivityLogWireframe.Header>
+<velt-activity-log-header-wireframe>
+  <velt-activity-log-header-title-wireframe></velt-activity-log-header-title-wireframe>
+  <velt-activity-log-header-close-button-wireframe></velt-activity-log-header-close-button-wireframe>
+  <velt-activity-log-header-filter-wireframe>
+    <velt-activity-log-header-filter-trigger-wireframe>
+      <velt-activity-log-header-filter-trigger-icon-wireframe></velt-activity-log-header-filter-trigger-icon-wireframe>
+      <velt-activity-log-header-filter-trigger-label-wireframe></velt-activity-log-header-filter-trigger-label-wireframe>
+    </velt-activity-log-header-filter-trigger-wireframe>
+    <velt-activity-log-header-filter-content-wireframe>
+      <velt-activity-log-header-filter-content-item-wireframe>
+        <velt-activity-log-header-filter-content-item-icon-wireframe></velt-activity-log-header-filter-content-item-icon-wireframe>
+        <velt-activity-log-header-filter-content-item-label-wireframe></velt-activity-log-header-filter-content-item-label-wireframe>
+      </velt-activity-log-header-filter-content-item-wireframe>
+    </velt-activity-log-header-filter-content-wireframe>
+  </velt-activity-log-header-filter-wireframe>
+</velt-activity-log-header-wireframe>
+<VeltActivityLogWireframe.List>
+  <VeltActivityLogWireframe.List.DateGroup>
+    <VeltActivityLogWireframe.List.DateGroup.Label />
+  </VeltActivityLogWireframe.List.DateGroup>
+  <VeltActivityLogWireframe.List.Item>
+    <VeltActivityLogWireframe.List.Item.Icon />
+    <VeltActivityLogWireframe.List.Item.Avatar />
+    <VeltActivityLogWireframe.List.Item.Content>
+      <VeltActivityLogWireframe.List.Item.Content.User />
+      <VeltActivityLogWireframe.List.Item.Content.Action />
+      <VeltActivityLogWireframe.List.Item.Content.Target />
+      <VeltActivityLogWireframe.List.Item.Content.Detail />
+    </VeltActivityLogWireframe.List.Item.Content>
+    <VeltActivityLogWireframe.List.Item.Time />
+  </VeltActivityLogWireframe.List.Item>
+  <VeltActivityLogWireframe.List.ShowMore />
+</VeltActivityLogWireframe.List>
+<velt-activity-log-list-wireframe>
+  <velt-activity-log-list-date-group-wireframe>
+    <velt-activity-log-list-date-group-label-wireframe></velt-activity-log-list-date-group-label-wireframe>
+  </velt-activity-log-list-date-group-wireframe>
+  <velt-activity-log-list-item-wireframe>
+    <velt-activity-log-list-item-icon-wireframe></velt-activity-log-list-item-icon-wireframe>
+    <velt-activity-log-list-item-avatar-wireframe></velt-activity-log-list-item-avatar-wireframe>
+    <velt-activity-log-list-item-content-wireframe>
+      <velt-activity-log-list-item-content-user-wireframe></velt-activity-log-list-item-content-user-wireframe>
+      <velt-activity-log-list-item-content-action-wireframe></velt-activity-log-list-item-content-action-wireframe>
+      <velt-activity-log-list-item-content-target-wireframe></velt-activity-log-list-item-content-target-wireframe>
+      <velt-activity-log-list-item-content-detail-wireframe></velt-activity-log-list-item-content-detail-wireframe>
+    </velt-activity-log-list-item-content-wireframe>
+    <velt-activity-log-list-item-time-wireframe></velt-activity-log-list-item-time-wireframe>
+  </velt-activity-log-list-item-wireframe>
+  <velt-activity-log-list-show-more-wireframe></velt-activity-log-list-show-more-wireframe>
+</velt-activity-log-list-wireframe>
+<VeltActivityLogWireframe.Loading />
+<VeltActivityLogWireframe.Empty />
+<velt-activity-log-loading-wireframe></velt-activity-log-loading-wireframe>
+<velt-activity-log-empty-wireframe></velt-activity-log-empty-wireframe>
+<VeltActivityLog shadowDom={false} />
+<velt-activity-log shadow-dom="false"></velt-activity-log>
+```
+
+The wireframe exposes 26 named slots under `VeltActivityLogWireframe`. Group them by region — you almost always override one region at a time rather than the whole tree.
+| Region | Slots |
+|---|---|
+| Root | `VeltActivityLogWireframe` |
+| Header | `Header`, `Header.Title`, `Header.CloseButton` |
+| Header Filter | `Header.Filter`, `Header.Filter.Trigger`, `Header.Filter.Trigger.Icon`, `Header.Filter.Trigger.Label`, `Header.Filter.Content`, `Header.Filter.Content.Item`, `Header.Filter.Content.Item.Icon`, `Header.Filter.Content.Item.Label` |
+| List | `List`, `List.DateGroup`, `List.DateGroup.Label`, `List.Item`, `List.ShowMore` |
+| List Item | `List.Item.Icon`, `List.Item.Avatar`, `List.Item.Time`, `List.Item.Content`, `List.Item.Content.User`, `List.Item.Content.Action`, `List.Item.Content.Target`, `List.Item.Content.Detail` |
+| States | `Loading`, `Empty` |
+The header hosts the title, the close button, and the filter dropdown. `Header.Filter.Trigger` is the visible button; `Header.Filter.Content` is the dropdown panel; `Content.Item` is one row inside it (iterated over `availableFilters`).
+`List` iterates the activity pipeline. `DateGroup` is the per-day bucket; `Item` is one activity record; `ShowMore` is the "Show N more" affordance shown when a date group exceeds `defaultVisibleCount` (default `5`).
+The four `Content.*` slots are the rendered sentence — `User` "edited" `Action` `Target` ("Page 1") `Detail` ("changed 4 fields"). Override them one-at-a-time when you want to restyle a single word without rebuilding the row.
+`Loading` renders while `allActivities === null`; `Empty` renders when `filteredActivities !== null && filteredActivities.length === 0`. You do not need to gate them yourself — they have built-in `shouldShow` predicates (see `wireframe-variables-activity-log` for the predicate reference).
+Wireframe slots render inside the `VeltActivityLog` shadow root by default. To style them with your own CSS, set `shadowDom={false}` on the host:
+**1. DO NOT omit `VeltWireframe`.** Wireframe sub-components must live inside a `<VeltWireframe>` (React) / `<velt-wireframe>` (HTML) block. Rendering `<VeltActivityLogWireframe>` at the top level has no effect — the SDK only scans for slots inside `VeltWireframe`.
+**2. DO NOT also render `<VeltActivityLog>` inside the wireframe block.** The wireframe block is the *template*; the host `<VeltActivityLog>` is what actually paints to the screen. Keep them as siblings — the wireframe is hidden (`display:none`) and the host reads its structure.
+**3. DO NOT mount and unmount the wireframe on toggle.** The wireframe registers slot definitions with the SDK at mount time; remounting forces re-registration and can blank the live host. Keep it mounted alongside the host (`display:none` toggling is fine for the host, but the wireframe should stay alive).
+**4. DO NOT conflate wireframe sub-components with the host's standalone primitives.** `VeltActivityLogHeader` (no `Wireframe` suffix, listed under `core-activity-log-component`) is a standalone web component you can drop into ad-hoc layouts; `VeltActivityLogWireframe.Header` is a *slot definition* the host reads. They share a name family but are not interchangeable.
+
+---
+
 ## References
 
 - https://docs.velt.dev
@@ -981,3 +1283,5 @@ Reference: https://docs.velt.dev/async-collaboration/activity/setup; https://doc
 - https://docs.velt.dev/async-collaboration/activity/setup
 - https://docs.velt.dev/async-collaboration/activity/customize-behavior
 - https://console.velt.dev
+- https://docs.velt.dev/ui-customization/features/async/activity-logs/activity-logs-wireframe-variables
+- https://docs.velt.dev/ui-customization/features/async/activity-logs/activity-logs-wireframes
