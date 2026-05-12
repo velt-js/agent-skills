@@ -1,15 +1,15 @@
 ---
 name: velt-cursors-best-practices
-description: "Velt Cursors implementation patterns and best practices for React, Next.js, and web applications. Use when adding real-time cursor tracking, collaborative cursor sharing, avatar-mode cursors, cursor element whitelisting, cursor inactivity timeouts, cursor position subscriptions, or customizing the cursor pointer wireframe and its flat-config componentConfig template variables (cursorUser, showAvatar / showAudio / showVideo, huddle-on-cursor flags, helper functions). Triggers on any task involving live cursors, collaborative cursor display, VeltCursor, VeltCursorPointerWireframe, cursor tracking on canvas or whiteboard, or showing where other users are pointing — even if the user doesn't explicitly say 'cursors'."
+description: "Velt Cursors implementation patterns and best practices for React, Next.js, and web applications. Use when adding real-time cursor tracking, collaborative cursor sharing, avatar-mode cursors, cursor element whitelisting, cursor inactivity timeouts, cursor position subscriptions, customizing the cursor pointer wireframe and its flat-config componentConfig template variables (cursorUser, showAvatar / showAudio / showVideo, huddle-on-cursor flags, helper functions), or customizing the Live Selection remote-user indicator wireframe (VeltSelectionElementPortalWireframe / velt-selection-element-portal, live-selection, selection-element-portal, userIndicatorPosition / userIndicatorType, selections). Triggers on any task involving live cursors, collaborative cursor display, live selection indicators, VeltCursor, VeltCursorPointerWireframe, VeltSelection*, cursor tracking on canvas or whiteboard, or showing where other users are pointing or selecting — even if the user doesn't explicitly say 'cursors' or 'live-selection'."
 license: MIT
 metadata:
   author: velt
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # Velt Cursors Best Practices
 
-Comprehensive implementation guide for Velt's real-time cursor tracking feature. Contains 12 rules across 7 categories covering setup, configuration, data access, events, UI customization, wireframe template variables, and debugging.
+Comprehensive implementation guide for Velt's real-time cursor tracking feature (and the sibling Live Selection indicator). Contains 13 rules across 7 categories covering setup, configuration, data access, events, UI customization, wireframe template variables, and debugging.
 
 ## When to Apply
 
@@ -57,6 +57,7 @@ Reference these guidelines when:
 
 ### Wireframe Variables (MEDIUM)
 - `wireframe-variables-cursors` — Flat-config `componentConfig.<path>` variables for `<velt-cursor>` and `<velt-cursor-pointer-wireframe>` (cursorUser, showAvatar / showAudio / showVideo, huddle flags, helper functions)
+- `wireframe-variables-live-selection` — Flat-config `componentConfig.<path>` variables for `<velt-selection-element-portal-wireframe>` (selections, userIndicatorPosition, userIndicatorType, position) plus `UserIndicatorPosition` / `UserIndicatorType` / `CursorPosition` / `Selection` type reference
 
 ### Debugging (LOW-MEDIUM)
 - `debug-common-issues` — Troubleshooting cursor tracking issues

@@ -1,6 +1,6 @@
 # Velt Comments Best Practices
 
-**Version 1.1.2**  
+**Version 1.1.3**  
 Velt  
 January 2026
 
@@ -117,10 +117,12 @@ Comprehensive Velt Comments implementation guide covering comment modes, setup p
    - 13.1 [Bind Autocomplete Wireframe Slots Using Template Variables](#131-bind-autocomplete-wireframe-slots-using-template-variables)
    - 13.2 [Bind Comment Bubble Wireframe Slots Using Template Variables](#132-bind-comment-bubble-wireframe-slots-using-template-variables)
    - 13.3 [Bind Comment Dialog Wireframe Slots Using Template Variables](#133-bind-comment-dialog-wireframe-slots-using-template-variables)
-   - 13.4 [Bind Comment Tool Wireframe Slots Using Template Variables](#134-bind-comment-tool-wireframe-slots-using-template-variables)
-   - 13.5 [Bind Inline Comments Section Wireframe Slots Using Template Variables](#135-bind-inline-comments-section-wireframe-slots-using-template-variables)
-   - 13.6 [Bind Multithread Comments Wireframe Slots Using Template Variables](#136-bind-multithread-comments-wireframe-slots-using-template-variables)
-   - 13.7 [Bind Text Comment Wireframe Slots Using Template Variables](#137-bind-text-comment-wireframe-slots-using-template-variables)
+   - 13.4 [Bind Comment Sidebar Button Wireframe Slots Using Template Variables](#134-bind-comment-sidebar-button-wireframe-slots-using-template-variables)
+   - 13.5 [Bind Comment Sidebar Wireframe Slots Using Template Variables](#135-bind-comment-sidebar-wireframe-slots-using-template-variables)
+   - 13.6 [Bind Comment Tool Wireframe Slots Using Template Variables](#136-bind-comment-tool-wireframe-slots-using-template-variables)
+   - 13.7 [Bind Inline Comments Section Wireframe Slots Using Template Variables](#137-bind-inline-comments-section-wireframe-slots-using-template-variables)
+   - 13.8 [Bind Multithread Comments Wireframe Slots Using Template Variables](#138-bind-multithread-comments-wireframe-slots-using-template-variables)
+   - 13.9 [Bind Text Comment Wireframe Slots Using Template Variables](#139-bind-text-comment-wireframe-slots-using-template-variables)
 
 ---
 
@@ -7068,7 +7070,7 @@ Reference: https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/com
 
 **Impact: MEDIUM**
 
-Template-variable binding patterns for the Comment Bubble, Comment Dialog, Comment Tool, Text Comment, Inline Comments Section, and Multithread Comments wireframes. Documents the `velt-data` / `velt-if` / `velt-class` directive system layered on top of the structural wireframe catalog in `ui/ui-wireframes.md` — variable namespaces (App / Data / UI / Feature State), loop-scope iteration variables, `defaultCondition` overrides, Angular signal inputs, and common `shouldShow` gates.
+Template-variable binding patterns for the Comment Bubble, Comment Dialog, Comment Tool, Text Comment, Inline Comments Section, Multithread Comments, Comment Sidebar, and Comment Sidebar Button wireframes. Documents the `velt-data` / `velt-if` / `velt-class` directive system layered on top of the structural wireframe catalog in `ui/ui-wireframes.md` — variable namespaces (App / Data / UI / Feature State), loop-scope iteration variables, `defaultCondition` overrides, Angular signal inputs, and common `shouldShow` gates.
 
 ### 13.1 Bind Autocomplete Wireframe Slots Using Template Variables
 
@@ -7533,7 +7535,237 @@ The root `<velt-comment-dialog>` element additionally accepts host attributes th
 
 ---
 
-### 13.4 Bind Comment Tool Wireframe Slots Using Template Variables
+### 13.4 Bind Comment Sidebar Button Wireframe Slots Using Template Variables
+
+**Impact: MEDIUM (Drives active/floating styling, total-vs-unread badge swapping, and the unread dot inside the Comment Sidebar Button wireframe without re-subscribing to sidebar visibility or annotation counts)**
+
+The Comment Sidebar Button wireframe family (`<velt-sidebar-button-...-wireframe>` / `<VeltSidebarButtonWireframe.*>`) is the toolbar button that opens the Comment Sidebar — with built-in unread-count and total-count indicators. You read its exposed variables with three directives: `<velt-data field="...">` for text, `velt-if="{var} ..."` for conditional rendering, and `velt-class="'cls': {var}"` for class toggling.
+
+Unlike Comment Bubble / Comment Dialog (which expose mapped short names at the root), the Sidebar Button uses the **flat-config** access pattern — variables span three explicit namespaces (`globalConfig.featureState.*`, `componentConfig.<data|uiState>.*`, `parentLocalUIState.*`) and **must** be referenced via their full path. There is no `{annotation}` / `{user}` alias here.
+
+For the structural catalog of which wireframe tags exist, see `ui/ui-wireframes.md`. This rule documents the *variable-binding* layer on top.
+
+**Incorrect (rebuilding visibility / unread state from hooks and aliasing flat-config variables as if they were mapped):**
+
+```jsx
+import { useCommentAnnotations, useVeltClient } from '@veltdev/react';
+import { VeltSidebarButtonWireframe } from '@veltdev/react';
+
+function Trigger() {
+  const annotations = useCommentAnnotations();
+  // Reimplements unreadCount + sidebarVisible the wireframe already exposes.
+  const unread = annotations?.filter(a => a.unread).length ?? 0;
+  const [open, setOpen] = useState(false);
+  return (
+    <VeltSidebarButtonWireframe>
+      <button className={open ? 'trigger active' : 'trigger'}>
+        <VeltSidebarButtonWireframe.Icon />
+        <span>{annotations?.length}</span>
+        {unread > 0 && <span className="dot">{unread}</span>}
+      </button>
+    </VeltSidebarButtonWireframe>
+  );
+}
+```
+
+**Correct (read the slot's injected flat-config variables via `velt-data` / `velt-if` / `velt-class`):**
+
+```jsx
+import { VeltSidebarButtonWireframe } from '@veltdev/react';
+
+<VeltSidebarButtonWireframe>
+  <button
+    className="my-trigger"
+    velt-class="'is-active': {globalConfig.featureState.sidebarVisible}, 'floating': {componentConfig.uiState.floatingMode}, 'dark': {componentConfig.uiState.darkMode}">
+    <VeltSidebarButtonWireframe.Icon />
+    <VeltSidebarButtonWireframe.CommentsCount>
+      <span velt-if="{componentConfig.uiState.commentCountType} === 'total'">
+        <velt-data field="componentConfig.data.annotations.length" />
+      </span>
+      <span velt-if="{componentConfig.uiState.commentCountType} === 'unread'">
+        <velt-data field="componentConfig.data.unreadCount" />
+      </span>
+    </VeltSidebarButtonWireframe.CommentsCount>
+    <VeltSidebarButtonWireframe.UnreadIcon
+      velt-if="{componentConfig.data.unreadCount} > 0" />
+  </button>
+</VeltSidebarButtonWireframe>
+```
+
+**HTML / web-component equivalent:**
+
+```html
+<velt-sidebar-button-wireframe>
+  <button class="my-trigger"
+          velt-class="'is-active': {globalConfig.featureState.sidebarVisible}, 'floating': {componentConfig.uiState.floatingMode}">
+    <velt-sidebar-button-icon-wireframe></velt-sidebar-button-icon-wireframe>
+    <velt-sidebar-button-comments-count-wireframe>
+      <span velt-if="{componentConfig.uiState.commentCountType} === 'unread'">
+        <velt-data field="componentConfig.data.unreadCount"></velt-data>
+      </span>
+    </velt-sidebar-button-comments-count-wireframe>
+    <velt-sidebar-button-unread-icon-wireframe
+      velt-if="{componentConfig.data.unreadCount} > 0"></velt-sidebar-button-unread-icon-wireframe>
+  </button>
+</velt-sidebar-button-wireframe>
+```
+
+**Global Feature State** — cross-document:
+| Variable | Type | Notes |
+|---|---|---|
+| `globalConfig.featureState.sidebarVisible` | `boolean` | Linked sidebar is currently open. Drives the active state on the button. |
+**Per-instance Data** — counts for this button:
+| Variable | Type | Notes |
+|---|---|---|
+| `componentConfig.data.annotations` | `CommentAnnotation[] \| undefined` | All annotations in scope. `.length` drives the total-count badge. |
+| `componentConfig.data.unreadCount` | `number \| null` | Unread-count badge value. Also gates the unread-icon slot. |
+**Per-instance UI State** — layout flags:
+| Variable | Type | Notes |
+|---|---|---|
+| `componentConfig.uiState.showDefaultBtn` | `boolean` | Default built-in button should render. Set to `false` when a wireframe overrides the button entirely. |
+| `componentConfig.uiState.floatingMode` | `boolean` | Button is rendering in floating mode. |
+| `componentConfig.uiState.floatingModeSidebarVisible` | `boolean` | Floating-mode sidebar is currently open. |
+| `componentConfig.uiState.darkMode` | `boolean` | Dark mode is active for this instance. |
+| `componentConfig.uiState.commentCountType` | `'total' \| 'unread'` | Which count drives the badge. Compare with `===`, do not coerce to boolean. |
+**Per-instance Local UI State** — host-attribute reflections:
+| Variable | Type | Notes |
+|---|---|---|
+| `parentLocalUIState.darkMode` | `boolean` | Local dark-mode flag (host attribute). |
+| `parentLocalUIState.variant` | `string` | Per-instance variant tag set on the host element. |
+| `parentLocalUIState.shadowDom` | `boolean` | Shadow-DOM rendering is enabled (read-only — set via the host attribute). |
+| Wireframe tag | React component | `shouldShow` |
+|---|---|---|
+| `<velt-sidebar-button-wireframe>` | `<VeltSidebarButtonWireframe>` | Root. |
+| `<velt-sidebar-button-icon-wireframe>` | `<VeltSidebarButtonWireframe.Icon>` | Default chat icon. |
+| `<velt-sidebar-button-comments-count-wireframe>` | `<VeltSidebarButtonWireframe.CommentsCount>` | Branches on `componentConfig.uiState.commentCountType` — `'total'` shows `annotations.length`, `'unread'` shows `unreadCount`. |
+| `<velt-sidebar-button-unread-icon-wireframe>` | `<VeltSidebarButtonWireframe.UnreadIcon>` | `componentConfig.data.unreadCount > 0`. |
+Override any gate with `defaultCondition={false}` (React) / `default-condition="false"` (HTML).
+**1. DO NOT drop the namespace prefix.** This wireframe is flat-config — `<velt-data field="unreadCount" />` resolves to nothing. Use the full path: `<velt-data field="componentConfig.data.unreadCount" />`.
+**2. DO NOT confuse `globalConfig.featureState.sidebarVisible` with `componentConfig.uiState.floatingModeSidebarVisible`.** The first is the global linked-sidebar state; the second is the floating-overlay variant. They are independent — the floating mode can be open while the docked sidebar is closed.
+**3. DO NOT compare `commentCountType` to a boolean.** It is a string enum (`'total'` / `'unread'`). Compare explicitly: `velt-if="{componentConfig.uiState.commentCountType} === 'total'"`.
+**4. DO NOT bind to `parentLocalUIState.shadowDom` to *enable* shadow-DOM.** Shadow-DOM is set via the host attribute `shadow-dom="true"` on `<velt-sidebar-button>`. The variable only reports the current state.
+
+---
+
+### 13.5 Bind Comment Sidebar Wireframe Slots Using Template Variables
+
+**Impact: MEDIUM (Drives layout-mode styling, filter / list / focused-thread iteration, empty-state and skeleton gating, and nested-dialog scope across the Comment Sidebar wireframe family without re-subscribing to sidebar state)**
+
+The Comment Sidebar wireframe family (`<velt-comments-sidebar-...-wireframe>` / `<velt-comment-sidebar-...-wireframe>` — **both prefixes are used**) is the largest wireframe surface after Comment Dialog. It covers the panel root, wrapper, header, filter panel (and its per-category sub-panels + per-option rows + filter-search tags), the minimal filter/sort + actions dropdowns, the standalone status / location / document dropdowns, the virtual-scroll list (with grouped sections), skeleton + empty-state placeholders, the page-mode composer, and the focused-thread view.
+
+You read the wireframe's exposed variables with three directives — `<velt-data field="...">` for text, `velt-if="{var} ..."` for conditional rendering, and `velt-class="'cls': {var}"` for class toggling. Use these instead of re-implementing filter, focused-thread, or unread state on top of `useCommentAnnotations` / `useVeltClient`.
+
+The sidebar uses a **hybrid access pattern**, distinct from Comment Dialog:
+
+- A small set of **mapped** sidebar-specific names resolve via bare short names — `{focusedAnnotation}`, `{selectedMinimalFilterDropdownOption}`, `{appliedFiltersCount}`, `{filteredCommentAnnotationsCount}`, `{unreadCommentAnnotationCount}`.
+- Inherited mapped names from Comment Dialog also resolve as short names — `{user}`, `{isUserAdmin}`, `{isKnownUser}`, `{darkMode}`, `{variant}`, `{annotation}`, `{annotations}`, `{allAnnotations}`, `{commentAnnotation}`, `{commentAnnotations}`.
+- Everything else is **flat** on `componentConfig` and **must** be referenced via the full path: `{componentConfig.skeletonLoading}`, `{componentConfig.virtualScrollData}`, `{componentConfig.filterConfig.layout}`, …
+
+For the structural catalog of all sidebar tags see `ui/ui-wireframes.md`. For the surface itself see `surface/surface-sidebar.md`. This rule documents the *variable-binding* layer on top.
+
+**Incorrect (rebuilding sidebar state from hooks and gating slots from the host component):**
+
+```jsx
+import { useCommentAnnotations, useVeltClient } from '@veltdev/react';
+import { VeltCommentsSidebarWireframe } from '@veltdev/react';
+
+function Sidebar() {
+  const annotations = useCommentAnnotations();
+  // Reimplements filtered count + skeleton + empty + focused-thread state
+  // the wireframe already exposes.
+  const [filtered, setFiltered] = useState(annotations ?? []);
+  const [loading, setLoading] = useState(true);
+  const [focused, setFocused] = useState(null);
+  useEffect(() => { /* manual subscriptions ... */ }, [annotations]);
+  return (
+    <VeltCommentsSidebarWireframe>
+      {loading ? <Skeleton /> : filtered.length === 0 ? <Empty /> : <List items={filtered} />}
+      {focused && <FocusedThread annotation={focused} />}
+    </VeltCommentsSidebarWireframe>
+  );
+}
+```
+
+**Correct (read the slot's injected variables; let the wireframe iterate / gate for you):**
+
+```jsx
+import { VeltCommentsSidebarWireframe } from '@veltdev/react';
+
+<VeltCommentsSidebarWireframe>
+  <VeltCommentsSidebarWrapperWireframe>
+    <VeltCommentSidebarHeaderWireframe>
+      <h2>Comments</h2>
+      <VeltCommentsSidebarFilterButtonWireframe
+        velt-class="'has-filters': {appliedFiltersCount} > 0">
+        Filter
+        <span velt-if="{appliedFiltersCount} > 0">
+          <velt-data field="appliedFiltersCount" />
+        </span>
+      </VeltCommentsSidebarFilterButtonWireframe>
+      <VeltCommentSidebarCloseButtonWireframe />
+    </VeltCommentSidebarHeaderWireframe>
+
+    <VeltCommentSidebarSkeletonWireframe />
+    <VeltCommentSidebarListWireframe />
+
+    <VeltCommentsSidebarEmptyPlaceholderWireframe
+      velt-if="{componentConfig.noCommentsFound} || {componentConfig.noCommentsFoundForAppliedFilters}">
+      <p>No comments to show.</p>
+      <VeltCommentsSidebarResetFilterButtonWireframe
+        velt-if="{appliedFiltersCount} > 0">
+        Clear filters
+      </VeltCommentsSidebarResetFilterButtonWireframe>
+    </VeltCommentsSidebarEmptyPlaceholderWireframe>
+
+    <VeltCommentsSidebarFocusedThreadWireframe>
+      <div className="my-focused" velt-if="{focusedAnnotation}">
+        <button>Back</button>
+        <h3><velt-data field="focusedAnnotation.from.name" /></h3>
+        <p><velt-data field="focusedAnnotation.comments.0.commentText" /></p>
+      </div>
+    </VeltCommentsSidebarFocusedThreadWireframe>
+  </VeltCommentsSidebarWrapperWireframe>
+</VeltCommentsSidebarWireframe>
+```
+
+**HTML / web-component equivalent:**
+
+```html
+<velt-comments-sidebar-wireframe>
+  <velt-comments-sidebar-wrapper-wireframe>
+    <velt-comment-sidebar-header-wireframe>
+      <velt-comments-sidebar-filter-button-wireframe
+        velt-class="'has-filters': {appliedFiltersCount} > 0">
+        Filter
+      </velt-comments-sidebar-filter-button-wireframe>
+    </velt-comment-sidebar-header-wireframe>
+    <velt-comment-sidebar-list-wireframe></velt-comment-sidebar-list-wireframe>
+    <velt-comments-sidebar-empty-placeholder-wireframe
+      velt-if="{componentConfig.noCommentsFound} || {componentConfig.noCommentsFoundForAppliedFilters}">
+    </velt-comments-sidebar-empty-placeholder-wireframe>
+  </velt-comments-sidebar-wrapper-wireframe>
+</velt-comments-sidebar-wireframe>
+```
+
+**List data:**
+
+```typescript
+// On any <velt-comments-sidebar-...-wireframe> in an Angular template
+[componentConfigSignal]="config()"   // shared per-sidebar config signal
+```
+
+**1. DO NOT drop the `componentConfig.` prefix on flat properties.** The sidebar is hybrid — mapped names (`focusedAnnotation`, `appliedFiltersCount`, `annotation`, `user`, `darkMode`, `variant`, `unreadCommentAnnotationCount`, …) resolve as bare short names; **everything else** lives flat on `componentConfig`. `<velt-data field="skeletonLoading" />` returns nothing — use `<velt-data field="componentConfig.skeletonLoading" />`. Similarly: `componentConfig.virtualScrollData`, `componentConfig.moreFiltersVisible`, `componentConfig.filterConfig.layout`, `componentConfig.noCommentsFound`, …
+**2. DO NOT reference `focusedAnnotation` outside the focused-thread subtree.** It's loop-scope — only resolves inside `<velt-comments-sidebar-focused-thread-wireframe>` (and the focused-thread-dialog container). Referencing it from the list or filter panel returns `undefined`.
+**3. DO NOT confuse `componentConfig.noCommentsFound` with `componentConfig.noCommentsFoundForAppliedFilters`.** The first is "no annotations exist on the document"; the second is "filters reduced the list to zero". Empty-state copy + the reset-filter button should branch on the second.
+**4. DO NOT confuse the two prefixes.** Both `<velt-comments-sidebar-...>` (plural, sidebar-level) and `<velt-comment-sidebar-...>` (singular, header / search / list-level) appear in the catalog. The format guide is consistent inside each subtree — copy the tag name exactly from the docs source; don't infer.
+**5. DO NOT bind `componentConfig.openMoreFilters` / `toggleMoreFilters` with `velt-data`.** They are callback functions — wire them into a custom click handler in your host code, not into the template-variable resolver.
+**6. DO NOT mix `defaultCondition` with `velt-if` to mean the same thing.** `defaultCondition={false}` disables the slot's internal `shouldShow` (forcing render). `velt-if` adds a new gate on top. Combining them inverts the semantics you probably want.
+**7. DO NOT compare `selectedMinimalFilterDropdownOption.filter` directly to a boolean.** It is a string (`'all'`, `'open'`, `'resolved'`, `'read'`, `'unread'`, `'assigned-to-me'`). Compare with `===` inside the per-row gate: `velt-class="'selected': '{selectedMinimalFilterDropdownOption.filter} === \'open\''"`.
+**8. DO NOT remount the sidebar to switch between docked / floating / page-mode / embed layouts.** `componentConfig.floatingMode` / `componentConfig.pageMode` / `componentConfig.embedMode` / `componentConfig.fullScreen` are exposed as variables — toggle classes with `velt-class`, don't unmount.
+
+---
+
+### 13.6 Bind Comment Tool Wireframe Slots Using Template Variables
 
 **Impact: MEDIUM (Drives dynamic content, conditional rendering, and class toggling inside the Comment Tool wireframe without reimplementing add-comment-mode state on top of the SDK)**
 
@@ -7662,7 +7894,7 @@ If you want the tool to disappear entirely when disabled, gate it yourself: `vel
 
 ---
 
-### 13.5 Bind Inline Comments Section Wireframe Slots Using Template Variables
+### 13.7 Bind Inline Comments Section Wireframe Slots Using Template Variables
 
 **Impact: MEDIUM (Drives skeleton-loader state, filter/sort dropdown rendering, per-status filter rows, composer placeholders, and target-element wiring inside the Inline Comments Section wireframe without re-subscribing to annotation state)**
 
@@ -7774,7 +8006,7 @@ The root `<velt-inline-comments-section>` element additionally accepts host attr
 
 ---
 
-### 13.6 Bind Multithread Comments Wireframe Slots Using Template Variables
+### 13.8 Bind Multithread Comments Wireframe Slots Using Template Variables
 
 **Impact: MEDIUM (Drives thread-count display, empty-state placeholders, minimal filter/sort + bulk-actions dropdown rendering, and anchor-annotation composer gating inside the Multithread Comments wireframe without re-implementing thread iteration)**
 
@@ -7900,7 +8132,7 @@ Override any of them with `defaultCondition={false}` (React) / `default-conditio
 
 ---
 
-### 13.7 Bind Text Comment Wireframe Slots Using Template Variables
+### 13.9 Bind Text Comment Wireframe Slots Using Template Variables
 
 **Impact: MEDIUM (Drives word/character-count display, capability gating, position offsets, and AI-rewriter visibility inside the Text Comment toolbar wireframes without re-implementing selection tracking)**
 
@@ -8054,3 +8286,5 @@ Override either with `defaultCondition={false}` (React) / `default-condition="fa
 - https://docs.velt.dev/ui-customization/features/async/comments/multithread-comments/wireframe-variables
 - https://docs.velt.dev/ui-customization/features/async/comments/text-comment-wireframe-variables
 - https://docs.velt.dev/ui-customization/features/async/comments/autocomplete-wireframe-variables
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar-button/wireframe-variables
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-wireframe-variables

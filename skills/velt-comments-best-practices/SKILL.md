@@ -4,12 +4,12 @@ description: Velt Comments implementation patterns and best practices for React,
 license: MIT
 metadata:
   author: velt
-  version: "1.1.2"
+  version: "1.1.3"
 ---
 
 # Velt Comments Best Practices
 
-Comprehensive implementation guide for Velt's collaborative comments feature in React and Next.js applications. Contains 78 rules across 13 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's collaborative comments feature in React and Next.js applications. Contains 80 rules across 13 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
@@ -121,6 +121,8 @@ Reference these guidelines when:
 - `wireframe-variables-multithread-comments` - Bind the Multithread Comments wireframe (`{nonDraftCommentsCount}`, `{minimalFilter}`, empty-state + reset-filter gates, minimal filter / sort + bulk-actions dropdowns with `isSelected` loop-scope, `data.user` / `uiState.shadowDom` conflict-paths)
 - `wireframe-variables-autocomplete` - Bind the Autocomplete @-mention picker wireframes (flat-config `componentConfig.<path>` access for `flattenedItems` / `customGroupsEnabled` / `newUserContactError`, loop-scope `option` / `chip`, option / group-option / chip / empty-state subcomponents, chip tooltip descendants)
 - `wireframe-variables-text-comment` - Bind the Text Comment toolbar wireframes (`{selectedWordsCount}` / `{selectedCharactersCount}` / `{position.*}`, capability flags `isUserAllowed` / `enableTextComments` / `rewriterEnabled`, five conflict-name explicit paths)
+- `wireframe-variables-comment-sidebar-button` - Bind the Comment Sidebar Button wireframe via flat-config (`globalConfig.featureState.sidebarVisible`, `componentConfig.data.unreadCount` / `annotations.length`, `componentConfig.uiState.commentCountType` / `floatingMode`)
+- `wireframe-variables-comment-sidebar` - Bind the ~80-tag Comment Sidebar wireframe family — hybrid access (mapped `focusedAnnotation` / `appliedFiltersCount` / `unreadCommentAnnotationCount` alongside flat `componentConfig.skeletonLoading` / `noCommentsFound*` / `virtualScrollData` / `filterConfig.*`), loop-scope (`focusedAnnotation`, `filter`, `item`, `group`, `tag`), nested Comment Dialog scope in list / focused-thread / page-mode composer
 
 ## How to Use
 
