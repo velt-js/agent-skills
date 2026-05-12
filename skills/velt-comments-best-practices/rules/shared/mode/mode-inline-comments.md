@@ -124,6 +124,35 @@ export default function App() {
 </section>
 ```
 
+**Message Truncation (v5.0.2-beta.18+):**
+
+`VeltInlineCommentsSection` supports per-comment message truncation. When enabled, long messages are clipped to the specified line count and a **Show more** button appears. Each comment tracks its own expand/collapse state independently. The Show more and Show less controls are full wireframe primitives — see `ui-wireframes.md` for customization.
+
+| Prop (React) | Attribute (HTML) | Type | Default | Description |
+|---|---|---|---|---|
+| `messageTruncation` | `message-truncation` | `boolean` | `false` | Enable per-comment truncation with expand/collapse |
+| `messageTruncationLines` | `message-truncation-lines` | `number` | `4` | Lines visible before truncation |
+
+**Correct (React / Next.js — message truncation enabled):**
+
+```jsx
+<VeltInlineCommentsSection
+  targetElementId="article0"
+  messageTruncation={true}
+  messageTruncationLines={3}
+/>
+```
+
+**Correct (Other Frameworks — message truncation enabled):**
+
+```html
+<velt-inline-comments-section
+  target-element-id="article0"
+  message-truncation="true"
+  message-truncation-lines="3">
+</velt-inline-comments-section>
+```
+
 **Wireframe `context` Variable Resolution (v5.0.2-beta.11+):**
 
 Inside wireframe templates for `VeltInlineCommentsSection`, the `context` data variable resolves from `parentLocalUIState.context` — the document/location context for the section. This is the corrected behavior as of v5.0.2-beta.11.
@@ -156,6 +185,7 @@ Inside wireframe templates for `VeltInlineCommentsSection`, the `context` data v
 - [ ] `composerPosition="bottom"` is set for natural thread layout
 - [ ] `shadowDom={false}` is set on VeltInlineCommentsSection
 - [ ] multiThread setting matches requirements
+- [ ] If long comment bodies are expected, `messageTruncation={true}` and `messageTruncationLines` are set to improve readability
 
 **Source Pointers:**
 - https://docs.velt.dev/async-collaboration/comments/setup/inline-comments - Complete setup

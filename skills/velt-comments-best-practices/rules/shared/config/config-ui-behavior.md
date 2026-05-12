@@ -216,6 +216,17 @@ commentElement.enableRecordingTranscription();
 commentElement.disableRecordingTranscription();
 ```
 
+**Edit Draft Preservation (v5.0.2-beta.18+):**
+
+When a user dismisses the edit composer without submitting — via click-outside, dialog destroy, or back navigation — the in-progress edits are preserved in memory as a draft. The collapsed thread card shows the pending draft with a `(DRAFT)` badge in italic styling, and clicking it re-opens the edit composer pre-filled with the saved changes.
+
+Drafts are session-only and are cleared on:
+- Successful submit
+- Explicit Escape key press
+- Page refresh
+
+There is no API surface for this behavior — it is fully automatic. Developers should be aware of the session-only scoping: drafts do not survive a page reload.
+
 **Key details:**
 - All toggle methods have corresponding `disable` variants
 - Most can also be set as props on `<VeltComments>` or via HTML attributes

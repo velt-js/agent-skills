@@ -257,6 +257,48 @@ These variables are useful for list-level UIs such as Inline Comments Section wi
 </velt-wireframe>
 ```
 
+**Thread Card Message — ShowMore / ShowLess Wireframe Primitives (v5.0.2-beta.18+):**
+
+When `messageTruncation` is enabled (on `VeltInlineCommentsSection`, or via `messageTruncation` / `messageTruncationLines` on `VeltCommentDialog`-rendering surfaces), the expand/collapse controls are full wireframe primitives. They live in the comment-dialog thread-card message hierarchy because truncation is implemented at the message level, and the inline-comments section internally renders comment-dialog thread cards.
+
+Wireframes (use inside `VeltWireframe` / `<velt-wireframe>`):
+
+| React | HTML |
+|---|---|
+| `VeltCommentDialogWireframe.ThreadCard.Message.ShowMore` | `velt-comment-dialog-thread-card-message-show-more-wireframe` |
+| `VeltCommentDialogWireframe.ThreadCard.Message.ShowLess` | `velt-comment-dialog-thread-card-message-show-less-wireframe` |
+
+Equivalent standalone primitives (use directly without a wireframe wrapper):
+
+| React | HTML |
+|---|---|
+| `VeltCommentDialogThreadCardMessageShowMore` | `velt-comment-dialog-thread-card-message-show-more` |
+| `VeltCommentDialogThreadCardMessageShowLess` | `velt-comment-dialog-thread-card-message-show-less` |
+
+These controls only render when a message exceeds the `messageTruncationLines` threshold. Both accept the standard Common Inputs props/attributes — no message-specific configuration is required; the primitives bind to the iterating thread card automatically.
+
+**Correct (React / Next.js — custom ShowMore / ShowLess inside a wireframe):**
+
+```jsx
+<VeltWireframe>
+  <VeltCommentDialogWireframe.ThreadCard.Message.ShowMore />
+  <VeltCommentDialogWireframe.ThreadCard.Message.ShowLess />
+</VeltWireframe>
+```
+
+**Correct (Other Frameworks — custom ShowMore / ShowLess inside a wireframe):**
+
+```html
+<velt-wireframe>
+  <velt-comment-dialog-thread-card-message-show-more-wireframe>
+    <!-- custom Show more content -->
+  </velt-comment-dialog-thread-card-message-show-more-wireframe>
+  <velt-comment-dialog-thread-card-message-show-less-wireframe>
+    <!-- custom Show less content -->
+  </velt-comment-dialog-thread-card-message-show-less-wireframe>
+</velt-wireframe>
+```
+
 **Verification Checklist:**
 - [ ] Correct wireframe component imported
 - [ ] Proper nesting of child components
