@@ -143,9 +143,12 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 13. Wireframe Variables (wireframe-variables)
 
 **Impact:** MEDIUM
-**Description:** Template-variable binding patterns for the Comment Bubble, Comment Dialog, and Comment Tool wireframes. Documents the `velt-data` / `velt-if` / `velt-class` directive system layered on top of the structural wireframe catalog in `ui/ui-wireframes.md` — variable namespaces (App / Data / UI / Feature State), loop-scope iteration variables, `defaultCondition` overrides, Angular signal inputs, and common `shouldShow` gates.
+**Description:** Template-variable binding patterns for the Comment Bubble, Comment Dialog, Comment Tool, Text Comment, Inline Comments Section, and Multithread Comments wireframes. Documents the `velt-data` / `velt-if` / `velt-class` directive system layered on top of the structural wireframe catalog in `ui/ui-wireframes.md` — variable namespaces (App / Data / UI / Feature State), loop-scope iteration variables, `defaultCondition` overrides, Angular signal inputs, and common `shouldShow` gates.
 
 **Rules:**
 - `wireframe-variables-comment-bubble` - Bind Comment Bubble and Comment Pin wireframe slots via `{annotation.*}`, `{selectedAnnotationsMap[...]}`, and `globalConfigSignal.featureState.*`
 - `wireframe-variables-comment-dialog` - Bind the ~110-slot Comment Dialog wireframe family — App / Data / UI / Feature State namespaces, loop-scope (`comment`, `commentIndex`), root-level placeholder / unread-map paths, v1 backward-compat aliases
 - `wireframe-variables-comment-tool` - Bind the Comment Tool wireframe via the flat-config `{addCommentMode}` / `{commentToolEnabled}` aliases (and the canonical `globalConfig.featureState.*` / `componentConfig.*` paths)
+- `wireframe-variables-inline-comments-section` - Bind the Inline Comments Section wireframe — `{annotations}` / `{skeletonLoading}` / `{filterState.*}` / `{sortState.*}`, per-row loop-scope (`filter`, `sortOption`, `isActive`, `isAscending`), `featureState.*` conflict-paths, and nested Comment Dialog primitives in the list / composer
+- `wireframe-variables-multithread-comments` - Bind the Multithread Comments wireframe — `{nonDraftCommentsCount}`, `{minimalFilter}`, empty-state + reset-filter gates, minimal filter/sort + bulk-actions dropdowns (`isSelected` loop-scope), `data.user` / `uiState.shadowDom` conflict-paths
+- `wireframe-variables-text-comment` - Bind the Text Comment toolbar wireframes — `{selectedWordsCount}` / `{selectedCharactersCount}` / `{position.*}`, capability flags (`isUserAllowed`, `enableTextComments`, `rewriterEnabled`), and the five explicit-path conflict names (`data.user`, `uiState.disabled`, `uiState.left`, `uiState.isPlanExpired`, `parentLocalUIState.shadowDom`)

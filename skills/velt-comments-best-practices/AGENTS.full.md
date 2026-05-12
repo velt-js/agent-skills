@@ -1,6 +1,6 @@
 # Velt Comments Best Practices
 
-**Version 1.1.0**  
+**Version 1.1.1**  
 Velt  
 January 2026
 
@@ -117,6 +117,9 @@ Comprehensive Velt Comments implementation guide covering comment modes, setup p
    - 13.1 [Bind Comment Bubble Wireframe Slots Using Template Variables](#131-bind-comment-bubble-wireframe-slots-using-template-variables)
    - 13.2 [Bind Comment Dialog Wireframe Slots Using Template Variables](#132-bind-comment-dialog-wireframe-slots-using-template-variables)
    - 13.3 [Bind Comment Tool Wireframe Slots Using Template Variables](#133-bind-comment-tool-wireframe-slots-using-template-variables)
+   - 13.4 [Bind Inline Comments Section Wireframe Slots Using Template Variables](#134-bind-inline-comments-section-wireframe-slots-using-template-variables)
+   - 13.5 [Bind Multithread Comments Wireframe Slots Using Template Variables](#135-bind-multithread-comments-wireframe-slots-using-template-variables)
+   - 13.6 [Bind Text Comment Wireframe Slots Using Template Variables](#136-bind-text-comment-wireframe-slots-using-template-variables)
 
 ---
 
@@ -7064,7 +7067,7 @@ Reference: https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/com
 
 **Impact: MEDIUM**
 
-Template-variable binding patterns for the Comment Bubble, Comment Dialog, and Comment Tool wireframes. Documents the `velt-data` / `velt-if` / `velt-class` directive system layered on top of the structural wireframe catalog in `ui/ui-wireframes.md` — variable namespaces (App / Data / UI / Feature State), loop-scope iteration variables, `defaultCondition` overrides, Angular signal inputs, and common `shouldShow` gates.
+Template-variable binding patterns for the Comment Bubble, Comment Dialog, Comment Tool, Text Comment, Inline Comments Section, and Multithread Comments wireframes. Documents the `velt-data` / `velt-if` / `velt-class` directive system layered on top of the structural wireframe catalog in `ui/ui-wireframes.md` — variable namespaces (App / Data / UI / Feature State), loop-scope iteration variables, `defaultCondition` overrides, Angular signal inputs, and common `shouldShow` gates.
 
 ### 13.1 Bind Comment Bubble Wireframe Slots Using Template Variables
 
@@ -7549,6 +7552,384 @@ If you want the tool to disappear entirely when disabled, gate it yourself: `vel
 
 ---
 
+### 13.4 Bind Inline Comments Section Wireframe Slots Using Template Variables
+
+**Impact: MEDIUM (Drives skeleton-loader state, filter/sort dropdown rendering, per-status filter rows, composer placeholders, and target-element wiring inside the Inline Comments Section wireframe without re-subscribing to annotation state)**
+
+The Inline Comments Section wireframe family (`<velt-inline-comments-section-...-wireframe>` / `<VeltInlineCommentsSectionWireframe.*>`) renders a list of annotations scoped to a target DOM element, plus its filter / sort dropdowns and a per-section composer. It iterates `annotations` and mounts the standard Comment Dialog primitives for each — variables that resolve inside those nested dialog tags are documented in `wireframe-variables-comment-dialog.md`.
+
+Read the wireframe's exposed variables with three directives — `<velt-data field="...">` for text, `velt-if="{var} ..."` for conditional rendering, and `velt-class="'cls': {var}"` for class toggling. Use these instead of re-implementing skeleton tracking, filter/sort state, or annotation iteration on top of `useCommentAnnotations`. Variables are mapped — reference them by their short name, except for the four conflicting names that **must** be read via their explicit path.
+
+For the structural catalog of which wireframe tags exist and how they nest, see `ui/ui-wireframes.md`. For the Inline Comments mode itself (setup, target-element wiring, multi-thread layout), see `mode/mode-inline-comments.md`.
+
+**Incorrect (rebuilding section state from `useCommentAnnotations` and conditionally mounting slots):**
+
+```jsx
+import { useCommentAnnotations } from '@veltdev/react';
+import { VeltInlineCommentsSectionWireframe } from '@veltdev/react';
+import { useState } from 'react';
+
+function Section({ targetElementId }) {
+  const all = useCommentAnnotations();
+  // Reimplements filter + sort + skeleton tracking the wireframe already exposes.
+  const [loading, setLoading] = useState(true);
+  const [sortBy, setSortBy] = useState('createdAt');
+  const annotations = all?.filter(a => a.targetElementId === targetElementId);
+  if (loading) return <div className="skel" />;
+  return (
+    <VeltInlineCommentsSectionWireframe>
+      <span>{annotations.length} comments</span>
+      {annotations.map(a => <div key={a.annotationId}>{a.comments[0]?.commentText}</div>)}
+    </VeltInlineCommentsSectionWireframe>
+  );
+}
+```
+
+**Correct (read the slot's injected variables; let `List` iterate for you):**
+
+```jsx
+import { VeltInlineCommentsSectionWireframe } from '@veltdev/react';
+
+<VeltInlineCommentsSectionWireframe
+  velt-class="'theme-dark': {darkMode}, 'readonly': {featureState.readOnly}, 'composer-{composerPosition}': true">
+  <VeltInlineCommentsSectionWireframe.Skeleton velt-if="{skeletonLoading}" />
+
+  <header className="my-section__header">
+    <VeltInlineCommentsSectionWireframe.CommentCount>
+      <velt-data field="annotations.length" /> comments
+    </VeltInlineCommentsSectionWireframe.CommentCount>
+
+    <VeltInlineCommentsSectionWireframe.FilterDropdown.Trigger
+      velt-class="'open': {filterState.filterDropdownOpen}">
+      <span>Filter (<velt-data field="filterState.filters.length" />)</span>
+    </VeltInlineCommentsSectionWireframe.FilterDropdown.Trigger>
+
+    <VeltInlineCommentsSectionWireframe.SortingDropdown.Trigger>
+      <span>Sort: <velt-data field="sortState.activeSortOption" /></span>
+    </VeltInlineCommentsSectionWireframe.SortingDropdown.Trigger>
+  </header>
+
+  <VeltInlineCommentsSectionWireframe.List />
+  <VeltInlineCommentsSectionWireframe.ComposerContainer />
+</VeltInlineCommentsSectionWireframe>
+```
+
+**HTML / web-component equivalent:**
+
+```html
+<velt-inline-comments-section-wireframe>
+  <velt-inline-comments-section-skeleton-wireframe velt-if="{skeletonLoading}"></velt-inline-comments-section-skeleton-wireframe>
+  <header class="my-section__header">
+    <velt-inline-comments-section-comment-count-wireframe>
+      <velt-data field="annotations.length"></velt-data> comments
+    </velt-inline-comments-section-comment-count-wireframe>
+    <velt-inline-comments-section-filter-dropdown-trigger-wireframe
+      velt-class="'open': {filterState.filterDropdownOpen}">
+      <span>Filter (<velt-data field="filterState.filters.length"></velt-data>)</span>
+    </velt-inline-comments-section-filter-dropdown-trigger-wireframe>
+  </header>
+  <velt-inline-comments-section-list-wireframe></velt-inline-comments-section-list-wireframe>
+  <velt-inline-comments-section-composer-container-wireframe></velt-inline-comments-section-composer-container-wireframe>
+</velt-inline-comments-section-wireframe>
+```
+
+**App State** — identity:
+| Variable | Type | Notes |
+|---|---|---|
+| `user` | `User` | Currently identified end-user. |
+**Data State** — annotations + composer + statuses:
+| Variable | Type | Notes |
+|---|---|---|
+| `annotations` | `CommentAnnotation[]` | Annotations rendered after filter / sort. Drives the count badge and the `List` iteration. |
+| `allAnnotations` | `CommentAnnotation[]` | Unfiltered list scoped to the section's target element. |
+| `composerCommentAnnotation` | `CommentAnnotation \| undefined` | Draft annotation being composed in this section. Gate the composer with `velt-if="{composerCommentAnnotation}"` when you need to know it exists. |
+| `statuses` | `CustomStatus[]` | Available status options for the filter dropdown. |
+
+**Root + structural:**
+
+```typescript
+// On any <velt-inline-comments-section-...-wireframe> in an Angular template
+[componentConfigSignal]="config()"   // annotations, statuses, filterState, sortState, ...
+[parentLocalUIState]="localUI()"     // darkMode, variant, shadowDom, dialogVariant, ...
+```
+
+The root `<velt-inline-comments-section>` element additionally accepts host attributes that map onto config and local UI state: `target-element-id`, `folder-id`, `document-id`, `location-id`, `context`, `dialog-variant`, `composer-variant`, `composer-position`, `comment-placeholder` / `reply-placeholder` / `composer-placeholder` / `edit-placeholder`, `multi-thread`, `full-expanded`, `read-only`, `message-truncation`, `message-truncation-lines`, `dark-mode`, `variant`, `shadow-dom`.
+**1. DO NOT prefix mapped variables with `componentConfig.`.** Variables are mapped to short names. `<velt-data field="componentConfig.annotations.length" />` resolves to nothing — use `<velt-data field="annotations.length" />`. The exception is the four conflicting names above, which **require** their explicit path.
+**2. DO NOT read `readOnly` / `messageTruncation` / `messageTruncationLines` at the short name when you mean the workspace-wide flag.** The short names are the per-instance local copies; the workspace flags live under `featureState.*`. They can disagree.
+**3. DO NOT remount the section to switch between filter values.** `filterState.filters`, `sortState.sortBy`, and `sortState.sortOrder` are exposed as variables — toggle classes with `velt-class`, do not unmount.
+**4. DO NOT iterate `annotations` yourself.** The `<velt-inline-comments-section-list-wireframe>` iterates and mounts the standard Comment Dialog primitives per annotation, injecting the per-annotation context that nested dialog tags read.
+**5. DO NOT compare `selectedAnnotationsMap` to a boolean directly.** It is a map. Bracket-lookup the current annotation: `{selectedAnnotationsMap[annotation.annotationId]}` (inside an iteration where `annotation` is in scope).
+**6. DO NOT reference `filter` / `sortOption` / `sortOptionText` / `isActive` / `isAscending` outside their owning dropdown row tag.** They are loop-scoped — referencing them from the header or the list returns `undefined`.
+**7. DO NOT mix `defaultCondition` with `velt-if` to mean the same thing.** `defaultCondition={false}` disables the slot's internal `shouldShow` (forcing render). `velt-if` adds a new gate on top. Combining them inverts the semantics you probably want.
+
+---
+
+### 13.5 Bind Multithread Comments Wireframe Slots Using Template Variables
+
+**Impact: MEDIUM (Drives thread-count display, empty-state placeholders, minimal filter/sort + bulk-actions dropdown rendering, and anchor-annotation composer gating inside the Multithread Comments wireframe without re-implementing thread iteration)**
+
+The Multithread Comments wireframe family (`<velt-multi-thread-comment-dialog-...-wireframe>` / `<VeltMultiThreadCommentDialogWireframe.*>`) hosts multiple comment threads in a single panel — it iterates `filteredAnnotations` and mounts the standard Comment Dialog primitives for each. Variables that resolve inside those nested dialog tags are documented in `wireframe-variables-comment-dialog.md`.
+
+Read the wireframe's exposed variables with three directives — `<velt-data field="...">` for text, `velt-if="{var} ..."` for conditional rendering, and `velt-class="'cls': {var}"` for class toggling. Use these instead of re-implementing thread counts, filter/sort rows, or composer visibility on top of `useCommentAnnotations`. Variables are mapped — reference them by their short name, except for two conflicting names that **must** be read via their explicit path.
+
+For the structural catalog of which wireframe tags exist and how they nest, see `ui/ui-wireframes.md`.
+
+**Incorrect (rebuilding the panel state from `useCommentAnnotations`):**
+
+```jsx
+import { useCommentAnnotations } from '@veltdev/react';
+import { VeltMultiThreadCommentDialogWireframe } from '@veltdev/react';
+import { useState } from 'react';
+
+function Panel() {
+  const all = useCommentAnnotations();
+  // Reimplements filter + sort + non-draft count the wireframe already exposes.
+  const [filter, setFilter] = useState('all');
+  const filtered = all?.filter(a => filter === 'all' || (filter === 'unread' && a.unread));
+  const count = filtered?.filter(a => !a.draft).length ?? 0;
+  return (
+    <VeltMultiThreadCommentDialogWireframe>
+      <span>{count} threads</span>
+      {filtered?.length === 0 && <p>No threads to show.</p>}
+      {filtered?.map(a => <div key={a.annotationId}>{a.comments[0]?.commentText}</div>)}
+    </VeltMultiThreadCommentDialogWireframe>
+  );
+}
+```
+
+**Correct (read the slot's injected variables; let `List` iterate for you):**
+
+```jsx
+import { VeltMultiThreadCommentDialogPanelWireframe, VeltMultiThreadCommentDialogWireframe } from '@veltdev/react';
+
+<VeltMultiThreadCommentDialogPanelWireframe
+  velt-class="'dark': {darkMode}, 'readonly': {readOnly}, 'inbox': {inboxMode}, 'filter-{minimalFilter}': true">
+  <header className="my-mt__header">
+    <VeltMultiThreadCommentDialogWireframe.CommentCount>
+      <velt-data field="nonDraftCommentsCount" /> threads
+    </VeltMultiThreadCommentDialogWireframe.CommentCount>
+    <VeltMultiThreadCommentDialogWireframe.MinimalFilterDropdown.Trigger
+      velt-class="'open': {minimalFilterDropdownOpen}">
+      <span><velt-data field="minimalFilter" /></span>
+    </VeltMultiThreadCommentDialogWireframe.MinimalFilterDropdown.Trigger>
+  </header>
+
+  <VeltMultiThreadCommentDialogWireframe.List />
+
+  <VeltMultiThreadCommentDialogWireframe.EmptyPlaceholder
+    velt-if="{noCommentsFound} || {noCommentsFoundForAppliedFilters}">
+    <p>No threads to show.</p>
+    <VeltMultiThreadCommentDialogWireframe.ResetFilterButton />
+  </VeltMultiThreadCommentDialogWireframe.EmptyPlaceholder>
+
+  <VeltMultiThreadCommentDialogWireframe.ComposerContainer
+    velt-if="!{hideMultiThreadAnnotationComposer}" />
+</VeltMultiThreadCommentDialogPanelWireframe>
+```
+
+**HTML / web-component equivalent:**
+
+```html
+<velt-multi-thread-comment-dialog-panel-wireframe>
+  <header class="my-mt__header">
+    <velt-multi-thread-comment-dialog-comment-count-wireframe>
+      <velt-data field="nonDraftCommentsCount"></velt-data> threads
+    </velt-multi-thread-comment-dialog-comment-count-wireframe>
+    <velt-multi-thread-comment-dialog-minimal-filter-dropdown-trigger-wireframe
+      velt-class="'open': {minimalFilterDropdownOpen}">
+      <span><velt-data field="minimalFilter"></velt-data></span>
+    </velt-multi-thread-comment-dialog-minimal-filter-dropdown-trigger-wireframe>
+  </header>
+  <velt-multi-thread-comment-dialog-list-wireframe></velt-multi-thread-comment-dialog-list-wireframe>
+  <velt-multi-thread-comment-dialog-empty-placeholder-wireframe
+    velt-if="{noCommentsFound} || {noCommentsFoundForAppliedFilters}">
+    <p>No threads to show.</p>
+    <velt-multi-thread-comment-dialog-reset-filter-button-wireframe></velt-multi-thread-comment-dialog-reset-filter-button-wireframe>
+  </velt-multi-thread-comment-dialog-empty-placeholder-wireframe>
+  <velt-multi-thread-comment-dialog-composer-container-wireframe
+    velt-if="!{hideMultiThreadAnnotationComposer}"></velt-multi-thread-comment-dialog-composer-container-wireframe>
+</velt-multi-thread-comment-dialog-panel-wireframe>
+```
+
+**Data State** — annotation list + focus + host wiring:
+| Variable | Type | Notes |
+|---|---|---|
+| `annotation` / `annotation.annotationId` | `CommentAnnotation \| null` | Currently focused annotation. Gate with `velt-if="{annotation}"`. |
+| `annotations` | `CommentAnnotation[]` | All annotations in scope. |
+| `filteredAnnotations` | `CommentAnnotation[]` | Annotations after filter / sort. Drives the `List` iteration. |
+| `multiThreadAnnotationId` | `string \| null` | Id of the multi-thread anchor annotation. |
+| `multiThreadCommentAnnotation` | `CommentAnnotation` | Anchor annotation object. |
+| `nonDraftCommentsCount` | `number` | Count of non-draft threads — drives the count label. |
+| `data.user` | `User \| null` | Currently identified end-user. Use the explicit `data.user` path — `user` is a conflicting name. |
+| `containerComponentId` | `string \| null` | Owning container id (host wiring). |
+| `context` | `any` | Free-form annotation context. |
+| `data.contextId` | `string \| null` | Context id linking this dialog to a host context. |
+
+**Root + structural:**
+
+```typescript
+// On any <velt-multi-thread-comment-dialog-...-wireframe> in an Angular template
+[componentConfigSignal]="config()"   // annotations, filteredAnnotations, minimalFilter, ...
+[parentLocalUIState]="localUI()"     // darkMode, variant, shadowDom
+```
+
+| Slot | `shouldShow` |
+|---|---|
+| `empty-placeholder-wireframe` | `noCommentsFound \|\| noCommentsFoundForAppliedFilters` |
+| `reset-filter-button-wireframe` | `noCommentsFoundForAppliedFilters` |
+| `composer-container-wireframe` | `!hideMultiThreadAnnotationComposer` |
+Override any of them with `defaultCondition={false}` (React) / `default-condition="false"` (HTML).
+**1. DO NOT prefix mapped variables with `componentConfig.`.** Variables are mapped to short names. `<velt-data field="componentConfig.nonDraftCommentsCount" />` resolves to nothing — use `<velt-data field="nonDraftCommentsCount" />`. The exception is the two conflicting names above, which **require** their explicit path (`data.user`, `parentLocalUIState.shadowDom` / `uiState.shadowDom`).
+**2. DO NOT read `user` directly inside a Multithread Comments wireframe.** `user` is a conflicting name — use `data.user` (and `data.user.name`, `data.user.photoUrl`).
+**3. DO NOT compute the thread count from `annotations.length` or `filteredAnnotations.length`.** The display value is `nonDraftCommentsCount` — it excludes in-progress drafts and matches what the default UI shows.
+**4. DO NOT show the empty placeholder with only `velt-if="{noCommentsFound}"`.** It must also cover the filtered case: `velt-if="{noCommentsFound} || {noCommentsFoundForAppliedFilters}"`. Otherwise the placeholder disappears as soon as the user applies a filter that yields zero results.
+**5. DO NOT show the reset-filter button outside the filtered-empty case.** Its `shouldShow` is specifically `noCommentsFoundForAppliedFilters` — `noCommentsFound` (truly empty) should not offer "reset filter" since no filter is to blame.
+**6. DO NOT reference `isSelected` outside a filter / sort row tag.** It is loop-scoped — referencing it from the panel root or trigger returns `undefined`.
+**7. DO NOT iterate `filteredAnnotations` yourself.** The `<velt-multi-thread-comment-dialog-list-wireframe>` iterates and mounts the standard Comment Dialog primitives per annotation, injecting the per-annotation context that nested dialog tags read.
+**8. DO NOT mix `defaultCondition` with `velt-if` to mean the same thing.** `defaultCondition={false}` disables the slot's internal `shouldShow` (forcing render). `velt-if` adds a new gate on top. Combining them inverts the semantics you probably want.
+
+---
+
+### 13.6 Bind Text Comment Wireframe Slots Using Template Variables
+
+**Impact: MEDIUM (Drives word/character-count display, capability gating, position offsets, and AI-rewriter visibility inside the Text Comment toolbar wireframes without re-implementing selection tracking)**
+
+The Text Comment wireframe family (`<velt-text-comment-...-wireframe>` / `<VeltTextCommentToolWireframe>`, `<VeltTextCommentToolbarWireframe>`) powers the floating toolbar that appears next to selected text. Read its injected variables with the three directives — `<velt-data field="...">` for text, `velt-if="{var} ..."` for conditional rendering, and `velt-class="'cls': {var}"` for class toggling. Use these instead of subscribing to selection / rewriter state by hand. Variables are mapped — reference them by their short name (`selectedWordsCount`, `showAdder`, `rewriterEnabled`), with a small set of conflicting names that **must** be read via their explicit path.
+
+For the structural catalog of which wireframe tags exist and how they nest, see `ui/ui-wireframes.md`. For the Text Comment mode itself (setup, allowed elements, rewriter wiring), see `mode/mode-text-comments.md` if present, or the Text Comment overview docs.
+
+**Incorrect (re-implementing selection state and gating the toolbar from the host component):**
+
+```jsx
+import { VeltTextCommentToolWireframe, VeltTextCommentToolbarWireframe } from '@veltdev/react';
+import { useEffect, useState } from 'react';
+
+function MyTextTool() {
+  // Reimplements showAdder + word counting the wireframe already exposes.
+  const [words, setWords] = useState(0);
+  const [show, setShow] = useState(false);
+  useEffect(() => { /* manual selectionchange subscription ... */ }, []);
+  if (!show) return null;
+  return (
+    <VeltTextCommentToolWireframe className={words > 0 ? 'has-words' : ''}>
+      <span>{words} words selected</span>
+      <VeltTextCommentToolbarWireframe />
+    </VeltTextCommentToolWireframe>
+  );
+}
+```
+
+**Correct (read the slot's injected variables via `velt-data` / `velt-if` / `velt-class`):**
+
+```jsx
+import { VeltTextCommentToolWireframe, VeltTextCommentToolbarWireframe } from '@veltdev/react';
+
+<VeltTextCommentToolWireframe
+  velt-if="{isUserAllowed} && {enableTextComments}"
+  velt-class="'has-words': {selectedWordsCount} > 0, 'dark': {darkMode}">
+  <span className="my-tool__count">
+    <velt-data field="selectedWordsCount" /> words
+  </span>
+  <VeltTextCommentToolbarWireframe>
+    <VeltTextCommentToolbarWireframe.CommentAnnotation>
+      Comment
+    </VeltTextCommentToolbarWireframe.CommentAnnotation>
+    <VeltTextCommentToolbarWireframe.Copywriter velt-if="{rewriterEnabled}">
+      Rewrite with AI
+    </VeltTextCommentToolbarWireframe.Copywriter>
+  </VeltTextCommentToolbarWireframe>
+</VeltTextCommentToolWireframe>
+```
+
+**HTML / web-component equivalent:**
+
+```typescript
+<velt-text-comment-tool-wireframe
+  velt-if="{isUserAllowed} && {enableTextComments}"
+  velt-class="'has-words': {selectedWordsCount} > 0">
+  <span class="my-tool__count">
+    <velt-data field="selectedWordsCount"></velt-data> words
+  </span>
+  <velt-text-comment-toolbar-wireframe>
+    <velt-text-comment-toolbar-comment-annotation-wireframe>
+      Comment
+    </velt-text-comment-toolbar-comment-annotation-wireframe>
+    <velt-text-comment-toolbar-copywriter-wireframe velt-if="{rewriterEnabled}">
+      Rewrite with AI
+    </velt-text-comment-toolbar-copywriter-wireframe>
+  </velt-text-comment-toolbar-wireframe>
+</velt-text-comment-tool-wireframe>
+// On any <velt-text-comment-...-wireframe> in an Angular template
+[componentConfigSignal]="config()"      // position, selectedWordsCount,
+                                         // selectedCharactersCount, data.user,
+                                         // allowedElementIds, contextId
+[parentLocalUIState]="localUI()"         // darkMode, variant, shadowDom
+```
+
+**Data State** — selection metrics, position, identity:
+| Variable | Type | Notes |
+|---|---|---|
+| `position` / `position.top` / `position.left` | `{ top: number, left: number }` | Absolute viewport position of the floating toolbar. |
+| `selectedWordsCount` | `number` | Words in the active selection. |
+| `selectedCharactersCount` | `number` | Characters in the active selection. |
+| `allowedElementIds` | `string[]` | Element ids the selection must originate from for the tool to render. |
+| `contextId` | `string \| null` | Context id linking this tool to a host context. |
+| `data.user` | `User \| null` | Currently identified end-user. Use the explicit `data.user` path — `user` is a conflicting name (see below). |
+**UI State** — per-instance flags + min/max thresholds:
+| Variable | Type | Notes |
+|---|---|---|
+| `showAdder` | `boolean` | Floating "add comment" adder is visible for the current selection. |
+| `commentToolEnabled` | `boolean` | Comment Tool is enabled at the workspace level. |
+| `isUserAllowed` | `boolean` | Current user has permission to add text comments. |
+| `enableTextComments` | `boolean` | Text Comments feature is enabled by config. |
+| `rewriterEnabled` | `boolean` | AI rewriter feature is enabled. |
+| `rewriterDefaultUIEnabled` | `boolean` | Default rewriter UI should render (vs. a custom one). |
+| `MIN_ALLOWED_WORDS_COUNT` | `number` | Minimum words before the toolbar shows. |
+| `MIN_ALLOWED_CHARACTERS_COUNT` | `number` | Minimum characters before the toolbar shows. |
+| `MAX_ALLOWED_CHARACTERS_COUNT` | `number` | Maximum characters before the toolbar hides. |
+| `darkMode` | `boolean` | Dark mode is active. |
+| `variant` | `string` | Per-instance variant tag from the host element. |
+| `uiState.disabled` | `boolean` | Tool is disabled by host configuration. Use the full path — `disabled` is conflicting. |
+| `uiState.left` | `number` | Raw horizontal offset (before `position` resolution). Use the full path — `left` is conflicting. |
+| `uiState.isPlanExpired` | `boolean` | Workspace plan is expired. Use the full path — `isPlanExpired` is conflicting. |
+| `parentLocalUIState.shadowDom` | `boolean` | Shadow-DOM rendering is enabled. Set via the `shadow-dom` host attribute — the variable only reports state. |
+Five names collide with mappings used by Comment Dialog. Inside a Text Comment wireframe, prefer the explicit path:
+| Conflicting name | Use this in Text Comment |
+|---|---|
+| `user` | `data.user` |
+| `disabled` | `uiState.disabled` |
+| `left` | `uiState.left` |
+| `isPlanExpired` | `uiState.isPlanExpired` |
+| `shadowDom` | `parentLocalUIState.shadowDom` |
+The Text Comment family has a root tool plus a toolbar with four action slots.
+| Wireframe tag | React component | Notes |
+|---|---|---|
+| `<velt-text-comment-wireframe>` | — | Outer wireframe — wraps the tool. |
+| `<velt-text-comment-tool-wireframe>` | `<VeltTextCommentToolWireframe>` | The floating tool. `shouldShow` requires an active selection inside an allowed element with word/char counts in range. |
+| `<velt-text-comment-toolbar-wireframe>` | `<VeltTextCommentToolbarWireframe>` | Toolbar wrapper that hosts the action buttons. |
+| `<velt-text-comment-toolbar-comment-annotation-wireframe>` | `<VeltTextCommentToolbarWireframe.CommentAnnotation>` | "Comment" action — attaches a new annotation to the selection. |
+| `<velt-text-comment-toolbar-copywriter-wireframe>` | `<VeltTextCommentToolbarWireframe.Copywriter>` | AI-rewrite action. `shouldShow` requires `rewriterEnabled === true`. |
+| `<velt-text-comment-toolbar-generic-wireframe>` | `<VeltTextCommentToolbarWireframe.Generic>` | Generic, customizable position for an extra button. |
+| `<velt-text-comment-toolbar-divider-wireframe>` | `<VeltTextCommentToolbarWireframe.Divider>` | Vertical separator between toolbar items. |
+| React Prop | HTML Attribute | Type | Default | Behavior |
+|---|---|---|---|---|
+| `defaultCondition` | `default-condition` | `boolean \| "true" \| "false"` | `true` | When `false`, the component renders regardless of its internal `shouldShow` gate. Use to force-show the Copywriter button when `rewriterEnabled` is false, or the tool itself outside the min/max range. |
+**Angular signal inputs** (parent-to-child wiring; React/HTML do not require these):
+The root `<velt-text-comment>` element additionally accepts host attributes that map onto local UI state: `dark-mode`, `variant`, `shadow-dom`.
+| Slot | `shouldShow` |
+|---|---|
+| `text-comment-tool-wireframe` (root) | Active selection inside an `allowedElementIds` element **and** `selectedWordsCount >= MIN_ALLOWED_WORDS_COUNT` **and** `selectedCharactersCount` between `MIN_ALLOWED_CHARACTERS_COUNT` and `MAX_ALLOWED_CHARACTERS_COUNT`. |
+| `text-comment-toolbar-copywriter-wireframe` | `rewriterEnabled === true` |
+Override either with `defaultCondition={false}` (React) / `default-condition="false"` (HTML) when you need the slot to render unconditionally.
+**1. DO NOT prefix mapped variables with `componentConfig.`.** Variables are mapped to short names. `<velt-data field="componentConfig.selectedWordsCount" />` resolves to nothing — use `<velt-data field="selectedWordsCount" />`. The exception is the five conflicting names above, which **require** their explicit path (`data.user`, `uiState.disabled`, `uiState.left`, `uiState.isPlanExpired`, `parentLocalUIState.shadowDom`).
+**2. DO NOT read `user` directly inside a Text Comment wireframe.** `user` is mapped elsewhere — use `data.user` (and `data.user.name`, `data.user.photoUrl`, etc.) to read the identified end-user here.
+**3. DO NOT gate the Copywriter button with only `velt-if="{rewriterEnabled}"` when you also want the default UI hidden.** The toolbar slot's own `shouldShow` covers `rewriterEnabled`. If you are providing a custom rewriter UI, check `rewriterDefaultUIEnabled` separately — they are not the same flag.
+**4. DO NOT compute the toolbar position from `uiState.left` directly.** `uiState.left` is the raw value before resolution; the placed `position` / `position.left` is what the tool actually uses for layout.
+**5. DO NOT mix `defaultCondition` with `velt-if` to mean the same thing.** `defaultCondition={false}` disables the slot's internal `shouldShow` (forcing render). `velt-if` adds a new gate on top. Combining them inverts the semantics you probably want.
+**6. DO NOT bind to `parentLocalUIState.shadowDom` from inside the wireframe to *enable* shadow-DOM.** Shadow-DOM is set via the host attribute `shadow-dom="true"` on `<velt-text-comment>`. The variable only reports the current state.
+
+---
+
 ## References
 
 - https://docs.velt.dev
@@ -7559,3 +7940,6 @@ If you want the tool to disappear entirely when disabled, gate it yourself: `vel
 - https://docs.velt.dev/ui-customization/features/async/comments/comment-bubble/wireframe-variables
 - https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/wireframe-variables
 - https://docs.velt.dev/ui-customization/features/async/comments/comment-tool-wireframe-variables
+- https://docs.velt.dev/ui-customization/features/async/comments/inline-comments-section/wireframe-variables
+- https://docs.velt.dev/ui-customization/features/async/comments/multithread-comments/wireframe-variables
+- https://docs.velt.dev/ui-customization/features/async/comments/text-comment-wireframe-variables

@@ -4,12 +4,12 @@ description: Velt Comments implementation patterns and best practices for React,
 license: MIT
 metadata:
   author: velt
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # Velt Comments Best Practices
 
-Comprehensive implementation guide for Velt's collaborative comments feature in React and Next.js applications. Contains 74 rules across 13 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's collaborative comments feature in React and Next.js applications. Contains 77 rules across 13 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
@@ -117,6 +117,9 @@ Reference these guidelines when:
 - `wireframe-variables-comment-bubble` - Bind Comment Bubble + Comment Pin wireframe slots via `{annotation.*}`, `{selectedAnnotationsMap[...]}`, `globalConfigSignal.featureState.*`
 - `wireframe-variables-comment-dialog` - Bind the ~110-slot Comment Dialog wireframe family (App / Data / UI / Feature State namespaces, `comment` / `commentIndex` loop-scope, root-level placeholder + unread-map paths, v1 aliases)
 - `wireframe-variables-comment-tool` - Bind the Comment Tool wireframe via the flat-config `{addCommentMode}` / `{commentToolEnabled}` aliases and the canonical `globalConfig.featureState.*` / `componentConfig.*` paths
+- `wireframe-variables-inline-comments-section` - Bind the Inline Comments Section wireframe (`{annotations}`, `{skeletonLoading}`, `{filterState.*}` / `{sortState.*}`, per-row loop-scope `filter` / `sortOption` / `isActive` / `isAscending`, `featureState.*` conflict-paths, nested Comment Dialog primitives in list + composer)
+- `wireframe-variables-multithread-comments` - Bind the Multithread Comments wireframe (`{nonDraftCommentsCount}`, `{minimalFilter}`, empty-state + reset-filter gates, minimal filter / sort + bulk-actions dropdowns with `isSelected` loop-scope, `data.user` / `uiState.shadowDom` conflict-paths)
+- `wireframe-variables-text-comment` - Bind the Text Comment toolbar wireframes (`{selectedWordsCount}` / `{selectedCharactersCount}` / `{position.*}`, capability flags `isUserAllowed` / `enableTextComments` / `rewriterEnabled`, five conflict-name explicit paths)
 
 ## How to Use
 
