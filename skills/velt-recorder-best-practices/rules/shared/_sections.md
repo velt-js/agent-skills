@@ -62,3 +62,13 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 
 **Impact:** LOW-MEDIUM
 **Description:** Troubleshooting patterns and verification checklists for Velt recorder integrations.
+
+---
+
+## 8. Wireframe Variables (wireframe-variables)
+
+**Impact:** MEDIUM
+**Description:** Template-variable bindings (`velt-data`, `velt-if`, `velt-class`) exposed by the Recorder wireframe family. Covers the trigger button, recorder pin, control panel (floating / thread / collapsed / paused / loading / screen / video modes), playback widget, and expanded full-screen player — including the shared player config, the six naming-conflict variables that require the full `componentConfigSignal.<name>` path, and the behaviour callbacks (`initRecording`, `onSeekToVideo`, `copyLink`, `deleteRecorderAnnotation`).
+
+**Rules:**
+- `wireframe-variables-recorder` - Bind Recorder wireframe slots (button, pin, control panel, player, expanded player) using template variables

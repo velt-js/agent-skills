@@ -1,0 +1,12 @@
+{
+  "version": "1.1.0",
+  "organization": "Velt",
+  "date": "May 2026",
+  "abstract": "Velt Huddle implementation guide covering real-time audio, video, and screen-sharing huddle rooms in React, Next.js, and web applications. Patterns include VeltHuddle + VeltHuddleTool setup, document-scoped huddles, huddle-type selection (audio / video / screen / all), ephemeral in-call chat, flock mode (follow-me), cursor-mode huddle bubbles, server-side webhook handling for huddle created / joined events, and UI customization through wireframes, CSS parts, and template variables exposed on the huddle root, the huddle tool, and per-attendee tiles.",
+  "references": [
+    "https://docs.velt.dev",
+    "https://docs.velt.dev/realtime-collaboration/huddle/overview",
+    "https://docs.velt.dev/ui-customization/features/realtime/huddle/wireframe-variables",
+    "https://console.velt.dev"
+  ]
+}

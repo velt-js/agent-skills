@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "organization": "Velt",
   "date": "May 2026",
   "abstract": "Velt Rewriter implementation guide covering the AI text-rewriter primitive, programmatic control of the default selection toolbar, and type-safe AI model selection via the AiModel union type on RewriterAskAiRequest. Provides patterns for integrating Velt's Rewriter into React, Next.js, and other web applications.",
@@ -8,6 +8,7 @@
     "https://docs.velt.dev/async-collaboration/rewriter/overview",
     "https://docs.velt.dev/async-collaboration/rewriter/api-reference",
     "https://docs.velt.dev/api-reference/sdk/models/data-models#rewriteraskairequest",
+    "https://docs.velt.dev/ui-customization/features/async/rewriter/wireframe-variables",
     "https://console.velt.dev"
   ]
 }

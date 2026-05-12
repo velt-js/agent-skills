@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.1.0",
   "organization": "Velt",
   "date": "March 2026",
   "abstract": "Comprehensive Velt Recorder implementation guide covering audio, video, and screen recording components, recording configuration, device permissions, data management, event handling, video editor integration, and UI/UX customization. This skill provides evidence-backed patterns for integrating Velt's Recorder system into React, Next.js, and other web applications. Covers VeltRecorderTool, VeltRecorderControlPanel, VeltRecorderPlayer, VeltRecorderNotes, and VeltVideoEditor setup, recording quality and encoding configuration, reactive data hooks, lifecycle event subscriptions, and post-recording editing workflows.",
@@ -8,6 +8,7 @@
     "https://docs.velt.dev/async-collaboration/recorder/overview",
     "https://docs.velt.dev/async-collaboration/recorder/setup",
     "https://docs.velt.dev/async-collaboration/recorder/customize-behavior",
-    "https://console.velt.dev"
+    "https://console.velt.dev",
+    "https://docs.velt.dev/ui-customization/features/async/recorder/wireframe-variables"
   ]
 }

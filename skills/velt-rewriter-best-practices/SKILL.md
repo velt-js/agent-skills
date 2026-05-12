@@ -1,15 +1,15 @@
 ---
 name: velt-rewriter-best-practices
-description: "Best practices for the Velt Rewriter — the AI text-rewriter primitive that places rewriting suggestions on a target text range with AI-generated rewrite options. Use when adding AI rewriter features, customizing the rewriter dialog / bottom-sheet, or selecting AI models."
+description: "Best practices for the Velt Rewriter — the AI text-rewriter primitive that places rewriting suggestions on a target text range with AI-generated rewrite options. Use when adding AI rewriter features, customizing the rewriter dialog / bottom-sheet, binding rewriter wireframe template variables, or selecting AI models."
 license: MIT
 metadata:
   author: velt
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Velt Rewriter Best Practices
 
-Implementation guide for the Velt Rewriter feature — an AI text-rewriter primitive that surfaces AI-generated rewrite suggestions on selected text ranges. Contains 2 rules covering the default UI toggle API and the AI model type system.
+Implementation guide for the Velt Rewriter feature — an AI text-rewriter primitive that surfaces AI-generated rewrite suggestions on selected text ranges. Contains 3 rules covering the default UI toggle API, the AI model type system, and wireframe template-variable bindings for custom rewriter UIs.
 
 ## When to Apply
 
@@ -19,6 +19,7 @@ Reference these guidelines when:
 - Building a custom Rewriter UI using your own components
 - Selecting or configuring AI models for rewrite requests
 - Typing against `RewriterAskAiRequest` in TypeScript
+- Binding `componentConfig.*` template variables inside `<velt-rewriter-...-wireframe>` slots
 
 ## Rule Categories by Priority
 
@@ -26,6 +27,7 @@ Reference these guidelines when:
 |----------|----------|--------|--------|
 | 1 | API Methods | HIGH | `api-` |
 | 2 | Types | MEDIUM | `types-` |
+| 3 | Wireframe Variables | MEDIUM | `wireframe-variables-` |
 
 ## Quick Reference
 
@@ -35,6 +37,9 @@ Reference these guidelines when:
 ### Types (MEDIUM)
 - `types-ai-model` — AiModel union type on RewriterAskAiRequest.model
 
+### Wireframe Variables (MEDIUM)
+- `wireframe-variables-rewriter` — `componentConfig.*` bindings for text-portal, dialog, and bottom-sheet primitives
+
 ## How to Use
 
 Read individual rule files for detailed explanations and code examples:
@@ -42,6 +47,7 @@ Read individual rule files for detailed explanations and code examples:
 ```
 rules/shared/api/api-default-ui-toggle.md
 rules/shared/types/types-ai-model.md
+rules/shared/wireframe-variables/wireframe-variables-rewriter.md
 ```
 
 Each rule file contains:

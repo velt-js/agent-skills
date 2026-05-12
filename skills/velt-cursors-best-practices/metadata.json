@@ -1,0 +1,14 @@
+{
+  "version": "1.1.0",
+  "organization": "Velt",
+  "date": "May 2026",
+  "abstract": "Comprehensive guide for Velt's real-time cursor tracking feature — rendering collaborative cursor pointers showing where each remote user is on the page. Covers setup (VeltCursor placement inside the content area, authProvider over identify(), per-document scoping via setDocuments), configuration (allowed-elements whitelisting, avatar mode, inactivity timeout), data access (useCursorUsers / useCursorUtils hooks plus the getCursorElement Observable and getOnlineUsersOnCurrentDocument), cursor change events (onCursorUserChange), wireframe UI customization (Arrow / Avatar / Default / Huddle pointer variants), the flat-config template-variable surface on `<velt-cursor>` and per-user `<velt-cursor-pointer-wireframe>` (componentConfig.cursorUsers, componentConfig.showAvatar, componentConfig.showAudio, componentConfig.showVideo, componentConfig.selfCursorPointer, huddle-on-cursor flags, helper functions), and debugging cursors that don't appear or track incorrectly. All guidance is evidence-backed from official Velt documentation.",
+  "references": [
+    "https://docs.velt.dev",
+    "https://docs.velt.dev/realtime/cursors/overview",
+    "https://docs.velt.dev/ui-customization/features/realtime/cursors",
+    "https://docs.velt.dev/ui-customization/features/realtime/cursors-wireframe-variables",
+    "https://docs.velt.dev/ui-customization/template-variables",
+    "https://console.velt.dev"
+  ]
+}

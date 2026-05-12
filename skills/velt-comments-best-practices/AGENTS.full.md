@@ -1,6 +1,6 @@
 # Velt Comments Best Practices
 
-**Version 1.1.1**  
+**Version 1.1.2**  
 Velt  
 January 2026
 
@@ -114,12 +114,13 @@ Comprehensive Velt Comments implementation guide covering comment modes, setup p
    - 12.2 [REST API — Individual Comment CRUD Within Annotations](#122-rest-api-individual-comment-crud-within-annotations)
 
 13. [Wireframe Variables](#13-wireframe-variables) — **MEDIUM**
-   - 13.1 [Bind Comment Bubble Wireframe Slots Using Template Variables](#131-bind-comment-bubble-wireframe-slots-using-template-variables)
-   - 13.2 [Bind Comment Dialog Wireframe Slots Using Template Variables](#132-bind-comment-dialog-wireframe-slots-using-template-variables)
-   - 13.3 [Bind Comment Tool Wireframe Slots Using Template Variables](#133-bind-comment-tool-wireframe-slots-using-template-variables)
-   - 13.4 [Bind Inline Comments Section Wireframe Slots Using Template Variables](#134-bind-inline-comments-section-wireframe-slots-using-template-variables)
-   - 13.5 [Bind Multithread Comments Wireframe Slots Using Template Variables](#135-bind-multithread-comments-wireframe-slots-using-template-variables)
-   - 13.6 [Bind Text Comment Wireframe Slots Using Template Variables](#136-bind-text-comment-wireframe-slots-using-template-variables)
+   - 13.1 [Bind Autocomplete Wireframe Slots Using Template Variables](#131-bind-autocomplete-wireframe-slots-using-template-variables)
+   - 13.2 [Bind Comment Bubble Wireframe Slots Using Template Variables](#132-bind-comment-bubble-wireframe-slots-using-template-variables)
+   - 13.3 [Bind Comment Dialog Wireframe Slots Using Template Variables](#133-bind-comment-dialog-wireframe-slots-using-template-variables)
+   - 13.4 [Bind Comment Tool Wireframe Slots Using Template Variables](#134-bind-comment-tool-wireframe-slots-using-template-variables)
+   - 13.5 [Bind Inline Comments Section Wireframe Slots Using Template Variables](#135-bind-inline-comments-section-wireframe-slots-using-template-variables)
+   - 13.6 [Bind Multithread Comments Wireframe Slots Using Template Variables](#136-bind-multithread-comments-wireframe-slots-using-template-variables)
+   - 13.7 [Bind Text Comment Wireframe Slots Using Template Variables](#137-bind-text-comment-wireframe-slots-using-template-variables)
 
 ---
 
@@ -7069,7 +7070,116 @@ Reference: https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/com
 
 Template-variable binding patterns for the Comment Bubble, Comment Dialog, Comment Tool, Text Comment, Inline Comments Section, and Multithread Comments wireframes. Documents the `velt-data` / `velt-if` / `velt-class` directive system layered on top of the structural wireframe catalog in `ui/ui-wireframes.md` — variable namespaces (App / Data / UI / Feature State), loop-scope iteration variables, `defaultCondition` overrides, Angular signal inputs, and common `shouldShow` gates.
 
-### 13.1 Bind Comment Bubble Wireframe Slots Using Template Variables
+### 13.1 Bind Autocomplete Wireframe Slots Using Template Variables
+
+**Impact: MEDIUM (Drives the @-mention picker — option rows, group rows, chips, empty state — inside Autocomplete wireframes without re-implementing search / filtering on top of the composer)**
+
+The Autocomplete primitive is the @-mention picker rendered inside `<velt-autocomplete-panel>` / `<velt-autocomplete-tool>`, mounted by composers — most prominently the Comment Dialog Composer. Variables are available inside any `<velt-autocomplete-...-wireframe>` tag via the standard `<velt-data field="...">` / `velt-if="{...}"` / `velt-class="'cls': {...}"` directives.
+
+Unlike the Comment Bubble / Comment Dialog families, Autocomplete uses the **flat-config** access pattern — panel-level state is referenced with the explicit `componentConfig.<path>` form. Only the per-row iteration variables (`option`, `chip`) resolve as bare names.
+
+For the structural catalog of which wireframe tags exist and how they nest, see `ui/ui-wireframes.md`. This rule documents the *variable-binding* layer on top.
+
+**Incorrect (filtering / grouping the mention list yourself instead of reading the flattened items the panel already exposes):**
+
+```jsx
+import { useContacts } from '@veltdev/react';
+import { VeltAutocompletePanelWireframe } from '@veltdev/react';
+
+function Panel({ query }) {
+  const contacts = useContacts();
+  // Reimplements flattening + grouping that componentConfig.flattenedItems already does.
+  const items = contacts?.filter(c => c.name.includes(query));
+  if (!items?.length) return <p>No matches.</p>;
+  return (
+    <VeltAutocompletePanelWireframe>
+      {items.map(c => <div key={c.userId}>{c.name}</div>)}
+    </VeltAutocompletePanelWireframe>
+  );
+}
+```
+
+**Correct (let the wireframe iterate, read `option` / `chip` per row, gate empty-state with `componentConfig.flattenedItems.length`):**
+
+```jsx
+import {
+  VeltAutocompletePanelWireframe,
+  VeltAutocompleteOptionWireframe,
+  VeltAutocompleteGroupOptionWireframe,
+  VeltAutocompleteEmptyWireframe,
+} from '@veltdev/react';
+
+<VeltAutocompletePanelWireframe>
+  <VeltAutocompleteOptionWireframe>
+    <div className="my-option" velt-class="'is-group': {option.group}">
+      <img className="my-option__avatar" />
+      <strong><velt-data field="option.name" /></strong>
+      <span><velt-data field="option.email" /></span>
+    </div>
+  </VeltAutocompleteOptionWireframe>
+
+  <VeltAutocompleteGroupOptionWireframe velt-if="{componentConfig.customGroupsEnabled}">
+    <div className="my-group">
+      <velt-data field="option.group.name" />
+      (<velt-data field="option.group.userCount" />)
+    </div>
+  </VeltAutocompleteGroupOptionWireframe>
+
+  <VeltAutocompleteEmptyWireframe>
+    <p>No matches.</p>
+  </VeltAutocompleteEmptyWireframe>
+</VeltAutocompletePanelWireframe>
+```
+
+Available inside every Autocomplete primitive. **Always read via the full `componentConfig.<path>` form.**
+| Variable | Type | Notes |
+|---|---|---|
+| `componentConfig.flattenedItems` | `FlattenedItem[]` | Visible options after grouping / filtering. `length === 0` drives the empty-state gate. |
+| `componentConfig.newUserContact` | `SelectorDataListItem \| undefined` | In-progress new-contact entry. |
+| `componentConfig.newUserContactError` | `string \| undefined` | Validation error for the new-contact entry. Gate the error slot with `velt-if="{componentConfig.newUserContactError}"`. |
+| `componentConfig.customAutocompleteSearch` | `boolean` | Custom-search mode active. |
+| `componentConfig.variant` | `string` | Per-instance variant tag. |
+| `componentConfig.contactsWithoutGroup` | `SelectorDataListItem[]` | Contacts not assigned to any group. |
+| `componentConfig.groups` | `GroupData[]` | Available mention groups. |
+| `componentConfig.expandMentionGroups` | `boolean` | Render group rows as expanded. |
+| `componentConfig.showMentionGroupsFirst` | `boolean` | Group rows render above contact rows. |
+| `componentConfig.showMentionGroupsOnly` | `boolean` | Only group rows render. |
+| `componentConfig.customGroupsEnabled` | `boolean` | Custom-groups feature enabled. Gates `<velt-autocomplete-group-option-wireframe>`. |
+| `componentConfig.onOptionClick` | `Function` | Click handler for a custom option — wire this from your custom option markup. |
+| `componentConfig.trackByFlattenedItem` | `Function` | Internal virtual-scroll track-by. |
+| `componentConfig.autoCompleteScrollConfig.itemSize` | `number` | Internal virtual-scroll item-size config. |
+These resolve as **bare names** — only inside the iteration tag that owns them.
+| Variable | Type | Available in | Notes |
+|---|---|---|---|
+| `option` | `SelectorDataListItem` | `<velt-autocomplete-option-wireframe>`, `<velt-autocomplete-group-option-wireframe>`, and their child tags | Current row. |
+| `option.user` | `User` | Same as above | Set when the option represents a user. |
+| `option.group` | `GroupData` | Same as above | Set when the option represents a group. Use `velt-class="'is-group': {option.group}"` to branch. |
+| `chip` | `AutocompleteChipConfig` | `<velt-autocomplete-chip-wireframe>` and its tooltip child tags | Inline chip in the composer. |
+| Wireframe tag | React component | Notes |
+|---|---|---|
+| `<velt-autocomplete-panel-wireframe>` | `<VeltAutocompletePanelWireframe>` | Root menu — hosts every other tag. No extra variables at the panel level. |
+| `<velt-autocomplete-empty-wireframe>` | `<VeltAutocompleteEmptyWireframe>` | Empty-state. `shouldShow` requires `componentConfig.flattenedItems.length === 0`. |
+| `<velt-autocomplete-option-wireframe>` | `<VeltAutocompleteOptionWireframe>` | Option row. Composes `*-option-name` / `*-option-description` / `*-option-icon` / `*-option-error-icon`. |
+| `<velt-autocomplete-group-option-wireframe>` | `<VeltAutocompleteGroupOptionWireframe>` | Group-of-users row — only when `customGroupsEnabled` is true or mention groups are present. |
+| `<velt-autocomplete-chip-wireframe>` | `<VeltAutocompleteChipWireframe>` | Inline chip in the contenteditable composer. Composes `*-chip-tooltip` / `*-chip-tooltip-name` / `*-chip-tooltip-description` / `*-chip-tooltip-icon`. |
+| `<velt-autocomplete-panel-search-icon-wireframe>` | — | Magnifying-glass icon in the panel's search input. |
+The `<velt-autocomplete-tool>` trigger button itself has **no** `<velt-autocomplete-tool-wireframe>` registration — its appearance is controlled by the parent composer's wireframe (e.g. the comment-dialog composer-action-button).
+**Option child tags** (resolve parent `option` context):
+| Tag | Bind |
+|---|---|
+| `<velt-autocomplete-option-name-wireframe>` | `<velt-data field="option.name" />` |
+| `<velt-autocomplete-option-description-wireframe>` | `<velt-data field="option.email" />` |
+| `<velt-autocomplete-option-icon-wireframe>` | `<velt-data field="option.user.photoUrl" />` |
+| `<velt-autocomplete-option-error-icon-wireframe>` | `velt-if="{option.invalid}"` |
+**Chip tooltip tags** (resolve parent `chip` context): `*-chip-tooltip-wireframe`, `*-chip-tooltip-name-wireframe`, `*-chip-tooltip-description-wireframe`, `*-chip-tooltip-icon-wireframe` — bind `chip.name` / `chip.description` / `chip.icon`.
+**1. DO NOT bare-name panel-level state.** This family uses flat-config access. `<velt-data field="flattenedItems.length" />` resolves to nothing — use `<velt-data field="componentConfig.flattenedItems.length" />`. The bare-name exception is the loop-scope variables `option` and `chip`.
+**2. DO NOT re-implement filtering / grouping over `useContacts`.** The panel already produces `componentConfig.flattenedItems`. Read it; don't rebuild it.
+**3. DO NOT nest `<velt-autocomplete-group-option-wireframe>` inside `<velt-autocomplete-option-wireframe>`.** They are sibling iteration roots — the panel decides which to render based on `option.group` / `customGroupsEnabled`.
+**4. DO NOT bind `chip.*` outside a chip wireframe.** The `chip` iteration context only exists inside `<velt-autocomplete-chip-wireframe>` and its tooltip descendants.
+
+---
+
+### 13.2 Bind Comment Bubble Wireframe Slots Using Template Variables
 
 **Impact: MEDIUM (Drives unread/selected styling, author content, and conditional pin decorations inside Comment Bubble and Comment Pin wireframes without re-subscribing to annotation state)**
 
@@ -7227,7 +7337,7 @@ Three names collide with mappings used by other features. Inside a Comment Bubbl
 
 ---
 
-### 13.2 Bind Comment Dialog Wireframe Slots Using Template Variables
+### 13.3 Bind Comment Dialog Wireframe Slots Using Template Variables
 
 **Impact: MEDIUM (Drives layout-mode styling, capability gating, composer state, thread-card iteration, and banner visibility inside the Comment Dialog wireframe family without re-subscribing to annotation state)**
 
@@ -7423,7 +7533,7 @@ The root `<velt-comment-dialog>` element additionally accepts host attributes th
 
 ---
 
-### 13.3 Bind Comment Tool Wireframe Slots Using Template Variables
+### 13.4 Bind Comment Tool Wireframe Slots Using Template Variables
 
 **Impact: MEDIUM (Drives dynamic content, conditional rendering, and class toggling inside the Comment Tool wireframe without reimplementing add-comment-mode state on top of the SDK)**
 
@@ -7552,7 +7662,7 @@ If you want the tool to disappear entirely when disabled, gate it yourself: `vel
 
 ---
 
-### 13.4 Bind Inline Comments Section Wireframe Slots Using Template Variables
+### 13.5 Bind Inline Comments Section Wireframe Slots Using Template Variables
 
 **Impact: MEDIUM (Drives skeleton-loader state, filter/sort dropdown rendering, per-status filter rows, composer placeholders, and target-element wiring inside the Inline Comments Section wireframe without re-subscribing to annotation state)**
 
@@ -7664,7 +7774,7 @@ The root `<velt-inline-comments-section>` element additionally accepts host attr
 
 ---
 
-### 13.5 Bind Multithread Comments Wireframe Slots Using Template Variables
+### 13.6 Bind Multithread Comments Wireframe Slots Using Template Variables
 
 **Impact: MEDIUM (Drives thread-count display, empty-state placeholders, minimal filter/sort + bulk-actions dropdown rendering, and anchor-annotation composer gating inside the Multithread Comments wireframe without re-implementing thread iteration)**
 
@@ -7790,7 +7900,7 @@ Override any of them with `defaultCondition={false}` (React) / `default-conditio
 
 ---
 
-### 13.6 Bind Text Comment Wireframe Slots Using Template Variables
+### 13.7 Bind Text Comment Wireframe Slots Using Template Variables
 
 **Impact: MEDIUM (Drives word/character-count display, capability gating, position offsets, and AI-rewriter visibility inside the Text Comment toolbar wireframes without re-implementing selection tracking)**
 
@@ -7943,3 +8053,4 @@ Override either with `defaultCondition={false}` (React) / `default-condition="fa
 - https://docs.velt.dev/ui-customization/features/async/comments/inline-comments-section/wireframe-variables
 - https://docs.velt.dev/ui-customization/features/async/comments/multithread-comments/wireframe-variables
 - https://docs.velt.dev/ui-customization/features/async/comments/text-comment-wireframe-variables
+- https://docs.velt.dev/ui-customization/features/async/comments/autocomplete-wireframe-variables

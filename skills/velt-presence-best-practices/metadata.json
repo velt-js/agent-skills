@@ -1,0 +1,14 @@
+{
+  "version": "1.1.0",
+  "organization": "Velt",
+  "date": "May 2026",
+  "abstract": "Comprehensive Velt Presence implementation guide covering user-presence avatars, online/away/offline status, real-time cursor tracking, inactivity timeout configuration, location-based filtering, presence data subscriptions, and wireframe-variable customization. This skill provides evidence-backed patterns for integrating Velt Presence into React, Next.js, and other web applications. Covers VeltPresence, VeltCursor, authProvider-based identity, document scoping, presence hooks and vanilla-JS APIs, state-change events, and the VeltPresenceWireframe template-variable binding layer.",
+  "references": [
+    "https://docs.velt.dev",
+    "https://docs.velt.dev/realtime-collaboration/presence/overview",
+    "https://docs.velt.dev/realtime-collaboration/presence/setup",
+    "https://docs.velt.dev/realtime-collaboration/presence/customize-behavior",
+    "https://docs.velt.dev/ui-customization/features/realtime/presence-wireframe-variables",
+    "https://console.velt.dev"
+  ]
+}

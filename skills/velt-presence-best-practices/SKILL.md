@@ -4,12 +4,12 @@ description: "Velt Presence implementation patterns and best practices for React
 license: MIT
 metadata:
   author: velt
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Velt Presence Best Practices
 
-Comprehensive implementation guide for Velt's real-time user presence and cursor tracking features. Contains 13 rules across 6 categories covering setup, configuration, data access, cursor sharing, events, and UI customization.
+Comprehensive implementation guide for Velt's real-time user presence and cursor tracking features. Contains 14 rules across 8 categories covering setup, configuration, data access, cursor sharing, events, UI customization, wireframe template variables, and debugging.
 
 ## When to Apply
 
@@ -31,7 +31,9 @@ Reference these guidelines when:
 | 3 | Configuration | HIGH-MEDIUM | `config-` |
 | 4 | Cursor | HIGH | `cursor-` |
 | 5 | Events | MEDIUM | `events-` |
-| 6 | UI & Debugging | MEDIUM-LOW | `ui-`, `debug-` |
+| 6 | UI Customization | MEDIUM | `ui-` |
+| 7 | Wireframe Variables | MEDIUM | `wireframe-variables-` |
+| 8 | Debugging | LOW-MEDIUM | `debug-` |
 
 ## Quick Reference
 
@@ -56,8 +58,13 @@ Reference these guidelines when:
 ### Events (MEDIUM)
 - `events-state-change` — Subscribe to user online/away/offline transitions
 
-### UI & Debugging (MEDIUM-LOW)
+### UI Customization (MEDIUM)
 - `ui-wireframes` — VeltPresenceWireframe customization
+
+### Wireframe Variables (MEDIUM)
+- `wireframe-variables-presence` — Bind Presence wireframe slots via `componentConfig.<path>` template variables (`velt-data` / `velt-if` / `velt-class`)
+
+### Debugging (LOW-MEDIUM)
 - `debug-common-issues` — Troubleshooting presence issues
 
 ## How to Use

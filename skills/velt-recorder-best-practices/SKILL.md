@@ -1,15 +1,15 @@
 ---
 name: velt-recorder-best-practices
-description: Velt Recorder implementation patterns and best practices for React, Next.js, and web applications. Use when adding audio, video, or screen recording features, recording playback, video editing, recording transcription, or managing recording lifecycle events.
+description: Velt Recorder implementation patterns and best practices for React, Next.js, and web applications. Use when adding audio, video, or screen recording features, recording playback, video editing, recording transcription, managing recording lifecycle events, or binding Recorder wireframe slots with template variables (velt-data / velt-if / velt-class).
 license: MIT
 metadata:
   author: velt
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Velt Recorder Best Practices
 
-Comprehensive implementation guide for Velt's Recorder system in React and Next.js applications. Contains 22 rules across 7 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's Recorder system in React and Next.js applications. Contains 23 rules across 8 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
@@ -26,6 +26,7 @@ Reference these guidelines when:
 - Configuring Picture-in-Picture mode for screen recordings
 - Setting max recording duration limits
 - Choosing between floating and thread control panel modes
+- Binding Recorder wireframe slots with template variables (`velt-data`, `velt-if`, `velt-class`)
 
 ## Rule Categories by Priority
 
@@ -38,6 +39,7 @@ Reference these guidelines when:
 | 5 | Video Editor | MEDIUM | `editor-` |
 | 6 | UI/UX Configuration | MEDIUM | `ui-` |
 | 7 | Debugging & Testing | LOW-MEDIUM | `debug-` |
+| 8 | Wireframe Variables | MEDIUM | `wireframe-variables-` |
 
 ## Quick Reference
 
@@ -81,6 +83,10 @@ Reference these guidelines when:
 ### 7. Debugging & Testing (LOW-MEDIUM)
 
 - `debug-common-issues` — Common recorder issues and solutions
+
+### 8. Wireframe Variables (MEDIUM)
+
+- `wireframe-variables-recorder` — Bind Recorder wireframe slots (button, pin, control panel, player, expanded player) using `velt-data` / `velt-if` / `velt-class`; covers the six naming-conflict variables and the shared player behaviour callbacks
 
 ## How to Use
 

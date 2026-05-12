@@ -4,12 +4,12 @@ description: Velt Comments implementation patterns and best practices for React,
 license: MIT
 metadata:
   author: velt
-  version: "1.1.1"
+  version: "1.1.2"
 ---
 
 # Velt Comments Best Practices
 
-Comprehensive implementation guide for Velt's collaborative comments feature in React and Next.js applications. Contains 77 rules across 13 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's collaborative comments feature in React and Next.js applications. Contains 78 rules across 13 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
@@ -119,6 +119,7 @@ Reference these guidelines when:
 - `wireframe-variables-comment-tool` - Bind the Comment Tool wireframe via the flat-config `{addCommentMode}` / `{commentToolEnabled}` aliases and the canonical `globalConfig.featureState.*` / `componentConfig.*` paths
 - `wireframe-variables-inline-comments-section` - Bind the Inline Comments Section wireframe (`{annotations}`, `{skeletonLoading}`, `{filterState.*}` / `{sortState.*}`, per-row loop-scope `filter` / `sortOption` / `isActive` / `isAscending`, `featureState.*` conflict-paths, nested Comment Dialog primitives in list + composer)
 - `wireframe-variables-multithread-comments` - Bind the Multithread Comments wireframe (`{nonDraftCommentsCount}`, `{minimalFilter}`, empty-state + reset-filter gates, minimal filter / sort + bulk-actions dropdowns with `isSelected` loop-scope, `data.user` / `uiState.shadowDom` conflict-paths)
+- `wireframe-variables-autocomplete` - Bind the Autocomplete @-mention picker wireframes (flat-config `componentConfig.<path>` access for `flattenedItems` / `customGroupsEnabled` / `newUserContactError`, loop-scope `option` / `chip`, option / group-option / chip / empty-state subcomponents, chip tooltip descendants)
 - `wireframe-variables-text-comment` - Bind the Text Comment toolbar wireframes (`{selectedWordsCount}` / `{selectedCharactersCount}` / `{position.*}`, capability flags `isUserAllowed` / `enableTextComments` / `rewriterEnabled`, five conflict-name explicit paths)
 
 ## How to Use

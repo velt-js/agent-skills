@@ -1,15 +1,15 @@
 ---
 name: velt-cursors-best-practices
-description: "Velt Cursors implementation patterns and best practices for React, Next.js, and web applications. Use when adding real-time cursor tracking, collaborative cursor sharing, avatar-mode cursors, cursor element whitelisting, cursor inactivity timeouts, or cursor position subscriptions. Triggers on any task involving live cursors, collaborative cursor display, VeltCursor, cursor tracking on canvas or whiteboard, or showing where other users are pointing — even if the user doesn't explicitly say 'cursors'."
+description: "Velt Cursors implementation patterns and best practices for React, Next.js, and web applications. Use when adding real-time cursor tracking, collaborative cursor sharing, avatar-mode cursors, cursor element whitelisting, cursor inactivity timeouts, cursor position subscriptions, or customizing the cursor pointer wireframe and its flat-config componentConfig template variables (cursorUser, showAvatar / showAudio / showVideo, huddle-on-cursor flags, helper functions). Triggers on any task involving live cursors, collaborative cursor display, VeltCursor, VeltCursorPointerWireframe, cursor tracking on canvas or whiteboard, or showing where other users are pointing — even if the user doesn't explicitly say 'cursors'."
 license: MIT
 metadata:
   author: velt
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Velt Cursors Best Practices
 
-Comprehensive implementation guide for Velt's real-time cursor tracking feature. Contains 11 rules across 6 categories covering setup, configuration, data access, events, UI customization, and debugging.
+Comprehensive implementation guide for Velt's real-time cursor tracking feature. Contains 12 rules across 7 categories covering setup, configuration, data access, events, UI customization, wireframe template variables, and debugging.
 
 ## When to Apply
 
@@ -30,7 +30,8 @@ Reference these guidelines when:
 | 3 | Configuration | HIGH-MEDIUM | `config-` |
 | 4 | Events | MEDIUM | `events-` |
 | 5 | UI Customization | MEDIUM | `ui-` |
-| 6 | Debugging | LOW-MEDIUM | `debug-` |
+| 6 | Wireframe Variables | MEDIUM | `wireframe-variables-` |
+| 7 | Debugging | LOW-MEDIUM | `debug-` |
 
 ## Quick Reference
 
@@ -53,6 +54,9 @@ Reference these guidelines when:
 
 ### UI Customization (MEDIUM)
 - `ui-wireframes` — Cursor pointer wireframe variants (Arrow, Avatar, Default, Huddle)
+
+### Wireframe Variables (MEDIUM)
+- `wireframe-variables-cursors` — Flat-config `componentConfig.<path>` variables for `<velt-cursor>` and `<velt-cursor-pointer-wireframe>` (cursorUser, showAvatar / showAudio / showVideo, huddle flags, helper functions)
 
 ### Debugging (LOW-MEDIUM)
 - `debug-common-issues` — Troubleshooting cursor tracking issues

@@ -4,12 +4,12 @@ description: "Velt Huddle implementation patterns and best practices for React, 
 license: MIT
 metadata:
   author: velt
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Velt Huddle Best Practices
 
-Comprehensive implementation guide for Velt's real-time audio, video, and screen sharing huddle feature. Contains 10 rules across 5 categories covering setup, configuration, webhooks, UI customization, and debugging.
+Comprehensive implementation guide for Velt's real-time audio, video, and screen sharing huddle feature. Contains 11 rules across 6 categories covering setup, configuration, webhooks, UI customization, wireframe template variables, and debugging.
 
 ## When to Apply
 
@@ -31,7 +31,8 @@ Reference these guidelines when:
 | 2 | Configuration | HIGH-MEDIUM | `config-` |
 | 3 | Events | MEDIUM | `events-` |
 | 4 | UI Customization | MEDIUM | `ui-` |
-| 5 | Debugging | LOW-MEDIUM | `debug-` |
+| 5 | Wireframe Variables | MEDIUM | `wireframe-variables-` |
+| 6 | Debugging | LOW-MEDIUM | `debug-` |
 
 ## Quick Reference
 
@@ -51,6 +52,9 @@ Reference these guidelines when:
 
 ### UI Customization (MEDIUM)
 - `ui-customization` — Slots, CSS parts, custom button templates
+
+### Wireframe Variables (MEDIUM)
+- `wireframe-variables-huddle` — `componentConfig.*` flat-config variables on the huddle root, the huddle tool, and per-attendee tiles
 
 ### Debugging (LOW-MEDIUM)
 - `debug-common-issues` — Troubleshooting huddle issues
