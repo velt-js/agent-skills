@@ -40,7 +40,21 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 
 ---
 
-## 6. Debugging (debug)
+## 6. Data Types (data)
+
+**Impact:** MEDIUM
+**Description:** Reference for the TypeScript shapes a data provider hands to / receives from the SDK — comment payloads, attachment uploads, reaction records, recording metadata, user contacts. Documents the contract between the SDK and your backend so provider responses don't drift from the SDK's expected shapes.
+
+---
+
+## 7. Python SDK (python-sdk)
+
+**Impact:** HIGH
+**Description:** Patterns for implementing data-provider backends in Python using the `velt-py` SDK. Covers the comments / attachments / users / reactions handlers, framework integrations (FastAPI / Flask / Django), and the same response-format contract the JS SDK enforces. Use when your provider backend is Python rather than Node.
+
+---
+
+## 8. Debugging (debug)
 
 **Impact:** LOW-MEDIUM
 **Description:** Monitoring and troubleshooting data provider events using the SDK subscription API.

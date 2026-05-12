@@ -908,20 +908,6 @@ Body:
 
 The organizationId field is required in the user object and controls which documents users can access. By default, users can only see documents created within their organization.
 
-**Incorrect (missing organizationId):**
-
-```jsx
-// Missing organizationId - users may see documents from other orgs
-const user = {
-  userId: "user-123",
-  name: "John Doe",
-  email: "john@example.com",
-  // organizationId missing!
-};
-
-// If organizationId is missing from the authProvider user object, access control won't work
-```
-
 **Incorrect (hardcoded for all users):**
 
 ```jsx
@@ -1586,6 +1572,39 @@ function MyComponent() {
 }
 ```
 
+**Correct (React — called before VeltProvider mounts):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+import { useEffect, useState } from 'react';
+import { VeltProvider } from '@veltdev/react';
+import { useVeltAuthProvider } from '@/components/velt/VeltInitializeUser';
+
+// Option 1: Configure cache in a component that renders before VeltProvider
+function AppWithVelt() {
+  const { authProvider } = useVeltAuthProvider();
+  const [cacheReady, setCacheReady] = useState(false);
+
+  // Enable cache before VeltProvider mounts
+  useEffect(() => {
+    // Cache config happens at the client level before provider auth
+    setCacheReady(true);
+  }, []);
+
+  if (!authProvider || !cacheReady) return <div>Loading...</div>;
+
+  return (
+    <VeltProvider
+      apiKey="YOUR_API_KEY"
+      authProvider={authProvider}
+      config={{ firestorePersistentCache: { enabled: true, ha: true } }}
+    >
+      {/* App content */}
+    </VeltProvider>
+  );
+}
+```
+
 **Correct (non-React / vanilla JS):**
 
 ```js
@@ -2100,8 +2119,6 @@ export function VeltCollaboration() {
 
 Keep your application's authentication system separate from Velt integration. Your app owns user authentication; Velt receives user data from your auth system.
 
-**Incorrect (tightly coupled):** Mixing your app's auth provider (Auth0, Firebase, etc.) directly with VeltProvider in a single component makes it hard to test, maintain, or swap auth providers. Keep them separated into layers.
-
 **Correct (separated layers):**
 
 ```jsx
@@ -2437,7 +2454,7 @@ export default function App() {
 }
 ```
 
-**Incorrect (auth hooks in same component as VeltProvider):** Do not call auth hooks or document setup hooks in the same component that renders VeltProvider — the provider isn't mounted yet when those hooks run. Use `authProvider` prop and child components instead.
+**Incorrect (auth hooks in same component as VeltProvider):** Do not call auth hooks or document setup hooks in the same component that renders VeltProvider — the provider isn't mounted yet when those hooks run. Use child components for authentication (via `authProvider` prop) and document setup.
 
 **Correct (components in VeltCollaboration wrapper):**
 

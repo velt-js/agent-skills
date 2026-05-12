@@ -22,7 +22,9 @@ Comprehensive guide for Velt self-hosting data feature, enabling storage of sens
 
 1. [Core Setup](#1-core-setup) — **CRITICAL**
    - 1.1 [Configure VeltProvider dataProviders Prop Before Calling identify](#11-configure-veltprovider-dataproviders-prop-before-calling-identify)
-   - 1.2 [Return Standard Response Format from All Data Provider Handlers](#12-return-standard-response-format-from-all-data-provider-handlers)
+   - 1.2 [Install and Initialize the Velt Python SDK](#12-install-and-initialize-the-velt-python-sdk)
+   - 1.3 [Return Standard Response Format from All Data Provider Handlers](#13-return-standard-response-format-from-all-data-provider-handlers)
+   - 1.4 [Use authProvider on VeltProvider with dataProviders — Never Use identify()](#14-use-authprovider-on-veltprovider-with-dataproviders-never-use-identify)
 
 2. [Comment Data Provider](#2-comment-data-provider) — **HIGH**
    - 2.1 [Use Endpoint-Based Config for Comment Data Provider](#21-use-endpoint-based-config-for-comment-data-provider)
@@ -35,14 +37,25 @@ Comprehensive guide for Velt self-hosting data feature, enabling storage of sens
    - 4.1 [Configure Reaction and Recording Data Providers](#41-configure-reaction-and-recording-data-providers)
    - 4.2 [Configure Retry Policies and Timeouts Per Data Provider](#42-configure-retry-policies-and-timeouts-per-data-provider)
    - 4.3 [Implement Read-Only User Data Provider for PII Protection](#43-implement-read-only-user-data-provider-for-pii-protection)
+   - 4.4 [Self-Host Notification Data for Custom Notifications](#44-self-host-notification-data-for-custom-notifications)
+   - 4.5 [Self-Host Recording Data and Media Files](#45-self-host-recording-data-and-media-files)
 
 5. [Backend Implementation](#5-backend-implementation) — **MEDIUM**
    - 5.1 [Implement Database Storage with Upsert and Proper Indexing](#51-implement-database-storage-with-upsert-and-proper-indexing)
    - 5.2 [Store and Delete Attachments in S3-Compatible Object Storage](#52-store-and-delete-attachments-in-s3-compatible-object-storage)
    - 5.3 [Structure Backend API Routes for Data Provider Endpoints](#53-structure-backend-api-routes-for-data-provider-endpoints)
 
-6. [Debugging](#6-debugging) — **LOW-MEDIUM**
-   - 6.1 [Monitor Data Provider Events for Troubleshooting](#61-monitor-data-provider-events-for-troubleshooting)
+6. [Data Types](#6-data-types) — **MEDIUM**
+   - 6.1 [Self-Hosting Data Type Reference — Provider Interfaces, Config, Request/Response Types](#61-self-hosting-data-type-reference-provider-interfaces-config-requestresponse-types)
+
+7. [Python SDK](#7-python-sdk) — **HIGH**
+   - 7.1 [Attachment Upload and Delete via Python SDK with S3](#71-attachment-upload-and-delete-via-python-sdk-with-s3)
+   - 7.2 [Comments CRUD Operations via Python SDK](#72-comments-crud-operations-via-python-sdk)
+   - 7.3 [Django, Flask, and FastAPI Integration Patterns](#73-django-flask-and-fastapi-integration-patterns)
+   - 7.4 [Users and Reactions Management via Python SDK](#74-users-and-reactions-management-via-python-sdk)
+
+8. [Debugging](#8-debugging) — **LOW-MEDIUM**
+   - 8.1 [Monitor Data Provider Events for Troubleshooting](#81-monitor-data-provider-events-for-troubleshooting)
 
 ---
 
@@ -131,7 +144,26 @@ const dataProviders = {
 };
 ```
 
-<!-- TODO (v5.0.2-beta.10): Verify the exact shapes of GetActivityResolverRequest, SaveActivityResolverRequest, and PartialActivityRecord. Release note confirms the field names and config keys but does not enumerate all request/response fields. See https://docs.velt.dev/self-host-data/activity for the complete type reference. -->
+**SDK methods:**
+
+```tsx
+// Method 1: Via VeltProvider prop (recommended for React)
+<VeltProvider apiKey={KEY} authProvider={auth} dataProviders={dataProviders}>
+
+// Method 2: Via client API (for non-React or dynamic setup)
+client.setDataProviders(dataProviders);
+
+// Anonymous user resolution (resolve tagged contact emails to userIds at save time)
+client.setAnonymousUserDataProvider({
+  resolveUserIdsByEmail: async (request) => {
+    // request: { organizationId, documentId?, folderId?, emails: string[] }
+    const userIdMap = await myBackend.resolveEmails(request.emails);
+    return { data: userIdMap, success: true, statusCode: 200 };
+    // Returns: Record<email, userId>
+  },
+  config: { resolveTimeout: 5000, getRetryConfig: { retryCount: 3, retryDelay: 1000 } },
+});
+```
 
 **Key constraints:**
 
@@ -179,7 +211,145 @@ Reference: https://docs.velt.dev/self-host-data/overview; https://docs.velt.dev/
 
 ---
 
-### 1.2 Return Standard Response Format from All Data Provider Handlers
+### 1.2 Install and Initialize the Velt Python SDK
+
+**Impact: CRITICAL (Without proper SDK initialization, all backend operations will fail)**
+
+The `velt-py` package provides server-side access to Velt collaboration features. It requires a MongoDB connection for data storage and optionally supports S3 for attachments.
+
+**Install the package:**
+
+```bash
+pip install velt-py
+```
+
+**Incorrect (missing required MongoDB config):**
+
+```python
+from velt import VeltSdk, VeltSdkConfig
+
+# Missing MongoDB connection — SDK will fail
+config = VeltSdkConfig(
+    api_key="your_api_key",
+    auth_token="your_auth_token"
+)
+```
+
+**Correct (minimal init with connection string):**
+
+```python
+from velt import VeltSdk, VeltSdkConfig, MongoDBConfig
+
+config = VeltSdkConfig(
+    api_key="your_api_key",
+    auth_token="your_auth_token",
+    mongodb=MongoDBConfig(
+        connection_string="mongodb+srv://user:pass@cluster.mongodb.net/velt_db"
+    )
+)
+
+sdk = VeltSdk(config)
+```
+
+**Correct (full config with individual MongoDB fields and S3):**
+
+```python
+from velt import VeltSdk, VeltSdkConfig, MongoDBConfig, S3Config
+
+config = VeltSdkConfig(
+    api_key="your_api_key",
+    auth_token="your_auth_token",
+    mongodb=MongoDBConfig(
+        host="cluster.mongodb.net",
+        username="db_user",
+        password="db_password",
+        auth_database="admin",
+        database_name="velt_db"
+    ),
+    s3=S3Config(
+        region="us-east-1",
+        access_key="AKIA...",
+        secret_key="secret...",
+        bucket="velt-attachments"
+    )
+)
+
+sdk = VeltSdk(config)
+```
+
+**Correct (production pattern with env vars):**
+
+```python
+import os
+from velt import VeltSdk, VeltSdkConfig, MongoDBConfig
+
+config = VeltSdkConfig(
+    api_key=os.environ["VELT_API_KEY"],
+    auth_token=os.environ["VELT_AUTH_TOKEN"],
+    mongodb=MongoDBConfig(
+        connection_string=os.environ["MONGODB_URI"]
+    )
+)
+
+sdk = VeltSdk(config)
+```
+
+**Verification:**
+
+```python
+# Error response format
+{
+    'success': False,
+    'statusCode': 400,       # or 500, 404
+    'error': 'Description of what went wrong',
+    'errorCode': 'INVALID_INPUT'   # or INTERNAL_ERROR, NOT_FOUND
+}
+config = VeltSdkConfig(
+    database={
+        'connection_string': os.environ['MONGODB_URI'],
+        'database_name': 'my_app_db',
+    },
+    collections={
+        'comments': 'velt_comment_annotations',
+        'reactions': 'velt_reactions',
+        'users': 'app_users',
+        'attachments': 'velt_attachments',
+    },
+    api_key=os.environ['VELT_API_KEY'],
+    auth_token=os.environ['VELT_AUTH_TOKEN'],
+)
+config = VeltSdkConfig(
+    database={
+        'connection_string': os.environ['MONGODB_URI'],
+        'database_name': 'my_app_db',
+    },
+    user_schema={
+        'userId': '_id',           # Your DB field for user ID
+        'name': 'display_name',   # Your DB field for user name
+        'email': 'email_address', # Your DB field for email
+        'photoUrl': 'avatar_url', # Your DB field for avatar
+    },
+    api_key=os.environ['VELT_API_KEY'],
+    auth_token=os.environ['VELT_AUTH_TOKEN'],
+)
+```
+
+| Error Code | Status Code | Description |
+|------------|-------------|-------------|
+| `INVALID_INPUT` | 400 | Malformed request data — check required fields |
+| `NOT_FOUND` | 404 | Resource not found — verify IDs |
+| `INTERNAL_ERROR` | 500 | Server-side error — retry or contact support |
+---
+Map Velt data to custom MongoDB collection names if your database has existing naming conventions:
+---
+Map your database's user fields to Velt's expected field names:
+This mapping ensures the SDK can resolve user data from your existing user collection without requiring schema changes.
+
+Reference: `https://docs.velt.dev/api-reference/sdk/python/overview` (## Python SDK > ### Installation & Configuration)
+
+---
+
+### 1.3 Return Standard Response Format from All Data Provider Handlers
 
 **Impact: CRITICAL (SDK treats non-standard responses as failures and triggers retries)**
 
@@ -244,6 +414,72 @@ const fetchCommentsFromDB = async (request) => {
 **For function-based providers** (same format returned from the resolver):
 
 Reference: https://docs.velt.dev/self-host-data/comments; https://docs.velt.dev/self-host-data/attachments; https://docs.velt.dev/self-host-data/reactions
+
+---
+
+### 1.4 Use authProvider on VeltProvider with dataProviders — Never Use identify()
+
+**Impact: CRITICAL (Using deprecated auth methods breaks data provider initialization ordering)**
+
+VeltProvider requires the `authProvider` prop for authentication. The `useIdentify()` hook and `client.identify()` method are deprecated — they lack automatic token refresh and retry logic. For self-hosting, `dataProviders` must also be set on VeltProvider so that data providers are initialized before authentication occurs.
+
+**Correct (authProvider + dataProviders on VeltProvider):**
+
+```tsx
+"use client";
+
+import { useMemo } from "react";
+import { VeltProvider } from "@veltdev/react";
+import type { VeltAuthProvider } from "@veltdev/types";
+import { useAppUser } from "@/app/userAuth/AppUserContext";
+import { dataProviders } from "@/components/velt/VeltDataProviders";
+
+function useVeltAuthProvider() {
+  const { user } = useAppUser();
+  const authProvider: VeltAuthProvider | undefined = useMemo(() => {
+    if (!user) return undefined;
+    return {
+      user: {
+        userId: user.userId,
+        organizationId: user.organizationId,
+        name: user.name,
+        email: user.email,
+      },
+      retryConfig: { retryCount: 3, retryDelay: 1000 },
+      generateToken: async () => {
+        const resp = await fetch("/api/velt/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user.userId,
+            organizationId: user.organizationId,
+          }),
+        });
+        const { token } = await resp.json();
+        return token;
+      },
+    };
+  }, [user]);
+  return { authProvider };
+}
+
+export default function DocumentPage() {
+  const { authProvider } = useVeltAuthProvider();
+  if (!authProvider) return <div>Loading...</div>;
+
+  return (
+    <VeltProvider
+      apiKey={process.env.NEXT_PUBLIC_VELT_API_KEY!}
+      authProvider={authProvider}
+      dataProviders={dataProviders}
+    >
+      {/* Self-hosted Velt components go here */}
+    </VeltProvider>
+  );
+}
+```
+
+**Why ordering matters for self-hosting:** Data providers must be registered on VeltProvider via the `dataProviders` prop so they are initialized before authentication. If auth happens first (via the deprecated `identify()`), the data providers may not be ready when Velt starts fetching data, causing silent failures or data going to Velt servers instead of your infrastructure.
 
 ---
 
@@ -994,6 +1230,199 @@ Reference: https://docs.velt.dev/self-host-data/users
 
 ---
 
+### 4.4 Self-Host Notification Data for Custom Notifications
+
+**Impact: MEDIUM (Route custom notification PII through your own infrastructure)**
+
+The notification data provider handles PII for **custom notifications only** (where `notificationSource === 'custom'`). Built-in notifications from comments, huddle, and CRDT are not routed through this provider.
+
+**NotificationDataProvider interface:**
+
+```typescript
+interface NotificationDataProvider {
+  get?: (request: GetNotificationResolverRequest) => Promise<ResolverResponse<Record<string, PartialNotification>>>;
+  delete?: (request: DeleteNotificationResolverRequest) => Promise<ResolverResponse<undefined>>;
+  config?: NotificationResolverConfig;
+}
+
+interface GetNotificationResolverRequest {
+  organizationId: string;
+  notificationIds?: string[];
+  documentId?: string;
+}
+
+interface DeleteNotificationResolverRequest {
+  notificationId: string;
+  metadata?: BaseMetadata;
+  event?: ResolverActions;
+}
+
+interface NotificationResolverConfig {
+  resolveTimeout?: number;
+  getRetryConfig?: RetryConfig;
+  deleteRetryConfig?: RetryConfig;
+  getConfig?: ResolverEndpointConfig;     // Endpoint-based alternative
+  deleteConfig?: ResolverEndpointConfig;  // Endpoint-based alternative
+}
+```
+
+**Function-based example:**
+
+```tsx
+const notificationDataProvider: NotificationDataProvider = {
+  get: async (request) => {
+    const response = await fetch('/api/velt/notifications/get', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    const data = await response.json();
+    return { data: data.result || {}, success: true, statusCode: 200 };
+  },
+  delete: async (request) => {
+    await fetch('/api/velt/notifications/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    return { data: undefined, success: true, statusCode: 200 };
+  },
+  config: {
+    resolveTimeout: 10000,
+    getRetryConfig: { retryCount: 3, retryDelay: 2000 },
+    deleteRetryConfig: { retryCount: 2, retryDelay: 1000 },
+  },
+};
+
+// Wire into VeltProvider
+<VeltProvider apiKey={KEY} authProvider={auth} dataProviders={{
+  notification: notificationDataProvider,
+}}>
+```
+
+**Resolution pipeline order:** notification → user → comment. The notification provider resolves first, then user PII is resolved, then comment content if applicable.
+
+Reference: https://docs.velt.dev/self-host-data/notifications
+
+---
+
+### 4.5 Self-Host Recording Data and Media Files
+
+**Impact: MEDIUM (Store recording annotations and media on your own infrastructure)**
+
+The recorder data provider handles recording annotations (metadata, transcriptions) and optionally the media files themselves. It supports chunked uploads and a scoped storage provider for media binaries.
+
+**RecorderAnnotationDataProvider interface:**
+
+```typescript
+interface RecorderAnnotationDataProvider {
+  get?: (request: GetRecorderResolverRequest) => Promise<ResolverResponse<Record<string, PartialRecorderAnnotation>>>;
+  save?: (request: SaveRecorderResolverRequest) => Promise<ResolverResponse<SaveRecorderResolverData | undefined>>;
+  delete?: (request: DeleteRecorderResolverRequest) => Promise<ResolverResponse<undefined>>;
+  config?: ResolverConfig;
+  uploadChunks?: boolean;              // Upload recording in chunks (default: false)
+  storage?: AttachmentDataProvider;    // Scoped storage for recorder media files
+}
+
+interface GetRecorderResolverRequest {
+  organizationId: string;
+  recorderAnnotationIds?: string[];
+  documentIds?: string[];
+  folderId?: string;
+  allDocuments?: boolean;
+}
+
+interface SaveRecorderResolverRequest {
+  recorderAnnotations: Record<string, PartialRecorderAnnotation>;
+  metadata?: BaseMetadata;
+  event?: ResolverActions;
+}
+
+interface SaveRecorderResolverData {
+  recorderAnnotation: Record<string, PartialRecorderAnnotation>;
+}
+
+interface DeleteRecorderResolverRequest {
+  recorderAnnotationId: string;
+  metadata?: BaseMetadata;
+  event?: ResolverActions;
+}
+
+interface PartialRecorderAnnotation {
+  annotationId: string;
+  from?: PartialUser;
+  attachment?: ResolverAttachment;
+  attachments?: ResolverAttachment[];
+  transcription?: string;
+  recordingEditVersions?: Record<number, PartialRecorderAnnotationEditVersion>;
+}
+```
+
+**Function-based example:**
+
+```tsx
+const recorderDataProvider: RecorderAnnotationDataProvider = {
+  get: async (request) => {
+    const response = await fetch('/api/velt/recordings/get', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    const data = await response.json();
+    return { data: data.result || {}, success: true, statusCode: 200 };
+  },
+  save: async (request) => {
+    const response = await fetch('/api/velt/recordings/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    const data = await response.json();
+    return { data: data.result, success: true, statusCode: 200 };
+  },
+  delete: async (request) => {
+    await fetch('/api/velt/recordings/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    return { data: undefined, success: true, statusCode: 200 };
+  },
+  config: {
+    resolveTimeout: 30000, // Longer timeout for media
+    saveRetryConfig: { retryCount: 3, retryDelay: 2000 },
+    deleteRetryConfig: { retryCount: 2, retryDelay: 1000 },
+    getRetryConfig: { retryCount: 3, retryDelay: 2000 },
+  },
+  uploadChunks: false, // Set true for chunked upload (large recordings)
+};
+
+// Optional: custom storage for media files (uses AttachmentDataProvider interface)
+const recorderStorage: AttachmentDataProvider = {
+  save: async (request) => {
+    // Upload media to your S3/storage
+    const url = await uploadToStorage(request.file);
+    return { data: { url }, success: true, statusCode: 200 };
+  },
+  delete: async (request) => {
+    await deleteFromStorage(request.url);
+    return { data: undefined, success: true, statusCode: 200 };
+  },
+};
+
+// Wire both into VeltProvider
+<VeltProvider apiKey={KEY} authProvider={auth} dataProviders={{
+  recorder: {
+    ...recorderDataProvider,
+    storage: recorderStorage, // Scoped storage for media files
+  },
+}}>
+```
+
+Reference: https://docs.velt.dev/self-host-data/recordings
+
+---
+
 ## 5. Backend Implementation
 
 **Impact: MEDIUM**
@@ -1263,13 +1692,493 @@ Reference: https://docs.velt.dev/self-host-data/comments - Backend Example; http
 
 ---
 
-## 6. Debugging
+## 6. Data Types
+
+**Impact: MEDIUM**
+
+Reference for the TypeScript shapes a data provider hands to / receives from the SDK — comment payloads, attachment uploads, reaction records, recording metadata, user contacts. Documents the contract between the SDK and your backend so provider responses don't drift from the SDK's expected shapes.
+
+### 6.1 Self-Hosting Data Type Reference — Provider Interfaces, Config, Request/Response Types
+
+**Impact: MEDIUM (Complete type definitions for all data provider interfaces and resolver types)**
+
+Complete type definitions for all data provider interfaces, configuration types, request/response shapes, and resolver enums.
+
+### VeltDataProvider (top-level)
+
+Reference: https://docs.velt.dev/api-reference/sdk/models/data-models - Self-Hosting Types
+
+---
+
+## 7. Python SDK
+
+**Impact: HIGH**
+
+Patterns for implementing data-provider backends in Python using the `velt-py` SDK. Covers the comments / attachments / users / reactions handlers, framework integrations (FastAPI / Flask / Django), and the same response-format contract the JS SDK enforces. Use when your provider backend is Python rather than Node.
+
+### 7.1 Attachment Upload and Delete via Python SDK with S3
+
+**Impact: HIGH (Missing S3 configuration or incorrect file parameters cause upload failures)**
+
+Attachment operations require S3 to be configured during SDK initialization. The save method accepts file data alongside the request object, while delete removes files from both the database and S3.
+
+**Incorrect (attempting attachment operations without S3 config):**
+
+```python
+from velt import VeltSdk, VeltSdkConfig, MongoDBConfig
+
+# Missing S3 config — attachment operations will fail
+config = VeltSdkConfig(
+    api_key="your_api_key",
+    auth_token="your_auth_token",
+    mongodb=MongoDBConfig(
+        connection_string="mongodb+srv://user:pass@cluster.mongodb.net/velt_db"
+    )
+)
+
+sdk = VeltSdk(config)
+# sdk.selfHosting.attachments.saveAttachment(...) will raise an error
+```
+
+**Correct (SDK init with S3 for attachments):**
+
+```python
+from velt import VeltSdk, VeltSdkConfig, MongoDBConfig, S3Config
+
+config = VeltSdkConfig(
+    api_key="your_api_key",
+    auth_token="your_auth_token",
+    mongodb=MongoDBConfig(
+        connection_string="mongodb+srv://user:pass@cluster.mongodb.net/velt_db"
+    ),
+    s3=S3Config(
+        region="us-east-1",
+        access_key="AKIA...",
+        secret_key="secret...",
+        bucket="velt-attachments"
+    )
+)
+
+sdk = VeltSdk(config)
+```
+
+**Correct (upload an attachment):**
+
+```python
+from velt import SaveAttachmentResolverRequest
+
+# Read file data as bytes
+with open("report.pdf", "rb") as f:
+    file_data = f.read()
+
+request = SaveAttachmentResolverRequest(
+    organization_id="org_123",
+    document_id="doc_456",
+    comment_id="comment_1"
+)
+
+response = sdk.selfHosting.attachments.saveAttachment(
+    request,
+    file_data=file_data,
+    file_name="report.pdf",
+    mime_type="application/pdf"
+)
+
+if response.success:
+    attachment_url = response.data
+    print(f"Uploaded: {attachment_url}")
+else:
+    print(f"Upload failed: {response.error}")
+```
+
+**Correct (delete an attachment):**
+
+```python
+from velt import DeleteAttachmentResolverRequest
+
+request = DeleteAttachmentResolverRequest(
+    organization_id="org_123",
+    document_id="doc_456",
+    comment_id="comment_1",
+    attachment_id="attachment_789"
+)
+
+response = sdk.selfHosting.attachments.deleteAttachment(request)
+
+if response.success:
+    print("Attachment deleted from database and S3")
+```
+
+Reference: `https://docs.velt.dev/api-reference/sdk/python/attachments` (## Python SDK > ### Attachments)
+
+---
+
+### 7.2 Comments CRUD Operations via Python SDK
+
+**Impact: HIGH (Incorrect request types or response handling causes silent data loss or failed queries)**
+
+The Python SDK provides methods to get, save, and delete comments through the `sdk.selfHosting.comments` namespace. Each method requires its own request type.
+
+**Incorrect (passing raw dicts instead of request objects):**
+
+```python
+# This will fail — methods require typed request objects
+comments = sdk.selfHosting.comments.getComments({
+    "organizationId": "org_123",
+    "documentId": "doc_456"
+})
+```
+
+**Correct (get comments):**
+
+```python
+from velt import GetCommentResolverRequest
+
+request = GetCommentResolverRequest(
+    organization_id="org_123",
+    document_id="doc_456"
+)
+
+response = sdk.selfHosting.comments.getComments(request)
+
+if response.success:
+    comments = response.data
+    print(f"Retrieved {len(comments)} comments")
+else:
+    print(f"Error {response.error_code}: {response.error}")
+```
+
+**Correct (save comments):**
+
+```python
+from velt import SaveCommentResolverRequest
+
+request = SaveCommentResolverRequest(
+    organization_id="org_123",
+    document_id="doc_456",
+    comments=[
+        {
+            "commentId": "comment_1",
+            "body": "This needs review",
+            "userId": "user_789",
+            "timestamp": 1700000000000
+        }
+    ]
+)
+
+response = sdk.selfHosting.comments.saveComments(request)
+
+if response.success:
+    print(f"Saved successfully, status: {response.status_code}")
+```
+
+**Correct (delete comment):**
+
+```python
+from velt import DeleteCommentResolverRequest
+
+request = DeleteCommentResolverRequest(
+    organization_id="org_123",
+    document_id="doc_456",
+    comment_id="comment_1"
+)
+
+response = sdk.selfHosting.comments.deleteComment(request)
+
+if response.success:
+    print("Comment deleted")
+```
+
+**Response format:**
+
+```python
+# Success response
+# response.success == True
+# response.status_code == 200
+# response.data == [...]  (for get) or confirmation (for save/delete)
+
+# Error response
+# response.success == False
+# response.error == "Comment not found"
+# response.error_code == 404
+```
+
+**Verification:**
+
+```python
+from velt import (
+    # Comments
+    GetCommentResolverRequest,
+    SaveCommentResolverRequest,
+    DeleteCommentResolverRequest,
+    # Reactions
+    GetReactionResolverRequest,
+    SaveReactionResolverRequest,
+    DeleteReactionResolverRequest,
+    # Users
+    GetUserResolverRequest,
+    # Attachments
+    SaveAttachmentResolverRequest,
+    DeleteAttachmentResolverRequest,
+)
+```
+
+| Module | Request Type | SDK Method |
+|--------|-------------|------------|
+| Comments | `GetCommentResolverRequest` | `sdk.selfHosting.comments.getComments()` |
+| Comments | `SaveCommentResolverRequest` | `sdk.selfHosting.comments.saveComments()` |
+| Comments | `DeleteCommentResolverRequest` | `sdk.selfHosting.comments.deleteComment()` |
+| Reactions | `GetReactionResolverRequest` | `sdk.selfHosting.reactions.getReactions()` |
+| Reactions | `SaveReactionResolverRequest` | `sdk.selfHosting.reactions.saveReactions()` |
+| Reactions | `DeleteReactionResolverRequest` | `sdk.selfHosting.reactions.deleteReaction()` |
+| Users | `GetUserResolverRequest` | `sdk.selfHosting.users.getUsers()` |
+| Attachments | `SaveAttachmentResolverRequest` | `sdk.selfHosting.attachments.saveAttachment()` |
+| Attachments | `DeleteAttachmentResolverRequest` | `sdk.selfHosting.attachments.deleteAttachment()` |
+
+Reference: `https://docs.velt.dev/api-reference/sdk/python/comments` (## Python SDK > ### Comments)
+
+---
+
+### 7.3 Django, Flask, and FastAPI Integration Patterns
+
+**Impact: MEDIUM (Incorrect framework integration causes SDK reinitialization on every request or missing CSRF handling)**
+
+Initialize the Velt SDK once at application startup, then use it across request handlers. Each framework has its own conventions for initialization and request handling.
+
+**Django — Initialize in apps.py, use in views.py:**
+
+```python
+# myapp/apps.py
+import os
+from django.apps import AppConfig
+from velt import VeltSdk, VeltSdkConfig, MongoDBConfig
+
+class MyAppConfig(AppConfig):
+    name = 'myapp'
+    velt_sdk = None
+
+    def ready(self):
+        MyAppConfig.velt_sdk = VeltSdk(VeltSdkConfig(
+            api_key=os.environ["VELT_API_KEY"],
+            auth_token=os.environ["VELT_AUTH_TOKEN"],
+            mongodb=MongoDBConfig(
+                connection_string=os.environ["MONGODB_URI"]
+            )
+        ))
+# myapp/views.py
+import json
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from velt import GetCommentResolverRequest
+from .apps import MyAppConfig
+
+@csrf_exempt
+def get_comments(request):
+    if request.method != 'POST':
+        return JsonResponse({"error": "POST required"}, status=405)
+
+    body = json.loads(request.body)
+    sdk = MyAppConfig.velt_sdk
+
+    resolver_request = GetCommentResolverRequest(
+        organization_id=body["organizationId"],
+        document_id=body["documentId"]
+    )
+
+    response = sdk.selfHosting.comments.getComments(resolver_request)
+
+    if response.success:
+        return JsonResponse({"data": response.data})
+    return JsonResponse({"error": response.error}, status=response.error_code)
+```
+
+**Flask — Initialize at module level:**
+
+```python
+import os
+from flask import Flask, request, jsonify
+from velt import VeltSdk, VeltSdkConfig, MongoDBConfig, GetCommentResolverRequest
+
+app = Flask(__name__)
+
+sdk = VeltSdk(VeltSdkConfig(
+    api_key=os.environ["VELT_API_KEY"],
+    auth_token=os.environ["VELT_AUTH_TOKEN"],
+    mongodb=MongoDBConfig(
+        connection_string=os.environ["MONGODB_URI"]
+    )
+))
+
+@app.route("/api/comments/get", methods=["POST"])
+def get_comments():
+    body = request.json
+
+    resolver_request = GetCommentResolverRequest(
+        organization_id=body["organizationId"],
+        document_id=body["documentId"]
+    )
+
+    response = sdk.selfHosting.comments.getComments(resolver_request)
+
+    if response.success:
+        return jsonify({"data": response.data})
+    return jsonify({"error": response.error}), response.error_code
+```
+
+**FastAPI — Initialize at module level, use async endpoints:**
+
+```python
+import os
+from fastapi import FastAPI, Request
+from velt import VeltSdk, VeltSdkConfig, MongoDBConfig, GetCommentResolverRequest
+
+app = FastAPI()
+
+sdk = VeltSdk(VeltSdkConfig(
+    api_key=os.environ["VELT_API_KEY"],
+    auth_token=os.environ["VELT_AUTH_TOKEN"],
+    mongodb=MongoDBConfig(
+        connection_string=os.environ["MONGODB_URI"]
+    )
+))
+
+@app.post("/api/comments/get")
+async def get_comments(req: Request):
+    body = await req.json()
+
+    resolver_request = GetCommentResolverRequest(
+        organization_id=body["organizationId"],
+        document_id=body["documentId"]
+    )
+
+    response = sdk.selfHosting.comments.getComments(resolver_request)
+
+    if response.success:
+        return {"data": response.data}
+    return {"error": response.error}
+```
+
+Reference: `https://docs.velt.dev/api-reference/sdk/python/overview` (## Python SDK > ### Framework Integration)
+
+---
+
+### 7.4 Users and Reactions Management via Python SDK
+
+**Impact: MEDIUM (Incorrect request types prevent user lookups and reaction sync)**
+
+The Python SDK provides methods to manage users and reactions through `sdk.selfHosting.users` and `sdk.selfHosting.reactions`. Each operation uses a typed request object.
+
+**Incorrect (missing request type imports):**
+
+```python
+# This will throw an error — request types are required
+users = sdk.selfHosting.users.getUsers({
+    "organizationId": "org_123"
+})
+```
+
+**Correct (get users):**
+
+```python
+from velt import GetUserResolverRequest
+
+request = GetUserResolverRequest(
+    organization_id="org_123"
+)
+
+response = sdk.selfHosting.users.getUsers(request)
+
+if response.success:
+    users = response.data
+    for user in users:
+        print(f"User: {user['userId']} - {user['email']}")
+else:
+    print(f"Error: {response.error}")
+```
+
+**Correct (get reactions):**
+
+```python
+from velt import GetReactionResolverRequest
+
+request = GetReactionResolverRequest(
+    organization_id="org_123",
+    document_id="doc_456",
+    comment_id="comment_1"
+)
+
+response = sdk.selfHosting.reactions.getReactions(request)
+
+if response.success:
+    reactions = response.data
+    print(f"Found {len(reactions)} reactions")
+```
+
+**Correct (save reactions):**
+
+```python
+from velt import SaveReactionResolverRequest
+
+request = SaveReactionResolverRequest(
+    organization_id="org_123",
+    document_id="doc_456",
+    comment_id="comment_1",
+    reactions=[
+        {
+            "reactionId": "reaction_1",
+            "emoji": "thumbsup",
+            "userId": "user_789",
+            "timestamp": 1700000000000
+        }
+    ]
+)
+
+response = sdk.selfHosting.reactions.saveReactions(request)
+
+if response.success:
+    print("Reactions saved")
+```
+
+**Correct (delete reaction):**
+
+```python
+from velt import DeleteReactionResolverRequest
+
+request = DeleteReactionResolverRequest(
+    organization_id="org_123",
+    document_id="doc_456",
+    comment_id="comment_1",
+    reaction_id="reaction_1"
+)
+
+response = sdk.selfHosting.reactions.deleteReaction(request)
+
+if response.success:
+    print("Reaction deleted")
+```
+
+**Available request type imports:**
+
+```python
+from velt import (
+    GetUserResolverRequest,
+    GetReactionResolverRequest,
+    SaveReactionResolverRequest,
+    DeleteReactionResolverRequest
+)
+```
+
+Reference: `https://docs.velt.dev/api-reference/sdk/python/users` (## Python SDK > ### Users & Reactions)
+
+---
+
+## 8. Debugging
 
 **Impact: LOW-MEDIUM**
 
 Monitoring and troubleshooting data provider events using the SDK subscription API.
 
-### 6.1 Monitor Data Provider Events for Troubleshooting
+### 8.1 Monitor Data Provider Events for Troubleshooting
 
 **Impact: LOW-MEDIUM (Real-time visibility into SDK-to-backend data flow)**
 

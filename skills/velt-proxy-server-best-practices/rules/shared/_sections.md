@@ -1,25 +1,39 @@
-# Sections Index
+# Sections
 
-## 1. Core (2 rules)
-- `core/core-auth-provider.md` — Use authProvider, never useIdentify
-- `core/core-proxy-overview.md` — The 6 proxy hosts, when/why to use proxy
+This file defines all sections, their ordering, impact levels, and descriptions.
+The section prefix (in parentheses) is the filename prefix used to group rules.
 
-## 2. SDK Config (3 rules)
-- `sdk-config/sdk-proxy-config-react.md` — proxyConfig on VeltProvider for React/Next.js
-- `sdk-config/sdk-proxy-config-non-react.md` — proxyConfig on initVelt() for Angular/Vue/HTML
-- `sdk-config/sdk-integrity-check.md` — Subresource Integrity (SRI) for proxied SDK
+---
 
-## 3. Server Setup (6 rules)
-- `server-setup/server-nginx-cdn.md` — nginx for CDN proxy (cdn.velt.dev)
-- `server-setup/server-nginx-api.md` — nginx for API proxy (api.velt.dev)
-- `server-setup/server-nginx-persistence-db.md` — nginx for persistence DB proxy
-- `server-setup/server-nginx-ephemeral-db.md` — nginx for ephemeral DB proxy (WebSocket + host-lock)
-- `server-setup/server-nginx-storage.md` — nginx for storage proxy (firebasestorage.googleapis.com)
-- `server-setup/server-nginx-auth.md` — nginx for auth proxy (identitytoolkit + securetoken)
+## 1. Core (core)
 
-## 4. Security (2 rules)
-- `security/security-csp-whitelist.md` — CSP whitelist directives for Velt
-- `security/security-force-long-polling.md` — forceLongPolling for WebSocket-less proxies
+**Impact:** CRITICAL
+**Description:** Foundational concepts for the Velt proxy-server setup. Covers when and why to put a reverse proxy in front of Velt, the six service hosts the SDK talks to (`cdnHost`, `apiHost`, `v1DbHost`, `v2DbHost`, `storageHost`, `authHost`), and the authentication requirement that VeltProvider's `authProvider` prop is used for identity (not the deprecated `useIdentify` hook).
 
-## 5. Debugging (1 rule)
-- `debugging/debug-proxy-verification.md` — Verification checklist and common issues
+---
+
+## 2. SDK Config (sdk-config)
+
+**Impact:** CRITICAL
+**Description:** The `proxyConfig` SDK-side configuration object that points Velt at your proxy hosts. Includes the React / Next.js form (`proxyConfig` prop on `VeltProvider`), the non-React form (`proxyConfig` field on `initVelt()`), and the Subresource Integrity (SRI) hash check for verifying the proxied SDK bundle.
+
+---
+
+## 3. Server Setup (server-setup)
+
+**Impact:** HIGH
+**Description:** Per-host nginx reverse-proxy configurations. Covers the CDN host (static SDK delivery), the API host (REST traffic), the persistence DB host (Firestore proxy), the ephemeral DB host (WebSocket + host-lock for realtime), the storage host (Firebase Storage / S3-compat), and the auth host (`identitytoolkit` + `securetoken`).
+
+---
+
+## 4. Security (security)
+
+**Impact:** HIGH
+**Description:** Content Security Policy (CSP) whitelist directives required for Velt traffic, and the `forceLongPolling` fallback for environments where the ephemeral-DB proxy can't pass WebSocket upgrade requests.
+
+---
+
+## 5. Debugging (debugging)
+
+**Impact:** MEDIUM
+**Description:** Verification checklist for confirming a proxy setup is routing all six hosts correctly, plus common-issue diagnostics for proxy failures.

@@ -109,6 +109,36 @@ activityElement.getAllActivities().subscribe((activities) => {
 });
 ```
 
+**VeltProvider with authProvider (required for activity logs to work):**
+
+```jsx
+import { VeltProvider } from '@veltdev/react';
+
+// Build authProvider from your app's user context
+const authProvider = user ? {
+  user: {
+    userId: user.userId,
+    organizationId: user.organizationId,
+    name: user.name,
+    email: user.email,
+  },
+  retryConfig: { retryCount: 3, retryDelay: 1000 },
+  generateToken: async () => {
+    const resp = await fetch("/api/velt/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: user.userId, organizationId: user.organizationId }),
+    });
+    const { token } = await resp.json();
+    return token;
+  },
+} : undefined;
+
+<VeltProvider apiKey={process.env.NEXT_PUBLIC_VELT_API_KEY!} authProvider={authProvider}>
+  {/* Activity log components go here */}
+</VeltProvider>
+```
+
 Reference: https://docs.velt.dev/async-collaboration/activity/setup - Enable Activity Logs in the Velt Console
 
 ---
@@ -215,22 +245,68 @@ export function ActivityLogPanel() {
 <velt-activity-log></velt-activity-log>
 ```
 
-**Wireframe customization:**
+**Wireframe customization (27 primitives):**
+
+```tsx
+import VeltActivityLogWireframe from '@veltdev/react/VeltActivityLogWireframe';
+
+<VeltActivityLog>
+  <VeltActivityLogWireframe>
+    <VeltActivityLogWireframe.Header>
+      <VeltActivityLogWireframe.Header.Title />
+      <VeltActivityLogWireframe.Header.CloseButton />
+      <VeltActivityLogWireframe.Header.Filter>
+        <VeltActivityLogWireframe.Header.Filter.Trigger>
+          <VeltActivityLogWireframe.Header.Filter.Trigger.Icon />
+          <VeltActivityLogWireframe.Header.Filter.Trigger.Label />
+        </VeltActivityLogWireframe.Header.Filter.Trigger>
+        <VeltActivityLogWireframe.Header.Filter.Content>
+          <VeltActivityLogWireframe.Header.Filter.Content.Item>
+            <VeltActivityLogWireframe.Header.Filter.Content.Item.Icon />
+            <VeltActivityLogWireframe.Header.Filter.Content.Item.Label />
+          </VeltActivityLogWireframe.Header.Filter.Content.Item>
+        </VeltActivityLogWireframe.Header.Filter.Content>
+      </VeltActivityLogWireframe.Header.Filter>
+    </VeltActivityLogWireframe.Header>
+    <VeltActivityLogWireframe.Loading />
+    <VeltActivityLogWireframe.List>
+      <VeltActivityLogWireframe.List.DateGroup>
+        <VeltActivityLogWireframe.List.DateGroup.Label />
+      </VeltActivityLogWireframe.List.DateGroup>
+      <VeltActivityLogWireframe.List.Item>
+        <VeltActivityLogWireframe.List.Item.Icon />
+        <VeltActivityLogWireframe.List.Item.Avatar />
+        <VeltActivityLogWireframe.List.Item.Time />
+        <VeltActivityLogWireframe.List.Item.Content>
+          <VeltActivityLogWireframe.List.Item.Content.User />
+          <VeltActivityLogWireframe.List.Item.Content.Action />
+          <VeltActivityLogWireframe.List.Item.Content.Target />
+          <VeltActivityLogWireframe.List.Item.Content.Detail />
+        </VeltActivityLogWireframe.List.Item.Content>
+      </VeltActivityLogWireframe.List.Item>
+      <VeltActivityLogWireframe.List.ShowMore />
+    </VeltActivityLogWireframe.List>
+    <VeltActivityLogWireframe.Empty />
+  </VeltActivityLogWireframe>
+</VeltActivityLog>
+```
+
+**All 27 standalone primitive components:**
 
 ```jsx
 // WRONG — remounts on every toggle, loses connection
 {showPanel && <VeltActivityLog />}
 
-// CORRECT — always mounted, toggle visibility, shadowDom={false} for CSS access
+// CORRECT — always mounted, toggle visibility
 <div style={{ display: showPanel ? "flex" : "none" }}>
-  <VeltActivityLog shadowDom={false} />
+  <VeltActivityLog />
 </div>
 // WRONG — style prop is ignored, component may not render
 <VeltActivityLog style={{ flex: 1 }} />
 
 // CORRECT — wrap in a styled div
 <div style={{ flex: 1 }}>
-  <VeltActivityLog shadowDom={false} />
+  <VeltActivityLog />
 </div>
 ```
 
@@ -406,6 +482,35 @@ function CommentActivityFeed() {
   if (activities === null) return null;
 
   return activities.map(a => <div key={a.id}>{a.displayMessage}</div>);
+}
+```
+
+**ActivityRecord (returned by useAllActivities):**
+
+```typescript
+interface ActivityRecord {
+  id: string;                                    // Unique activity log ID
+  featureType: ActivityFeatureType;              // 'comment' | 'reaction' | 'recorder' | 'crdt' | 'custom'
+  actionType: string;                            // Specific action (use constants from config-action-type-filters rule)
+  eventType?: string;                            // Sub-event type within the action
+  actionUser: User;                              // User who performed the action
+  timestamp: number;                             // Unix timestamp (ms)
+  metadata: ActivityMetadata;                    // Document/org context
+  targetEntityId?: string;                       // ID of entity this log targets
+  targetSubEntityId?: string | null;             // ID of sub-entity within target
+  changes?: ActivityChanges;                     // Before/after field changes: { [key]: { from, to } }
+  entityData?: unknown;                          // Full entity object at time of action
+  entityTargetData?: unknown;                    // Full target entity object at time of action
+  displayMessageTemplate?: string;               // Template with {{variable}} placeholders
+  displayMessageTemplateData?: Record<string, unknown>; // Data to resolve template
+  displayMessage?: string;                       // Resolved human-readable message (computed client-side)
+  actionIcon?: string;                           // Icon URL or identifier for action
+  immutable?: boolean;                           // Cannot be updated/deleted if true
+  isActivityResolverUsed?: boolean;              // True when PII was stripped by resolver
+}
+
+interface ActivityChanges {
+  [key: string]: { from: unknown | null; to: unknown | null } | undefined;
 }
 ```
 
@@ -712,8 +817,8 @@ import { ReactionActivityActionTypes } from '@veltdev/react';
 const activities = useAllActivities({
   featureTypes: ['reaction'],
   actionTypes: [
-    ReactionActivityActionTypes.REACTION_ADD,
-    ReactionActivityActionTypes.REACTION_DELETE,
+    ReactionActivityActionTypes.REACTION_ADD,   // 'reaction.add'
+    ReactionActivityActionTypes.REACTION_DELETE, // 'reaction.delete'
   ],
 });
 ```
@@ -742,7 +847,7 @@ const activities = useAllActivities({
 const activityElement = Velt.getActivityElement();
 activityElement.getAllActivities({
   featureTypes: ['comment'],
-  actionTypes: ['commentAdded', 'commentUpdated'],
+  actionTypes: ['comment.add', 'comment.update'],
 }).subscribe((activities) => {
   // Handle activities
 });

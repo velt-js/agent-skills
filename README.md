@@ -17,19 +17,20 @@ npx skills add velt-js/agent-skills
 | Skill | Rules | Description |
 |-------|-------|-------------|
 | **velt-setup-best-practices** | 24 | SDK installation, VeltProvider, authProvider, JWT tokens, document identity |
-| **velt-comments-best-practices** | 71 | Comment modes (Freestyle, Popover, Stream, Text, Page, Inline), editor integrations (TipTap, SlateJS, Lexical), programmatic APIs, REST endpoints |
+| **velt-comments-best-practices** | 69 | Comment modes (Freestyle, Popover, Stream, Text, Page, Inline), editor integrations (TipTap, SlateJS, Lexical), programmatic APIs, REST endpoints |
 | **velt-activity-best-practices** | 11 | Real-time activity feeds, custom activity logging, audit trails, CRDT debounce |
 | **velt-crdt-best-practices** | 44 | CRDT stores, Tiptap/BlockNote/CodeMirror/ReactFlow integrations, real-time sync |
 | **velt-notifications-best-practices** | 17 | In-app notifications, email (SendGrid), webhooks, notification preferences |
 | **velt-single-editor-mode-best-practices** | 14 | Exclusive editing, editor/viewer roles, access request handoff, timeout transfer |
-| **velt-recorder-best-practices** | 21 | Audio/video/screen recording, playback, transcription, lifecycle events |
-| **velt-self-hosting-data-best-practices** | 13 | Self-hosting user data, data providers, Python SDK (velt-py), backend API routes |
+| **velt-recorder-best-practices** | 23 | Audio/video/screen recording, playback, transcription, lifecycle events |
+| **velt-self-hosting-data-best-practices** | 21 | Self-hosting user data, data providers, Python SDK (velt-py), backend API routes |
 | **velt-presence-best-practices** | 13 | User presence avatars, online/away/offline status, inactivity timeouts |
 | **velt-cursors-best-practices** | 11 | Real-time cursor tracking, avatar mode, element whitelisting, cursor callbacks |
 | **velt-huddle-best-practices** | 10 | Audio/video/screen sharing huddles, flock mode, ephemeral chat, webhooks |
 | **velt-rest-apis-best-practices** | 9 | REST API v2 endpoints, JWT token generation, webhooks v1/v2 |
 | **velt-proxy-server-best-practices** | 14 | Reverse proxy (nginx) setup, proxyConfig, CSP whitelisting, SRI integrity |
-| **Total** | **277** | |
+| **velt-rewriter-best-practices** | 2 | AI text-rewriter: `enableDefaultUI` / `disableDefaultUI`, `AiModel` union type |
+| **Total** | **282** | |
 
 ## Usage
 

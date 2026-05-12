@@ -538,6 +538,26 @@ crdtElement.on("updateData").subscribe((eventData) => {
 </script>
 ```
 
+**Event types:**
+
+```typescript
+interface CrdtUpdateDataEvent {
+  methodName: string;              // Method that triggered the update
+  uniqueId: string;                // Unique event ID
+  timestamp: number;               // Unix timestamp
+  source: string;                  // Source identifier
+  payload: CrdtUpdateDataPayload;  // Update data
+}
+
+interface CrdtUpdateDataPayload {
+  id: string;                      // Editor/store ID
+  data: unknown;                   // Updated content
+  lastUpdatedBy: string;           // User ID of last editor
+  sessionId: string | null;        // Session ID
+  lastUpdate: string;              // ISO timestamp of last update
+}
+```
+
 ---
 
 ### 1.9 Subscribe to Store Changes for Remote Updates
@@ -783,6 +803,30 @@ async function checkpointAndPrune(client: any, docId: string, ydoc: Y.Doc) {
 }
 ```
 
+**Data types:**
+
+```typescript
+interface CrdtMessageData {
+  data: number[];        // Yjs update bytes (lib0-encoded)
+  source: string;        // Source identifier (e.g., 'tiptap')
+  timestamp: number;     // Unix timestamp (ms)
+}
+
+interface CrdtSnapshotData {
+  state: Uint8Array;     // Encoded Yjs state (Y.encodeStateAsUpdate output)
+  timestamp: number;     // Unix timestamp (ms)
+  vector?: Uint8Array;   // State vector (Y.encodeStateVector output)
+}
+
+interface CrdtPushMessageQuery {
+  id: string;                    // Document ID
+  data: number[];                // Yjs update bytes
+  yjsClientId: number;          // Yjs client ID (ydoc.clientID)
+  messageType: 'sync' | 'awareness'; // Message type
+  source?: string;               // Source identifier
+}
+```
+
 ---
 
 ### 1.13 Use Custom Encryption Provider for Sensitive Data
@@ -928,6 +972,22 @@ curl -X POST https://api.velt.dev/v2/crdt/update \
       "type": "text"
     }
   }'
+```
+
+**Get Response Type:**
+
+```typescript
+// GET response returns an array of CrdtDataObject
+interface CrdtDataObject {
+  data: string | object | unknown[];  // Content (type depends on store type)
+  id: string;                         // Editor ID
+  lastUpdate: string;                 // ISO timestamp of last update
+  lastUpdatedBy: string;              // User ID of last editor
+  sessionId: string | null;           // Session ID
+}
+
+// Response structure:
+// { result: { status: "success", data: CrdtDataObject[] } }
 ```
 
 ---
@@ -1133,6 +1193,22 @@ function CrdtChangeListener() {
 
     return () => subscription.unsubscribe();
   }, [client]);
+}
+```
+
+**Webhook payload structure (sent to your webhook URL):**
+
+```typescript
+// POST to your webhook endpoint
+{
+  notificationSource: 'crdt',
+  crdtData: {
+    id: string;               // Editor/store ID
+    data: unknown;             // Current content
+    lastUpdatedBy: string;     // User ID of last editor
+    sessionId: string | null;  // Session ID
+    lastUpdate: string;        // ISO timestamp
+  }
 }
 ```
 
@@ -1472,9 +1548,10 @@ When both Comments and CRDT features are selected for a Tiptap editor, the `Tipt
 
 **Required integration (4 parts):**
 
-**Part 0: Configure VeltComments** — `<VeltComments textMode={false} shadowDom={false} />` is required when using TipTap editor integration. The editor extension handles text commenting, not the default text mode.
-
 ```tsx
+// VeltComments must have textMode={false} and shadowDom={false} when using TipTap —
+// the editor extension handles text commenting, not the default text mode.
+<VeltComments textMode={false} shadowDom={false} />
 import { TiptapVeltComments, addComment, renderComments } from "@veltdev/tiptap-velt-comments";
 import { useCommentAnnotations } from "@veltdev/react";
 
@@ -1495,6 +1572,8 @@ useEffect(() => {
 }, [editor, commentAnnotations]);
 <button onClick={() => addComment({ editor })}>Add Comment</button>
 ```
+
+> Note: Older v4 packages exported `triggerAddComment` and `highlightComments` — these are deprecated. Use `addComment` and `renderComments` instead.
 
 **Common mistake — causes FREEZE:**
 

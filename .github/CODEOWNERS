@@ -42,6 +42,9 @@
 /skills/velt-proxy-server-best-practices/               @velt-js/infra-owners
 /skills/yjs-best-practices/                             @velt-js/crdt-owners
 
+# AI / productivity
+/skills/velt-rewriter-best-practices/                   @velt-js/ai-owners
+
 # ─── Build system + workflows ──────────────────────────────────────────────
 /packages/skills-build/                                 @velt-js/skills-maintainers
 /.github/workflows/                                     @velt-js/skills-maintainers

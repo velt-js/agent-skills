@@ -494,6 +494,66 @@ function NotificationData() {
 }
 ```
 
+**Notification Model:**
+
+```typescript
+interface Notification {
+  id: string;                          // Unique notification ID
+  notificationSource: string;          // 'comment', 'huddle', 'crdt', 'custom'
+  actionType?: string;                 // e.g., 'added'
+  isUnread?: boolean;                  // Read/unread state
+  actionUser?: User;                   // User who triggered the notification
+  timestamp?: number;                  // Unix timestamp
+  displayHeadlineMessage?: string;     // Resolved headline text
+  displayBodyMessage?: string;         // Body text
+  displayHeadlineMessageTemplate?: string;  // Template with {variables}
+  displayHeadlineMessageTemplateData?: object; // Template variable values
+  forYou?: boolean;                    // Appears in For You tab
+  targetAnnotationId?: string;         // Related annotation ID
+  notificationSourceData?: any;        // Custom data from source
+  metadata?: NotificationMetadata;     // Document/org context
+  notifyUsers?: Record<string, boolean>;       // Users by email hash
+  notifyUsersByUserId?: Record<string, boolean>; // Users by user ID hash
+  isNotificationResolverUsed?: boolean; // True when resolver handled PII
+}
+```
+
+**SettingsUpdatedEvent:**
+
+```typescript
+interface SettingsUpdatedEvent {
+  settings: NotificationSettingsConfig; // Updated channel settings
+  isMutedAll: boolean;                  // True if all channels muted
+}
+```
+
+**GetNotificationsDataQuery:**
+
+```typescript
+interface GetNotificationsDataQuery {
+  type?: 'all' | 'forYou' | 'documents'; // Filter by tab type
+}
+```
+
+**NotificationMetadata:**
+
+```typescript
+interface NotificationMetadata {
+  apiKey?: string;                     // Velt API key
+  organizationId?: string;             // Organization ID
+  clientOrganizationId?: string;       // Client-side org ID
+  documentId?: string;                 // Document ID
+  clientDocumentId?: string;           // Client-side document ID
+  locationId?: number;                 // Location within document
+  location?: Location;                 // Location object
+  folderId?: string;                   // Folder ID
+  veltFolderId?: string;               // Velt folder ID
+  documentMetadata?: object;           // Custom document metadata
+  organizationMetadata?: object;       // Custom org metadata
+  sdkVersion?: string | null;          // SDK version that created notification
+}
+```
+
 Reference: https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Data, Events
 
 ---
@@ -745,6 +805,30 @@ const response = await fetch('https://api.velt.dev/v2/notifications/update', {
 }
 ```
 
+**Delete Notifications:**
+
+```javascript
+// POST https://api.velt.dev/v2/notifications/delete
+
+const response = await fetch('https://api.velt.dev/v2/notifications/delete', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': 'YOUR_API_KEY',
+    'x-velt-auth-token': 'YOUR_AUTH_TOKEN'
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'your-org-id',
+      documentId: 'your-doc-id',             // Optional: delete all for document
+      notificationIds: ['notif-1', 'notif-2'] // Optional: delete specific IDs
+    }
+  })
+});
+```
+
+At least one of `documentId`, `userId`, or `notificationIds` is required alongside `organizationId`.
+
 Reference: https://docs.velt.dev/api-reference/rest-apis/v2/notifications/get-notifications-v2 - Get Notifications API
 
 ---
@@ -883,6 +967,33 @@ notificationElement.disableSettings();
 
 // Show settings gear icon
 notificationElement.enableSettings();
+```
+
+**Organization-Level Settings:**
+
+```jsx
+// Apply settings as org-wide defaults (all users inherit unless overridden)
+notificationElement.enableSettingsAtOrganizationLevel();
+
+// Revert to per-user settings
+notificationElement.disableSettingsAtOrganizationLevel();
+
+// Or via component prop:
+<VeltNotificationsTool enableSettingsAtOrganizationLevel={true} />
+```
+
+**Read Notifications on For You Tab:**
+
+```jsx
+// By default, read notifications are hidden in the For You tab.
+// Enable to show them:
+notificationElement.enableReadNotificationsOnForYouTab();
+
+// Disable again:
+notificationElement.disableReadNotificationsOnForYouTab();
+
+// Or via component prop:
+<VeltNotificationsTool readNotificationsOnForYouTab={true} />
 ```
 
 Reference: https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Settings, setSettingsInitialConfig

@@ -24,6 +24,7 @@ Comprehensive Velt Recorder implementation guide covering audio, video, and scre
    - 1.1 [Add VeltRecorderTool, ControlPanel, Player, and Notes Components](#11-add-veltrecordertool-controlpanel-player-and-notes-components)
    - 1.2 [Handle the recorder.done Webhook Event for Completed Recordings](#12-handle-the-recorderdone-webhook-event-for-completed-recordings)
    - 1.3 [Request Device Permissions Before Recording](#13-request-device-permissions-before-recording)
+   - 1.4 [Use authProvider on VeltProvider — Never Use identify() or useIdentify()](#14-use-authprovider-on-veltprovider-never-use-identify-or-useidentify)
 
 2. [Recording Configuration](#2-recording-configuration) — **HIGH**
    - 2.1 [Configure Recording Quality Constraints and Encoding Options](#21-configure-recording-quality-constraints-and-encoding-options)
@@ -35,7 +36,8 @@ Comprehensive Velt Recorder implementation guide covering audio, video, and scre
    - 3.1 [Use React Hooks for Reactive Recording Data](#31-use-react-hooks-for-reactive-recording-data)
    - 3.2 [Delete Recordings and Download Latest Video](#32-delete-recordings-and-download-latest-video)
    - 3.3 [Fetch or Subscribe to Recording Data via API](#33-fetch-or-subscribe-to-recording-data-via-api)
-   - 3.4 [Retrieve Recordings via REST API Endpoint](#34-retrieve-recordings-via-rest-api-endpoint)
+   - 3.4 [Recorder Data Type Reference — Core Models](#34-recorder-data-type-reference-core-models)
+   - 3.5 [Retrieve Recordings via REST API Endpoint](#35-retrieve-recordings-via-rest-api-endpoint)
 
 4. [Event Handling](#4-event-handling) — **MEDIUM-HIGH**
    - 4.1 [Use useRecorderEventCallback for React Event Handling](#41-use-userecordereventcallback-for-react-event-handling)
@@ -50,6 +52,7 @@ Comprehensive Velt Recorder implementation guide covering audio, video, and scre
    - 6.2 [Configure AI Transcription and Summary Display](#62-configure-ai-transcription-and-summary-display)
    - 6.3 [Configure Fullscreen Playback and Click Behavior](#63-configure-fullscreen-playback-and-click-behavior)
    - 6.4 [Control Countdown Timer and Embedded Settings](#64-control-countdown-timer-and-embedded-settings)
+   - 6.5 [Customize Recorder UI with Wireframe Components](#65-customize-recorder-ui-with-wireframe-components)
 
 7. [Debugging & Testing](#7-debugging-testing) — **LOW-MEDIUM**
    - 7.1 [Debug Common Recorder Issues](#71-debug-common-recorder-issues)
@@ -86,27 +89,69 @@ function App() {
 }
 ```
 
-**Correct (all components with floating playback and pinned notes):**
+**Correct (VeltProvider with authProvider + all recorder components):**
 
 ```tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
+  VeltProvider,
   VeltRecorderTool,
   VeltRecorderControlPanel,
   VeltRecorderPlayer,
   VeltRecorderNotes,
   useRecorderAddHandler,
+  useSetDocuments,
+  useCurrentUser,
 } from "@veltdev/react";
+import type { VeltAuthProvider } from "@veltdev/types";
+import { useAppUser } from "@/app/userAuth/AppUserContext";
 
-// Add these to your collaboration component alongside comments, presence, etc.
+// Build authProvider from your app's user context — never use useIdentify
+function useVeltAuthProvider() {
+  const { user } = useAppUser();
+  const authProvider: VeltAuthProvider | undefined = useMemo(() => {
+    if (!user) return undefined;
+    return {
+      user: { userId: user.userId, organizationId: user.organizationId, name: user.name, email: user.email },
+      retryConfig: { retryCount: 3, retryDelay: 1000 },
+    };
+  }, [user]);
+  return { authProvider };
+}
 
-// 1. Recorder tool button — place in your toolbar
-<VeltRecorderTool type="all" />
+// Page component wrapping with VeltProvider + authProvider
+export default function DocumentPage({ docId }: { docId: string }) {
+  const { authProvider } = useVeltAuthProvider();
+  if (!authProvider) return <div>Loading...</div>;
+  return (
+    <VeltProvider apiKey={process.env.NEXT_PUBLIC_VELT_API_KEY!} authProvider={authProvider}>
+      <DocumentSetup docId={docId} />
+      <RecorderSetup />
+    </VeltProvider>
+  );
+}
 
-// 2. Floating control panel — manages active recording state
-<VeltRecorderControlPanel mode="floating" />
+// Document initialization in a child component (not alongside VeltProvider)
+function DocumentSetup({ docId }: { docId: string }) {
+  const { setDocuments } = useSetDocuments();
+  const veltUser = useCurrentUser();
+  useEffect(() => {
+    if (veltUser && docId) setDocuments([{ id: docId }]);
+  }, [veltUser, docId, setDocuments]);
+  return null;
+}
+
+// Recorder components
+function RecorderSetup() {
+  return (
+    <>
+      {/* 1. Recorder tool button — place in your toolbar */}
+      <VeltRecorderTool type="all" />
+
+      {/* 2. Floating control panel — manages active recording state */}
+      <VeltRecorderControlPanel mode="floating" />
 
 // 3. Pinned recordings — appear where they were created on the page (like comment pins)
 <VeltRecorderNotes />
@@ -300,6 +345,72 @@ const stream = await recorderElement.requestScreenPermission();
 ```
 
 Reference: https://docs.velt.dev/async-collaboration/recorder/customize-behavior - askDevicePermission, requestScreenPermission
+
+---
+
+### 1.4 Use authProvider on VeltProvider — Never Use identify() or useIdentify()
+
+**Impact: CRITICAL (Using deprecated auth methods causes silent failures and breaks token refresh)**
+
+VeltProvider requires the `authProvider` prop for user authentication. The `useIdentify()` hook and `client.identify()` method are deprecated — they lack automatic token refresh, retry logic, and proper error handling. Code using these deprecated methods will silently fail in production when tokens expire.
+
+`client.identify()` and `useIdentify()` still exist as exports from `@veltdev/react` but should never be used. Always use `authProvider` on VeltProvider instead.
+
+**Correct (authProvider on VeltProvider):**
+
+```tsx
+"use client";
+
+import { useMemo } from "react";
+import { VeltProvider } from "@veltdev/react";
+import type { VeltAuthProvider } from "@veltdev/types";
+import { useAppUser } from "@/app/userAuth/AppUserContext";
+
+function useVeltAuthProvider() {
+  const { user } = useAppUser();
+  const authProvider: VeltAuthProvider | undefined = useMemo(() => {
+    if (!user) return undefined;
+    return {
+      user: {
+        userId: user.userId,
+        organizationId: user.organizationId,
+        name: user.name,
+        email: user.email,
+      },
+      retryConfig: { retryCount: 3, retryDelay: 1000 },
+      generateToken: async () => {
+        const resp = await fetch("/api/velt/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            userId: user.userId,
+            organizationId: user.organizationId,
+          }),
+        });
+        const { token } = await resp.json();
+        return token;
+      },
+    };
+  }, [user]);
+  return { authProvider };
+}
+
+export default function DocumentPage() {
+  const { authProvider } = useVeltAuthProvider();
+  if (!authProvider) return <div>Loading...</div>;
+
+  return (
+    <VeltProvider
+      apiKey={process.env.NEXT_PUBLIC_VELT_API_KEY!}
+      authProvider={authProvider}
+    >
+      {/* Recorder and other Velt components go here */}
+    </VeltProvider>
+  );
+}
+```
+
+**Why authProvider matters for recordings:** Recordings are tied to authenticated users. Without proper auth via `authProvider`, recording data may not persist correctly, webhook payloads may lack user context, and token expiration will silently break recording uploads in long sessions.
 
 ---
 
@@ -822,7 +933,136 @@ Reference: https://docs.velt.dev/async-collaboration/recorder/customize-behavior
 
 ---
 
-### 3.4 Retrieve Recordings via REST API Endpoint
+### 3.4 Recorder Data Type Reference — Core Models
+
+**Impact: MEDIUM (Type definitions for recording data, annotations, queries, and configuration)**
+
+Complete type definitions for recorder-related data models used across hooks, API methods, and REST endpoints.
+
+**RecordedData (recording annotation with URLs and metadata):**
+
+```typescript
+interface RecordedData {
+  id: string;                         // Recording ID
+  type: 'audio' | 'video' | 'screen'; // Recording type
+  assets: RecorderDataAsset[];        // Recorded file versions
+  transcription?: RecorderDataTranscription; // AI transcription data
+  metadata?: RecorderMetadata;        // Associated metadata
+  createdAt?: number;                 // Creation timestamp
+  lastUpdated?: number;               // Last update timestamp
+  userId?: string;                    // User who recorded
+}
+```
+
+**RecorderDataAsset (individual recorded file):**
+
+```typescript
+interface RecorderDataAsset {
+  url: string;                        // Playback URL
+  mimeType: string;                   // MIME type (e.g., 'video/mp4')
+  size?: number;                      // File size in bytes
+  duration?: number;                  // Duration in seconds
+  format?: RecorderFileFormat;        // 'mp3' | 'mp4' | 'webm'
+  version?: number;                   // Version number (for edited recordings)
+}
+```
+
+**RecorderAnnotation (annotation for a recorded item):**
+
+```typescript
+interface RecorderAnnotation {
+  recorderId: string;                 // Recording ID
+  recorderData: RecordedData;         // Full recording data
+  location?: Location;                // Where recording was pinned
+  metadata?: Record<string, any>;     // Custom metadata
+}
+```
+
+**RecorderRequestQuery (query parameters for fetch/get/delete):**
+
+```typescript
+interface RecorderRequestQuery {
+  recorderIds?: string[];             // Filter by specific recording IDs
+  documentId?: string;                // Filter by document
+  organizationId?: string;            // Filter by organization
+  pageSize?: number;                  // Items per page
+  pageToken?: string;                 // Pagination token
+}
+```
+
+**RecorderQualityConstraints (quality settings per browser):**
+
+```typescript
+interface RecorderQualityConstraints {
+  safari?: RecorderQualityConstraintsOptions;
+  others?: RecorderQualityConstraintsOptions;
+}
+
+interface RecorderQualityConstraintsOptions {
+  video?: MediaTrackConstraints;      // Video constraints
+  audio?: MediaTrackConstraints;      // Audio constraints
+}
+
+// MediaTrackConstraints supports:
+// width, height, frameRate, aspectRatio (video)
+// echoCancellation, noiseSuppression, autoGainControl, sampleRate (audio)
+// Each can be a number or { min, max, ideal, exact }
+```
+
+**RecorderEncodingOptions (output quality/size):**
+
+```typescript
+interface RecorderEncodingOptions {
+  safari?: MediaRecorderOptions;
+  others?: MediaRecorderOptions;
+}
+
+interface MediaRecorderOptions {
+  videoBitsPerSecond?: number;        // Video bitrate (Safari default: 2.5 Mbps, others: 1 Mbps)
+  audioBitsPerSecond?: number;        // Audio bitrate (default: 128 kbps)
+}
+```
+
+**RecorderDevicePermissionOptions:**
+
+```typescript
+interface RecorderDevicePermissionOptions {
+  audio?: boolean;                    // Request microphone access
+  video?: boolean;                    // Request camera access
+}
+```
+
+**MediaPreviewConfig:**
+
+```typescript
+interface MediaPreviewConfig {
+  audio?: boolean;                    // Show audio preview
+  video?: boolean;                    // Show video preview
+  screen?: boolean;                   // Show screen preview
+}
+```
+
+**RecorderDataTranscription:**
+
+```typescript
+interface RecorderDataTranscription {
+  segments: RecorderDataTranscriptSegment[];
+  vttFileUrl?: string;                // VTT format transcription file
+  contentSummary?: string;            // AI-generated summary
+}
+
+interface RecorderDataTranscriptSegment {
+  text: string;                       // Transcribed text
+  start: number;                      // Start time in seconds
+  end: number;                        // End time in seconds
+}
+```
+
+Reference: https://docs.velt.dev/api-reference/sdk/models/data-models - Recorder
+
+---
+
+### 3.5 Retrieve Recordings via REST API Endpoint
 
 **Impact: MEDIUM (Enables server-side retrieval of recording data without the client SDK)**
 
@@ -1168,6 +1408,21 @@ function EditorConfig() {
 ></velt-recorder-player>
 ```
 
+**Disable methods (API):**
+
+```tsx
+const recorderElement = client.getRecorderElement();
+
+// Disable video editor
+recorderElement.disableVideoEditor();
+
+// Disable retake button
+recorderElement.disableRetakeOnVideoEditor();
+
+// Disable onboarding tooltip
+recorderElement.disableOnboardingTooltip();
+```
+
 Reference: https://docs.velt.dev/async-collaboration/recorder/setup - Enable Recording Editor; https://docs.velt.dev/async-collaboration/recorder/customize-behavior - videoEditor, autoOpenVideoEditor, retakeOnVideoEditor, videoEditorTimelinePreview
 
 ---
@@ -1291,6 +1546,18 @@ recorderElement.enableRecordingTranscription();
 <velt-recorder-control-panel recording-transcription="false"></velt-recorder-control-panel>
 <velt-recorder-player recorder-id="RECORDER_ID" summary="true"></velt-recorder-player>
 ```
+
+**Microphone control:**
+
+```tsx
+const recorderElement = client.getRecorderElement();
+
+// Enable/disable microphone during recording
+recorderElement.enableRecordingMic();
+recorderElement.disableRecordingMic();
+```
+
+Use `disableRecordingMic()` for screen-only recordings where audio is not needed.
 
 Reference: https://docs.velt.dev/async-collaboration/recorder/customize-behavior - recordingTranscription, summary
 
@@ -1435,6 +1702,114 @@ client.getRecorderElement().disableRecordingCountdown();
 ```
 
 Reference: https://docs.velt.dev/async-collaboration/recorder/customize-behavior - recordingCountdown, settingsEmbedded
+
+---
+
+### 6.5 Customize Recorder UI with Wireframe Components
+
+**Impact: LOW (Full structural customization of all recorder UI elements)**
+
+The recorder exposes 9 wireframe component hierarchies for full structural customization. Each sub-component accepts `defaultCondition?: boolean` to control visibility.
+
+**Control Panel Wireframe:**
+
+```typescript
+VeltRecorderControlPanelWireframe
+├── .FloatingMode
+│   ├── .Container (video/waveform display)
+│   ├── .ScreenMiniContainer (mini view for screen recordings)
+│   ├── .Loading
+│   └── .ActionBar (time, pause/play, stop, clear, PiP buttons)
+└── .ThreadMode (inline mode)
+```
+
+**Player Wireframe:**
+
+```typescript
+VeltRecorderPlayerWireframe
+├── .VideoContainer
+│   ├── .Video, .Timeline, .PlayButton, .SeekBar
+│   ├── .FullScreenButton, .Overlay, .Subtitles
+│   ├── .Avatar, .Name, .SubtitlesButton
+│   ├── .Transcription, .EditButton, .CopyLink, .Delete
+└── .AudioContainer
+    ├── .AudioToggle, .Time, .AudioWaveform
+    ├── .Subtitles, .Avatar, .Name, .SubtitlesButton
+    ├── .Transcription, .CopyLink, .Delete, .Audio
+```
+
+**Expanded Player Wireframe:**
+
+```typescript
+VeltRecorderPlayerExpandedWireframe
+├── .Panel
+│   ├── .Display, .CopyLink, .MinimizeButton, .Subtitles
+│   └── .Controls
+│       ├── .ProgressBar, .ToggleButton, .Time
+│       ├── .SubtitleButton, .TranscriptionButton
+│       ├── .VolumeButton, .SettingsButton, .DeleteButton
+└── .Transcription
+```
+
+**Recording Preview Steps Dialog Wireframe:**
+
+```typescript
+VeltRecordingPreviewStepsDialogWireframe
+├── .Audio
+│   ├── .CloseButton, .Timer, .Waveform
+│   ├── .SettingsPanel, .ButtonPanel, .BottomPanel
+└── .Video
+    ├── .CloseButton, .Timer, .VideoPlayer, .ScreenPlayer
+    ├── .CameraOffMessage, .CameraButton
+    ├── .SettingsPanel, .ButtonPanel, .BottomPanel
+```
+
+**Media Source Settings Wireframe:**
+
+```typescript
+VeltMediaSourceSettingsWireframe
+├── .Audio
+│   ├── .ToggleIcon, .SelectedLabel, .Divider
+│   └── .Options → .Item (Icon + Label)
+└── .Video (same structure as .Audio)
+```
+
+**Video Editor Wireframe:**
+
+```typescript
+VeltVideoEditorPlayerWireframe
+├── .Title, .ApplyButton, .RetakeButton, .DownloadButton, .CloseButton
+├── .Preview → .Loading, .Video
+├── .ToggleButton, .Time, .SplitButton, .DeleteButton, .AddZoomButton
+└── .Timeline
+    ├── .BackspaceHint, .Onboarding
+    └── .Container → .Playhead, .Trim, .Scale (with dropdown), .Marker
+```
+
+**Transcription Wireframe:**
+
+```typescript
+VeltTranscriptionWireframe
+├── .FloatingMode
+│   ├── .Button, .Tooltip
+│   └── .PanelContainer → .Panel
+│       ├── .CloseButton, .CopyLink
+│       ├── .Summary → .Text, .ExpandToggle
+│       └── .Content → .Item → .Text, .Time
+└── .EmbedMode → .Panel (same structure)
+```
+
+**Subtitles Wireframe:**
+
+```typescript
+VeltSubtitlesWireframe
+├── .EmbedMode → .Text
+└── .FloatingMode
+    ├── .Button, .Tooltip
+    └── .Panel → .CloseButton, .Text
+```
+
+Reference: https://docs.velt.dev/ui-customization/features/async/recorder/
 
 ---
 
