@@ -11,7 +11,7 @@ Proxy Velt's persistence database (v2/Firestore) traffic through your domain.
 ```nginx
 server {
     listen 443 ssl;
-    server_name persistence-proxy.yourdomain.com;
+    server_name v2db-proxy.yourdomain.com;
 
     ssl_certificate     /etc/ssl/certs/yourdomain.crt;
     ssl_certificate_key /etc/ssl/private/yourdomain.key;
@@ -31,4 +31,4 @@ server {
 
 - The upstream target is your Velt project's specific persistence endpoint — not a generic Velt URL. Check your Velt console or network tab for the actual host.
 - Forward requests without modifying headers or content
-- Pair with `proxyConfig.v2DbHost: 'https://persistence-proxy.yourdomain.com'` in your SDK config
+- Pair with `proxyConfig.v2DbHost: 'https://v2db-proxy.yourdomain.com'` in your SDK config

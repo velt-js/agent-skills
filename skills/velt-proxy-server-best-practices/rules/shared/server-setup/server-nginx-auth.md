@@ -20,16 +20,18 @@ server {
     location /identitytoolkit/ {
         proxy_pass https://identitytoolkit.googleapis.com/identitytoolkit/;
         proxy_ssl_server_name on;
+        proxy_ssl_name identitytoolkit.googleapis.com;
         proxy_set_header Host identitytoolkit.googleapis.com;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    # Secure Token requests
+    # Secure Token requests (covers both /v1/token and /v2/token)
     location /securetoken/ {
         proxy_pass https://securetoken.googleapis.com/securetoken/;
         proxy_ssl_server_name on;
+        proxy_ssl_name securetoken.googleapis.com;
         proxy_set_header Host securetoken.googleapis.com;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -40,6 +42,7 @@ server {
     location / {
         proxy_pass https://identitytoolkit.googleapis.com;
         proxy_ssl_server_name on;
+        proxy_ssl_name identitytoolkit.googleapis.com;
         proxy_set_header Host identitytoolkit.googleapis.com;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -59,7 +62,8 @@ This means:
 
 ### Key Points
 
-- Must route to both `identitytoolkit.googleapis.com` and `securetoken.googleapis.com` based on path
+- Must route to both `identitytoolkit.googleapis.com` and `securetoken.googleapis.com` based on path; the token-refresh upstream covers both `/v1/token` and `/v2/token`
+- Pair `proxy_ssl_server_name on` with `proxy_ssl_name <upstream>` so the upstream TLS handshake uses the correct SNI — `proxy_ssl_server_name` alone is not sufficient on some nginx builds
 - Don't modify headers or content
 - Be aware of the localStorage caching — changing the auth proxy URL requires users to clear cached values
 - Pair with `proxyConfig.authHost: 'https://auth-proxy.yourdomain.com'` in your SDK config

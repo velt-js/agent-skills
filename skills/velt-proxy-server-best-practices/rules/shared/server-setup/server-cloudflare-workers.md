@@ -21,7 +21,7 @@ Create CNAME records for four subdomains under a domain you control, attach them
 
 ### Path-Based Auth Routing
 
-The Auth proxy splits on URL path: `/v1/token` requests go to the token-refresh upstream (`securetoken.googleapis.com`), everything else goes to the identity upstream (`identitytoolkit.googleapis.com`).
+The Auth proxy splits on URL path: `/v1/token` and `/v2/token` requests go to the token-refresh upstream (`securetoken.googleapis.com`), everything else goes to the identity upstream (`identitytoolkit.googleapis.com`).
 
 **Incorrect:**
 
@@ -34,11 +34,10 @@ upstream = 'https://identitytoolkit.googleapis.com';
 
 ```js
 // auth-proxy.* handler (abbreviated)
-let upstream;
-if (url.pathname.startsWith('/v1/token')) {
-  upstream = 'https://securetoken.googleapis.com';
+if (url.pathname.startsWith('/v1/token') || url.pathname.startsWith('/v2/token')) {
+  url.hostname = 'securetoken.googleapis.com';
 } else {
-  upstream = 'https://identitytoolkit.googleapis.com';
+  url.hostname = 'identitytoolkit.googleapis.com';
 }
 ```
 
@@ -58,10 +57,17 @@ const upstream = 'https://my-project.firebaseio.com' + url.pathname + url.search
 ```js
 // v1db-proxy.* handler (abbreviated)
 const ns = url.searchParams.get('ns');
-const upstream = `https://${ns}.firebaseio.com${url.pathname}${url.search}`;
+if (!ns) return new Response('Missing ns parameter', { status: 400 });
+
+url.hostname = `${ns}.firebaseio.com`;
+
+// Forward the raw Request on WebSocket upgrades so the stream survives
+if (request.headers.get('Upgrade') === 'websocket') {
+  return fetch(new Request(url, request));
+}
 ```
 
-WebSocket upgrade is handled automatically by Workers — no extra config required.
+Validate that `?ns=` is present before interpolating it into the upstream hostname — a missing or malformed value would otherwise produce a request to `https://null.firebaseio.com`. On WebSocket upgrades, forward the original `Request` object (with the rewritten URL) so the upgrade headers and stream survive end-to-end; bypassing this re-wrap can break RTDB real-time listeners.
 
 ### v2Db and Storage Passthrough
 
@@ -85,6 +91,6 @@ Upstream response headers (2xx or 4xx) confirm the proxy is live and reaching th
 - A single Worker handles all four services; route binding picks the handler branch by subdomain
 - Auth routing is path-based (`/v1/token` vs everything else) — don't collapse it to a single upstream
 - v1Db upstream must be derived from the `?ns=` query param on every request, not hard-coded
-- Workers handles WebSocket upgrade automatically; no equivalent of nginx's `Upgrade` / `Connection` headers is needed
+- For v1Db, detect the `Upgrade: websocket` header and forward the raw `Request` so the upgrade stream survives — Workers does not transparently preserve WebSocket framing across a `fetch(upstreamUrl)` call without it
 - Pair with full `proxyConfig` ({ v2DbHost, v1DbHost, storageHost, authHost }) in your SDK config
 - `cdnHost` and `apiHost` are not covered — contact Velt support if you need them

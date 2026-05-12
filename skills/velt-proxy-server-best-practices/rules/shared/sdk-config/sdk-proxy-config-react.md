@@ -36,8 +36,8 @@ The SDK automatically appends `/lib/sdk@[VERSION]/velt.js` to `cdnHost` to fetch
     proxyConfig: {
       cdnHost: 'https://cdn-proxy.yourdomain.com',
       apiHost: 'https://api-proxy.yourdomain.com',
-      v2DbHost: 'https://persistence-proxy.yourdomain.com',
-      v1DbHost: 'https://rtdb-proxy.yourdomain.com',
+      v2DbHost: 'https://v2db-proxy.yourdomain.com',
+      v1DbHost: 'https://v1db-proxy.yourdomain.com',
       storageHost: 'https://storage-proxy.yourdomain.com',
       authHost: 'https://auth-proxy.yourdomain.com',
       forceLongPolling: false,

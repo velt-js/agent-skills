@@ -16,8 +16,8 @@ If your reverse proxy doesn't support WebSocket upgrades (common with some load 
   authProvider={authProvider}
   config={{
     proxyConfig: {
-      v1DbHost: 'https://rtdb-proxy.yourdomain.com',
-      v2DbHost: 'https://persistence-proxy.yourdomain.com',
+      v1DbHost: 'https://v1db-proxy.yourdomain.com',
+      v2DbHost: 'https://v2db-proxy.yourdomain.com',
       forceLongPolling: true,
     },
   }}
@@ -31,8 +31,8 @@ If your reverse proxy doesn't support WebSocket upgrades (common with some load 
 ```js
 const client = await initVelt('YOUR_API_KEY', {
   proxyConfig: {
-    v1DbHost: 'https://rtdb-proxy.yourdomain.com',
-    v2DbHost: 'https://persistence-proxy.yourdomain.com',
+    v1DbHost: 'https://v1db-proxy.yourdomain.com',
+    v2DbHost: 'https://v2db-proxy.yourdomain.com',
     forceLongPolling: true,
   },
 });
