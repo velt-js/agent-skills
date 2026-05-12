@@ -69,7 +69,18 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 
 ---
 
-## 8. Debugging & Testing (debug)
+## 8. Wireframe Variables (wireframe-variables)
+
+**Impact:** MEDIUM
+**Description:** Template-variable binding layer for Notifications Panel and Notifications Tool wireframes. Documents the `velt-data` / `velt-if` / `velt-class` directives, the variable namespaces (Data State, UI State, Feature State, Loop-scope), `defaultCondition` / Angular signal inputs, and `shouldShow` gates exposed by each wireframe slot. Sits on top of the structural catalog in `ui/ui-wireframes.md`.
+
+**Rules:**
+- `wireframe-variables-notifications-panel` - Bind Notifications Panel wireframe slots using template variables (tab selection, settings, per-row unread, empty-state)
+- `wireframe-variables-notifications-tool` - Bind Notifications Tool wireframe slots using template variables (bell icon swap, unread-count badge, panel-open active state)
+
+---
+
+## 9. Debugging & Testing (debug)
 
 **Impact:** LOW-MEDIUM
 **Description:** Troubleshooting patterns and verification checklists for Velt notification integrations.

@@ -1,15 +1,15 @@
 ---
 name: velt-notifications-best-practices
-description: Velt Notifications implementation patterns and best practices for React, Next.js, and web applications. Use when adding in-app notifications, notification panels, email notifications via SendGrid, webhook integrations, or user notification preference management.
+description: Velt Notifications implementation patterns and best practices for React, Next.js, and web applications. Use when adding in-app notifications, notification panels, email notifications via SendGrid, webhook integrations, user notification preference management, or binding Notifications Panel / Notifications Tool wireframe slots with template variables (velt-data, velt-if, velt-class).
 license: MIT
 metadata:
   author: velt
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Velt Notifications Best Practices
 
-Comprehensive implementation guide for Velt's notification system in React and Next.js applications. Contains 15 rules across 8 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's notification system in React and Next.js applications. Contains 17 rules across 9 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
@@ -36,7 +36,8 @@ Reference these guidelines when:
 | 5 | Notification Triggers | MEDIUM | `triggers-` |
 | 6 | Delivery Channels | MEDIUM | `delivery-` |
 | 7 | UI Customization | MEDIUM | `ui-` |
-| 8 | Debugging & Testing | LOW-MEDIUM | `debug-` |
+| 8 | Wireframe Variables | MEDIUM | `wireframe-variables-` |
+| 9 | Debugging & Testing | LOW-MEDIUM | `debug-` |
 
 ## Quick Reference
 
@@ -74,7 +75,12 @@ Reference these guidelines when:
 
 - `ui-wireframes` — Customize notification components with wireframes
 
-### 8. Debugging & Testing (LOW-MEDIUM)
+### 8. Wireframe Variables (MEDIUM)
+
+- `wireframe-variables-notifications-panel` — Bind Notifications Panel wireframe slots using template variables (tabs, settings, per-row unread, empty-state)
+- `wireframe-variables-notifications-tool` — Bind Notifications Tool wireframe slots using template variables (bell icon swap, unread badge, panel-open active state)
+
+### 9. Debugging & Testing (LOW-MEDIUM)
 
 - `debug-common-issues` — Common issues and solutions
 

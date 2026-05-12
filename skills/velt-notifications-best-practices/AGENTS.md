@@ -1,5 +1,5 @@
 # Velt Notifications Best Practices
-|v1.0.0|Velt|January 2026
+|v1.1.0|Velt|January 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
 |root: ./rules
 
@@ -26,5 +26,8 @@
 ## 7. UI Customization — MEDIUM
 |shared/ui:{ui-wireframes.md}
 
-## 8. Debugging & Testing — LOW-MEDIUM
+## 8. Wireframe Variables — MEDIUM
+|shared/wireframe-variables:{wireframe-variables-notifications-panel.md,wireframe-variables-notifications-tool.md}
+
+## 9. Debugging & Testing — LOW-MEDIUM
 |react/debug:{debug-common-issues.md}
