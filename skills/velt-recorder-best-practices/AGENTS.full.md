@@ -1,6 +1,6 @@
 # Velt Recorder Best Practices
 
-**Version 1.1.0**  
+**Version 1.1.1**  
 Velt  
 March 2026
 
@@ -59,6 +59,7 @@ Comprehensive Velt Recorder implementation guide covering audio, video, and scre
 
 8. [Wireframe Variables](#8-wireframe-variables) — **MEDIUM**
    - 8.1 [Bind Recorder Wireframe Slots Using Template Variables](#81-bind-recorder-wireframe-slots-using-template-variables)
+   - 8.2 [Bind Transcription / Subtitles Wireframe Slots Using Template Variables](#82-bind-transcription-subtitles-wireframe-slots-using-template-variables)
 
 ---
 
@@ -2042,6 +2043,110 @@ A custom record button paired with a custom playback overlay (scrubber + delete)
 
 ---
 
+### 8.2 Bind Transcription / Subtitles Wireframe Slots Using Template Variables
+
+**Impact: MEDIUM (Drives transcript-panel visibility, active-segment styling, subtitles toggling, and summary expand/collapse state across the Transcription, Subtitles, and Subtitles-Dialog wireframes without re-subscribing to recorder transcription state)**
+
+The Transcription feature renders three related primitives — the transcript panel (`<velt-transcription-...-wireframe>`), the live subtitles overlay (`<velt-subtitles-...-wireframe>`), and a popover subtitles dialog (`<velt-subtitles-dialog-wireframe>`). They share the same flat-config access pattern as the rest of the recorder family: read variables via `<velt-data field="...">`, gate slots with `velt-if="{var}"`, and toggle classes with `velt-class="'cls': {var}"`.
+
+This feature uses **flat-config** access. Use the explicit `componentConfig.<name>` path — the transcription primitives do **not** alias to the short `{name}` form the recorder root supports. The full standalone transcription variable set (`vttFileTextArray`, `highlightedTextIndex`, `transcription.summary`, etc.) lives here; the parent recorder player exposes only a subset (see `wireframe-variables/wireframe-variables-recorder.md`).
+
+**Incorrect (rebuilding transcript state and segment-active styling from hooks):**
+
+```jsx
+import { useRecorderEventCallback } from '@veltdev/react';
+import { VeltTranscriptionWireframe } from '@veltdev/react';
+
+function Transcript({ recording }) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  // Reimplements transcriptionVisible + highlightedTextIndex the wireframe already exposes.
+  useRecorderEventCallback('TRANSCRIPTION_COMPLETED', () => setOpen(true));
+  return (
+    <VeltTranscriptionWireframe>
+      {open && recording.transcription?.segments.map((s, i) => (
+        <p className={i === active ? 'on' : ''}>{s.text}</p>
+      ))}
+    </VeltTranscriptionWireframe>
+  );
+}
+```
+
+**Correct (read the slot's injected variables via `velt-data` / `velt-if` / `velt-class`):**
+
+```jsx
+import {
+  VeltTranscriptionPanelWireframe,
+  VeltTranscriptionSummaryWireframe,
+  VeltTranscriptionContentItemWireframe,
+} from '@veltdev/react';
+
+<VeltTranscriptionPanelWireframe
+  velt-class="'visible': {componentConfig.transcriptionVisible}, 'mode-{componentConfig.mode}': true">
+  <VeltTranscriptionSummaryWireframe>
+    <p velt-if="{componentConfig.showMoreSummary}">
+      <velt-data field="componentConfig.transcription.summary" />
+    </p>
+  </VeltTranscriptionSummaryWireframe>
+
+  <VeltTranscriptionContentItemWireframe
+    velt-class="'is-active': '{segment.startTimeInSeconds} <= {currentTime} && {segment.endTimeInSeconds} > {currentTime}'">
+    <time><velt-data field="segment.startTime" /></time>
+    <p><velt-data field="segment.text" /></p>
+  </VeltTranscriptionContentItemWireframe>
+</VeltTranscriptionPanelWireframe>
+```
+
+**HTML / web-component equivalent:**
+
+```html
+<velt-transcription-panel-wireframe
+  velt-class="'visible': {componentConfig.transcriptionVisible}">
+  <velt-transcription-content-item-wireframe
+    velt-class="'is-active': '{segment.startTimeInSeconds} <= {currentTime} && {segment.endTimeInSeconds} > {currentTime}'">
+    <p><velt-data field="segment.text"></velt-data></p>
+  </velt-transcription-content-item-wireframe>
+</velt-transcription-panel-wireframe>
+```
+
+State on `<velt-transcription>` and children. Bind via `componentConfig.<name>`:
+| Variable | Type | Notes |
+|---|---|---|
+| `componentConfig.mode` | `'floating' \| 'sidebar' \| 'embed'` | Layout mode — pair with `velt-class="'mode-{componentConfig.mode}': true"`. |
+| `componentConfig.transcription` | `Transcription` | Transcript object — bind `componentConfig.transcription.summary`. |
+| `componentConfig.transcriptionVisible` | `boolean` | Transcript panel is open. |
+| `componentConfig.vttFileTextArray` | `{ startTime, endTime, startTimeInSeconds, endTimeInSeconds, text }[]` | Parsed VTT segments. |
+| `componentConfig.highlightedTextIndex` | `number` | Currently-playing segment index (`-1` when none). |
+| `componentConfig.showMoreSummary` | `boolean` | Summary expanded state. |
+| `componentConfig.copySummaryButtonTooltip` | `string` | "Copy" / "Copied!" tooltip text. |
+| `componentConfig.sidebarVisible` | `boolean` | Sidebar variant visible. |
+| `componentConfig.darkMode` | `boolean` | Dark mode active. |
+| `componentConfig.showDefaultBtn` | `boolean` | Whether to render the default trigger button. |
+**Transcription behaviour callbacks:** `onDragRelease`, `copyToClipboard`, `toggleSidebar`, `onClose`, `onSeekTo(seconds)`, `onTranscriptionButtonClick`, `toggleShowMoreSummary`. Attach these to your custom buttons rather than re-implementing seek / copy / toggle state.
+State on `<velt-subtitles>` and `<velt-subtitles-dialog>` (the dialog adds CDK-overlay positioning fields):
+| Variable | Type | Notes |
+|---|---|---|
+| `componentConfig.subtitlesVisible` | `boolean` | Subtitles panel visible. |
+| `componentConfig.dialogVisible` | `boolean` | Dialog variant visible. |
+| `componentConfig.highlightedTextIndex` | `number` | Active segment index. |
+| `componentConfig.vttFileTextArray` | `Segment[]` | Same shape as transcription. |
+| `componentConfig.transcription` | `Transcription` | Transcript object. |
+| `componentConfig.showDefaultBtn` | `boolean` | Render the default toggle button. |
+| `componentConfig.onSubtitlesButtonClick` | `Function` | Subtitle-button click handler — wire to your custom button. |
+| `componentConfig.overlayTrigger` / `positions` / `cdkConnectedOverlayOffsetX|Y` / `overlayOriginX|Y` | CDK overlay | Dialog-only; treat as internal positioning state. |
+| Variable | Type | Notes |
+|---|---|---|
+| `segment` | `{ startTime, endTime, startTimeInSeconds, endTimeInSeconds, text }` | Per-iteration row from `vttFileTextArray`. |
+| `currentTime` | `number` | Current playback time — compare to `segment.startTimeInSeconds` / `endTimeInSeconds` for active styling. |
+**Transcription:** `<velt-transcription-wireframe>` (root), `-button-wireframe`, `-tooltip-wireframe`, `-panel-wireframe`, `-panel-container-wireframe`, `-content-item-wireframe` (iterates `vttFileTextArray`; injects `segment` / `currentTime`), `-summary-wireframe` (+ `-expand-toggle-wireframe` / `-on-wireframe` / `-off-wireframe`), `-copy-link-wireframe` (+ `-button-wireframe` / `-tooltip-wireframe`), `-close-button-wireframe`, `-floating-mode-wireframe`, `-embed-mode-wireframe`.
+**Subtitles:** `<velt-subtitles-wireframe>` (root), `-button-wireframe`, `-tooltip-wireframe`, `-panel-wireframe`, `-close-button-wireframe`, `-floating-mode-wireframe`, `-embed-mode-wireframe`, plus `<velt-subtitles-dialog-wireframe>` (popover variant gated on `dialogVisible`).
+**1. DO NOT use the short `{var}` form here.** Transcription / subtitles wireframes use explicit `componentConfig.<name>` paths. Unlike the recorder root, the short form is not aliased on these primitives.
+**2. DO NOT confuse `transcriptionVisible` with `subtitlesVisible`.** They gate different panels — transcription is the full transcript with summary; subtitles is the live overlay during playback. Bind each to its own panel/button.
+**3. DO NOT iterate `vttFileTextArray` manually inside `<velt-transcription-panel-wireframe>`.** Use `<velt-transcription-content-item-wireframe>` — it iterates and injects `segment` + `currentTime` for active-segment styling. Outside that iterator, `segment` and `currentTime` are not resolvable.
+**4. DO NOT rebuild seek / copy / toggle logic.** Wire `onSeekTo(seconds)` (transcript timestamp click), `copyToClipboard` (summary copy), `toggleShowMoreSummary`, `toggleSidebar`, and `onSubtitlesButtonClick` to your custom buttons rather than re-implementing them.
+
+---
+
 ## References
 
 - https://docs.velt.dev
@@ -2050,3 +2155,4 @@ A custom record button paired with a custom playback overlay (scrubber + delete)
 - https://docs.velt.dev/async-collaboration/recorder/customize-behavior
 - https://console.velt.dev
 - https://docs.velt.dev/ui-customization/features/async/recorder/wireframe-variables
+- https://docs.velt.dev/ui-customization/features/async/recorder/transcription-wireframe-variables

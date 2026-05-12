@@ -72,3 +72,4 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 
 **Rules:**
 - `wireframe-variables-recorder` - Bind Recorder wireframe slots (button, pin, control panel, player, expanded player) using template variables
+- `wireframe-variables-recorder-transcription` - Bind Transcription, Subtitles, and Subtitles-Dialog wireframe slots using template variables

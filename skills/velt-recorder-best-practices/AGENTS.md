@@ -1,5 +1,5 @@
 # Velt Recorder Best Practices
-|v1.1.0|Velt|March 2026
+|v1.1.1|Velt|March 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
 |root: ./rules
 
@@ -27,4 +27,4 @@
 |react/debug:{debug-common-issues.md}
 
 ## 8. Wireframe Variables — MEDIUM
-|shared/wireframe-variables:{wireframe-variables-recorder.md}
+|shared/wireframe-variables:{wireframe-variables-recorder.md,wireframe-variables-recorder-transcription.md}

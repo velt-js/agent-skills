@@ -4,12 +4,12 @@ description: Velt Recorder implementation patterns and best practices for React,
 license: MIT
 metadata:
   author: velt
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # Velt Recorder Best Practices
 
-Comprehensive implementation guide for Velt's Recorder system in React and Next.js applications. Contains 23 rules across 8 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's Recorder system in React and Next.js applications. Contains 25 rules across 8 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
@@ -87,6 +87,7 @@ Reference these guidelines when:
 ### 8. Wireframe Variables (MEDIUM)
 
 - `wireframe-variables-recorder` — Bind Recorder wireframe slots (button, pin, control panel, player, expanded player) using `velt-data` / `velt-if` / `velt-class`; covers the six naming-conflict variables and the shared player behaviour callbacks
+- `wireframe-variables-recorder-transcription` — Bind Transcription, Subtitles, and Subtitles-Dialog wireframe slots using `componentConfig.<name>` paths; covers `vttFileTextArray` iteration via `content-item-wireframe`, `segment` / `currentTime` context variables, and transcript / subtitle behaviour callbacks
 
 ## How to Use
 
