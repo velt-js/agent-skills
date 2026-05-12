@@ -1,15 +1,15 @@
 ---
 name: velt-comments-best-practices
-description: Velt Comments implementation patterns and best practices for React, Next.js, and web applications. Use when adding collaborative commenting features, comment modes (Freestyle, Popover, Stream, Text, Page), rich text editor comments (TipTap, SlateJS, Lexical), media player comments, or chart comments.
+description: Velt Comments implementation patterns and best practices for React, Next.js, and web applications. Use when adding collaborative commenting features, comment modes (Freestyle, Popover, Stream, Text, Page), rich text editor comments (TipTap, SlateJS, Lexical), media player comments, chart comments, or binding Comment Bubble / Comment Dialog / Comment Tool wireframe slots via template variables (velt-data, velt-if, velt-class).
 license: MIT
 metadata:
   author: velt
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Velt Comments Best Practices
 
-Comprehensive implementation guide for Velt's collaborative comments feature in React and Next.js applications. Contains 71 rules across 12 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's collaborative comments feature in React and Next.js applications. Contains 74 rules across 13 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
@@ -34,6 +34,7 @@ Reference these guidelines when:
 | 7 | Debugging & Testing | LOW-MEDIUM | `debug-` |
 | 8 | Moderation & Permissions | LOW | `permissions-` |
 | 9 | Attachments & Reactions | MEDIUM | `attach-` |
+| 10 | Wireframe Variables | MEDIUM | `wireframe-variables-` |
 
 ## Quick Reference
 
@@ -110,6 +111,12 @@ Reference these guidelines when:
 ### 9. Attachments & Reactions (MEDIUM)
 
 - `attach-download-control` - Control attachment download behavior and intercept clicks
+
+### 10. Wireframe Variables (MEDIUM)
+
+- `wireframe-variables-comment-bubble` - Bind Comment Bubble + Comment Pin wireframe slots via `{annotation.*}`, `{selectedAnnotationsMap[...]}`, `globalConfigSignal.featureState.*`
+- `wireframe-variables-comment-dialog` - Bind the ~110-slot Comment Dialog wireframe family (App / Data / UI / Feature State namespaces, `comment` / `commentIndex` loop-scope, root-level placeholder + unread-map paths, v1 aliases)
+- `wireframe-variables-comment-tool` - Bind the Comment Tool wireframe via the flat-config `{addCommentMode}` / `{commentToolEnabled}` aliases and the canonical `globalConfig.featureState.*` / `componentConfig.*` paths
 
 ## How to Use
 

@@ -1,5 +1,5 @@
 # Velt Comments Best Practices
-|v1.0.0|Velt|January 2026
+|v1.1.0|Velt|January 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
 |root: ./rules
 
@@ -42,3 +42,6 @@
 
 ## 12. REST API — HIGH
 |shared/rest:{rest-comment-annotations-api.md,rest-comments-api.md}
+
+## 13. Wireframe Variables — MEDIUM
+|shared/wireframe-variables:{wireframe-variables-comment-bubble.md,wireframe-variables-comment-dialog.md,wireframe-variables-comment-tool.md}

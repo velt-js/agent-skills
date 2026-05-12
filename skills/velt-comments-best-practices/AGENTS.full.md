@@ -1,6 +1,6 @@
 # Velt Comments Best Practices
 
-**Version 1.0.0**  
+**Version 1.1.0**  
 Velt  
 January 2026
 
@@ -112,6 +112,11 @@ Comprehensive Velt Comments implementation guide covering comment modes, setup p
 12. [REST API](#12-rest-api) — **HIGH**
    - 12.1 [REST API — Comment Annotation CRUD](#121-rest-api-comment-annotation-crud)
    - 12.2 [REST API — Individual Comment CRUD Within Annotations](#122-rest-api-individual-comment-crud-within-annotations)
+
+13. [Wireframe Variables](#13-wireframe-variables) — **MEDIUM**
+   - 13.1 [Bind Comment Bubble Wireframe Slots Using Template Variables](#131-bind-comment-bubble-wireframe-slots-using-template-variables)
+   - 13.2 [Bind Comment Dialog Wireframe Slots Using Template Variables](#132-bind-comment-dialog-wireframe-slots-using-template-variables)
+   - 13.3 [Bind Comment Tool Wireframe Slots Using Template Variables](#133-bind-comment-tool-wireframe-slots-using-template-variables)
 
 ---
 
@@ -7055,6 +7060,495 @@ Reference: https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/com
 
 ---
 
+## 13. Wireframe Variables
+
+**Impact: MEDIUM**
+
+Template-variable binding patterns for the Comment Bubble, Comment Dialog, and Comment Tool wireframes. Documents the `velt-data` / `velt-if` / `velt-class` directive system layered on top of the structural wireframe catalog in `ui/ui-wireframes.md` — variable namespaces (App / Data / UI / Feature State), loop-scope iteration variables, `defaultCondition` overrides, Angular signal inputs, and common `shouldShow` gates.
+
+### 13.1 Bind Comment Bubble Wireframe Slots Using Template Variables
+
+**Impact: MEDIUM (Drives unread/selected styling, author content, and conditional pin decorations inside Comment Bubble and Comment Pin wireframes without re-subscribing to annotation state)**
+
+The Comment Bubble wireframe family (`<velt-comment-bubble-...-wireframe>` / `<VeltCommentBubbleWireframe.*>`) exposes a fixed set of template variables that you read with three directives — `<velt-data field="...">` for text, `velt-if="{var} ..."` for conditional rendering, and `velt-class="'cls': {var}"` for class toggling. Use these instead of re-implementing annotation selection / unread tracking on top of `useCommentAnnotations`. Variables are mapped — reference them by their short name, **never** as `componentConfig.var` (with the documented feature-state exception below).
+
+For the structural catalog of which wireframe tags exist and how they nest, see `ui/ui-wireframes.md`. This rule documents the *variable-binding* layer on top of that structure.
+
+**Incorrect (rebuilding bubble state from `useCommentAnnotations` and conditionally mounting wireframe slots):**
+
+```jsx
+import { useCommentAnnotations } from '@veltdev/react';
+import { VeltCommentBubbleWireframe } from '@veltdev/react';
+
+function Bubble({ annotationId }) {
+  const annotations = useCommentAnnotations();
+  const annotation = annotations?.find(a => a.annotationId === annotationId);
+  // Reimplements unread + selected tracking the wireframe already exposes.
+  const unread = annotation?.unread;
+  const selected = useSelectedAnnotation()?.annotationId === annotationId;
+  if (!annotation) return null;
+  return (
+    <VeltCommentBubbleWireframe className={`${unread ? 'unread' : ''} ${selected ? 'selected' : ''}`}>
+      <span>{annotation.from?.name}</span>
+    </VeltCommentBubbleWireframe>
+  );
+}
+```
+
+**Correct (read the slot's injected variables via `velt-data` / `velt-if` / `velt-class`):**
+
+```jsx
+import { VeltCommentBubbleWireframe } from '@veltdev/react';
+
+<VeltCommentBubbleWireframe
+  velt-class="'unread': {annotation.unread}, 'selected': {selectedAnnotationsMap[annotation.annotationId]}">
+  <div className="my-bubble">
+    <VeltCommentBubbleWireframe.Avatar>
+      <img className="my-bubble__avatar" />
+    </VeltCommentBubbleWireframe.Avatar>
+    <span className="my-bubble__name">
+      <velt-data field="annotation.from.name" />
+    </span>
+    <VeltCommentBubbleWireframe.CommentsCount>
+      <span className="my-bubble__count" velt-if="{annotation.comments.length} > 1">
+        <velt-data field="annotation.comments.length" />
+      </span>
+    </VeltCommentBubbleWireframe.CommentsCount>
+    <VeltCommentBubbleWireframe.UnreadIcon>
+      <span className="my-bubble__dot" velt-if="{annotation.unread}" />
+    </VeltCommentBubbleWireframe.UnreadIcon>
+  </div>
+</VeltCommentBubbleWireframe>
+```
+
+**HTML / web-component equivalent:**
+
+```html
+<velt-comment-bubble-wireframe
+  velt-class="'unread': {annotation.unread}, 'selected': {selectedAnnotationsMap[annotation.annotationId]}">
+  <div class="my-bubble">
+    <velt-comment-bubble-avatar-wireframe>
+      <img class="my-bubble__avatar" />
+    </velt-comment-bubble-avatar-wireframe>
+    <span class="my-bubble__name">
+      <velt-data field="annotation.from.name"></velt-data>
+    </span>
+    <velt-comment-bubble-comments-count-wireframe>
+      <span velt-if="{annotation.comments.length} > 1">
+        <velt-data field="annotation.comments.length"></velt-data>
+      </span>
+    </velt-comment-bubble-comments-count-wireframe>
+    <velt-comment-bubble-unread-icon-wireframe>
+      <span velt-if="{annotation.unread}"></span>
+    </velt-comment-bubble-unread-icon-wireframe>
+  </div>
+</velt-comment-bubble-wireframe>
+```
+
+The Comment Bubble injects four namespaces at the root of every slot.
+**App State** — globally resolved identity:
+| Variable | Type | Notes |
+|---|---|---|
+| `globalConfigSignal.appState.user` | `User \| null` | Currently identified end-user. Use the explicit path — `user` is *not* aliased here. |
+**Data State** — annotation context for this bubble:
+| Variable | Type | Notes |
+|---|---|---|
+| `annotation` | `CommentAnnotation \| null` | Annotation this bubble represents. Gate everything with `velt-if="{annotation}"`. |
+| `annotation.from` | `User` | Author of the annotation's first comment. |
+| `annotation.comments` | `Comment[]` | Comments in the thread. Length drives the count badge. |
+| `annotation.status.id` | `string` | Status id (`"open"`, `"resolved"`, custom-status ids). |
+| `annotation.unread` | `boolean` | Annotation has unread comments for the current user. |
+| `annotation.iam.accessMode` | `'public' \| 'private'` | Visibility mode. |
+| `annotation.ghostComment` | `GhostComment \| null` | Set when the pin has lost its DOM target (ghost-comment state). |
+| `annotation.annotationIndex` | `number` | Place-order index (used by `comment-pin-index` slot). |
+| `annotation.annotationNumber` | `number` | Auto-generated annotation number (used by `comment-pin-number` slot). |
+| `annotations` | `CommentAnnotation[]` | All annotations currently in scope. |
+| `unresolvedAnnotationsCount` | `number` | Unresolved annotations across the document. |
+| `unreadCount` | `number` | Unread-comment count for this bubble's annotation. |
+| `data.folderId` | `string` | Folder id the annotation belongs to. |
+| `data.context` | `Record<string, any>` | Free-form annotation context (read via bracket / dotted paths). |
+**UI State** — per-bubble flags driven by the bubble itself:
+| Variable | Type | Notes |
+|---|---|---|
+| `uiState.commentPinSelected` | `boolean` | Pin associated with this bubble is currently selected. |
+| `selectedAnnotationsMap` | `Record<string, boolean>` | Map keyed by `annotationId` → selected flag. Use bracket lookup: `{selectedAnnotationsMap[annotation.annotationId]}`. |
+| `selectedAnnotationsLocationMap` | `Record<string, any>` | Internal selection bookkeeping by location — read individual entries via bracket notation if needed. |
+| `darkMode` | `boolean` | Dark mode is active for this bubble. |
+| `variant` | `string` | Per-instance variant tag from the host element. |
+| `parentLocalUIState.shadowDom` | `boolean` | Shadow-DOM rendering is enabled (host attribute). |
+| `commentBubbleTargetPinHover` | `boolean` | The bubble's anchor pin is currently hovered. |
+| `openDialog` | `boolean` | A comment dialog is open for this bubble's annotation. |
+| `readOnly` | `boolean` | Per-render read-only flag. |
+| `showAvatar` | `boolean` | Avatar should render. |
+| `commentCountType` | `'total' \| 'unread'` | Which count drives the badge. |
+**Feature State** — workspace capability flags. These names collide with mappings used elsewhere, so they must be read via the **full path**:
+| Variable | Type | Notes |
+|---|---|---|
+| `globalConfigSignal.featureState.customStatusesShown` | `boolean` | Custom-status decoration enabled on bubbles. |
+| `globalConfigSignal.featureState.groupMatchedComments` | `boolean` | Matched comments are grouped on the page. |
+| `globalConfigSignal.featureState.resolvedCommentsOnDom` | `boolean` | Resolved annotations still render bubbles. |
+| `globalConfigSignal.featureState.readOnly` | `boolean` | Workspace read-only mode is active (distinct from the per-render `readOnly`). |
+The Comment Bubble proper has 4 slots; the related Comment Pin has 7 deeply-nested tags. Pin tags read from the *same* `annotation` context.
+
+**Comment Bubble slots:**
+
+```typescript
+// On any <velt-comment-bubble-...-wireframe> in an Angular template
+[componentConfigSignal]="config()"      // annotation, selectedAnnotationsMap,
+                                         // unreadCount, openDialog
+[parentLocalUIState]="localUI()"         // darkMode, variant, shadowDom,
+                                         // readOnly, showAvatar, commentCountType
+```
+
+The root `<velt-comment-bubble>` element additionally accepts host attributes that map onto local UI state: `dark-mode`, `variant`, `show-avatar`, `comment-count-type`, `shadow-dom`.
+| Slot | `shouldShow` |
+|---|---|
+| `comment-bubble-wireframe` (root) | One per non-resolved annotation. Resolved annotations render only when `globalConfigSignal.featureState.resolvedCommentsOnDom === true`. |
+| `comment-bubble-comments-count-wireframe` | `annotation.comments.length > 1` |
+| `comment-bubble-unread-icon-wireframe` | `unreadCount > 0` (or `annotation.unread === true`, depending on `commentCountType`) |
+| `comment-pin-unread-comment-indicator-wireframe` | `annotation.unread === true` |
+| `comment-pin-private-comment-indicator-wireframe` | `annotation.iam.accessMode === 'private'` |
+| `comment-pin-ghost-comment-indicator-wireframe` | `annotation.ghostComment != null` |
+Override any of them with `defaultCondition={false}` (React) / `default-condition="false"` (HTML) when you need the slot to render unconditionally.
+Three names collide with mappings used by other features. Inside a Comment Bubble wireframe, prefer the explicit path:
+| Conflicting name | Use this in Comment Bubble |
+|---|---|
+| `customStatusesShown` | `globalConfigSignal.featureState.customStatusesShown` |
+| `resolvedCommentsOnDom` | `globalConfigSignal.featureState.resolvedCommentsOnDom` |
+| `readOnly` | `globalConfigSignal.featureState.readOnly` (workspace) **or** `{readOnly}` (per-render local) |
+**1. DO NOT prefix mapped variables with `componentConfig.`** Variables are mapped to short names. `<velt-data field="componentConfig.annotation.from.name" />` resolves to nothing — use `<velt-data field="annotation.from.name" />`. The exception is the *feature-state* names listed above, which **require** the `globalConfigSignal.featureState.<name>` path.
+**2. DO NOT confuse `annotation.unread` with `uiState.commentPinSelected`.** `annotation.unread` is data-state (this annotation has unread comments for me). `uiState.commentPinSelected` is UI-state (this bubble's pin is the currently selected one). They drive different visuals.
+**3. DO NOT compare `selectedAnnotationsMap` to a boolean directly.** It is a map. Bracket-lookup the current annotation: `{selectedAnnotationsMap[annotation.annotationId]}`.
+**4. DO NOT mix `defaultCondition` with `velt-if` to mean the same thing.** `defaultCondition={false}` disables the slot's internal gate (forcing render). `velt-if` adds a new gate on top. Combining them inverts the semantics you probably want.
+**5. DO NOT bind to `parentLocalUIState.shadowDom` from inside the wireframe to *enable* shadow-DOM.** Shadow-DOM is set via the host attribute `shadow-dom="true"` on `<velt-comment-bubble>`. The variable only reports the current state.
+
+---
+
+### 13.2 Bind Comment Dialog Wireframe Slots Using Template Variables
+
+**Impact: MEDIUM (Drives layout-mode styling, capability gating, composer state, thread-card iteration, and banner visibility inside the Comment Dialog wireframe family without re-subscribing to annotation state)**
+
+The Comment Dialog wireframe family (`<velt-comment-dialog-...-wireframe>` / `<VeltCommentDialogWireframe.*>`) is the largest wireframe surface in the Velt SDK — roughly 110 slot tags covering the header, body, threads, thread-card, composer (and its attachments / format-toolbar / assign-user / private-badge / recordings subtree), the four banners, status/priority/custom dropdowns, and the auxiliary buttons (resolve, unresolve, private, delete, suggestion accept/reject, copy-link, sign-in, upgrade, navigation, all-comment).
+
+You read the wireframe's exposed variables with three directives — `<velt-data field="...">` for text, `velt-if="{var} ..."` for conditional rendering, and `velt-class="'cls': {var}"` for class toggling. Use these instead of re-implementing capability gating, draft state, or thread iteration on top of `useCommentAnnotations` / `useVeltClient`.
+
+Most variables are mapped — reference them by their short name (`{annotation}`, `{enableResolve}`, `{composerContent}`). A small set lives at the root of `componentConfigSignal` and is **not** mapped — those require the full `componentConfigSignal.<name>` path (see the [Root-Level Properties](#root-level-properties-use-full-path) section).
+
+For the structural catalog of which wireframe tags exist and how they nest, see `ui/ui-wireframes.md`. For the dialog's customization layer (CSS, custom-content slots), see `ui/ui-comment-dialog.md`. This rule documents the *variable-binding* layer on top of both.
+
+**Incorrect (rebuilding dialog state from `useCommentAnnotations` and gating slots from the host component):**
+
+```jsx
+import { useCommentAnnotations, useVeltClient } from '@veltdev/react';
+import { VeltCommentDialogWireframe } from '@veltdev/react';
+
+function Dialog({ annotationId }) {
+  const annotations = useCommentAnnotations();
+  const annotation = annotations?.find(a => a.annotationId === annotationId);
+  const client = useVeltClient();
+  // Reimplements enableResolve + canResolveAnnotation tracking
+  // and editComment state the wireframe already exposes as variables.
+  const [canResolve, setCanResolve] = useState(false);
+  const [editing, setEditing] = useState(false);
+  useEffect(() => { /* manual subscriptions ... */ }, [client, annotation]);
+  if (!annotation) return null;
+  return (
+    <VeltCommentDialogWireframe>
+      <div className={editing ? 'my-dialog is-editing' : 'my-dialog'}>
+        {canResolve && <button>Resolve</button>}
+        {annotation.comments.map((c, i) => (
+          <article key={c.commentId}>
+            <strong>{c.from?.name}</strong>
+            <p>{c.commentText}</p>
+          </article>
+        ))}
+      </div>
+    </VeltCommentDialogWireframe>
+  );
+}
+```
+
+**Correct (read the slot's injected variables via `velt-data` / `velt-if` / `velt-class`; let `ThreadCard` iterate for you):**
+
+```jsx
+import { VeltCommentDialogWireframe } from '@veltdev/react';
+
+<VeltCommentDialogWireframe>
+  <div className="my-dialog" velt-class="'is-editing': {editComment}, 'is-private': {isPrivateComment}, 'theme-dark': {darkMode}">
+    <VeltCommentDialogWireframe.Header>
+      <VeltCommentDialogWireframe.ResolveButton
+        velt-if="{enableResolve} && {canResolveAnnotation} && (!{resolveStatusAccessAdminOnly} || {isUserAdmin})">
+        Resolve
+      </VeltCommentDialogWireframe.ResolveButton>
+      <VeltCommentDialogWireframe.CloseButton />
+    </VeltCommentDialogWireframe.Header>
+
+    <VeltCommentDialogWireframe.Body>
+      <VeltCommentDialogWireframe.Threads>
+        <VeltCommentDialogWireframe.ThreadCard>
+          <article className="my-comment" velt-class="'is-first': '{commentIndex} === 0'">
+            <strong><velt-data field="comment.from.name" /></strong>
+            <p><velt-data field="comment.commentText" /></p>
+            <VeltCommentDialogWireframe.ThreadCardEdited />
+          </article>
+        </VeltCommentDialogWireframe.ThreadCard>
+      </VeltCommentDialogWireframe.Threads>
+    </VeltCommentDialogWireframe.Body>
+
+    <VeltCommentDialogWireframe.Composer />
+  </div>
+</VeltCommentDialogWireframe>
+```
+
+**HTML / web-component equivalent:**
+
+```html
+<velt-comment-dialog-wireframe>
+  <div class="my-dialog" velt-class="'is-editing': {editComment}, 'is-private': {isPrivateComment}">
+    <velt-comment-dialog-header-wireframe>
+      <velt-comment-dialog-resolve-button-wireframe
+        velt-if="{enableResolve} && {canResolveAnnotation}">
+        Resolve
+      </velt-comment-dialog-resolve-button-wireframe>
+      <velt-comment-dialog-close-button-wireframe></velt-comment-dialog-close-button-wireframe>
+    </velt-comment-dialog-header-wireframe>
+
+    <velt-comment-dialog-threads-wireframe>
+      <velt-comment-dialog-thread-card-wireframe>
+        <strong><velt-data field="comment.from.name"></velt-data></strong>
+        <p><velt-data field="comment.commentText"></velt-data></p>
+      </velt-comment-dialog-thread-card-wireframe>
+    </velt-comment-dialog-threads-wireframe>
+
+    <velt-comment-dialog-composer-wireframe></velt-comment-dialog-composer-wireframe>
+  </div>
+</velt-comment-dialog-wireframe>
+```
+
+The dialog injects four root namespaces plus context-specific (loop-scoped) variables.
+**App State** — identity:
+| Variable | Type | Notes |
+|---|---|---|
+| `user` | `User` | Currently identified end-user. |
+| `isUserAdmin` | `boolean` | `user.isAdmin === true`. |
+| `isKnownUser` | `boolean` | User has been identified (vs. anonymous). |
+| `repliesUniqueUsers` | `User[]` | Distinct authors of replies on the current annotation. |
+**Data State** — annotation, composer staging, edit state, attachments, recordings:
+| Variable | Type | Notes |
+|---|---|---|
+| `annotation` | `CommentAnnotation` | Annotation this dialog represents. Aliased as `commentAnnotation`. |
+| `annotations` | `CommentAnnotation[]` | All annotations in scope. Aliased as `commentAnnotations`. |
+| `allAnnotations` | `CommentAnnotation[]` | Unfiltered annotation list. |
+| `ghostComment` | `GhostComment \| null` | Set when the annotation has lost its DOM target. |
+| `assignTo` | `UserContact` | Currently selected assignee. |
+| `selectedUserContacts` | `UserContact[]` | Selected user contacts (assign / mention). |
+| `customList` | `any[]` | Autocomplete reference list. |
+| `toOrganizationUserGroup` | `any[]` | Organization user-group contacts. |
+| `taggedUserContacts` | `AutocompleteUserContactReplaceData[]` | Users tagged via @mention in the active composer. |
+| `taggedGroups` | `any[]` | Groups tagged via @mention. |
+| `customChipData` | `CustomAnnotationDropdownData \| null` | Custom-chip dropdown config. |
+| `selectedCustomChipSet` | `Set<string>` | IDs currently selected in the custom-chip dropdown. |
+| `currentDialogView` | `Record<string, any>` | Seen-by aggregation keyed by `commentId`. |
+| `selectedFiles` | `FileData[]` | Files staged in the composer. |
+| `invalidSelectedFiles` | `InvalidFileData[]` | Files rejected by validation. |
+| `selectedAttachments` | `any[]` | Attachments staged for the new comment. |
+| `editComment` | `Comment \| null` | Comment currently being edited. |
+| `editCommentIndex` | `number \| null` | Index of the comment being edited. |
+| `localRecordedData` | `RecordedData[]` | Recordings staged in the composer. |
+| `attachmentsToDelete` | `any[]` | Attachments queued for deletion on save. |
+**UI State — layout modes** (mutually-styled, sometimes co-active):
+| Variable | Type | Notes |
+|---|---|---|
+| `sidebarMode` | `boolean` | Rendered inside the comments sidebar. |
+| `inboxMode` | `boolean` | Rendered inside the inbox layout. |
+| `dialogMode` | `boolean` | Default popup-dialog layout. |
+| `inlineCommentMode` | `boolean` | Inline-comment-pin styling. |
+| `inlineCommentSectionMode` | `boolean` | Inline comments section layout. |
+| `focusedThreadMode` | `boolean` | Focused-thread layout. |
+| `isFocusedThreadEnabled` | `boolean` | Focused-thread navigation is allowed. |
+| `pageModeComposer` | `boolean` | Page-level composer mode. |
+| `bottomSheetMode` | `boolean` | Bottom-sheet layout. |
+| `commentComposerMode` | `boolean` | Composer-only layout (no thread). |
+| `multiThreadAnnotationId` | `string \| null` | Multi-thread context id. |
+| `dialogOpenedInSidebar` | `boolean` | Dialog opened in sidebar context. |
+| `dialogShadowDOM` | `boolean` | Shadow-DOM rendering enabled. |
+| `containerComponentId` | `string` | Owning container id. |
+| `commentDialogUniqueId` | `string` | Unique id for this dialog instance. |
+| `deviceType` | `string` | `'desktop'` / `'mobile'` / … |
+| `darkMode` | `boolean` | Dark mode is active. |
+| `variant` | `string` | Per-instance variant tag. |
+| `disabled` | `boolean` | Dialog is disabled. |
+| `readOnly` | `boolean` | Per-instance read-only mode. |
+| `commentPinSelected` | `boolean` | Pin associated with this dialog is selected. |
+| `commentDialogSelected` | `boolean` | This dialog is the currently selected one. |
+| `fullExpanded` | `boolean` | Dialog is fully expanded (sidebar). |
+| `expandOnSelection` | `boolean` | Sidebar expands on click vs. visually selecting. |
+| `composerPosition` | `'top' \| 'bottom'` | Composer position. |
+| `selectedVisibility` | `CommentVisibilityOptionType` | Selected visibility option. |
+| `selectedVisibilityUsers` | `any[]` | Users selected when `selectedVisibility === 'selected_people'`. |
+| `locationVersion` | `string` | Annotation location version. |
+**UI State — composer state** (driven by the composer):
+| Variable | Type | Notes |
+|---|---|---|
+| `composerContent` | `string` | Plain-text composer draft. Aliased as `newComment`. |
+| `composerContentHTML` | `string` | Rich-text composer draft. Aliased as `newCommentHTML`. |
+| `composerInOpenState` | `boolean` | Composer is expanded. |
+| `composerMode` | `'default' \| 'expanded'` | Current composer mode. |
+| `isInputFocused` | `boolean` | Composer input has keyboard focus. |
+| `showCommentButtons` | `boolean` | Composer's action-button row should render. |
+| `isAutocompleteDropdownOpen` | `boolean` | @-mention autocomplete dropdown is open. |
+| `uploadingAttachments` | `boolean` | One or more attachments are uploading. |
+| `recorderInitConfig` | `any` | Active recorder configuration (or `null`). |
+
+**UI State — reactions, replies, dropdowns:**
+
+```typescript
+// On any <velt-comment-dialog-...-wireframe> in an Angular template
+[componentConfigSignal]="config()"   // shared per-annotation config signal
+[parentLocalUIState]="localUI()"     // per-instance UI state
+```
+
+The root `<velt-comment-dialog>` element additionally accepts host attributes that map onto local UI state — `dark-mode`, `variant`, `disabled`, `read-only`, `composer-position`, `dialog-shadow-dom`, etc.
+**1. DO NOT prefix mapped variables with `componentConfig.` or `componentConfigSignal.`.** The dialog exposes ~250 mapped names. `<velt-data field="componentConfigSignal.annotation.from.name" />` resolves to nothing — use `<velt-data field="annotation.from.name" />`. The exception is the **eight unmapped root-level properties** (`componentConfigSignal.unreadCommentsMap`, the five `*placeholder` strings, `componentConfigSignal.unreadIndicatorMode`, `componentConfigSignal.placeholder`) which **must** use the full path.
+**2. DO NOT reference loop-scope variables outside their slot.** `{comment}` / `{commentObj}` / `{commentIndex}` are defined only inside `<velt-comment-dialog-thread-card-wireframe>` and its descendants. Referencing them from the header or composer returns `undefined`.
+**3. DO NOT gate the resolve button with only `{enableResolve}` or only `{canResolveAnnotation}`.** Both are required, plus the admin-only override: `velt-if="{enableResolve} && {canResolveAnnotation} && (!{resolveStatusAccessAdminOnly} || {isUserAdmin})"`.
+**4. DO NOT compare `reactionToolOpenIndex` / `openDropdownIndexValue` directly to a boolean.** They are numeric indices (`-1` when closed). Compare to `{commentIndex}`: `velt-class="'reaction-open': '{reactionToolOpenIndex} === {commentIndex}'"`.
+**5. DO NOT bracket-lookup `hasReactionsByCommentId` / `unreadCommentsMap` without the `commentId` / `annotationId` in scope.** Inside thread-card use `{hasReactionsByCommentId[comment.commentId]}`. Inside the dialog root use `{componentConfigSignal.unreadCommentsMap[annotation.annotationId]}`.
+**6. DO NOT mix `defaultCondition` with `velt-if` to mean the same thing.** `defaultCondition={false}` disables the slot's internal `shouldShow` (forcing render). `velt-if` adds a new gate on top. Combining them inverts the semantics you probably want.
+**7. DO NOT remount the dialog wireframe to switch layout modes.** `sidebarMode` / `inboxMode` / `dialogMode` / `inlineCommentMode` / `focusedThreadMode` are exposed as variables — toggle a class with `velt-class`, do not unmount.
+**8. DO NOT depend on legacy `commentDialogOptionsDropdownConfigSignal.*` / `commentDialogStatusDropdownConfigSignal.*` prefixes in new code.** They are kept working by the resolver but the v5 short names (`enableAssignment`, `enableEdit`, `statusOptions`, …) are canonical.
+
+---
+
+### 13.3 Bind Comment Tool Wireframe Slots Using Template Variables
+
+**Impact: MEDIUM (Drives dynamic content, conditional rendering, and class toggling inside the Comment Tool wireframe without reimplementing add-comment-mode state on top of the SDK)**
+
+The Comment Tool wireframe (`<velt-comment-tool-wireframe>` / `<VeltCommentToolWireframe>`) exposes a flat-config variable surface that you read with three directives — `<velt-data field="...">` for text, `velt-if="{var} ..."` for conditional rendering, and `velt-class="'cls': {var}"` for class toggling. Use these to drive add-comment-mode styling instead of subscribing to SDK state and re-rendering from your component.
+
+The Comment Tool uses the **explicit-path** form of the variable system: read values via `globalConfig.featureState.<name>` (cross-document) and `componentConfig.data.<name>` / `componentConfig.uiState.<name>` (per-instance). A flat compatibility shape is also exposed — `{commentToolEnabled}`, `{addCommentMode}`, and `{disabled}` resolve with no prefix — but the full path is canonical and never ambiguous.
+
+For the structural catalog of which wireframe tags exist and how they nest, see `ui/ui-wireframes.md`. This rule documents the *variable-binding* layer that sits on top of that structure.
+
+**Incorrect (rebuilding tool state from `useVeltClient` and conditionally remounting the wireframe):**
+
+```jsx
+import { useVeltClient } from '@veltdev/react';
+import { VeltCommentToolWireframe } from '@veltdev/react';
+
+function CommentToolButton() {
+  const client = useVeltClient();
+  const [active, setActive] = useState(false);
+  const [enabled, setEnabled] = useState(true);
+
+  useEffect(() => {
+    // Reimplements addCommentMode + commentToolEnabled tracking
+    // that the wireframe already exposes as variables.
+    const sub = client?.getCommentElement().getAddCommentModeState().subscribe(setActive);
+    return () => sub?.unsubscribe();
+  }, [client]);
+
+  if (!enabled) return null;
+  return (
+    <VeltCommentToolWireframe>
+      <button className={active ? 'my-tool active' : 'my-tool'}>
+        {active ? 'Click anywhere…' : 'Add comment'}
+      </button>
+    </VeltCommentToolWireframe>
+  );
+}
+```
+
+**Correct (read the slot's variables via `velt-data` / `velt-if` / `velt-class`):**
+
+```jsx
+import { VeltCommentToolWireframe } from '@veltdev/react';
+
+<VeltCommentToolWireframe>
+  <button
+    className="my-tool"
+    velt-class="'is-active': {addCommentMode}, 'is-off': '!{commentToolEnabled}'">
+    <svg className="my-tool__icon" />
+    <span velt-if="!{addCommentMode}">Add comment</span>
+    <span velt-if="{addCommentMode}">Click anywhere to comment</span>
+  </button>
+</VeltCommentToolWireframe>
+```
+
+**HTML / web-component equivalent:**
+
+```typescript
+<velt-comment-tool-wireframe>
+  <button class="my-tool"
+          velt-class="'is-active': {addCommentMode}, 'is-off': '!{commentToolEnabled}'">
+    <svg class="my-tool__icon"></svg>
+    <span velt-if="!{addCommentMode}">Add comment</span>
+    <span velt-if="{addCommentMode}">Click anywhere to comment</span>
+  </button>
+</velt-comment-tool-wireframe>
+// On <velt-comment-tool-wireframe> in an Angular template
+[componentConfigSignal]="config()"      // featureState, data, uiState
+[parentLocalUIState]="localUI()"        // darkMode, variant, shadowDom
+```
+
+The Comment Tool exposes a flat-config surface with three explicit prefixes. The flat compatibility names (right column) resolve to the same values.
+**Global feature state** (`globalConfig.featureState.*` — workspace-level capability flags):
+| Variable | Type | Flat alias | Notes |
+|---|---|---|---|
+| `globalConfig.featureState.commentToolEnabled` | `boolean` | `{commentToolEnabled}` | Tool enabled at the workspace level. Gate the inner button with `velt-class="'is-off': '!{commentToolEnabled}'"`. |
+| `globalConfig.featureState.addCommentMode` | `boolean` | `{addCommentMode}` | Add-comment mode is active — next click anywhere drops a pin. |
+| `globalConfig.featureState.popoverMode` | `boolean` | — | Popover comment mode is enabled. |
+| `globalConfig.featureState.groupMatchedComments` | `boolean` | — | Matched comments are grouped on the page. |
+**Per-instance data** (`componentConfig.data.*` — annotation context bound to this tool instance):
+| Variable | Type | Notes |
+|---|---|---|
+| `componentConfig.data.commentAnnotationAvailable` | `boolean` | An annotation is currently associated with this tool instance. |
+| `componentConfig.data.context` | `object \| null` | Free-form annotation context (read sub-fields with bracket / dotted paths). |
+| `componentConfig.data.contextOptions` | `ContextOptions \| null` | Context-options config for the next annotation. |
+| `componentConfig.data.folderId` | `string \| null` | Folder this tool drops annotations into. |
+| `componentConfig.data.veltFolderId` | `string \| null` | Velt-managed folder id (when no client folder is set). |
+| `componentConfig.data.clientDocumentId` | `string \| null` | Client-supplied document id. |
+| `componentConfig.data.documentId` | `string \| null` | Resolved document id for this instance. |
+| `componentConfig.data.locationId` | `string \| null` | Location id this tool is scoped to. |
+| `componentConfig.data.targetElementId` | `string \| null` | DOM target the next annotation will anchor onto. |
+| `componentConfig.data.sourceId` | `string \| null` | Source id from the host application. |
+| `componentConfig.data.disabled` | `boolean` | Tool is disabled by host configuration. Flat alias: `{disabled}`. |
+**Per-instance UI state** (`componentConfig.uiState.*`):
+| Variable | Type | Notes |
+|---|---|---|
+| `componentConfig.uiState.showDefaultBtn` | `boolean` | Default built-in button should render. Set to `false` when a wireframe overrides the button. |
+| `componentConfig.uiState.shadowDom` | `boolean` | Shadow-DOM rendering is enabled. Set on the host element, not from inside the wireframe. |
+| `componentConfig.uiState.darkMode` | `boolean` | Dark mode is active for this instance. |
+| `componentConfig.uiState.addCommentMode` | `boolean` | Per-instance mirror of the global add-comment-mode flag. |
+| `componentConfig.uiState.contextInPageModeComposer` | `boolean` | Tool is rendering inside a page-mode composer. |
+| `componentConfig.uiState.commentToolEnabled` | `boolean` | Per-instance mirror of the global enabled flag. |
+**Parent local UI state** (`parentLocalUIState.*` — host-attribute mirrors):
+| Variable | Type | Notes |
+|---|---|---|
+| `parentLocalUIState.darkMode` | `boolean` | Local dark-mode flag (set on the host element). |
+| `parentLocalUIState.variant` | `string` | Per-instance variant tag from the host element. |
+| `parentLocalUIState.shadowDom` | `boolean` | Local shadow-DOM flag. |
+The Comment Tool has a single wireframe primitive — the tool button itself.
+| Public element | Wireframe tag | React component |
+|---|---|---|
+| `<velt-comments-tool>` | `<velt-comment-tool-wireframe>` *(singular)* | `<VeltCommentToolWireframe>` |
+Children of `<VeltCommentToolWireframe>` are the host-app markup the customer supplies — there are no sub-component slots. The inner default button paints these classes automatically: `velt-comment-tool`, `velt-tool--action-btn`, `active` (when `addCommentMode`), `velt-tool--action-btn-disabled` (when `!commentToolEnabled`), `velt-tool--action-btn-icon`, `velt-comment-tool--custom-btn`.
+| React Prop | HTML Attribute | Type | Default | Behavior |
+|---|---|---|---|---|
+| `defaultCondition` | `default-condition` | `boolean \| "true" \| "false"` | `true` | When `false`, the component renders regardless of its internal `shouldShow` gate. The root tool always renders by default; the disabled state is rendered via a CSS class, not an unmount, so `defaultCondition` is rarely needed here. |
+**Angular signal inputs** (parent-to-child wiring; React/HTML do not require these):
+The root `<velt-comments-tool>` element additionally accepts host attributes that map onto local UI state: `dark-mode`, `variant`, `shadow-dom`.
+| Slot | `shouldShow` |
+|---|---|
+| `comment-tool-wireframe` (root) | Always renders. The *inner default button* visually disables (does not unmount) when `commentToolEnabled === false`. |
+If you want the tool to disappear entirely when disabled, gate it yourself: `velt-if="{commentToolEnabled}"`.
+**1. DO NOT confuse `commentToolEnabled` with `addCommentMode`.** `commentToolEnabled` is the workspace capability flag (can the tool be used at all). `addCommentMode` is the transient state (is the user about to drop a pin). Style with `addCommentMode`; gate visibility with `commentToolEnabled`.
+**2. DO NOT subscribe to SDK state to drive the button.** The wireframe injects `addCommentMode` and `commentToolEnabled` automatically. Reading them via the host signal and re-rendering breaks the wireframe contract and double-paints state.
+**3. DO NOT pass `componentConfig.uiState.shadowDom` through the wireframe.** `shadowDom` is a host-element attribute (`shadow-dom="true"` on `<velt-comments-tool>`), not a wireframe-bound knob.
+**4. DO NOT mix `defaultCondition` with `velt-if` to mean the same thing.** `defaultCondition={false}` disables the slot's internal gate (forcing render). `velt-if` adds a new gate on top. Combining them inverts the semantics you probably want.
+
+---
+
 ## References
 
 - https://docs.velt.dev
@@ -7062,3 +7556,6 @@ Reference: https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/com
 - https://docs.velt.dev/get-started/quickstart
 - https://docs.velt.dev/ui-customization/overview
 - https://console.velt.dev
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-bubble/wireframe-variables
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/wireframe-variables
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-tool-wireframe-variables
