@@ -1,5 +1,5 @@
 # Velt Proxy Server Best Practices
-|v1.0.0|Velt|April 2026
+|v1.0.1|Velt|April 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
 |root: ./rules
 
@@ -10,7 +10,7 @@
 |shared/sdk-config:{sdk-proxy-config-non-react.md,sdk-proxy-config-react.md,sdk-integrity-check.md}
 
 ## 3. Server Setup — HIGH
-|shared/server-setup:{server-nginx-api.md,server-nginx-auth.md,server-nginx-cdn.md,server-nginx-ephemeral-db.md,server-nginx-persistence-db.md,server-nginx-storage.md}
+|shared/server-setup:{server-cloudflare-workers.md,server-nginx-api.md,server-nginx-auth.md,server-nginx-cdn.md,server-nginx-ephemeral-db.md,server-nginx-persistence-db.md,server-nginx-storage.md}
 
 ## 4. Security — HIGH
 |shared/security:{security-csp-whitelist.md,security-force-long-polling.md}

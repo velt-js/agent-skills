@@ -75,16 +75,48 @@ const notificationDataProvider: NotificationDataProvider = {
 
 **Resolution pipeline order:** notification → user → comment. The notification provider resolves first, then user PII is resolved, then comment content if applicable.
 
+**Storage-boundary contract (what persists where):**
+
+When the notification resolver is in use, the SDK strips notification PII before writing to Velt and re-hydrates on read. Only a minimal routing shape persists on Velt servers:
+
+| Field | Stored on Velt | Stored on your DB |
+|-------|----------------|-------------------|
+| `notificationId` | Yes (routing) | Yes (primary key) |
+| `notificationSource` | Yes (always `"custom"`) | — |
+| `isNotificationResolverUsed` | Yes (boolean flag) | — |
+| `actionUser` | Yes (userId only) | — |
+| `notifyUsers` | Yes (userId list only) | — |
+| `displayHeadlineMessageTemplate` | No | Yes |
+| `displayHeadlineMessageTemplateData` | No | Yes |
+| `displayBodyMessage` | No | Yes |
+| `notificationSourceData` | No | Yes |
+
+Stored-on-Velt example (everything the SDK retains when the resolver is active):
+
+```json
+{
+  "notificationId": "custom-notif-001",
+  "notificationSource": "custom",
+  "isNotificationResolverUsed": true,
+  "actionUser": { "userId": "user-123" },
+  "notifyUsers": [{ "userId": "user-456" }]
+}
+```
+
+Headline/body templates, template data, and `notificationSourceData` are NOT stored on Velt — they live exclusively on your database and are merged back via `get` at render time. Your `get` handler must return the full PII shape (headline, body, source data) for the SDK to hydrate the notification correctly.
+
 **Key details:**
 - Only `get` and `delete` — no `save` (notifications are created via REST API, not the SDK)
 - Only custom notifications (`notificationSource === 'custom'`) are routed through this provider
 - `Notification.isNotificationResolverUsed` is `true` when PII was stripped
 - Pair with the REST API `POST /v2/notifications/add` with `isNotificationResolverUsed: true` to create custom notifications that use the resolver
+- Velt servers never see headline templates, body text, or `notificationSourceData` when the resolver is configured — they remain on your infrastructure
 
 **Verification:**
 - [ ] Only used for custom notifications (notificationSource === 'custom')
-- [ ] get returns `Record<string, PartialNotification>`
+- [ ] get returns `Record<string, PartialNotification>` with full PII (headline, body, source data) hydrated from your DB
 - [ ] delete returns `ResolverResponse<undefined>`
 - [ ] Provider set before identify()
+- [ ] Customer DB stores the full notification record (templates + source data); Velt stores only routing identifiers, source flag, resolver flag, actionUser, and notifyUsers
 
-**Source Pointer:** https://docs.velt.dev/self-host-data/notifications
+**Source Pointer:** https://docs.velt.dev/self-host-data/notifications ("Sample Data")

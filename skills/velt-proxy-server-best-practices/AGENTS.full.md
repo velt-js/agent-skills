@@ -1,6 +1,6 @@
 # Velt Proxy Server Best Practices
 
-**Version 1.0.0**  
+**Version 1.0.1**  
 Velt  
 April 2026
 
@@ -30,12 +30,13 @@ Velt Proxy Server implementation guide covering reverse-proxy (nginx) setup for 
    - 2.3 [Enable Subresource Integrity (SRI) for Proxied SDK](#23-enable-subresource-integrity-sri-for-proxied-sdk)
 
 3. [Server Setup](#3-server-setup) — **HIGH**
-   - 3.1 [nginx Configuration for API Proxy](#31-nginx-configuration-for-api-proxy)
-   - 3.2 [nginx Configuration for Auth Proxy](#32-nginx-configuration-for-auth-proxy)
-   - 3.3 [nginx Configuration for CDN Proxy](#33-nginx-configuration-for-cdn-proxy)
-   - 3.4 [nginx Configuration for Ephemeral Database Proxy](#34-nginx-configuration-for-ephemeral-database-proxy)
-   - 3.5 [nginx Configuration for Persistence Database Proxy](#35-nginx-configuration-for-persistence-database-proxy)
-   - 3.6 [nginx Configuration for Storage Proxy](#36-nginx-configuration-for-storage-proxy)
+   - 3.1 [Cloudflare Workers Configuration for Velt Proxy](#31-cloudflare-workers-configuration-for-velt-proxy)
+   - 3.2 [nginx Configuration for API Proxy](#32-nginx-configuration-for-api-proxy)
+   - 3.3 [nginx Configuration for Auth Proxy](#33-nginx-configuration-for-auth-proxy)
+   - 3.4 [nginx Configuration for CDN Proxy](#34-nginx-configuration-for-cdn-proxy)
+   - 3.5 [nginx Configuration for Ephemeral Database Proxy](#35-nginx-configuration-for-ephemeral-database-proxy)
+   - 3.6 [nginx Configuration for Persistence Database Proxy](#36-nginx-configuration-for-persistence-database-proxy)
+   - 3.7 [nginx Configuration for Storage Proxy](#37-nginx-configuration-for-storage-proxy)
 
 4. [Security](#4-security) — **HIGH**
    - 4.1 [Content Security Policy (CSP) Whitelisting for Velt](#41-content-security-policy-csp-whitelisting-for-velt)
@@ -141,7 +142,81 @@ This is especially important when proxying the CDN because you're adding an inte
 
 Per-host nginx reverse-proxy configurations. Covers the CDN host (static SDK delivery), the API host (REST traffic), the persistence DB host (Firestore proxy), the ephemeral DB host (WebSocket + host-lock for realtime), the storage host (Firebase Storage / S3-compat), and the auth host (`identitytoolkit` + `securetoken`).
 
-### 3.1 nginx Configuration for API Proxy
+### 3.1 Cloudflare Workers Configuration for Velt Proxy
+
+**Impact: HIGH**
+
+Cloudflare Workers is an edge-distributed alternative to a self-hosted nginx proxy. A single Worker (bound to four subdomains as routes) can cover the four user-proxyable Velt services: Auth, v2Db, v1Db, and Storage. WebSocket upgrade is handled automatically by the Workers runtime, so v1Db works without extra config. `cdnHost` and `apiHost` are not covered by the Workers recipe — contact Velt support if you need to proxy those.
+
+### Subdomain Layout
+
+Create CNAME records for four subdomains under a domain you control, attach them to your Cloudflare zone, and bind them as routes on the Worker:
+
+| Subdomain | Service | Upstream |
+|-----------|---------|----------|
+| `auth-proxy.yourdomain.com` | Auth | `identitytoolkit.googleapis.com` + `securetoken.googleapis.com` (path-based) |
+| `v2db-proxy.yourdomain.com` | v2Db | Your Velt project's persistence endpoint |
+| `v1db-proxy.yourdomain.com` | v1Db | `<ns>.firebaseio.com` (dynamic per request) |
+| `storage-proxy.yourdomain.com` | Storage | `firebasestorage.googleapis.com` |
+
+### Path-Based Auth Routing
+
+The Auth proxy splits on URL path: `/v1/token` requests go to the token-refresh upstream (`securetoken.googleapis.com`), everything else goes to the identity upstream (`identitytoolkit.googleapis.com`).
+
+**Incorrect:**
+
+```js
+// Sends every Auth request to identitytoolkit — token refreshes will 404
+upstream = 'https://identitytoolkit.googleapis.com';
+```
+
+**Correct:**
+
+```js
+// auth-proxy.* handler (abbreviated)
+let upstream;
+if (url.pathname.startsWith('/v1/token')) {
+  upstream = 'https://securetoken.googleapis.com';
+} else {
+  upstream = 'https://identitytoolkit.googleapis.com';
+}
+```
+
+v1Db requests carry the Firebase namespace in the `?ns=` query param. The Worker rewrites the upstream Host to the shard that owns that namespace per request. Pair with the SDK's `v1DbHost` host-lock, which prevents Firebase from redirecting subsequent traffic to a shard server (`s-gke-*.firebaseio.com`) that would bypass your proxy.
+
+**Incorrect:**
+
+```js
+// Hard-coded upstream — works for one project, breaks once the SDK switches namespaces
+const upstream = 'https://my-project.firebaseio.com' + url.pathname + url.search;
+```
+
+**Correct:**
+
+```bash
+// v1db-proxy.* handler (abbreviated)
+const ns = url.searchParams.get('ns');
+const upstream = `https://${ns}.firebaseio.com${url.pathname}${url.search}`;
+curl -I https://auth-proxy.yourdomain.com/
+curl -I https://v2db-proxy.yourdomain.com/
+curl -I https://v1db-proxy.yourdomain.com/?ns=YOUR_PROJECT
+curl -I https://storage-proxy.yourdomain.com/
+```
+
+WebSocket upgrade is handled automatically by Workers — no extra config required.
+v2Db and Storage are straight passthroughs. Forward the request to the upstream and set the upstream hostname as the `Host` header. Do not rewrite path or body.
+From any machine, confirm each proxy responds:
+Upstream response headers (2xx or 4xx) confirm the proxy is live and reaching the upstream.
+- A single Worker handles all four services; route binding picks the handler branch by subdomain
+- Auth routing is path-based (`/v1/token` vs everything else) — don't collapse it to a single upstream
+- v1Db upstream must be derived from the `?ns=` query param on every request, not hard-coded
+- Workers handles WebSocket upgrade automatically; no equivalent of nginx's `Upgrade` / `Connection` headers is needed
+- Pair with full `proxyConfig` ({ v2DbHost, v1DbHost, storageHost, authHost }) in your SDK config
+- `cdnHost` and `apiHost` are not covered — contact Velt support if you need them
+
+---
+
+### 3.2 nginx Configuration for API Proxy
 
 **Impact: HIGH**
 
@@ -149,7 +224,7 @@ Proxy Velt REST API calls through your domain.
 
 ---
 
-### 3.2 nginx Configuration for Auth Proxy
+### 3.3 nginx Configuration for Auth Proxy
 
 **Impact: HIGH**
 
@@ -157,7 +232,7 @@ Proxy Velt's authentication traffic. This proxy must handle requests to two Goog
 
 ---
 
-### 3.3 nginx Configuration for CDN Proxy
+### 3.4 nginx Configuration for CDN Proxy
 
 **Impact: HIGH**
 
@@ -165,7 +240,7 @@ Proxy the Velt SDK bundle through your domain. The SDK appends `/lib/sdk@[VERSIO
 
 ---
 
-### 3.4 nginx Configuration for Ephemeral Database Proxy
+### 3.5 nginx Configuration for Ephemeral Database Proxy
 
 **Impact: HIGH**
 
@@ -173,7 +248,7 @@ Proxy Velt's ephemeral database (v1/Firebase RTDB) traffic. This is the most com
 
 ---
 
-### 3.5 nginx Configuration for Persistence Database Proxy
+### 3.6 nginx Configuration for Persistence Database Proxy
 
 **Impact: HIGH**
 
@@ -181,7 +256,7 @@ Proxy Velt's persistence database (v2/Firestore) traffic through your domain.
 
 ---
 
-### 3.6 nginx Configuration for Storage Proxy
+### 3.7 nginx Configuration for Storage Proxy
 
 **Impact: HIGH**
 
@@ -272,3 +347,4 @@ Increase `client_max_body_size` in your storage proxy's nginx config (default is
 - https://docs.velt.dev/security/proxy-server
 - https://docs.velt.dev/security/content-security-policy
 - https://console.velt.dev
+- https://docs.velt.dev/security/proxy-server-deploy

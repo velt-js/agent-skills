@@ -1,5 +1,5 @@
 {
-  "version": "1.0.0",
+  "version": "1.0.1",
   "organization": "Velt",
   "date": "April 2026",
   "abstract": "Velt Proxy Server implementation guide covering reverse-proxy (nginx) setup for all six Velt service hosts (CDN, API, persistence DB, ephemeral DB, storage, auth), the `proxyConfig` SDK configuration object, Content Security Policy (CSP) whitelisting, Subresource Integrity (SRI) hashes, and the `forceLongPolling` fallback for restricted network environments. Provides patterns for routing all Velt SDK traffic through customer-controlled infrastructure for enterprise network policies.",
@@ -7,6 +7,7 @@
     "https://docs.velt.dev",
     "https://docs.velt.dev/security/proxy-server",
     "https://docs.velt.dev/security/content-security-policy",
-    "https://console.velt.dev"
+    "https://console.velt.dev",
+    "https://docs.velt.dev/security/proxy-server-deploy"
   ]
 }

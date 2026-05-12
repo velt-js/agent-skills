@@ -1,6 +1,6 @@
 # Velt Self Hosting Data Best Practices
 
-**Version 1.0.0**  
+**Version 1.0.1**  
 Velt  
 March 2026
 
@@ -37,8 +37,9 @@ Comprehensive guide for Velt self-hosting data feature, enabling storage of sens
    - 4.1 [Configure Reaction and Recording Data Providers](#41-configure-reaction-and-recording-data-providers)
    - 4.2 [Configure Retry Policies and Timeouts Per Data Provider](#42-configure-retry-policies-and-timeouts-per-data-provider)
    - 4.3 [Implement Read-Only User Data Provider for PII Protection](#43-implement-read-only-user-data-provider-for-pii-protection)
-   - 4.4 [Self-Host Notification Data for Custom Notifications](#44-self-host-notification-data-for-custom-notifications)
-   - 4.5 [Self-Host Recording Data and Media Files](#45-self-host-recording-data-and-media-files)
+   - 4.4 [Self-Host Activity Log Data for Custom Activities](#44-self-host-activity-log-data-for-custom-activities)
+   - 4.5 [Self-Host Notification Data for Custom Notifications](#45-self-host-notification-data-for-custom-notifications)
+   - 4.6 [Self-Host Recording Data and Media Files](#46-self-host-recording-data-and-media-files)
 
 5. [Backend Implementation](#5-backend-implementation) — **MEDIUM**
    - 5.1 [Implement Database Storage with Upsert and Proper Indexing](#51-implement-database-storage-with-upsert-and-proper-indexing)
@@ -1230,7 +1231,102 @@ Reference: https://docs.velt.dev/self-host-data/users
 
 ---
 
-### 4.4 Self-Host Notification Data for Custom Notifications
+### 4.4 Self-Host Activity Log Data for Custom Activities
+
+**Impact: MEDIUM (Route activity log PII, entity snapshots, and custom fields through your own infrastructure)**
+
+The activity data provider handles PII for activity log records — comment text embedded in change history, feature-specific entity snapshots (e.g., PR titles, deployment metadata), and arbitrary custom fields. The SDK strips configured fields before writing to Velt and re-hydrates them on read via your `get` handler.
+
+**ActivityAnnotationDataProvider interface:**
+
+```typescript
+interface ActivityAnnotationDataProvider {
+  get?: (request: GetActivityResolverRequest) => Promise<ResolverResponse<Record<string, PartialActivityRecord>>>;
+  save?: (request: SaveActivityResolverRequest) => Promise<ResolverResponse<undefined>>;
+  config?: ResolverConfig;
+}
+
+interface GetActivityResolverRequest {
+  organizationId: string;
+  activityIds?: string[];
+  documentIds?: string[];
+}
+
+interface SaveActivityResolverRequest {
+  activity: Record<string, PartialActivityRecord>;
+  metadata?: BaseMetadata;
+  event?: ResolverActions;
+}
+
+interface ResolverConfig {
+  resolveTimeout?: number;
+  fieldsToRemove?: string[]; // Extra fields to strip beyond defaults
+}
+```
+
+**Function-based example:**
+
+```tsx
+const activityDataProvider: ActivityAnnotationDataProvider = {
+  get: async (request) => {
+    const response = await fetch('/api/velt/activity/get', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    return await response.json();
+  },
+  save: async (request) => {
+    const response = await fetch('/api/velt/activity/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    return await response.json();
+  },
+  config: {
+    resolveTimeout: 60000,
+    fieldsToRemove: ['customSensitiveField'],
+  },
+};
+
+// Wire into VeltProvider (or via client.setDataProviders / Velt.setDataProviders)
+<VeltProvider apiKey={KEY} authProvider={auth} dataProviders={{
+  activity: activityDataProvider,
+}}>
+```
+
+**Compatibility:** Currently only compatible with the `setDocuments` method. Providers must be set before `identify()` is called.
+
+**Storage-boundary contract (what persists where):**
+
+```json
+{
+  "id": "activityId",
+  "featureType": "custom",
+  "actionType": "deployment.triggered",
+  "actionUser": { "userId": "user-1" },
+  "timestamp": 1773241980379,
+  "metadata": {
+    "apiKey": "API_KEY",
+    "documentId": "INTERNAL_DOC_ID",
+    "organizationId": "INTERNAL_ORG_ID",
+    "clientDocumentId": "DOCUMENT_ID",
+    "clientOrganizationId": "ORGANIZATION_ID"
+  },
+  "targetEntityId": "pr-123",
+  "isActivityResolverUsed": true,
+  "immutable": false
+}
+```
+
+Entity snapshots (`entityData`, `entityTargetData`), display message templates and their data, and any fields listed in `config.fieldsToRemove` are NOT stored on Velt — they live exclusively on your database and are merged back via `get` at render time.
+
+Reference: https://docs.velt.dev/self-host-data/activity ("Sample Data")
+
+---
+
+### 4.5 Self-Host Notification Data for Custom Notifications
 
 **Impact: MEDIUM (Route custom notification PII through your own infrastructure)**
 
@@ -1302,11 +1398,25 @@ const notificationDataProvider: NotificationDataProvider = {
 
 **Resolution pipeline order:** notification → user → comment. The notification provider resolves first, then user PII is resolved, then comment content if applicable.
 
-Reference: https://docs.velt.dev/self-host-data/notifications
+**Storage-boundary contract (what persists where):**
+
+```json
+{
+  "notificationId": "custom-notif-001",
+  "notificationSource": "custom",
+  "isNotificationResolverUsed": true,
+  "actionUser": { "userId": "user-123" },
+  "notifyUsers": [{ "userId": "user-456" }]
+}
+```
+
+Headline/body templates, template data, and `notificationSourceData` are NOT stored on Velt — they live exclusively on your database and are merged back via `get` at render time. Your `get` handler must return the full PII shape (headline, body, source data) for the SDK to hydrate the notification correctly.
+
+Reference: https://docs.velt.dev/self-host-data/notifications ("Sample Data")
 
 ---
 
-### 4.5 Self-Host Recording Data and Media Files
+### 4.6 Self-Host Recording Data and Media Files
 
 **Impact: MEDIUM (Store recording annotations and media on your own infrastructure)**
 
@@ -2243,3 +2353,5 @@ Reference: https://docs.velt.dev/self-host-data/comments - Debugging, Email Noti
 - https://docs.velt.dev/self-host-data/recordings
 - https://docs.velt.dev/self-host-data/users
 - https://console.velt.dev
+- https://docs.velt.dev/self-host-data/activity
+- https://docs.velt.dev/self-host-data/notifications

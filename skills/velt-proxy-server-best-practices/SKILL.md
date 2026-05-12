@@ -1,6 +1,6 @@
 ---
 name: velt-proxy-server-best-practices
-description: Velt proxy server setup and configuration best practices for routing Velt SDK traffic through your own reverse proxy (e.g., nginx). Use when configuring proxyConfig on VeltProvider or initVelt, setting up nginx reverse proxy for Velt CDN/API/database/storage/auth endpoints, whitelisting Content Security Policy (CSP) domains for Velt, enabling Subresource Integrity (SRI), or debugging proxy-related connectivity issues. Triggers on any task involving Velt proxy, reverse proxy, proxyConfig, cdnHost, apiHost, v1DbHost, v2DbHost, storageHost, authHost, forceLongPolling, CSP whitelisting for Velt, nginx configuration for Velt, or network policy compliance with Velt — even if the user doesn't explicitly say 'proxy'.
+description: Velt proxy server setup and configuration best practices for routing Velt SDK traffic through your own reverse proxy (nginx or Cloudflare Workers). Use when configuring proxyConfig on VeltProvider or initVelt, setting up nginx or Cloudflare Workers as a reverse proxy for Velt CDN/API/database/storage/auth endpoints, whitelisting Content Security Policy (CSP) domains for Velt, enabling Subresource Integrity (SRI), or debugging proxy-related connectivity issues. Triggers on any task involving Velt proxy, reverse proxy, proxyConfig, cdnHost, apiHost, v1DbHost, v2DbHost, storageHost, authHost, forceLongPolling, CSP whitelisting for Velt, nginx or Cloudflare Workers configuration for Velt, or network policy compliance with Velt — even if the user doesn't explicitly say 'proxy'.
 license: MIT
 metadata:
   author: velt
@@ -9,7 +9,7 @@ metadata:
 
 # Velt Proxy Server Best Practices
 
-Comprehensive guide for routing all Velt SDK traffic through your own reverse proxy infrastructure. Contains 13 rules across 5 categories covering SDK configuration, nginx server setup, CSP security, and debugging.
+Comprehensive guide for routing all Velt SDK traffic through your own reverse proxy infrastructure. Contains 14 rules across 5 categories covering SDK configuration, nginx and Cloudflare Workers server setup, CSP security, and debugging.
 
 ## When to Apply
 
