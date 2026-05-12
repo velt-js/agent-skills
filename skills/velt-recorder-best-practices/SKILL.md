@@ -4,7 +4,7 @@ description: Velt Recorder implementation patterns and best practices for React,
 license: MIT
 metadata:
   author: velt
-  version: "1.1.1"
+  version: "1.2.0"
 ---
 
 # Velt Recorder Best Practices

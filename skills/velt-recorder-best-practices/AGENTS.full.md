@@ -1,6 +1,6 @@
 # Velt Recorder Best Practices
 
-**Version 1.1.1**  
+**Version 1.2.0**  
 Velt  
 March 2026
 
@@ -2122,7 +2122,16 @@ State on `<velt-transcription>` and children. Bind via `componentConfig.<name>`:
 | `componentConfig.sidebarVisible` | `boolean` | Sidebar variant visible. |
 | `componentConfig.darkMode` | `boolean` | Dark mode active. |
 | `componentConfig.showDefaultBtn` | `boolean` | Whether to render the default trigger button. |
-**Transcription behaviour callbacks:** `onDragRelease`, `copyToClipboard`, `toggleSidebar`, `onClose`, `onSeekTo(seconds)`, `onTranscriptionButtonClick`, `toggleShowMoreSummary`. Attach these to your custom buttons rather than re-implementing seek / copy / toggle state.
+Attach these to your custom buttons rather than re-implementing seek / copy / toggle state. Each is exposed on `componentConfig.<name>` and is safe to invoke from a custom click handler.
+| Callback | Signature | Notes |
+|---|---|---|
+| `componentConfig.copyToClipboard` | `() => void` | Copies the transcript summary to the clipboard. Pair with `componentConfig.copySummaryButtonTooltip` for the "Copy" / "Copied!" label. |
+| `componentConfig.onClose` | `() => void` | Closes the transcript panel. Wire to your custom close button instead of toggling `transcriptionVisible` manually. |
+| `componentConfig.onDragRelease` | `(...args) => void` | Drag-to-position release handler for floating-mode transcripts. Wire to your draggable handle's release / pointerup event. |
+| `componentConfig.onSeekTo` | `(seconds: number) => void` | Seeks the host player to a given timestamp. Call with `segment.startTimeInSeconds` from a click handler on a `<velt-transcription-content-item-wireframe>` row. |
+| `componentConfig.onTranscriptionButtonClick` | `() => void` | Trigger-button click handler. Wire to your custom trigger button instead of toggling `transcriptionVisible`. |
+| `componentConfig.toggleShowMoreSummary` | `() => void` | Expands / collapses the summary. Pair with `componentConfig.showMoreSummary` for the expanded state. |
+| `componentConfig.toggleSidebar` | `() => void` | Toggles the sidebar variant on / off. Pair with `componentConfig.sidebarVisible`. |
 State on `<velt-subtitles>` and `<velt-subtitles-dialog>` (the dialog adds CDK-overlay positioning fields):
 | Variable | Type | Notes |
 |---|---|---|
@@ -2133,7 +2142,15 @@ State on `<velt-subtitles>` and `<velt-subtitles-dialog>` (the dialog adds CDK-o
 | `componentConfig.transcription` | `Transcription` | Transcript object. |
 | `componentConfig.showDefaultBtn` | `boolean` | Render the default toggle button. |
 | `componentConfig.onSubtitlesButtonClick` | `Function` | Subtitle-button click handler — wire to your custom button. |
-| `componentConfig.overlayTrigger` / `positions` / `cdkConnectedOverlayOffsetX|Y` / `overlayOriginX|Y` | CDK overlay | Dialog-only; treat as internal positioning state. |
+Dialog-only — these back the popover variant's CDK overlay. Treat as **internal positioning state**: bind only if you are replacing the default popover anchor / offset behaviour. The default render handles them automatically.
+| Variable | Type | Notes |
+|---|---|---|
+| `componentConfig.overlayTrigger` | `CdkOverlayOrigin` | CDK overlay anchor element. Used as the `cdkOverlayOrigin` on the popover. |
+| `componentConfig.positions` | `ConnectedPosition[]` | CDK overlay position pairs (e.g., `start`/`bottom`, `end`/`top` fallbacks). Bind to `cdkConnectedOverlayPositions`. |
+| `componentConfig.overlayOriginX` | `OverlayOriginX` | Anchor origin X-axis discriminator (`start` / `center` / `end`). |
+| `componentConfig.overlayOriginY` | `OverlayOriginY` | Anchor origin Y-axis discriminator (`top` / `center` / `bottom`). |
+| `componentConfig.cdkConnectedOverlayOffsetX` | `number` | Horizontal nudge offset, in pixels. Used to compute the popover's inline X offset. |
+| `componentConfig.cdkConnectedOverlayOffsetY` | `number` | Vertical nudge offset, in pixels. Used to compute the popover's inline Y offset. |
 | Variable | Type | Notes |
 |---|---|---|
 | `segment` | `{ startTime, endTime, startTimeInSeconds, endTimeInSeconds, text }` | Per-iteration row from `vttFileTextArray`. |
