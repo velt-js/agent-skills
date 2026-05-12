@@ -1,6 +1,6 @@
 # Velt Proxy Server Best Practices
 
-**Version 1.0.1**  
+**Version 1.0.2**  
 Velt  
 April 2026
 
@@ -347,4 +347,3 @@ Increase `client_max_body_size` in your storage proxy's nginx config (default is
 - https://docs.velt.dev/security/proxy-server
 - https://docs.velt.dev/security/content-security-policy
 - https://console.velt.dev
-- https://docs.velt.dev/security/proxy-server-deploy
