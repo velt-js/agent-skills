@@ -58,6 +58,28 @@ import { VeltWireframe } from '@veltdev/react';
 | Inline Comments Section | 23 | React + HTML |
 | Multi-Thread Comment Dialog | 24 | React + HTML |
 | Sidebar Button | 3 | React + HTML |
+| Comment Dialog Composer — Attachment Downloads | 2 | React + HTML; edit-mode only |
+
+**Attachment Download Primitives (edit-mode composer):**
+
+Two new primitives enable download buttons for attachments inside the edit-mode comment dialog composer. Non-wireframe integrations receive download buttons automatically; use these primitives only when building a custom wireframe composer.
+
+- `VeltCommentDialogComposerAttachmentsImageDownload` — download button for image attachments
+- `VeltCommentDialogComposerAttachmentsOtherDownload` — download button for non-image file attachments
+
+Both accept an `annotationId` prop (required, `string`) providing the attachment context.
+
+```jsx
+// React — inside a custom wireframe composer
+<VeltCommentDialogComposerAttachmentsImageDownload annotationId="abc123" />
+<VeltCommentDialogComposerAttachmentsOtherDownload annotationId="abc123" />
+```
+
+```html
+<!-- HTML -->
+<velt-comment-dialog-composer-attachments-image-download annotation-id="abc123"></velt-comment-dialog-composer-attachments-image-download>
+<velt-comment-dialog-composer-attachments-other-download annotation-id="abc123"></velt-comment-dialog-composer-attachments-other-download>
+```
 
 **Verification Checklist:**
 - [ ] `defaultCondition={false}` is set on any V2 primitive whose section is fully replaced by a custom wireframe

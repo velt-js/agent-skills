@@ -35,7 +35,7 @@
 |shared/attach:{attach-download-control.md}
 
 ## 10. Configuration — MEDIUM
-|shared/config:{config-moderation.md,config-navigation.md,config-mentions-contacts.md,config-attachments.md,config-status-priority.md,config-reactions.md,config-text-formatting.md,config-sidebar-management.md,config-dom-controls.md,config-ui-behavior.md}
+|shared/config:{config-moderation.md,config-navigation.md,config-component-props.md,config-mentions-contacts.md,config-attachments.md,config-status-priority.md,config-reactions.md,config-text-formatting.md,config-sidebar-management.md,config-dom-controls.md,config-ui-behavior.md}
 
 ## 11. Events — MEDIUM
 |shared/events:{events-comment-lifecycle.md}

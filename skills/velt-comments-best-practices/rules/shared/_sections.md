@@ -116,6 +116,7 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 - `config-sidebar-management` - Programmatic sidebar data, filtering, and configuration
 - `config-ui-behavior` - UI/UX toggle methods — display, interaction, behavior (20+ methods)
 - `config-moderation` - Moderation workflows — approve, accept, reject, read-only
+- `config-component-props` - Typed props interfaces for VeltComments, VeltCommentDialog, VeltCommentsSidebar, and VeltInlineCommentsSection — placeholder overrides (including edit-mode variants), assignToType, focus behavior
 
 ---
 

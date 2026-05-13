@@ -112,7 +112,21 @@ Reference these guidelines when:
 
 - `attach-download-control` - Control attachment download behavior and intercept clicks
 
-### 10. Wireframe Variables (MEDIUM)
+### 10. Configuration (MEDIUM)
+
+- `config-mentions-contacts` - @Mentions, contacts, user assignment, autocomplete
+- `config-status-priority` - Custom status and priority levels, resolve/update workflows
+- `config-reactions` - Emoji reactions — enable, customize, add/delete/toggle
+- `config-attachments` - File attachments — enable, upload, delete, allowed types
+- `config-text-formatting` - Rich text formatting options in composer
+- `config-navigation` - Navigation, deep linking, scroll-to-comment, shareable links
+- `config-dom-controls` - Restrict comment placement to specific DOM elements
+- `config-sidebar-management` - Programmatic sidebar data, filtering, and configuration
+- `config-ui-behavior` - UI/UX toggle methods — display, interaction, behavior (20+ methods)
+- `config-moderation` - Moderation workflows — approve, accept, reject, read-only
+- `config-component-props` - Typed props interfaces for VeltComments, VeltCommentDialog, VeltCommentsSidebar, VeltInlineCommentsSection — edit-mode placeholder overrides, assignToType, focus behavior
+
+### 11. Wireframe Variables (MEDIUM)
 
 - `wireframe-variables-comment-bubble` - Bind Comment Bubble + Comment Pin wireframe slots via `{annotation.*}`, `{selectedAnnotationsMap[...]}`, `globalConfigSignal.featureState.*`
 - `wireframe-variables-comment-dialog` - Bind the ~110-slot Comment Dialog wireframe family (App / Data / UI / Feature State namespaces, `comment` / `commentIndex` loop-scope, root-level placeholder + unread-map paths, v1 aliases)

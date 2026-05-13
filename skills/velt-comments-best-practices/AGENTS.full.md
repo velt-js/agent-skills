@@ -97,14 +97,15 @@ Comprehensive Velt Comments implementation guide covering comment modes, setup p
 10. [Configuration](#10-configuration) — **MEDIUM**
    - 10.1 [Comment Moderation — Approve, Accept, Reject Workflows](#101-comment-moderation-approve-accept-reject-workflows)
    - 10.2 [Comment Navigation and Deep Linking](#102-comment-navigation-and-deep-linking)
-   - 10.3 [Configure @Mentions, Contacts, and User Assignment](#103-configure-mentions-contacts-and-user-assignment)
-   - 10.4 [Configure Comment Attachments and File Uploads](#104-configure-comment-attachments-and-file-uploads)
-   - 10.5 [Configure Comment Status and Priority Levels](#105-configure-comment-status-and-priority-levels)
-   - 10.6 [Configure Emoji Reactions on Comments](#106-configure-emoji-reactions-on-comments)
-   - 10.7 [Configure Rich Text Formatting in Comment Composer](#107-configure-rich-text-formatting-in-comment-composer)
-   - 10.8 [Programmatic Sidebar Data, Filtering, and Configuration](#108-programmatic-sidebar-data-filtering-and-configuration)
-   - 10.9 [Restrict Comment Placement to Specific DOM Elements](#109-restrict-comment-placement-to-specific-dom-elements)
-   - 10.10 [UI/UX Toggle Methods — Comment Display, Interaction, and Behavior](#1010-uiux-toggle-methods-comment-display-interaction-and-behavior)
+   - 10.3 [Component Props API — VeltComments, VeltCommentDialog, VeltCommentsSidebar, VeltInlineCommentsSection](#103-component-props-api-veltcomments-veltcommentdialog-veltcommentssidebar-veltinlinecommentssection)
+   - 10.4 [Configure @Mentions, Contacts, and User Assignment](#104-configure-mentions-contacts-and-user-assignment)
+   - 10.5 [Configure Comment Attachments and File Uploads](#105-configure-comment-attachments-and-file-uploads)
+   - 10.6 [Configure Comment Status and Priority Levels](#106-configure-comment-status-and-priority-levels)
+   - 10.7 [Configure Emoji Reactions on Comments](#107-configure-emoji-reactions-on-comments)
+   - 10.8 [Configure Rich Text Formatting in Comment Composer](#108-configure-rich-text-formatting-in-comment-composer)
+   - 10.9 [Programmatic Sidebar Data, Filtering, and Configuration](#109-programmatic-sidebar-data-filtering-and-configuration)
+   - 10.10 [Restrict Comment Placement to Specific DOM Elements](#1010-restrict-comment-placement-to-specific-dom-elements)
+   - 10.11 [UI/UX Toggle Methods — Comment Display, Interaction, and Behavior](#1011-uiux-toggle-methods-comment-display-interaction-and-behavior)
 
 11. [Events](#11-events) — **MEDIUM**
    - 11.1 [Comment Lifecycle Events — Pin Clicks, Add Events, Button Clicks](#111-comment-lifecycle-events-pin-clicks-add-events-button-clicks)
@@ -3699,6 +3700,17 @@ import { VeltWireframe } from '@veltdev/react';
 </velt-wireframe>
 ```
 
+**Attachment Download Primitives (edit-mode composer):**
+
+```html
+// React — inside a custom wireframe composer
+<VeltCommentDialogComposerAttachmentsImageDownload annotationId="abc123" />
+<VeltCommentDialogComposerAttachmentsOtherDownload annotationId="abc123" />
+<!-- HTML -->
+<velt-comment-dialog-composer-attachments-image-download annotation-id="abc123"></velt-comment-dialog-composer-attachments-image-download>
+<velt-comment-dialog-composer-attachments-other-download annotation-id="abc123"></velt-comment-dialog-composer-attachments-other-download>
+```
+
 ---
 
 ### 5.4 Use Standalone Autocomplete Primitives for Custom Autocomplete UIs
@@ -6152,7 +6164,67 @@ Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior
 
 ---
 
-### 10.3 Configure @Mentions, Contacts, and User Assignment
+### 10.3 Component Props API — VeltComments, VeltCommentDialog, VeltCommentsSidebar, VeltInlineCommentsSection
+
+**Impact: MEDIUM (Enables typed prop-level customization (placeholder overrides, assignment mode, focus behavior) without imperative API calls)**
+
+Four Velt comment components accept typed props interfaces that cover placeholder text overrides (including edit-mode variants), assignment UI configuration, and sidebar focus behavior. Props set on the root `VeltComments` container propagate to all child dialogs automatically — set them once at the root rather than on every dialog.
+
+Do not rely on imperative `commentElement.*` methods for features covered by these typed props — the prop interface is the canonical way to configure placeholder text and assignment mode.
+
+**Correct (typed props on each component):**
+
+```jsx
+import {
+  VeltComments,
+  VeltCommentDialog,
+  VeltCommentsSidebar,
+  VeltInlineCommentsSection,
+} from '@veltdev/react';
+
+// Root container — props propagate to all dialogs automatically.
+// editCommentPlaceholder / editReplyPlaceholder take precedence over editPlaceholder.
+// Priority: editCommentPlaceholder | editReplyPlaceholder → editPlaceholder → placeholder → SDK defaults.
+<VeltComments
+  assignToType="dropdown"          // 'dropdown' (default) | 'checkbox'
+  editPlaceholder="Edit your comment…"
+  editCommentPlaceholder="Edit your first comment…"
+  editReplyPlaceholder="Edit your reply…"
+/>
+
+// Individual dialog — same edit-placeholder props, no assignToType
+<VeltCommentDialog
+  editPlaceholder="Edit your comment…"
+  editCommentPlaceholder="Edit your first comment…"
+  editReplyPlaceholder="Edit your reply…"
+/>
+
+// Sidebar — adds add/reply/page-mode placeholders and focus behavior
+<VeltCommentsSidebar
+  commentPlaceholder="Add a comment…"
+  replyPlaceholder="Add a reply…"
+  pageModePlaceholder="Add a page comment…"
+  editPlaceholder="Edit your comment…"
+  editCommentPlaceholder="Edit your first comment…"
+  editReplyPlaceholder="Edit your reply…"
+  openAnnotationInFocusMode={true}  // requires focusedThreadMode to be enabled
+/>
+
+// Inline Comments Section — adds composerPlaceholder and readOnly
+<VeltInlineCommentsSection
+  commentPlaceholder="Add a comment…"
+  replyPlaceholder="Add a reply…"
+  composerPlaceholder="Start a conversation…"
+  editPlaceholder="Edit your comment…"
+  editCommentPlaceholder="Edit your first comment…"
+  editReplyPlaceholder="Edit your reply…"
+  readOnly={false}
+/>
+```
+
+---
+
+### 10.4 Configure @Mentions, Contacts, and User Assignment
 
 **Impact: MEDIUM (Control @mention behavior, contact lists, and comment assignment)**
 
@@ -6215,7 +6287,7 @@ Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior
 
 ---
 
-### 10.4 Configure Comment Attachments and File Uploads
+### 10.5 Configure Comment Attachments and File Uploads
 
 **Impact: MEDIUM (Enable file attachments, screenshots, and manage uploaded files)**
 
@@ -6274,7 +6346,7 @@ Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior
 
 ---
 
-### 10.5 Configure Comment Status and Priority Levels
+### 10.6 Configure Comment Status and Priority Levels
 
 **Impact: MEDIUM (Enable and customize comment status tracking and priority levels)**
 
@@ -6345,7 +6417,7 @@ Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior
 
 ---
 
-### 10.6 Configure Emoji Reactions on Comments
+### 10.7 Configure Emoji Reactions on Comments
 
 **Impact: MEDIUM (Enable and customize emoji reactions for comment feedback)**
 
@@ -6395,7 +6467,7 @@ Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior
 
 ---
 
-### 10.7 Configure Rich Text Formatting in Comment Composer
+### 10.8 Configure Rich Text Formatting in Comment Composer
 
 **Impact: LOW (Control which text formatting options are available in the comment composer)**
 
@@ -6427,7 +6499,7 @@ Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior
 
 ---
 
-### 10.8 Programmatic Sidebar Data, Filtering, and Configuration
+### 10.9 Programmatic Sidebar Data, Filtering, and Configuration
 
 **Impact: MEDIUM (Control sidebar content, filters, and behavior programmatically)**
 
@@ -6475,11 +6547,28 @@ commentElement.on('commentSidebarDataUpdate').subscribe((event) => {
 }} />
 ```
 
+**Edit Composer Placeholders:**
+
+```html
+// React — set on root VeltComments; propagates to all dialogs automatically
+<VeltComments
+  editPlaceholder="Edit your message…"
+  editCommentPlaceholder="Edit the original comment…"
+  editReplyPlaceholder="Edit your reply…"
+/>
+<!-- HTML -->
+<velt-comments
+  edit-placeholder="Edit your message…"
+  edit-comment-placeholder="Edit the original comment…"
+  edit-reply-placeholder="Edit your reply…"
+></velt-comments>
+```
+
 Reference: https://docs.velt.dev/async-collaboration/comments-sidebar/customize-behavior
 
 ---
 
-### 10.9 Restrict Comment Placement to Specific DOM Elements
+### 10.10 Restrict Comment Placement to Specific DOM Elements
 
 **Impact: LOW (Control where users can place comments on the page)**
 
@@ -6526,7 +6615,7 @@ Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior
 
 ---
 
-### 10.10 UI/UX Toggle Methods — Comment Display, Interaction, and Behavior
+### 10.11 UI/UX Toggle Methods — Comment Display, Interaction, and Behavior
 
 **Impact: LOW (Fine-tune comment UI appearance and interaction behavior)**
 
@@ -6635,6 +6724,22 @@ commentElement.deleteThreadWithFirstComment(true);
 
 // Show confirmation before deleting replies
 commentElement.enableDeleteReplyConfirmation();
+```
+
+**Confirm Dialog Variant CSS Classes:**
+
+```css
+/* Base class — always present */
+.velt-confirm-dialog { }
+
+/* Automatically added when deleting a top-level comment */
+.velt-confirm-dialog--comment { border-left: 4px solid red; }
+
+/* Automatically added when deleting a reply */
+.velt-confirm-dialog--reply { border-left: 4px solid orange; }
+
+/* For a custom type string supplied via ConfirmDialogComponentConfig.type */
+.velt-confirm-dialog--archive { /* custom logic */ }
 ```
 
 **Page Mode:**

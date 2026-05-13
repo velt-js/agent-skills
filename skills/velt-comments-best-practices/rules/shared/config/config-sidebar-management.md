@@ -64,6 +64,9 @@ commentElement.on('commentSidebarDataUpdate').subscribe((event) => {
 | `searchPlaceholder` | `string` | Custom search input text |
 | `commentPlaceholder` | `string` | Comment composer placeholder |
 | `replyPlaceholder` | `string` | Reply composer placeholder |
+| `editPlaceholder` | `string` | Fallback placeholder in the edit composer for any comment or reply |
+| `editCommentPlaceholder` | `string` | Edit composer placeholder when editing the first comment in a thread (index 0); takes precedence over `editPlaceholder` |
+| `editReplyPlaceholder` | `string` | Edit composer placeholder when editing a reply (index > 0); takes precedence over `editPlaceholder` |
 | `pageModePlaceholder` | `string` | Page mode composer placeholder |
 | `sidebarButtonCountType` | `'total' \| 'unread'` | Badge count type |
 | `floatingMode` | `boolean` | Floating sidebar |
@@ -76,6 +79,28 @@ commentElement.on('commentSidebarDataUpdate').subscribe((event) => {
 | `currentLocationSuffix` | `string` | Custom location label (e.g., '(this page)') |
 | `excludeLocationIdsFromSidebar` | `number[]` | Hide specific locations |
 | `filterGhostCommentsInSidebar` | `boolean` | Hide ghost comments |
+
+**Edit Composer Placeholders:**
+
+Props set on the root `VeltComments` container propagate automatically to all dialogs. Priority order: `editCommentPlaceholder` / `editReplyPlaceholder` > `editPlaceholder` > existing `commentPlaceholder` / `replyPlaceholder` > SDK defaults.
+
+```jsx
+// React — set on root VeltComments; propagates to all dialogs automatically
+<VeltComments
+  editPlaceholder="Edit your message…"
+  editCommentPlaceholder="Edit the original comment…"
+  editReplyPlaceholder="Edit your reply…"
+/>
+```
+
+```html
+<!-- HTML -->
+<velt-comments
+  edit-placeholder="Edit your message…"
+  edit-comment-placeholder="Edit the original comment…"
+  edit-reply-placeholder="Edit your reply…"
+></velt-comments>
+```
 
 **Verification:**
 - [ ] Sidebar data set before user opens sidebar
