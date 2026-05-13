@@ -67,10 +67,12 @@ Rules are organized into category folders under `rules/`.
 **Description:** Collaborative code editing with CodeMirror. Covers yCollab wiring and both React and vanilla setups.
 
 **Rules:**
-- `codemirror-install` - Install CodeMirror packages
-- `codemirror-setup-react` - useVeltCodeMirrorCrdtExtension (React)
-- `codemirror-setup-vanilla` - createVeltCodeMirrorStore (non-React)
-- `codemirror-ycollab` - Wire yCollab extension
+- `codemirror-install` - Install CodeMirror packages (v2: adds `@veltdev/codemirror-crdt` core, `@veltdev/types`, `@codemirror/view`, `yjs`)
+- `codemirror-setup-react` - useVeltCodeMirrorCrdtExtension (React, v1 — deprecated; see `codemirror-v1-to-v2-migration`)
+- `codemirror-setup-vanilla` - createVeltCodeMirrorStore (non-React, v1 — deprecated; see `codemirror-v1-to-v2-migration`)
+- `codemirror-collaboration-manager` - v2 `useCollaboration` / `createCollaboration` + `CollaborationManager` API (status, sync, versions, Yjs escape hatches)
+- `codemirror-v1-to-v2-migration` - Migrate from `useVeltCodeMirrorCrdtExtension` / `createVeltCodeMirrorStore` to v2
+- `codemirror-ycollab` - Wire yCollab extension with v2 `primitives`
 - `codemirror-editor-id` - Unique editorId
 - `codemirror-testing` - Test collaboration
 

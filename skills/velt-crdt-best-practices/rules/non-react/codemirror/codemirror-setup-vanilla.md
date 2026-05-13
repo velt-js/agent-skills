@@ -1,13 +1,15 @@
 ---
-title: Use createVeltCodeMirrorStore for Non-React CodeMirror
-impact: CRITICAL
-impactDescription: Required for CodeMirror CRDT in vanilla JS
-tags: codemirror, vanilla, createVeltCodeMirrorStore
+title: Use createVeltCodeMirrorStore for Non-React CodeMirror (v1 — DEPRECATED)
+impact: LOW
+impactDescription: v1 API retained for backwards-compatibility only. New integrations must use the v2 createCollaboration entry point (see codemirror-collaboration-manager.md and codemirror-v1-to-v2-migration.md).
+tags: codemirror, vanilla, createVeltCodeMirrorStore, deprecated, v1
 ---
 
-## Use createVeltCodeMirrorStore for Non-React CodeMirror
+## Use createVeltCodeMirrorStore for Non-React CodeMirror (v1 — DEPRECATED)
 
-For vanilla JS, Vue, or Angular, use `createVeltCodeMirrorStore` to create the CRDT store.
+> **DEPRECATED:** This rule documents the v1 non-React CodeMirror CRDT API and is retained for backwards-compatibility reference only. **New integrations must use `createCollaboration` from `@veltdev/codemirror-crdt`** — see `rules/shared/codemirror/codemirror-collaboration-manager.md` for the canonical v2 pattern (which covers both React and non-React) and `rules/shared/codemirror/codemirror-v1-to-v2-migration.md` for the migration table.
+
+For vanilla JS, Vue, or Angular, the v1 API uses `createVeltCodeMirrorStore` to create the CRDT store.
 
 **Correct (vanilla JS implementation):**
 
@@ -82,4 +84,4 @@ store.destroy();
 - [ ] `yCollab` wired with store's Yjs objects
 - [ ] `store.destroy()` called on cleanup
 
-**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror` (### Step 3: Initialize Velt CRDT Extension > Other Frameworks)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror` (## Legacy API (v1) > Non-React: createVeltCodeMirrorCrdtExtension() (deprecated))

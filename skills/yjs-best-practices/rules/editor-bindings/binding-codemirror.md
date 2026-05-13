@@ -84,6 +84,22 @@ ydoc.destroy()
 - [ ] User info is set on awareness with `name`, `color`, and `colorLight`
 - [ ] Editor view and providers are destroyed on cleanup
 
+### Using a Wrapped Integration (e.g., Velt CRDT v2)
+
+Higher-level wrappers (such as `@veltdev/codemirror-crdt(-react)` v2) hide the Yjs and `y-codemirror.next` plumbing behind a single `CollaborationManager` plus a `primitives` object you pass into `yCollab()`. The Yjs primitives are still there — they are exposed as escape hatches on the manager so that Yjs-level tooling (custom CodeMirror plugins, snapshots, awareness debugging, persistence providers) still works:
+
+```js
+// With @veltdev/codemirror-crdt v2 — the manager wraps Y.Text + a network provider.
+const doc        = manager.getDoc();         // Y.Doc
+const ytext      = manager.getYText();       // Y.Text | null (CodeMirror content root)
+const awareness  = manager.getAwareness();   // Awareness (Yjs awareness protocol)
+const provider   = manager.getProvider();    // network provider (sync)
+const undoMgr    = manager.getUndoManager(); // Y.UndoManager | null
+```
+
+When working with these wrappers, the same Yjs rules apply: use `Y.Text` (not `Y.XmlFragment`) — the wrapper already binds the correct shared type — do not construct a second `Y.Doc` for the same editor, and reach for the Yjs primitives only when the wrapper's high-level API (status, sync, versions, primitives passed into `yCollab`) is insufficient.
+
 ## Source
 
 - https://docs.yjs.dev/ecosystem/editor-bindings/codemirror.next
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror (wrapped Yjs + CodeMirror integration)

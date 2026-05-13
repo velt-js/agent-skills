@@ -1,13 +1,15 @@
 ---
-title: Wire yCollab Extension with Store's Yjs Objects
+title: Wire yCollab Extension with the v2 CollaborationPrimitives
 impact: CRITICAL
 impactDescription: Required for text sync and collaborative cursors
-tags: codemirror, yCollab, yjs, awareness
+tags: codemirror, yCollab, yjs, awareness, primitives, useCollaboration, createCollaboration
 ---
 
-## Wire yCollab Extension with Store's Yjs Objects
+## Wire yCollab Extension with the v2 CollaborationPrimitives
 
-The `yCollab` extension from `y-codemirror.next` connects CodeMirror to Yjs. You MUST pass the store's YText, Awareness, and UndoManager.
+The `yCollab` extension from `y-codemirror.next` connects CodeMirror to Yjs. You MUST pass the Y.Text, Awareness, and UndoManager produced by the Velt CRDT v2 manager — never a separately constructed `Y.Doc`.
+
+In React, `useCollaboration` returns these as `primitives` (`primitives.ytext`, `primitives.awareness`, `primitives.undoManager`). In non-React, call `manager.getCollaborationPrimitives()` to get the same shape.
 
 **Incorrect (missing yCollab):**
 
@@ -17,48 +19,79 @@ const startState = EditorState.create({
 });
 ```
 
-**Incorrect (wrong Yjs objects):**
+**Incorrect (constructing a fresh Y.Doc):**
 
 ```js
 import * as Y from 'yjs';
-const ydoc = new Y.Doc();  // Creating new doc instead of using store's
+const ydoc = new Y.Doc();  // Bypasses the manager's sync provider
 
 const startState = EditorState.create({
   extensions: [
     basicSetup,
-    yCollab(ydoc.getText(), ...),  // Wrong - won't sync with Velt
+    yCollab(ydoc.getText(), null, {}),  // Won't sync with Velt
   ],
 });
 ```
 
-**Correct (using store's Yjs objects):**
+**Correct (React — wire `primitives` from `useCollaboration`):**
+
+```tsx
+import { useCollaboration } from '@veltdev/codemirror-crdt-react';
+import { EditorState } from '@codemirror/state';
+import { EditorView, basicSetup } from 'codemirror';
+import { yCollab } from 'y-codemirror.next';
+
+const { primitives } = useCollaboration({ editorId: 'my-codemirror-editor' });
+
+if (primitives?.ytext) {
+  const startState = EditorState.create({
+    doc: primitives.ytext.toString(),
+    extensions: [
+      basicSetup,
+      yCollab(
+        primitives.ytext,        // Y.Text from the manager
+        primitives.awareness,    // Awareness (for cursors)
+        { undoManager: primitives.undoManager } // collaborative undo
+      ),
+    ],
+  });
+}
+```
+
+**Correct (non-React — wire primitives from `manager.getCollaborationPrimitives()`):**
 
 ```js
+import { createCollaboration } from '@veltdev/codemirror-crdt';
+
+const manager = await createCollaboration({
+  editorId: 'my-codemirror-editor',
+  veltClient: client,
+});
+
+const { ytext, awareness, undoManager } = manager.getCollaborationPrimitives();
+
 const startState = EditorState.create({
-  doc: store.getYText()?.toString() ?? '',
+  doc: ytext.toString(),
   extensions: [
     basicSetup,
-    yCollab(
-      store.getYText()!,        // Store's Y.Text
-      store.getAwareness(),     // Store's Awareness (for cursors)
-      { undoManager: store.getUndoManager() }  // Store's UndoManager
-    ),
+    yCollab(ytext, awareness, { undoManager }),
   ],
 });
 ```
 
-**What each provides:**
+**What each primitive provides:**
 
-| Object | Purpose |
-|--------|---------|
-| `getYText()` | Shared text content (Y.Text) |
-| `getAwareness()` | Cursor positions, user presence |
-| `getUndoManager()` | Collaborative undo/redo |
+| Primitive | Source | Purpose |
+|---|---|---|
+| `ytext` | `primitives.ytext` / `manager.getYText()` | Shared text content (`Y.Text`) bound to the document |
+| `awareness` | `primitives.awareness` / `manager.getAwareness()` | Cursor positions, user presence |
+| `undoManager` | `primitives.undoManager` / `manager.getUndoManager()` | Collaborative undo/redo (local-only edits) |
+| `doc` | `primitives.doc` / `manager.getDoc()` | Underlying `Y.Doc` (advanced) |
 
 **Verification:**
 - [ ] `yCollab` in extensions array
-- [ ] Uses store's `getYText()`, not a new Y.Doc
+- [ ] Uses `primitives.ytext` / `manager.getYText()` — not a freshly constructed `Y.Doc`
 - [ ] Awareness passed for cursor support
 - [ ] UndoManager passed for collaborative undo
 
-**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror` (## Notes > **Use yCollab**: Pass the store's Yjs text, awareness, and undo manager)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror` (### Step 3; ### CollaborationPrimitives)

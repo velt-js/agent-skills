@@ -1,5 +1,5 @@
 # Velt Crdt Best Practices
-|v2.0.1|Velt|January 2026
+|v2.0.2|Velt|January 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
 |root: ./rules
 
@@ -18,7 +18,7 @@
 
 ## 4. CodeMirror Integration — HIGH
 |react/codemirror:{codemirror-setup-react.md}
-|shared/codemirror:{codemirror-install.md,codemirror-testing.md,codemirror-editor-id.md,codemirror-ycollab.md}
+|shared/codemirror:{codemirror-install.md,codemirror-v1-to-v2-migration.md,codemirror-testing.md,codemirror-collaboration-manager.md,codemirror-editor-id.md,codemirror-ycollab.md}
 |non-react/codemirror:{codemirror-setup-vanilla.md}
 
 ## 5. ReactFlow Integration — HIGH

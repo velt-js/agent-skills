@@ -1,6 +1,6 @@
 # Yjs Best Practices
 
-**Version 1.1.0**  
+**Version 1.1.1**  
 Velt  
 May 2026
 
@@ -1471,4 +1471,5 @@ console.log(ytext.toString()) // "Hello from tab 1"
 - https://docs.yjs.dev
 - https://github.com/yjs/yjs
 - https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror
 - https://docs.velt.dev

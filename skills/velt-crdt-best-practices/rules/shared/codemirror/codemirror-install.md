@@ -12,24 +12,28 @@ Install the Velt CodeMirror CRDT packages plus `y-codemirror.next` for Yjs integ
 **Correct (React / Next.js):**
 
 ```bash
-npm install @veltdev/codemirror-crdt-react @veltdev/react
+npm install @veltdev/codemirror-crdt-react @veltdev/codemirror-crdt @veltdev/react @veltdev/types codemirror @codemirror/state @codemirror/view y-codemirror.next yjs
 ```
 
 **Correct (Other Frameworks):**
 
 ```bash
-npm install @veltdev/codemirror-crdt @veltdev/client y-codemirror.next
+npm install @veltdev/codemirror-crdt @veltdev/client codemirror @codemirror/state y-codemirror.next yjs
 ```
 
 **Package Reference:**
 
 | Package | Purpose |
 |---------|---------|
-| `@veltdev/codemirror-crdt-react` | React hook for CodeMirror CRDT |
-| `@veltdev/codemirror-crdt` | Core CodeMirror CRDT (non-React) |
-| `y-codemirror.next` | Yjs CodeMirror bindings |
+| `@veltdev/codemirror-crdt-react` | React hook (`useCollaboration`) for CodeMirror CRDT |
+| `@veltdev/codemirror-crdt` | Core CodeMirror CRDT (`createCollaboration`, `CollaborationManager`) |
+| `@veltdev/react` / `@veltdev/client` | Velt SDK (React provider / non-React client) |
+| `@veltdev/types` | TypeScript types for the Velt SDK (React projects) |
+| `y-codemirror.next` | Yjs CodeMirror bindings (`yCollab`) |
+| `yjs` | Yjs CRDT runtime |
 | `codemirror` | CodeMirror editor |
 | `@codemirror/state` | CodeMirror state |
+| `@codemirror/view` | CodeMirror view (React install) |
 
 **Verification:**
 - [ ] All packages in package.json

@@ -13,20 +13,24 @@ Each CodeMirror editor must have a unique `editorId`. Reusing IDs causes code fr
 
 ```tsx
 // file1.tsx
-const { store } = useVeltCodeMirrorCrdtExtension({ editorId: 'code' });
+const { primitives } = useCollaboration({ editorId: 'code' });
 
 // file2.tsx
-const { store } = useVeltCodeMirrorCrdtExtension({ editorId: 'code' });
+const { primitives } = useCollaboration({ editorId: 'code' });
 // Content will merge between files!
 ```
 
-**Correct (unique ID per file/editor):**
+**Correct (unique ID per file/editor — v2 hook):**
 
 ```tsx
-const { store } = useVeltCodeMirrorCrdtExtension({
+import { useCollaboration } from '@veltdev/codemirror-crdt-react';
+
+const { primitives, manager } = useCollaboration({
   editorId: `code-${fileId}`,  // Unique per file
 });
 ```
+
+The same rule applies to the deprecated v1 hook `useVeltCodeMirrorCrdtExtension` and the deprecated non-React `createVeltCodeMirrorStore` — every editor instance, regardless of API version, needs a unique `editorId`.
 
 **EditorId Strategies:**
 
