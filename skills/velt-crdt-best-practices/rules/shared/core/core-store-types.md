@@ -43,8 +43,8 @@ const store = await createVeltStore<{ theme: string; fontSize: number }>({
 **Correct (text type for collaborative text):**
 
 ```tsx
-const { value, update } = useVeltCrdtStore<string>({
-  id: 'note',
+const { value, update } = useStore<string>({
+  storeId: 'note',
   type: 'text',
   initialValue: '',
 });
@@ -55,8 +55,8 @@ return <textarea value={value ?? ''} onChange={(e) => update(e.target.value)} />
 **Correct (array type for lists):**
 
 ```tsx
-const { value, update } = useVeltCrdtStore<string[]>({
-  id: 'todo-list',
+const { value, update } = useStore<string[]>({
+  storeId: 'todo-list',
   type: 'array',
   initialValue: [],
 });
@@ -67,4 +67,13 @@ const { value, update } = useVeltCrdtStore<string[]>({
 - [ ] Concurrent edits merge as expected
 - [ ] Type is consistent across all clients for the same store ID
 
-**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (type: 'text', // 'array' | 'map' | 'text' | 'xml')
+**Type-specific setup guides:**
+
+Each store type has a dedicated setup page with read/update patterns and Yjs-primitive escape hatches. The full `type` union in v2 is `'text' | 'map' | 'array' | 'xml' | 'xmltext'`.
+
+- Array → `https://docs.velt.dev/realtime-collaboration/crdt/setup/core-stores/array` (Y.Array)
+- Map → `https://docs.velt.dev/realtime-collaboration/crdt/setup/core-stores/map` (Y.Map)
+- Text → `https://docs.velt.dev/realtime-collaboration/crdt/setup/core-stores/text` (Y.Text)
+- XML → `https://docs.velt.dev/realtime-collaboration/crdt/setup/core-stores/xml` (Y.XmlFragment)
+
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Step 3: Choose a store type)

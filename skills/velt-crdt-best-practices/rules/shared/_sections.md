@@ -13,8 +13,10 @@ Rules are organized into category folders under `rules/`.
 **Rules:**
 - `core-install` - Install correct packages
 - `core-velt-init` - Initialize Velt client
-- `core-store-create-react` - useVeltCrdtStore hook (React)
-- `core-store-create-vanilla` - createVeltStore (non-React)
+- `core-store-v2-api` - **v2** `useStore<T>` + `useAwareness` React hooks; `createVeltStore` v2 config surface (`forceResetInitialContent`, `contentKey`, `userId`, `collection`, `logLevel`); status/sync/error reactivity
+- `core-v1-to-v2-migration` - Migrate from `useVeltCrdtStore` to `useStore` (id → storeId, new status/sync/error/onError, `useAwareness` hook)
+- `core-store-create-react` - useVeltCrdtStore hook (React, v1 — deprecated; see `core-v1-to-v2-migration`)
+- `core-store-create-vanilla` - createVeltStore (non-React; entry point unchanged in v2 — new optional config fields documented in `core-store-v2-api`)
 - `core-store-types` - Choose correct store type
 - `core-store-subscribe` - Subscribe to changes
 - `core-store-update` - Update store values

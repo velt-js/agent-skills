@@ -15,7 +15,7 @@ CRDT stores require a properly initialized Velt client. React apps must wrap wit
 // React - missing VeltProvider
 function App() {
   // This will fail - no Velt client available
-  const { store } = useVeltCrdtStore({ id: 'note', type: 'text' });
+  const { store } = useStore({ storeId: 'note', type: 'text' });
   return <div>{/* ... */}</div>;
 }
 ```
@@ -35,7 +35,7 @@ function App() {
 
 function CollaborativeEditor() {
   // Now works - VeltProvider initialized the client
-  const { store } = useVeltCrdtStore({ id: 'note', type: 'text' });
+  const { store } = useStore({ storeId: 'note', type: 'text' });
   return <div>{/* ... */}</div>;
 }
 ```

@@ -21,10 +21,10 @@ const value = store.getValue(); // Only gets current value once
 
 ```tsx
 import { useEffect } from 'react';
-import { useVeltCrdtStore } from '@veltdev/crdt-react';
+import { useStore } from '@veltdev/crdt-react';
 
 function Editor() {
-  const { value } = useVeltCrdtStore<string>({ id: 'my-collab-note', type: 'text' });
+  const { value } = useStore<string>({ storeId: 'my-collab-note', type: 'text' });
 
   useEffect(() => {
     console.log('Updated value:', value);

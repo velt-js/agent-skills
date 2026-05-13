@@ -7,7 +7,7 @@ tags: crdt, store, lifecycle, cleanup, destroy
 
 ## Manage CRDT Store Lifecycle and Cleanup with destroy()
 
-In non-React frameworks, you must manually call `store.destroy()` to clean up resources and listeners when done with a CRDT store. In React, the `useVeltCrdtStore` hook handles cleanup automatically on unmount. The store also exposes Yjs-level accessors (`getDoc()`, `getProvider()`, `getText()`, `getXml()`) for advanced integrations.
+In non-React frameworks, you must manually call `store.destroy()` to clean up resources and listeners when done with a CRDT store. In React, the `useStore` hook handles cleanup automatically on unmount. The store also exposes Yjs-level accessors (`getDoc()`, `getProvider()`, `getText()`, `getXml()`) for advanced integrations.
 
 **Incorrect (no cleanup in non-React frameworks):**
 
@@ -20,12 +20,12 @@ const store = await createVeltStore({ id: 'doc', type: 'text', veltClient });
 **Correct (React / Next.js — automatic cleanup via hook):**
 
 ```tsx
-import { useVeltCrdtStore } from '@veltdev/crdt-react';
+import { useStore } from '@veltdev/crdt-react';
 
 function Editor() {
   // Cleanup happens automatically when component unmounts
-  const { store, value } = useVeltCrdtStore<string>({
-    id: 'my-collab-note',
+  const { store, value } = useStore<string>({
+    storeId: 'my-collab-note',
     type: 'text',
   });
 
@@ -59,7 +59,7 @@ store.destroy();
 
 **Verification Checklist:**
 - [ ] `store.destroy()` called when store is no longer needed (non-React)
-- [ ] React apps use `useVeltCrdtStore` for automatic cleanup
+- [ ] React apps use `useStore` for automatic cleanup
 - [ ] Yjs accessors used only after store is initialized (non-null)
 
 **Source Pointers:**

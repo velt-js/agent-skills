@@ -13,7 +13,7 @@ Always use the store's `update()` method to modify values. Direct mutation bypas
 
 ```tsx
 function Editor() {
-  const { value } = useVeltCrdtStore<string>({ id: 'note', type: 'text' });
+  const { value } = useStore<string>({ storeId: 'note', type: 'text' });
 
   const handleChange = (e) => {
     // Direct assignment - other users won't see this
@@ -27,11 +27,11 @@ function Editor() {
 **Correct (React - using update from hook):**
 
 ```tsx
-import { useVeltCrdtStore } from '@veltdev/crdt-react';
+import { useStore } from '@veltdev/crdt-react';
 
 function Editor() {
-  const { value, update } = useVeltCrdtStore<string>({
-    id: 'my-collab-note',
+  const { value, update } = useStore<string>({
+    storeId: 'my-collab-note',
     type: 'text',
   });
 

@@ -1,14 +1,14 @@
 {
-  "version": "2.0.3",
+  "version": "2.1.0",
   "organization": "Velt",
   "date": "January 2026",
-  "abstract": "Comprehensive best practices guide for implementing real-time collaborative editing with Velt CRDT (Yjs). Contains 33 rules across 5 categories: Core CRDT (11 rules), Tiptap (7 rules), BlockNote (4 rules), CodeMirror (6 rules), and ReactFlow (5 rules). Each rule includes explanations, incorrect vs. correct code examples, verification checklists, and source pointers to official Velt documentation.",
+  "abstract": "Comprehensive best practices guide for implementing real-time collaborative editing with Velt CRDT (Yjs). Contains 35 rules across 5 categories: Core CRDT (13 rules), Tiptap (7 rules), BlockNote (4 rules), CodeMirror (6 rules), and ReactFlow (5 rules). Each rule includes explanations, incorrect vs. correct code examples, verification checklists, and source pointers to official Velt documentation.",
   "categories": [
     {
       "name": "Core CRDT",
       "folder": "core",
       "impact": "CRITICAL",
-      "rules": 11
+      "rules": 13
     },
     {
       "name": "Tiptap",
@@ -38,6 +38,10 @@
   "references": [
     "https://docs.velt.dev/realtime-collaboration/crdt/overview",
     "https://docs.velt.dev/realtime-collaboration/crdt/setup/core",
+    "https://docs.velt.dev/realtime-collaboration/crdt/setup/core-stores/array",
+    "https://docs.velt.dev/realtime-collaboration/crdt/setup/core-stores/map",
+    "https://docs.velt.dev/realtime-collaboration/crdt/setup/core-stores/text",
+    "https://docs.velt.dev/realtime-collaboration/crdt/setup/core-stores/xml",
     "https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap",
     "https://docs.velt.dev/realtime-collaboration/crdt/setup/blocknote",
     "https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror",

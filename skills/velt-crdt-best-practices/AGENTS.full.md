@@ -1,6 +1,6 @@
 # Velt Crdt Best Practices
 
-**Version 2.0.3**  
+**Version 2.1.0**  
 Velt  
 January 2026
 
@@ -14,7 +14,7 @@ January 2026
 
 ## Abstract
 
-Comprehensive best practices guide for implementing real-time collaborative editing with Velt CRDT (Yjs). Contains 33 rules across 5 categories: Core CRDT (11 rules), Tiptap (7 rules), BlockNote (4 rules), CodeMirror (6 rules), and ReactFlow (5 rules). Each rule includes explanations, incorrect vs. correct code examples, verification checklists, and source pointers to official Velt documentation.
+Comprehensive best practices guide for implementing real-time collaborative editing with Velt CRDT (Yjs). Contains 35 rules across 5 categories: Core CRDT (13 rules), Tiptap (7 rules), BlockNote (4 rules), CodeMirror (6 rules), and ReactFlow (5 rules). Each rule includes explanations, incorrect vs. correct code examples, verification checklists, and source pointers to official Velt documentation.
 
 ---
 
@@ -22,24 +22,26 @@ Comprehensive best practices guide for implementing real-time collaborative edit
 
 1. [Core CRDT](#1-core-crdt) — **CRITICAL**
    - 1.1 [Use useCrdtUtils() and useCrdtEventCallback() Hooks for CRDT Operations](#11-use-usecrdtutils-and-usecrdteventcallback-hooks-for-crdt-operations)
-   - 1.2 [Use useVeltCrdtStore Hook for React CRDT Stores](#12-use-useveltcrdtstore-hook-for-react-crdt-stores)
+   - 1.2 [Use useVeltCrdtStore Hook for React CRDT Stores (v1 — DEPRECATED)](#12-use-useveltcrdtstore-hook-for-react-crdt-stores-v1-deprecated)
    - 1.3 [Choose the Correct CRDT Store Type for Your Data](#13-choose-the-correct-crdt-store-type-for-your-data)
    - 1.4 [Initialize Velt Client Before Creating CRDT Stores](#14-initialize-velt-client-before-creating-crdt-stores)
    - 1.5 [Install Correct CRDT Packages for Your Framework](#15-install-correct-crdt-packages-for-your-framework)
    - 1.6 [Manage CRDT Store Lifecycle and Cleanup with destroy()](#16-manage-crdt-store-lifecycle-and-cleanup-with-destroy)
-   - 1.7 [Save Named Version Checkpoints for State Recovery](#17-save-named-version-checkpoints-for-state-recovery)
-   - 1.8 [Subscribe to CRDT updateData Events with Observable Pattern](#18-subscribe-to-crdt-updatedata-events-with-observable-pattern)
-   - 1.9 [Subscribe to Store Changes for Remote Updates](#19-subscribe-to-store-changes-for-remote-updates)
-   - 1.10 [Test Collaboration with Multiple Browser Profiles](#110-test-collaboration-with-multiple-browser-profiles)
-   - 1.11 [Use CrdtActivityActionTypes for Type-Safe Activity Filtering](#111-use-crdtactivityactiontypes-for-type-safe-activity-filtering)
-   - 1.12 [Use CrdtElement Message Stream for Yjs-Backed Collaborative Editors](#112-use-crdtelement-message-stream-for-yjs-backed-collaborative-editors)
-   - 1.13 [Use Custom Encryption Provider for Sensitive Data](#113-use-custom-encryption-provider-for-sensitive-data)
-   - 1.14 [Use REST APIs to Manage CRDT Data Server-Side](#114-use-rest-apis-to-manage-crdt-data-server-side)
-   - 1.15 [Use setActivityDebounceTime() to Control CRDT Activity Flush Frequency](#115-use-setactivitydebouncetime-to-control-crdt-activity-flush-frequency)
-   - 1.16 [Use update() Method to Modify Store Values](#116-use-update-method-to-modify-store-values)
-   - 1.17 [Use VeltCrdtStoreMap for Runtime Debugging](#117-use-veltcrdtstoremap-for-runtime-debugging)
-   - 1.18 [Use Webhooks to Listen for CRDT Data Changes](#118-use-webhooks-to-listen-for-crdt-data-changes)
-   - 1.19 [Use createVeltStore for Non-React CRDT Stores](#119-use-createveltstore-for-non-react-crdt-stores)
+   - 1.7 [Migrate Core CRDT Store Integrations from v1 to v2](#17-migrate-core-crdt-store-integrations-from-v1-to-v2)
+   - 1.8 [Save Named Version Checkpoints for State Recovery](#18-save-named-version-checkpoints-for-state-recovery)
+   - 1.9 [Subscribe to CRDT updateData Events with Observable Pattern](#19-subscribe-to-crdt-updatedata-events-with-observable-pattern)
+   - 1.10 [Subscribe to Store Changes for Remote Updates](#110-subscribe-to-store-changes-for-remote-updates)
+   - 1.11 [Test Collaboration with Multiple Browser Profiles](#111-test-collaboration-with-multiple-browser-profiles)
+   - 1.12 [Use CrdtActivityActionTypes for Type-Safe Activity Filtering](#112-use-crdtactivityactiontypes-for-type-safe-activity-filtering)
+   - 1.13 [Use CrdtElement Message Stream for Yjs-Backed Collaborative Editors](#113-use-crdtelement-message-stream-for-yjs-backed-collaborative-editors)
+   - 1.14 [Use Custom Encryption Provider for Sensitive Data](#114-use-custom-encryption-provider-for-sensitive-data)
+   - 1.15 [Use REST APIs to Manage CRDT Data Server-Side](#115-use-rest-apis-to-manage-crdt-data-server-side)
+   - 1.16 [Use setActivityDebounceTime() to Control CRDT Activity Flush Frequency](#116-use-setactivitydebouncetime-to-control-crdt-activity-flush-frequency)
+   - 1.17 [Use update() Method to Modify Store Values](#117-use-update-method-to-modify-store-values)
+   - 1.18 [Use useStore (v2) for Reactive CRDT Stores with Status, Sync, and Error State](#118-use-usestore-v2-for-reactive-crdt-stores-with-status-sync-and-error-state)
+   - 1.19 [Use VeltCrdtStoreMap for Runtime Debugging](#119-use-veltcrdtstoremap-for-runtime-debugging)
+   - 1.20 [Use Webhooks to Listen for CRDT Data Changes](#120-use-webhooks-to-listen-for-crdt-data-changes)
+   - 1.21 [Use createVeltStore for Non-React CRDT Stores](#121-use-createveltstore-for-non-react-crdt-stores)
 
 2. [Tiptap Integration](#2-tiptap-integration) — **CRITICAL**
    - 2.1 [Load Tiptap Editor with SSR Disabled in Next.js](#21-load-tiptap-editor-with-ssr-disabled-in-nextjs)
@@ -159,11 +161,13 @@ export function CrdtEventListener() {
 
 ---
 
-### 1.2 Use useVeltCrdtStore Hook for React CRDT Stores
+### 1.2 Use useVeltCrdtStore Hook for React CRDT Stores (v1 — DEPRECATED)
 
-**Impact: CRITICAL (Provides reactive store with automatic cleanup)**
+**Impact: LOW (v1 API retained for backwards-compatibility only. New integrations must use the v2 useStore hook (see core-store-v2-api.md and core-v1-to-v2-migration.md).)**
 
-In React, use `useVeltCrdtStore` for automatic lifecycle management. The hook handles subscriptions, updates, and cleanup on unmount.
+> **DEPRECATED:** This rule documents the v1 React CRDT store hook and is retained for backwards-compatibility reference only. **New integrations must use `useStore` from `@veltdev/crdt-react`** — see `rules/shared/core/core-store-v2-api.md` for the canonical v2 pattern and `rules/shared/core/core-v1-to-v2-migration.md` for the migration table. The v1 `useVeltCrdtStore` hook internally delegates to v2 `useStore` via a compatibility wrapper.
+
+In React, the v1 API uses `useVeltCrdtStore` for automatic lifecycle management. The hook handles subscriptions, updates, and cleanup on unmount — but **does not surface** `isLoading`, `isSynced`, `status`, or `error` reactive state; those are only available in the v2 `useStore` hook.
 
 **Incorrect (manual store creation in React):**
 
@@ -182,7 +186,7 @@ function Editor() {
 }
 ```
 
-**Correct (useVeltCrdtStore hook):**
+**Correct (v1 useVeltCrdtStore hook — deprecated; prefer v2 useStore):**
 
 ```tsx
 import { useVeltCrdtStore } from '@veltdev/crdt-react';
@@ -203,7 +207,7 @@ function Editor() {
 }
 ```
 
-Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Step 3: Initialize a CRDT store > React / Next.js)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (## Legacy API (v1) > useVeltCrdtStore() (deprecated))
 
 ---
 
@@ -238,8 +242,8 @@ const store = await createVeltStore<{ theme: string; fontSize: number }>({
 **Correct (text type for collaborative text):**
 
 ```tsx
-const { value, update } = useVeltCrdtStore<string>({
-  id: 'note',
+const { value, update } = useStore<string>({
+  storeId: 'note',
   type: 'text',
   initialValue: '',
 });
@@ -250,14 +254,14 @@ return <textarea value={value ?? ''} onChange={(e) => update(e.target.value)} />
 **Correct (array type for lists):**
 
 ```tsx
-const { value, update } = useVeltCrdtStore<string[]>({
-  id: 'todo-list',
+const { value, update } = useStore<string[]>({
+  storeId: 'todo-list',
   type: 'array',
   initialValue: [],
 });
 ```
 
-Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (type: 'text', // 'array' | 'map' | 'text' | 'xml')
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Step 3: Choose a store type)
 
 ---
 
@@ -273,7 +277,7 @@ CRDT stores require a properly initialized Velt client. React apps must wrap wit
 // React - missing VeltProvider
 function App() {
   // This will fail - no Velt client available
-  const { store } = useVeltCrdtStore({ id: 'note', type: 'text' });
+  const { store } = useStore({ storeId: 'note', type: 'text' });
   return <div>{/* ... */}</div>;
 }
 ```
@@ -293,7 +297,7 @@ function App() {
 
 function CollaborativeEditor() {
   // Now works - VeltProvider initialized the client
-  const { store } = useVeltCrdtStore({ id: 'note', type: 'text' });
+  const { store } = useStore({ storeId: 'note', type: 'text' });
   return <div>{/* ... */}</div>;
 }
 ```
@@ -352,7 +356,7 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (## Se
 
 **Impact: MEDIUM (Prevents memory leaks and stale listeners when stores are no longer needed)**
 
-In non-React frameworks, you must manually call `store.destroy()` to clean up resources and listeners when done with a CRDT store. In React, the `useVeltCrdtStore` hook handles cleanup automatically on unmount. The store also exposes Yjs-level accessors (`getDoc()`, `getProvider()`, `getText()`, `getXml()`) for advanced integrations.
+In non-React frameworks, you must manually call `store.destroy()` to clean up resources and listeners when done with a CRDT store. In React, the `useStore` hook handles cleanup automatically on unmount. The store also exposes Yjs-level accessors (`getDoc()`, `getProvider()`, `getText()`, `getXml()`) for advanced integrations.
 
 **Incorrect (no cleanup in non-React frameworks):**
 
@@ -365,12 +369,12 @@ const store = await createVeltStore({ id: 'doc', type: 'text', veltClient });
 **Correct (React / Next.js — automatic cleanup via hook):**
 
 ```tsx
-import { useVeltCrdtStore } from '@veltdev/crdt-react';
+import { useStore } from '@veltdev/crdt-react';
 
 function Editor() {
   // Cleanup happens automatically when component unmounts
-  const { store, value } = useVeltCrdtStore<string>({
-    id: 'my-collab-note',
+  const { store, value } = useStore<string>({
+    storeId: 'my-collab-note',
     type: 'text',
   });
 
@@ -395,7 +399,107 @@ store.destroy();
 
 ---
 
-### 1.7 Save Named Version Checkpoints for State Recovery
+### 1.7 Migrate Core CRDT Store Integrations from v1 to v2
+
+**Impact: HIGH (v1 useVeltCrdtStore (React) is deprecated; v2 useStore is required for new integrations. Non-React createVeltStore retains its entry-point name but gains new config fields.)**
+
+The v1 React hook `useVeltCrdtStore` (from `@veltdev/crdt-react`) is deprecated and remains exported only for backwards-compatibility (it internally delegates to v2 `useStore` via a wrapper). All new React integrations must use `useStore`. The non-React `createVeltStore` (`@veltdev/crdt`) keeps the same entry-point name but its `StoreConfig` gains new v2 fields (`forceResetInitialContent`, `contentKey`, `userId`, `collection`, `logLevel`). When editing existing user code, migrate the call sites; do not leave v1 and v2 interleaved.
+
+### React: v1 → v2
+
+| Aspect | v1 (deprecated) | v2 (current) |
+|---|---|---|
+| Entry point | `useVeltCrdtStore(config)` | `useStore(config)` |
+| Store ID field | `id` | `storeId` |
+| Status tracking | Not available | `isLoading`, `isSynced`, `status` |
+| Error handling | Not available | `onError` callback + `error` reactive field |
+| Force reset | Not available | `forceResetInitialContent: boolean` |
+| Type union | `'text' \| 'array' \| 'map' \| 'xml'` | adds `'xmltext'` |
+| Awareness access | `store.getAwareness()` | `useAwareness(store)` reactive hook |
+| Version management | `value, versions, saveVersion, getVersions, getVersionById, restoreVersion, setStateFromVersion` | Same names — surface unchanged |
+| Cleanup | Automatic on unmount | Automatic on unmount |
+
+**Incorrect (v1 — deprecated):**
+
+```tsx
+import { useVeltCrdtStore } from '@veltdev/crdt-react';
+
+const { value, update, store, versions, saveVersion } = useVeltCrdtStore<string>({
+  id: 'my-collab-note',         // v2: storeId
+  type: 'text',
+  initialValue: 'Hello, world!',
+  debounceMs: 100,
+});
+
+// No way to gate UI on loading / sync / error in v1
+return <textarea value={value ?? ''} onChange={(e) => update(e.target.value)} />;
+```
+
+**Correct (v2):**
+
+```tsx
+import { useStore, useAwareness } from '@veltdev/crdt-react';
+
+const {
+  value, update, store,
+  isLoading, isSynced, status, error,
+  versions, saveVersion,
+} = useStore<string>({
+  storeId: 'my-collab-note',
+  type: 'text',
+  initialValue: 'Hello, world!',
+  debounceMs: 100,
+  onError: (err) => console.error(err),
+});
+
+const { remoteStates, localState, setLocalState } = useAwareness(store);
+
+if (error) return <div>Error: {error.message}</div>;
+if (isLoading) return <div>Connecting... ({status})</div>;
+
+return <textarea value={value ?? ''} onChange={(e) => update(e.target.value)} />;
+```
+
+`createVeltStore` keeps the same entry-point and signature shape. v2 adds the following `StoreConfig` fields, all optional:
+| Field | Type | Notes |
+|---|---|---|
+| `forceResetInitialContent` | `boolean` | If `true`, always reset to `initialValue` on init (template flows). Default `false`. |
+| `contentKey` | `string` | Yjs shared-type content key. Default `'content'`. |
+| `userId` | `string` | Update attribution. |
+| `collection` | `string` | Document grouping namespace. |
+| `logLevel` | `'silent' \| 'error' \| 'warn' \| 'debug'` | Default `'error'`. |
+Existing v1 call sites continue to work without changes — no migration is forced. Adopt the new fields opportunistically.
+
+**Example (v2 createVeltStore with new fields):**
+
+```js
+import { createVeltStore } from '@veltdev/crdt';
+
+const store = await createVeltStore({
+  id: 'my-array-store',
+  type: 'array',
+  initialValue: [{ id: '1', name: 'First item' }],
+  veltClient: client,
+  // v2 additions:
+  forceResetInitialContent: false,
+  contentKey: 'content',
+  logLevel: 'warn',
+});
+```
+
+- [ ] All `useVeltCrdtStore` imports replaced with `useStore` from `@veltdev/crdt-react`
+- [ ] All `id` config fields renamed to `storeId` (React only)
+- [ ] UI now gates on `isLoading` / `error` / `status` before reading `value`
+- [ ] `onError` callback wired for production code
+- [ ] Awareness reads use `useAwareness(store)` in React (not `store.getAwareness()` directly)
+- [ ] `forceResetInitialContent` adopted in template/onboarding flows where v1 had to delete-and-recreate
+- [ ] Non-React `createVeltStore` call sites reviewed for opportunistic adoption of new fields (`contentKey`, `logLevel`, etc.)
+
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (## Migration Guide: v1 to v2; ## Legacy API (v1))
+
+---
+
+### 1.8 Save Named Version Checkpoints for State Recovery
 
 **Impact: MEDIUM-HIGH (Enables rollback to known good states)**
 
@@ -404,11 +508,11 @@ Use `saveVersion()` to create named checkpoints that can be restored later. Usef
 **Correct (React - saving versions):**
 
 ```tsx
-import { useVeltCrdtStore } from '@veltdev/crdt-react';
+import { useStore } from '@veltdev/crdt-react';
 
 function Editor() {
   const { saveVersion, getVersions, setStateFromVersion } =
-    useVeltCrdtStore<string>({ id: 'my-collab-note', type: 'text' });
+    useStore<string>({ storeId: 'my-collab-note', type: 'text' });
 
   async function handleSave() {
     const versionId = await saveVersion('User checkpoint');
@@ -457,7 +561,7 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### S
 
 ---
 
-### 1.8 Subscribe to CRDT updateData Events with Observable Pattern
+### 1.9 Subscribe to CRDT updateData Events with Observable Pattern
 
 **Impact: HIGH (Enables real-time reactions to CRDT data changes on the client side)**
 
@@ -566,7 +670,7 @@ interface CrdtUpdateDataPayload {
 
 ---
 
-### 1.9 Subscribe to Store Changes for Remote Updates
+### 1.10 Subscribe to Store Changes for Remote Updates
 
 **Impact: HIGH (Enables real-time collaboration visibility)**
 
@@ -584,10 +688,10 @@ const value = store.getValue(); // Only gets current value once
 
 ```tsx
 import { useEffect } from 'react';
-import { useVeltCrdtStore } from '@veltdev/crdt-react';
+import { useStore } from '@veltdev/crdt-react';
 
 function Editor() {
-  const { value } = useVeltCrdtStore<string>({ id: 'my-collab-note', type: 'text' });
+  const { value } = useStore<string>({ storeId: 'my-collab-note', type: 'text' });
 
   useEffect(() => {
     console.log('Updated value:', value);
@@ -627,7 +731,7 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### S
 
 ---
 
-### 1.10 Test Collaboration with Multiple Browser Profiles
+### 1.11 Test Collaboration with Multiple Browser Profiles
 
 **Impact: LOW (Catches sync issues before production)**
 
@@ -652,7 +756,7 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (## 
 
 ---
 
-### 1.11 Use CrdtActivityActionTypes for Type-Safe Activity Filtering
+### 1.12 Use CrdtActivityActionTypes for Type-Safe Activity Filtering
 
 **Impact: MEDIUM (Eliminates raw-string action type errors when filtering CRDT activities)**
 
@@ -713,7 +817,7 @@ const subscription = activityElement.getAllActivities({
 
 ---
 
-### 1.12 Use CrdtElement Message Stream for Yjs-Backed Collaborative Editors
+### 1.13 Use CrdtElement Message Stream for Yjs-Backed Collaborative Editors
 
 **Impact: HIGH (Enables low-latency Yjs sync and awareness over a single Firebase RTDB channel with built-in encryption and snapshot-based pruning)**
 
@@ -835,7 +939,7 @@ interface CrdtPushMessageQuery {
 
 ---
 
-### 1.13 Use Custom Encryption Provider for Sensitive Data
+### 1.14 Use Custom Encryption Provider for Sensitive Data
 
 **Impact: MEDIUM (Protects collaborative data at rest)**
 
@@ -910,7 +1014,7 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (## AP
 
 ---
 
-### 1.14 Use REST APIs to Manage CRDT Data Server-Side
+### 1.15 Use REST APIs to Manage CRDT Data Server-Side
 
 **Impact: HIGH (Access, create, and update collaborative editor data from backend services)**
 
@@ -998,7 +1102,7 @@ interface CrdtDataObject {
 
 ---
 
-### 1.15 Use setActivityDebounceTime() to Control CRDT Activity Flush Frequency
+### 1.16 Use setActivityDebounceTime() to Control CRDT Activity Flush Frequency
 
 **Impact: MEDIUM (Prevents excessive activity records from batched editor keystrokes)**
 
@@ -1044,7 +1148,7 @@ crdtElement.setActivityDebounceTime(30000);
 
 ---
 
-### 1.16 Use update() Method to Modify Store Values
+### 1.17 Use update() Method to Modify Store Values
 
 **Impact: HIGH (Ensures changes sync to all collaborators)**
 
@@ -1054,7 +1158,7 @@ Always use the store's `update()` method to modify values. Direct mutation bypas
 
 ```tsx
 function Editor() {
-  const { value } = useVeltCrdtStore<string>({ id: 'note', type: 'text' });
+  const { value } = useStore<string>({ storeId: 'note', type: 'text' });
 
   const handleChange = (e) => {
     // Direct assignment - other users won't see this
@@ -1068,11 +1172,11 @@ function Editor() {
 **Correct (React - using update from hook):**
 
 ```tsx
-import { useVeltCrdtStore } from '@veltdev/crdt-react';
+import { useStore } from '@veltdev/crdt-react';
 
 function Editor() {
-  const { value, update } = useVeltCrdtStore<string>({
-    id: 'my-collab-note',
+  const { value, update } = useStore<string>({
+    storeId: 'my-collab-note',
     type: 'text',
   });
 
@@ -1101,7 +1205,153 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### S
 
 ---
 
-### 1.17 Use VeltCrdtStoreMap for Runtime Debugging
+### 1.18 Use useStore (v2) for Reactive CRDT Stores with Status, Sync, and Error State
+
+**Impact: CRITICAL (v2 useStore hook is the canonical entry point; without it, you lose status/sync/error reactivity and forceResetInitialContent, and your code stays pinned to deprecated v1 surface)**
+
+In v2 of `@veltdev/crdt-react`, `useStore<T>` is the canonical React hook for creating a CRDT store. It replaces the v1 `useVeltCrdtStore` hook and surfaces reactive `isLoading`, `isSynced`, `status`, and `error` state alongside the same `value` / `update` / `store` / `versions` surface. The non-React `createVeltStore` factory remains the entry point for Vue, Angular, and vanilla JS.
+
+Wire UI state to the hook's reactive return fields (or `store.subscribe` in non-React) rather than reading Yjs internals directly. The hook handles initialization, real-time subscriptions, and cleanup automatically.
+
+**Correct (React — read reactive state from the hook):**
+
+```tsx
+import { useStore } from '@veltdev/crdt-react';
+
+interface Item { id: string; name: string; }
+
+function Component() {
+  const {
+    value: items,
+    update: updateItems,
+    store,
+    isLoading,
+    isSynced,
+    status,
+    error,
+  } = useStore<Item[]>({
+    storeId: 'my-array-store',
+    type: 'array', // 'text' | 'map' | 'array' | 'xml' | 'xmltext'
+    initialValue: [{ id: '1', name: 'First item' }],
+    onError: (err) => console.error('CRDT error:', err),
+  });
+
+  if (error) return <div>Error: {error.message}</div>;
+  if (isLoading) return <div>Connecting... ({status})</div>;
+
+  const list = Array.isArray(items) ? items : [];
+  return <ul>{list.map((i) => <li key={i.id}>{i.name}</li>)}</ul>;
+}
+```
+
+**Correct (non-React — createVeltStore with v2 config surface):**
+
+```js
+import { createVeltStore } from '@veltdev/crdt';
+import { initVelt } from '@veltdev/client';
+
+const client = await initVelt('YOUR_API_KEY');
+client.setDocument('my-document-id');
+
+// Gate on Velt readiness before creating the store
+client.getVeltInitState().subscribe(async (isReady) => {
+  if (!isReady) return;
+
+  const store = await createVeltStore({
+    id: 'my-array-store',
+    type: 'array',
+    initialValue: [{ id: '1', name: 'First item' }],
+    veltClient: client,
+    // v2 additions
+    forceResetInitialContent: false, // if true, always reset to initialValue on init
+    contentKey: 'content',           // Yjs shared-type content key
+    debounceMs: 0,
+    enablePresence: true,
+  });
+
+  if (!store) return;
+
+  const unsubscribe = store.subscribe((newValue) => {
+    console.log('Updated value:', newValue);
+  });
+
+  // Teardown
+  unsubscribe();
+  store.destroy();
+});
+```
+
+**Incorrect (v1 — deprecated):**
+
+```tsx
+import { useVeltCrdtStore } from '@veltdev/crdt-react';
+
+// v1: no isLoading / isSynced / status / error / forceResetInitialContent
+const { value, update, store } = useVeltCrdtStore<string>({
+  id: 'my-doc',          // v2 renamed to storeId
+  type: 'text',
+});
+import { useStore, useAwareness } from '@veltdev/crdt-react';
+
+const { store } = useStore<Item[]>({ storeId: 'my-store', type: 'array', initialValue: [] });
+const { remoteStates, localState, setLocalState } = useAwareness(store);
+
+// Set local awareness state — broadcast to peers
+setLocalState({
+  user: { userId: 'user-1', name: 'John', color: '#ff0000' },
+  cursor: { anchor: 0, head: 5 },
+});
+
+// Clear local awareness
+setLocalState(null);
+```
+
+`useStore<T>(config: UseStoreConfig<T>): UseStoreReturn<T>`
+| `UseStoreConfig<T>` field | Type | Notes |
+|---|---|---|
+| `storeId` | `string` | Unique document identifier (renamed from v1 `id`). |
+| `type` | `'text' \| 'map' \| 'array' \| 'xml' \| 'xmltext'` | Yjs shared-type. `'xmltext'` is new in v2. |
+| `initialValue` | `T` | Applied only when remote state is empty (unless `forceResetInitialContent`). |
+| `debounceMs` | `number` | Throttle backend writes (ms). Default `0`. |
+| `enablePresence` | `boolean` | Default `true`. |
+| `forceResetInitialContent` | `boolean` | **New in v2.** If `true`, always reset to `initialValue` on init (template flows). |
+| `onError` | `(err) => void` | **New in v2.** Error callback. |
+| `veltClient` | `VeltClient` | Optional explicit client; falls back to `VeltProvider` context. |
+| `UseStoreReturn<T>` field | Type | Notes |
+|---|---|---|
+| `value` | `T \| null` | Current value, reactively updated. |
+| `update` | `(newValue: T) => void` | Replace the entire store value. |
+| `store` | `Store<T> \| null` | Underlying store instance for advanced use. |
+| `isLoading` | `boolean` | **New in v2.** `true` while initializing. |
+| `isSynced` | `boolean` | **New in v2.** `true` when connected and synced. |
+| `status` | `'connecting' \| 'connected' \| 'disconnected'` | **New in v2.** Reactive connection status. |
+| `error` | `Error \| null` | **New in v2.** Init error, if any. |
+| `versions` | `Version[]` | Reactive list of saved versions. |
+| `saveVersion / getVersions / getVersionById / restoreVersion / setStateFromVersion` | functions | Version management — same surface as v1. |
+`useAwareness(store)` wraps the Yjs Awareness instance from a store. It is reactive: `remoteStates` updates as peers change their awareness, `setLocalState` is a stable setter.
+`useAwareness` accepts `null` safely — pair it with the `store` return value from `useStore` without a guard.
+`createVeltStore` (from `@veltdev/crdt`) is unchanged in entry-point name but the `StoreConfig` accepts the new v2 fields below. Returns `Promise<Store<T> | null>` (resolves to `null` on init failure).
+| `StoreConfig<T>` field | Type | Notes |
+|---|---|---|
+| `id` / `type` / `initialValue` / `veltClient` / `debounceMs` / `enablePresence` | — | Same as v1. |
+| `forceResetInitialContent` | `boolean` | **New in v2.** Default `false`. |
+| `contentKey` | `string` | **New in v2.** Default `'content'`. |
+| `userId` | `string` | **New in v2.** Update attribution. |
+| `collection` | `string` | **New in v2.** Document grouping namespace. |
+| `logLevel` | `'silent' \| 'error' \| 'warn' \| 'debug'` | **New in v2.** Default `'error'`. |
+- [ ] React code uses `useStore` (v2) — not `useVeltCrdtStore` (v1)
+- [ ] `storeId` is used instead of `id` in React config
+- [ ] UI gates on `isLoading` / `error` reactive fields before reading `value`
+- [ ] `onError` callback is wired for production code
+- [ ] Awareness state is read via `useAwareness(store)` — not by reaching for `store.getAwareness()` manually in React
+- [ ] Non-React code uses the same `createVeltStore` entry point with v2 config fields where needed (`forceResetInitialContent`, `contentKey`, etc.)
+- [ ] Subscriptions in non-React always pair `store.subscribe()` with the returned unsubscribe call
+
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (## APIs > React: useStore(), React: useAwareness(), Non-React: createVeltStore(), Store Methods)
+
+---
+
+### 1.19 Use VeltCrdtStoreMap for Runtime Debugging
 
 **Impact: LOW (Enables real-time inspection of CRDT state)**
 
@@ -1145,7 +1395,7 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### D
 
 ---
 
-### 1.18 Use Webhooks to Listen for CRDT Data Changes
+### 1.20 Use Webhooks to Listen for CRDT Data Changes
 
 **Impact: HIGH (Enables server-side reactions to collaborative data changes)**
 
@@ -1220,7 +1470,7 @@ function CrdtChangeListener() {
 
 ---
 
-### 1.19 Use createVeltStore for Non-React CRDT Stores
+### 1.21 Use createVeltStore for Non-React CRDT Stores
 
 **Impact: CRITICAL (Required for Vue, Angular, vanilla JS integrations)**
 
@@ -3289,6 +3539,10 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/reactflow` (
 
 - https://docs.velt.dev/realtime-collaboration/crdt/overview
 - https://docs.velt.dev/realtime-collaboration/crdt/setup/core
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/core-stores/array
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/core-stores/map
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/core-stores/text
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/core-stores/xml
 - https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap
 - https://docs.velt.dev/realtime-collaboration/crdt/setup/blocknote
 - https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror

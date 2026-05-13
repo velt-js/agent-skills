@@ -18,11 +18,11 @@ Use `saveVersion()` to create named checkpoints that can be restored later. Usef
 **Correct (React - saving versions):**
 
 ```tsx
-import { useVeltCrdtStore } from '@veltdev/crdt-react';
+import { useStore } from '@veltdev/crdt-react';
 
 function Editor() {
   const { saveVersion, getVersions, setStateFromVersion } =
-    useVeltCrdtStore<string>({ id: 'my-collab-note', type: 'text' });
+    useStore<string>({ storeId: 'my-collab-note', type: 'text' });
 
   async function handleSave() {
     const versionId = await saveVersion('User checkpoint');

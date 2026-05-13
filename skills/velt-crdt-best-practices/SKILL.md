@@ -37,9 +37,10 @@ Reference these guidelines when:
 
 - `core-install` - Install correct CRDT packages for your framework
 - `core-velt-init` - Initialize Velt client before creating stores
-- `core-store-create-react` - Use useVeltCrdtStore hook for React
-- `core-store-create-vanilla` - Use createVeltStore for non-React
-- `core-store-types` - Choose correct store type (text/array/map/xml)
+- `core-store-v2-api` - **v2** Use `useStore<T>` + `useAwareness` React hooks; `createVeltStore` v2 config (`forceResetInitialContent`, `contentKey`, `userId`, `collection`, `logLevel`); reactive status/sync/error
+- `core-v1-to-v2-migration` - Migration table: `useVeltCrdtStore` → `useStore` (`id` → `storeId`, new status/sync/error/onError, `useAwareness`)
+- `core-store-create-vanilla` - Use createVeltStore for non-React (entry point unchanged in v2)
+- `core-store-types` - Choose correct store type (text/array/map/xml/xmltext)
 - `core-store-subscribe` - Subscribe to store changes for remote updates
 - `core-store-update` - Use update() method to modify values
 - `core-version-save` - Save named version checkpoints
@@ -51,6 +52,7 @@ Reference these guidelines when:
 - `core-message-stream` - Use CrdtElement message-stream methods (pushMessage, onMessage, getMessages, getSnapshot, saveSnapshot, pruneMessages) for Yjs-backed collaborative editors
 - `core-debug-storemap` - Use VeltCrdtStoreMap for runtime debugging
 - `core-debug-testing` - Test with multiple browser profiles
+- `core-store-create-react` - *(v1 — DEPRECATED)* useVeltCrdtStore for React; see `core-v1-to-v2-migration`
 
 ### 2. Tiptap Integration (CRITICAL)
 
