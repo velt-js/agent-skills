@@ -53,7 +53,7 @@ Comprehensive best practices guide for implementing real-time collaborative edit
    - 2.9 [Use HTML String Format for Tiptap CRDT Initial Content](#29-use-html-string-format-for-tiptap-crdt-initial-content)
    - 2.10 [Use the CollaborationManager API for Status, Versions, and Yjs Internals](#210-use-the-collaborationmanager-api-for-status-versions-and-yjs-internals)
    - 2.11 [Use Unique editorId for Each Tiptap Instance](#211-use-unique-editorid-for-each-tiptap-instance)
-   - 2.12 [Use createVeltTipTapStore for Non-React Tiptap](#212-use-createvelttiptapstore-for-non-react-tiptap)
+   - 2.12 [Use createVeltTipTapStore for Non-React Tiptap (v1 — DEPRECATED)](#212-use-createvelttiptapstore-for-non-react-tiptap-v1-deprecated)
 
 3. [BlockNote Integration](#3-blocknote-integration) — **HIGH**
    - 3.1 [Install BlockNote CRDT Package](#31-install-blocknote-crdt-package)
@@ -2008,11 +2008,13 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (## 
 
 ---
 
-### 2.12 Use createVeltTipTapStore for Non-React Tiptap
+### 2.12 Use createVeltTipTapStore for Non-React Tiptap (v1 — DEPRECATED)
 
-**Impact: CRITICAL (Required for Tiptap collaboration in Vue/Angular/vanilla)**
+**Impact: LOW (v1 API retained for backwards-compatibility only. New integrations must use the v2 createCollaboration entry point (see tiptap-collaboration-manager.md and tiptap-v1-to-v2-migration.md).)**
 
-For Vue, Angular, or vanilla JS, use `createVeltTipTapStore` to create the CRDT store, then get the collaboration extension.
+> **DEPRECATED:** This rule documents the v1 non-React Tiptap CRDT API and is retained for backwards-compatibility reference only. **New integrations must use `createCollaboration` from `@veltdev/tiptap-crdt`** — see `rules/shared/tiptap/tiptap-collaboration-manager.md` for the canonical v2 pattern (which covers both React and non-React) and `rules/shared/tiptap/tiptap-v1-to-v2-migration.md` for the migration table.
+
+For Vue, Angular, or vanilla JS, the v1 API uses `createVeltTipTapStore` to create the CRDT store, then get the collaboration extension.
 
 **Correct (vanilla JS implementation):**
 

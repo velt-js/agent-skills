@@ -1,13 +1,15 @@
 ---
-title: Use createVeltTipTapStore for Non-React Tiptap
-impact: CRITICAL
-impactDescription: Required for Tiptap collaboration in Vue/Angular/vanilla
-tags: tiptap, vanilla, createVeltTipTapStore
+title: Use createVeltTipTapStore for Non-React Tiptap (v1 — DEPRECATED)
+impact: LOW
+impactDescription: v1 API retained for backwards-compatibility only. New integrations must use the v2 createCollaboration entry point (see tiptap-collaboration-manager.md and tiptap-v1-to-v2-migration.md).
+tags: tiptap, vanilla, createVeltTipTapStore, deprecated, v1
 ---
 
-## Use createVeltTipTapStore for Non-React Tiptap
+## Use createVeltTipTapStore for Non-React Tiptap (v1 — DEPRECATED)
 
-For Vue, Angular, or vanilla JS, use `createVeltTipTapStore` to create the CRDT store, then get the collaboration extension.
+> **DEPRECATED:** This rule documents the v1 non-React Tiptap CRDT API and is retained for backwards-compatibility reference only. **New integrations must use `createCollaboration` from `@veltdev/tiptap-crdt`** — see `rules/shared/tiptap/tiptap-collaboration-manager.md` for the canonical v2 pattern (which covers both React and non-React) and `rules/shared/tiptap/tiptap-v1-to-v2-migration.md` for the migration table.
+
+For Vue, Angular, or vanilla JS, the v1 API uses `createVeltTipTapStore` to create the CRDT store, then get the collaboration extension.
 
 **Correct (vanilla JS implementation):**
 
