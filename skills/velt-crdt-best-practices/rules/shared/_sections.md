@@ -53,11 +53,13 @@ Rules are organized into category folders under `rules/`.
 ## 3. BlockNote Integration (blocknote/)
 
 **Impact:** HIGH
-**Description:** Block-based collaborative editing with BlockNote. React-only support currently.
+**Description:** Block-based collaborative editing with BlockNote. v2 adds non-React support and a unified `CollaborationManager` API.
 
 **Rules:**
-- `blocknote-install` - Install BlockNote package
-- `blocknote-setup-react` - useVeltBlockNoteCrdtExtension (React)
+- `blocknote-install` - Install BlockNote packages (v2: adds `@veltdev/blocknote-crdt` core, `@veltdev/types`, `yjs`; non-React now supported)
+- `blocknote-collaboration-manager` - v2 `useCollaboration` / `createCollaboration` + `CollaborationManager` API (status, sync, versions, Yjs escape hatches)
+- `blocknote-v1-to-v2-migration` - Migrate from `useVeltBlockNoteCrdtExtension` to v2
+- `blocknote-setup-react` - useVeltBlockNoteCrdtExtension (React, v1 — deprecated; see `blocknote-v1-to-v2-migration`)
 - `blocknote-editor-id` - Unique editorId
 - `blocknote-testing` - Test collaboration
 

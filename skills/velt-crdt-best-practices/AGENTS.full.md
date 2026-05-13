@@ -1,6 +1,6 @@
 # Velt Crdt Best Practices
 
-**Version 2.0.2**  
+**Version 2.0.3**  
 Velt  
 January 2026
 
@@ -56,10 +56,12 @@ Comprehensive best practices guide for implementing real-time collaborative edit
    - 2.12 [Use createVeltTipTapStore for Non-React Tiptap (v1 — DEPRECATED)](#212-use-createvelttiptapstore-for-non-react-tiptap-v1-deprecated)
 
 3. [BlockNote Integration](#3-blocknote-integration) — **HIGH**
-   - 3.1 [Install BlockNote CRDT Package](#31-install-blocknote-crdt-package)
+   - 3.1 [Install BlockNote CRDT Packages Correctly](#31-install-blocknote-crdt-packages-correctly)
    - 3.2 [Test BlockNote Collaboration with Multiple Users](#32-test-blocknote-collaboration-with-multiple-users)
    - 3.3 [Use Unique editorId for Each BlockNote Instance](#33-use-unique-editorid-for-each-blocknote-instance)
-   - 3.4 [Use useVeltBlockNoteCrdtExtension for BlockNote Collaboration](#34-use-useveltblocknotecrdtextension-for-blocknote-collaboration)
+   - 3.4 [Use useVeltBlockNoteCrdtExtension for BlockNote Collaboration (v1 — DEPRECATED)](#34-use-useveltblocknotecrdtextension-for-blocknote-collaboration-v1-deprecated)
+   - 3.5 [Migrate BlockNote CRDT Integrations from v1 to v2](#35-migrate-blocknote-crdt-integrations-from-v1-to-v2)
+   - 3.6 [Use the CollaborationManager API for Status, Versions, and Yjs Internals](#36-use-the-collaborationmanager-api-for-status-versions-and-yjs-internals)
 
 4. [CodeMirror Integration](#4-codemirror-integration) — **HIGH**
    - 4.1 [Use useVeltCodeMirrorCrdtExtension for React CodeMirror (v1 — DEPRECATED)](#41-use-useveltcodemirrorcrdtextension-for-react-codemirror-v1-deprecated)
@@ -2081,21 +2083,25 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (###
 
 **Impact: HIGH**
 
-Block-based collaborative editing with BlockNote. React-only support currently.
+Block-based collaborative editing with BlockNote. v2 adds non-React support and a unified `CollaborationManager` API.
 
-### 3.1 Install BlockNote CRDT Package
+### 3.1 Install BlockNote CRDT Packages Correctly
 
-**Impact: CRITICAL (Required for BlockNote collaboration)**
+**Impact: CRITICAL (Missing packages prevent BlockNote collaboration)**
 
-Install the Velt BlockNote CRDT package. Currently only React is supported.
+Install all required BlockNote and Velt CRDT packages. React apps use `@veltdev/blocknote-crdt-react`; other frameworks use `@veltdev/blocknote-crdt`. As of v2, non-React BlockNote is supported.
 
 **Correct (React / Next.js):**
 
 ```bash
-npm install @veltdev/blocknote-crdt-react
+npm install @veltdev/blocknote-crdt-react @veltdev/blocknote-crdt @veltdev/react @veltdev/types @blocknote/core @blocknote/react @blocknote/mantine yjs
 ```
 
-**Note:** Non-React framework support is not yet documented. Check Velt docs for updates.
+**Correct (Other Frameworks - Vue, Angular, vanilla):**
+
+```bash
+npm install @veltdev/blocknote-crdt @veltdev/client @blocknote/core yjs
+```
 
 Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/blocknote` (### Step 1: Install Dependencies)
 
@@ -2126,7 +2132,9 @@ Each BlockNote editor must have a unique `editorId`. Reusing IDs causes content 
 **Incorrect (hardcoded generic ID):**
 
 ```tsx
-const { collaborationConfig } = useVeltBlockNoteCrdtExtension({
+import { useCollaboration } from '@veltdev/blocknote-crdt-react';
+
+const { collaborationConfig } = useCollaboration({
   editorId: 'editor',  // Will conflict with other editors
 });
 ```
@@ -2134,18 +2142,24 @@ const { collaborationConfig } = useVeltBlockNoteCrdtExtension({
 **Correct (unique ID per editor):**
 
 ```tsx
-const { collaborationConfig } = useVeltBlockNoteCrdtExtension({
+import { useCollaboration } from '@veltdev/blocknote-crdt-react';
+
+const { collaborationConfig } = useCollaboration({
   editorId: `blocknote-${documentId}`,  // Unique per document
 });
 ```
+
+> Both the v2 hook `useCollaboration` and the deprecated v1 hook `useVeltBlockNoteCrdtExtension` accept `editorId` with the same semantics. New code should use `useCollaboration` — see `rules/shared/blocknote/blocknote-collaboration-manager.md`.
 
 Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/blocknote` (## Notes > **Unique editorId**)
 
 ---
 
-### 3.4 Use useVeltBlockNoteCrdtExtension for BlockNote Collaboration
+### 3.4 Use useVeltBlockNoteCrdtExtension for BlockNote Collaboration (v1 — DEPRECATED)
 
-**Impact: CRITICAL (Required for BlockNote CRDT in React)**
+**Impact: LOW (v1 API retained for backwards-compatibility only. New integrations must use the v2 useCollaboration hook (see blocknote-collaboration-manager.md and blocknote-v1-to-v2-migration.md).)**
+
+> **DEPRECATED:** This rule documents the v1 React BlockNote CRDT API and is retained for backwards-compatibility reference only. **New integrations must use `useCollaboration` from `@veltdev/blocknote-crdt-react`** — see `rules/shared/blocknote/blocknote-collaboration-manager.md` for the canonical v2 pattern and `rules/shared/blocknote/blocknote-v1-to-v2-migration.md` for the migration table.
 
 Use `useVeltBlockNoteCrdtExtension` to get the `collaborationConfig` for BlockNote. Pass it to `useCreateBlockNote`.
 
@@ -2185,6 +2199,274 @@ function CollaborativeEditor() {
 ```
 
 Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/blocknote` (### Step 3: Initialize Velt CRDT Extension)
+
+---
+
+### 3.5 Migrate BlockNote CRDT Integrations from v1 to v2
+
+**Impact: HIGH (v1 API (useVeltBlockNoteCrdtExtension) is deprecated; new integrations must use the v2 useCollaboration / createCollaboration entry points)**
+
+The v1 BlockNote CRDT API (`useVeltBlockNoteCrdtExtension` for React) is deprecated and remains exported only for backward compatibility — it internally delegates to `useCollaboration` (v2) via a compatibility wrapper. All new integrations must use the v2 entry points (`useCollaboration` for React, `createCollaboration` for non-React), which return a `CollaborationManager` with reactive status, sync state, first-class version methods, and a richer Yjs surface. When editing existing user code, migrate the call sites; do not leave v1 and v2 interleaved.
+
+v2 also introduces non-React BlockNote support via `@veltdev/blocknote-crdt` and `createCollaboration`. In v1, only React was supported.
+
+### React: v1 → v2
+
+| Aspect | v1 (deprecated) | v2 (current) |
+|---|---|---|
+| Entry point | `useVeltBlockNoteCrdtExtension(config)` | `useCollaboration(config)` |
+| Collab config | `response.collaborationConfig` | `response.collaborationConfig` (same usage with `useCreateBlockNote`) |
+| Store access | `response.store` (`VeltBlockNoteStore`) | `response.manager` (`CollaborationManager`) |
+| Version management | `store.setStateFromVersion(v)` (no save/list/restore on store) | `saveVersion`, `getVersions`, `restoreVersion` returned directly from the hook (first-class) |
+| Status tracking | Not available | `response.status`, `response.isSynced` |
+| Error handling | Not available | `onError` callback + `response.error` state |
+| Cursor labels | Not configurable | `showCursorLabels: 'activity' \| 'always'` |
+| `initialContent` shape | JSON `string` (`JSON.stringify([...])`) | `PartialBlock[]` array (typed BlockNote blocks) |
+| Cleanup | Automatic on unmount | Automatic on unmount |
+
+**Incorrect (v1 — deprecated):**
+
+```tsx
+import { useVeltBlockNoteCrdtExtension } from '@veltdev/blocknote-crdt-react';
+import { useCreateBlockNote } from '@blocknote/react';
+
+const { collaborationConfig, isLoading, store } = useVeltBlockNoteCrdtExtension({
+  editorId: 'my-doc',
+  initialContent: JSON.stringify([{ type: 'paragraph', content: '' }]),
+});
+
+const editor = useCreateBlockNote({
+  collaboration: collaborationConfig,
+}, [collaborationConfig]);
+
+// Versions via store
+await store.setStateFromVersion(someVersion);
+```
+
+**Correct (v2):**
+
+```tsx
+import { useCollaboration } from '@veltdev/blocknote-crdt-react';
+import { useCreateBlockNote } from '@blocknote/react';
+import { BlockNoteView } from '@blocknote/mantine';
+
+const {
+  collaborationConfig,
+  isLoading,
+  isSynced,
+  status,
+  error,
+  manager,
+  saveVersion,
+  getVersions,
+  restoreVersion,
+} = useCollaboration({
+  editorId: 'my-doc',
+  initialContent: [{ type: 'paragraph', content: '' }],
+  onError: (err) => console.error(err),
+});
+
+const editor = useCreateBlockNote(
+  collaborationConfig ? { collaboration: collaborationConfig } : {},
+  [collaborationConfig],
+);
+
+// Versions are first-class returns from the hook
+await saveVersion('Draft v1');
+const versions = await getVersions();
+await restoreVersion(versions[0].versionId);
+
+// Status (new)
+if (error) return <div>Error: {error.message}</div>;
+if (isLoading || !collaborationConfig) return <div>Connecting...</div>;
+
+return <BlockNoteView editor={editor} theme="light" />;
+```
+
+v1 did not document non-React BlockNote support. v2 introduces `@veltdev/blocknote-crdt` and `createCollaboration` so vanilla / Vue / Angular apps can drive BlockNote collaboration via the manager.
+| Aspect | v1 (not supported) | v2 (current) |
+|---|---|---|
+| Entry point | — | `await createCollaboration(config)` |
+| Return value | — | `CollaborationManager` instance |
+| Collab config | — | `manager.getCollaborationConfig()` → pass to `BlockNoteEditor.create({ collaboration: ... })` |
+| Version management | — | `manager.saveVersion()`, `manager.getVersions()`, `manager.restoreVersion(versionId)` |
+| Status tracking | — | `manager.onStatusChange()`, `manager.onSynced()` |
+| Cleanup | — | `manager.destroy()` (idempotent) |
+| Yjs internals | — | `manager.getDoc()`, `manager.getXmlFragment()`, `manager.getAwareness()`, `manager.getProvider()` |
+
+**Correct (v2 — non-React):**
+
+```js
+import { createCollaboration } from '@veltdev/blocknote-crdt';
+import { BlockNoteEditor } from '@blocknote/core';
+
+client.getVeltInitState().subscribe(async (isReady) => {
+  if (!isReady) return;
+
+  const manager = await createCollaboration({
+    editorId: 'my-doc',
+    veltClient: client,
+    initialContent: [{ type: 'paragraph', content: 'Hello' }],
+    onError: (err) => console.error(err),
+  });
+
+  const editor = BlockNoteEditor.create({
+    collaboration: manager.getCollaborationConfig(),
+  });
+  editor.mount(document.getElementById('editor'));
+
+  // Subscribe to sync / status (replaces any v1 callback pattern)
+  manager.onSynced((synced) => synced && console.log('Synced!'));
+  manager.onStatusChange((status) => console.log('Status:', status));
+
+  // Versions
+  await manager.saveVersion('Draft v1');
+  const versions = await manager.getVersions();
+  await manager.restoreVersion(versions[0].versionId);
+});
+```
+
+- [ ] All `useVeltBlockNoteCrdtExtension` imports replaced with `useCollaboration`
+- [ ] `initialContent` migrated from `JSON.stringify([...])` to a `PartialBlock[]` array
+- [ ] `store.*` references migrated to `manager.*` equivalents or the React first-class returns (`saveVersion`, `getVersions`, `restoreVersion`)
+- [ ] `store.setStateFromVersion(v)` calls replaced with `manager.restoreVersion(versionId)` (broadcasts) or `manager.setStateFromVersion(v)` (local-only)
+- [ ] `onError` callback added; UI reads `response.error` for runtime errors
+- [ ] UI wired to reactive `status` / `isSynced` instead of relying on the absence of v1 indicators
+- [ ] Non-React BlockNote flow gated on `client.getVeltInitState().subscribe(...)` before calling `createCollaboration`
+- [ ] Old `store.getYDoc` / `store.getYXml` / `store.isConnected` calls replaced with `manager.getDoc` / `manager.getXmlFragment` / `manager.status`
+- [ ] `manager.destroy()` used in place of v1 implicit cleanup when the editor is not the lifecycle owner
+
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/blocknote` (## Migration Guide: v1 to v2; ## Legacy API (v1))
+
+---
+
+### 3.6 Use the CollaborationManager API for Status, Versions, and Yjs Internals
+
+**Impact: HIGH (Without using the manager API, you lose access to connection status, sync state, version management, and Yjs escape hatches in v2)**
+
+In v2 of `@veltdev/blocknote-crdt(-react)`, `useCollaboration` (React) and `createCollaboration` (non-React) both surface a `CollaborationManager` instance. The manager is the single entry point for connection status, sync state, version management, and Yjs-level escape hatches. The hook/factory returns a `collaborationConfig` object that you pass to `useCreateBlockNote({ collaboration: ... })` or `BlockNoteEditor.create({ collaboration: ... })`. Wire UI state to the hook's reactive return values (or the manager's observables in non-React) instead of trying to read Yjs internals directly from the editor.
+
+**Correct (React — read reactive state from the hook):**
+
+```tsx
+import { useCollaboration } from '@veltdev/blocknote-crdt-react';
+import { useCreateBlockNote } from '@blocknote/react';
+import { BlockNoteView } from '@blocknote/mantine';
+import '@blocknote/mantine/style.css';
+
+function CollaborativeEditor() {
+  const {
+    collaborationConfig,
+    isLoading,
+    isSynced,
+    status,
+    error,
+    manager,
+    saveVersion,
+    getVersions,
+    restoreVersion,
+  } = useCollaboration({
+    editorId: 'my-blocknote-editor',
+    onError: (err) => console.error('Collaboration error:', err),
+  });
+
+  const editor = useCreateBlockNote(
+    collaborationConfig ? { collaboration: collaborationConfig } : {},
+    [collaborationConfig],
+  );
+
+  if (error) return <div>Error: {error.message}</div>;
+  if (isLoading || !collaborationConfig) return <div>Connecting...</div>;
+
+  return (
+    <>
+      <div>Status: {status} | Synced: {isSynced ? 'Yes' : 'No'}</div>
+      <BlockNoteView editor={editor} theme="light" />
+    </>
+  );
+}
+```
+
+When the `collaboration` config is provided, BlockNote automatically uses the `Y.XmlFragment` as the document source, enables remote cursor rendering, and switches undo/redo to the Yjs `UndoManager`. No additional configuration is needed.
+
+**Correct (non-React — subscribe via the manager):**
+
+```js
+import { createCollaboration } from '@veltdev/blocknote-crdt';
+import { BlockNoteEditor } from '@blocknote/core';
+
+client.getVeltInitState().subscribe(async (isReady) => {
+  if (!isReady) return;
+
+  const manager = await createCollaboration({
+    editorId: 'my-blocknote-editor',
+    veltClient: client,
+    initialContent: [
+      { type: 'paragraph', content: 'Welcome to the collaborative editor!' },
+    ],
+    onError: (err) => console.error('Collaboration error:', err),
+  });
+
+  const editor = BlockNoteEditor.create({
+    collaboration: manager.getCollaborationConfig(),
+  });
+  editor.mount(document.getElementById('editor'));
+
+  // Subscribe to status / sync — always store the unsubscribe and call it on teardown
+  const unsubStatus = manager.onStatusChange((status) => console.log('status', status));
+  const unsubSynced = manager.onSynced((synced) => console.log('synced', synced));
+
+  // Read current values at any time
+  console.log(manager.status);       // 'connecting' | 'connected' | 'disconnected'
+  console.log(manager.synced);       // boolean
+  console.log(manager.initialized);  // boolean
+
+  // On teardown
+  unsubStatus();
+  unsubSynced();
+  manager.destroy(); // safe to call multiple times
+});
+// Save a named snapshot — returns a versionId
+const versionId = await manager.saveVersion('Before major edit');
+
+// List versions: [{ versionId, versionName, timestamp }, ...]
+const versions = await manager.getVersions();
+
+// Restore by versionId — pushes the restored state to all clients
+await manager.restoreVersion(versions[0].versionId);
+
+// Apply a Version object's state locally (no broadcast)
+await manager.setStateFromVersion(version);
+const doc        = manager.getDoc();         // Y.Doc
+const xml        = manager.getXmlFragment(); // Y.XmlFragment | null  (BlockNote document-store key)
+const provider   = manager.getProvider();    // SyncProvider
+const awareness  = manager.getAwareness();   // Awareness (Yjs awareness protocol)
+const crdtStore  = manager.getStore();       // Velt CRDT Store<string>
+```
+
+`initialContent` is applied exactly once — only when the document is brand new. On subsequent loads, the persisted content is used instead. Pass `forceResetInitialContent: true` to always overwrite remote data — this is a development-only flag.
+In React, the hook returns version methods as first-class APIs. In non-React, call them on the manager.
+The manager exposes the underlying Yjs primitives for advanced use (custom plugins, debugging, interop with other Yjs tooling). Prefer the manager's high-level methods first; reach for these only when you actually need Yjs-level control.
+
+**Incorrect (poking at the editor for Yjs internals):**
+
+```js
+// WRONG: reach into editor internals to find Y.Doc — undefined behaviour
+const ydoc = (editor as any)._tiptapEditor?.storage?.collaboration?.document;
+// SETUP
+const unsubStatus = manager.onStatusChange((s) => updateBadge(s));
+const unsubSynced = manager.onSynced((synced) => updateBadge(undefined, synced));
+
+// TEARDOWN — call before manager.destroy() and on component unmount
+unsubStatus();
+unsubSynced();
+manager.destroy();
+```
+
+Every `manager.on*` method returns an `Unsubscribe` function. Treat them like event listeners — always pair `subscribe` with `unsubscribe` so listeners do not leak:
+In React, the `useCollaboration` hook handles this automatically — use the returned reactive `status` / `isSynced` / `error` values instead of calling `manager.onStatusChange` manually unless you need imperative side effects.
+
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/blocknote` (### Step 3, 4, 5, 10, 11; ## APIs)
 
 ---
 

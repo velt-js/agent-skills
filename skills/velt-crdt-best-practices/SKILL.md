@@ -4,7 +4,7 @@ description: Velt CRDT (Yjs) collaborative editing best practices for real-time 
 license: MIT
 metadata:
   author: velt
-  version: "2.0.0"
+  version: "2.0.3"
 ---
 
 # Velt CRDT Best Practices
@@ -69,10 +69,12 @@ Reference these guidelines when:
 
 ### 3. BlockNote Integration (HIGH)
 
-- `blocknote-install` - Install BlockNote CRDT package
-- `blocknote-setup-react` - Use useVeltBlockNoteCrdtExtension
+- `blocknote-install` - Install BlockNote CRDT v2 packages
+- `blocknote-collaboration-manager` - **v2** Use useCollaboration / createCollaboration + CollaborationManager API
+- `blocknote-v1-to-v2-migration` - Migration table: useVeltBlockNoteCrdtExtension → useCollaboration
 - `blocknote-editor-id` - Use unique editorId per instance
 - `blocknote-testing` - Test collaboration with multiple users
+- `blocknote-setup-react` - *(v1 — DEPRECATED)* useVeltBlockNoteCrdtExtension; see migration rule
 
 ### 4. CodeMirror Integration (HIGH)
 

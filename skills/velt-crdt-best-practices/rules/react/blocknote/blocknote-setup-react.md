@@ -1,11 +1,13 @@
 ---
-title: Use useVeltBlockNoteCrdtExtension for BlockNote Collaboration
-impact: CRITICAL
-impactDescription: Required for BlockNote CRDT in React
-tags: blocknote, react, hook, collaboration
+title: Use useVeltBlockNoteCrdtExtension for BlockNote Collaboration (v1 — DEPRECATED)
+impact: LOW
+impactDescription: v1 API retained for backwards-compatibility only. New integrations must use the v2 useCollaboration hook (see blocknote-collaboration-manager.md and blocknote-v1-to-v2-migration.md).
+tags: blocknote, react, hook, useVeltBlockNoteCrdtExtension, deprecated, v1
 ---
 
-## Use useVeltBlockNoteCrdtExtension for BlockNote Collaboration
+## Use useVeltBlockNoteCrdtExtension for BlockNote Collaboration (v1 — DEPRECATED)
+
+> **DEPRECATED:** This rule documents the v1 React BlockNote CRDT API and is retained for backwards-compatibility reference only. **New integrations must use `useCollaboration` from `@veltdev/blocknote-crdt-react`** — see `rules/shared/blocknote/blocknote-collaboration-manager.md` for the canonical v2 pattern and `rules/shared/blocknote/blocknote-v1-to-v2-migration.md` for the migration table.
 
 Use `useVeltBlockNoteCrdtExtension` to get the `collaborationConfig` for BlockNote. Pass it to `useCreateBlockNote`.
 

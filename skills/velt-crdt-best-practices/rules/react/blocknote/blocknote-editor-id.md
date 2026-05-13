@@ -12,7 +12,9 @@ Each BlockNote editor must have a unique `editorId`. Reusing IDs causes content 
 **Incorrect (hardcoded generic ID):**
 
 ```tsx
-const { collaborationConfig } = useVeltBlockNoteCrdtExtension({
+import { useCollaboration } from '@veltdev/blocknote-crdt-react';
+
+const { collaborationConfig } = useCollaboration({
   editorId: 'editor',  // Will conflict with other editors
 });
 ```
@@ -20,10 +22,14 @@ const { collaborationConfig } = useVeltBlockNoteCrdtExtension({
 **Correct (unique ID per editor):**
 
 ```tsx
-const { collaborationConfig } = useVeltBlockNoteCrdtExtension({
+import { useCollaboration } from '@veltdev/blocknote-crdt-react';
+
+const { collaborationConfig } = useCollaboration({
   editorId: `blocknote-${documentId}`,  // Unique per document
 });
 ```
+
+> Both the v2 hook `useCollaboration` and the deprecated v1 hook `useVeltBlockNoteCrdtExtension` accept `editorId` with the same semantics. New code should use `useCollaboration` — see `rules/shared/blocknote/blocknote-collaboration-manager.md`.
 
 **EditorId Strategies:**
 

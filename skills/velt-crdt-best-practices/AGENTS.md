@@ -1,5 +1,5 @@
 # Velt Crdt Best Practices
-|v2.0.2|Velt|January 2026
+|v2.0.3|Velt|January 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
 |root: ./rules
 
@@ -15,6 +15,7 @@
 
 ## 3. BlockNote Integration — HIGH
 |react/blocknote:{blocknote-install.md,blocknote-testing.md,blocknote-editor-id.md,blocknote-setup-react.md}
+|shared/blocknote:{blocknote-v1-to-v2-migration.md,blocknote-collaboration-manager.md}
 
 ## 4. CodeMirror Integration — HIGH
 |react/codemirror:{codemirror-setup-react.md}
