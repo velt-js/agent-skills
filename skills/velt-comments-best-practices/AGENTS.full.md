@@ -6141,8 +6141,11 @@ const commentElement = client.getCommentElement();
 // Scroll to a comment pin on the page
 commentElement.scrollToCommentByAnnotationId('ann-123');
 
-// Select/highlight a comment (opens dialog)
+// Select a comment bubble programmatically (e.g. from a deep link or notification)
 commentElement.selectCommentByAnnotationId('ann-123');
+
+// Clear the current comment selection (omit the argument or pass an unknown ID)
+commentElement.selectCommentByAnnotationId();
 
 // Listen to comment selection changes
 commentElement.onCommentSelectionChange().subscribe((event) => {

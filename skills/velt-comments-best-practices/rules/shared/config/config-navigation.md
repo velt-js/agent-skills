@@ -17,8 +17,11 @@ const commentElement = client.getCommentElement();
 // Scroll to a comment pin on the page
 commentElement.scrollToCommentByAnnotationId('ann-123');
 
-// Select/highlight a comment (opens dialog)
+// Select a comment bubble programmatically (e.g. from a deep link or notification)
 commentElement.selectCommentByAnnotationId('ann-123');
+
+// Clear the current comment selection (omit the argument or pass an unknown ID)
+commentElement.selectCommentByAnnotationId();
 
 // Listen to comment selection changes
 commentElement.onCommentSelectionChange().subscribe((event) => {
@@ -38,7 +41,7 @@ commentElement.copyLink({ annotationId: 'ann-123' });
 
 **Key details:**
 - `scrollToCommentByAnnotationId()` smoothly scrolls the page to the comment pin
-- `selectCommentByAnnotationId()` opens the comment dialog for that thread
+- `selectCommentByAnnotationId(annotationId?)` opens the comment dialog for that thread; call with no argument (or an unknown ID) to clear the current selection
 - `enableScrollToComment()` checks the URL for a comment ID on page load and auto-scrolls
 - `getLink()` returns a URL that deep links to the comment
 - `onCommentSelectionChange()` fires when user clicks a different comment
