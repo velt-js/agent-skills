@@ -54,13 +54,18 @@ Reference these guidelines when:
 
 ### 2. Tiptap Integration (CRITICAL)
 
-- `tiptap-install` - Install Tiptap CRDT packages
-- `tiptap-setup-react` - Use useVeltTiptapCrdtExtension for React
-- `tiptap-setup-vanilla` - Use createVeltTipTapStore for non-React
+- `tiptap-install` - Install Tiptap CRDT v2 packages
+- `tiptap-collaboration-manager` - **v2** Use useCollaboration / createCollaboration + CollaborationManager API
+- `tiptap-v1-to-v2-migration` - Migration table: useVeltTiptapCrdtExtension → useCollaboration
 - `tiptap-disable-history` - Disable Tiptap history to prevent conflicts
 - `tiptap-editor-id` - Use unique editorId per instance
 - `tiptap-cursor-css` - Add CSS for collaboration cursors
+- `tiptap-initial-content` - Use HTML string format for initialContent
+- `tiptap-comments-integration` - Integrate Velt Comments with Tiptap
+- `tiptap-nextjs-ssr` - Next.js SSR considerations
 - `tiptap-testing` - Test collaboration with multiple users
+- `tiptap-setup-react` - *(v1 — DEPRECATED)* useVeltTiptapCrdtExtension for React; see migration rule
+- `tiptap-setup-vanilla` - *(v1 — DEPRECATED)* createVeltTipTapStore for non-React; see migration rule
 
 ### 3. BlockNote Integration (HIGH)
 
@@ -71,12 +76,14 @@ Reference these guidelines when:
 
 ### 4. CodeMirror Integration (HIGH)
 
-- `codemirror-install` - Install CodeMirror CRDT packages
-- `codemirror-setup-react` - Use useVeltCodeMirrorCrdtExtension for React
-- `codemirror-setup-vanilla` - Use createVeltCodeMirrorStore for non-React
-- `codemirror-ycollab` - Wire yCollab extension with store's Yjs objects
+- `codemirror-install` - Install CodeMirror CRDT v2 packages
+- `codemirror-collaboration-manager` - **v2** Use useCollaboration / createCollaboration + CollaborationManager API
+- `codemirror-v1-to-v2-migration` - Migration table: useVeltCodeMirrorCrdtExtension → useCollaboration
+- `codemirror-ycollab` - Wire yCollab extension with manager.getCollaborationPrimitives()
 - `codemirror-editor-id` - Use unique editorId per instance
 - `codemirror-testing` - Test collaboration with multiple users
+- `codemirror-setup-react` - *(v1 — DEPRECATED)* useVeltCodeMirrorCrdtExtension for React; see migration rule
+- `codemirror-setup-vanilla` - *(v1 — DEPRECATED)* createVeltCodeMirrorStore for non-React; see migration rule
 
 ### 5. ReactFlow Integration (HIGH)
 
