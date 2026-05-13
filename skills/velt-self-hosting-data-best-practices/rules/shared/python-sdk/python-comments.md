@@ -22,7 +22,7 @@ comments = sdk.selfHosting.comments.getComments({
 **Correct (get comments):**
 
 ```python
-from velt import GetCommentResolverRequest
+from velt_py import GetCommentResolverRequest
 
 request = GetCommentResolverRequest(
     organization_id="org_123",
@@ -41,7 +41,7 @@ else:
 **Correct (save comments):**
 
 ```python
-from velt import SaveCommentResolverRequest
+from velt_py import SaveCommentResolverRequest
 
 request = SaveCommentResolverRequest(
     organization_id="org_123",
@@ -65,7 +65,7 @@ if response.success:
 **Correct (delete comment):**
 
 ```python
-from velt import DeleteCommentResolverRequest
+from velt_py import DeleteCommentResolverRequest
 
 request = DeleteCommentResolverRequest(
     organization_id="org_123",
@@ -101,7 +101,7 @@ if response.success:
 - The save method accepts a list of comments, allowing batch operations.
 
 **Verification:**
-- [ ] Request types are imported from `velt`
+- [ ] Request types are imported from `velt_py`
 - [ ] Typed request objects are used, not raw dicts
 - [ ] `organization_id` and `document_id` are provided
 - [ ] Response `success` field is checked before accessing `data`
@@ -116,7 +116,7 @@ if response.success:
 Every SDK method uses a typed request object. Import from the `velt` package:
 
 ```python
-from velt import (
+from velt_py import (
     # Comments
     GetCommentResolverRequest,
     SaveCommentResolverRequest,

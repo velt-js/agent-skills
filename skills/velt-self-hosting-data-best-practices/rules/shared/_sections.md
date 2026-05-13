@@ -50,7 +50,14 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 7. Python SDK (python-sdk)
 
 **Impact:** HIGH
-**Description:** Patterns for implementing data-provider backends in Python using the `velt-py` SDK. Covers the comments / attachments / users / reactions handlers, framework integrations (FastAPI / Flask / Django), and the same response-format contract the JS SDK enforces. Use when your provider backend is Python rather than Node.
+**Description:** Patterns for implementing data-provider backends in Python using the `velt-py` SDK. Covers the `sdk.api.*` REST API backend (no database required), comments / attachments / users / reactions self-hosting handlers, framework integrations (FastAPI / Flask / Django), and the same response-format contract the JS SDK enforces. Use when your provider backend is Python rather than Node.
+
+**Rules:**
+- `python-rest-api-backend` — Use sdk.api.* for REST API operations without a database
+- `python-comments` — Comments CRUD via sdk.selfHosting.comments
+- `python-attachments` — Attachment upload and delete via sdk.selfHosting.attachments with S3
+- `python-users-reactions` — Users and reactions management via sdk.selfHosting.users/reactions
+- `python-frameworks` — Django, Flask, and FastAPI integration patterns
 
 ---
 

@@ -53,7 +53,8 @@ Comprehensive guide for Velt self-hosting data feature, enabling storage of sens
    - 7.1 [Attachment Upload and Delete via Python SDK with S3](#71-attachment-upload-and-delete-via-python-sdk-with-s3)
    - 7.2 [Comments CRUD Operations via Python SDK](#72-comments-crud-operations-via-python-sdk)
    - 7.3 [Django, Flask, and FastAPI Integration Patterns](#73-django-flask-and-fastapi-integration-patterns)
-   - 7.4 [Users and Reactions Management via Python SDK](#74-users-and-reactions-management-via-python-sdk)
+   - 7.4 [Use sdk.api.* for REST API Operations Without a Database](#74-use-sdkapi-for-rest-api-operations-without-a-database)
+   - 7.5 [Users and Reactions Management via Python SDK](#75-users-and-reactions-management-via-python-sdk)
 
 8. [Debugging](#8-debugging) — **LOW-MEDIUM**
    - 8.1 [Monitor Data Provider Events for Troubleshooting](#81-monitor-data-provider-events-for-troubleshooting)
@@ -216,7 +217,9 @@ Reference: https://docs.velt.dev/self-host-data/overview; https://docs.velt.dev/
 
 **Impact: CRITICAL (Without proper SDK initialization, all backend operations will fail)**
 
-The `velt-py` package provides server-side access to Velt collaboration features. It requires a MongoDB connection for data storage and optionally supports S3 for attachments.
+The `velt-py` package provides two independent backends: `sdk.selfHosting.*` for self-hosting Velt data in your own MongoDB + S3, and `sdk.api.*` for calling Velt's REST APIs directly with no database required. MongoDB config is only needed for `sdk.selfHosting.*`.
+
+Do not use the old class-based `VeltSdk(VeltSdkConfig(...))` pattern — it no longer exists. The correct entry point is always `VeltSDK.initialize({...})` with a config dict.
 
 **Install the package:**
 
@@ -224,78 +227,71 @@ The `velt-py` package provides server-side access to Velt collaboration features
 pip install velt-py
 ```
 
-**Incorrect (missing required MongoDB config):**
+**Correct (REST API only — no database needed):**
 
 ```python
-from velt import VeltSdk, VeltSdkConfig
+from velt_py import VeltSDK
 
-# Missing MongoDB connection — SDK will fail
-config = VeltSdkConfig(
-    api_key="your_api_key",
-    auth_token="your_auth_token"
-)
+# Minimal config for sdk.api.* services only
+sdk = VeltSDK.initialize({
+    'apiKey': 'YOUR_VELT_API_KEY',
+    'authToken': 'YOUR_VELT_AUTH_TOKEN'
+})
+
+# All sdk.api.* services are now available
+result = sdk.api.organizations.getOrganizations(...)
 ```
 
-**Correct (minimal init with connection string):**
+**Correct (self-hosting with MongoDB connection string):**
 
 ```python
-from velt import VeltSdk, VeltSdkConfig, MongoDBConfig
+from velt_py import VeltSDK
 
-config = VeltSdkConfig(
-    api_key="your_api_key",
-    auth_token="your_auth_token",
-    mongodb=MongoDBConfig(
-        connection_string="mongodb+srv://user:pass@cluster.mongodb.net/velt_db"
-    )
-)
-
-sdk = VeltSdk(config)
+sdk = VeltSDK.initialize({
+    'apiKey': 'YOUR_VELT_API_KEY',
+    'authToken': 'YOUR_VELT_AUTH_TOKEN',
+    'database': {
+        'connection_string': 'mongodb+srv://user:pass@cluster.mongodb.net/velt-db'
+    }
+})
 ```
 
-**Correct (full config with individual MongoDB fields and S3):**
+**Correct (self-hosting with individual MongoDB fields and S3):**
 
 ```python
-from velt import VeltSdk, VeltSdkConfig, MongoDBConfig, S3Config
+from velt_py import VeltSDK
 
-config = VeltSdkConfig(
-    api_key="your_api_key",
-    auth_token="your_auth_token",
-    mongodb=MongoDBConfig(
-        host="cluster.mongodb.net",
-        username="db_user",
-        password="db_password",
-        auth_database="admin",
-        database_name="velt_db"
-    ),
-    s3=S3Config(
-        region="us-east-1",
-        access_key="AKIA...",
-        secret_key="secret...",
-        bucket="velt-attachments"
-    )
-)
-
-sdk = VeltSdk(config)
+sdk = VeltSDK.initialize({
+    'apiKey': 'YOUR_VELT_API_KEY',
+    'authToken': 'YOUR_VELT_AUTH_TOKEN',
+    'database': {
+        'host': 'localhost:27017',
+        'username': 'db_user',
+        'password': 'db_password',
+        'auth_database': 'admin',
+        'database_name': 'velt-db'
+    },
+    'aws': {
+        'bucket_name': 'velt-attachments',
+        'region': 'us-east-1',
+        'access_key_id': 'AKIA...',
+        'secret_access_key': 'secret...'
+    }
+})
 ```
 
-**Correct (production pattern with env vars):**
+**Correct (production pattern using environment variables):**
 
 ```python
 import os
-from velt import VeltSdk, VeltSdkConfig, MongoDBConfig
+from velt_py import VeltSDK
 
-config = VeltSdkConfig(
-    api_key=os.environ["VELT_API_KEY"],
-    auth_token=os.environ["VELT_AUTH_TOKEN"],
-    mongodb=MongoDBConfig(
-        connection_string=os.environ["MONGODB_URI"]
-    )
-)
-
-sdk = VeltSdk(config)
+# The SDK reads VELT_API_KEY and VELT_AUTH_TOKEN automatically from the environment.
+# Pass an empty dict (or omit apiKey/authToken) when env vars are set.
+sdk = VeltSDK.initialize({})
 ```
 
-**Verification:**
+**Source Pointers:**
 
 ```python
 # Error response format
@@ -305,34 +301,6 @@ sdk = VeltSdk(config)
     'error': 'Description of what went wrong',
     'errorCode': 'INVALID_INPUT'   # or INTERNAL_ERROR, NOT_FOUND
 }
-config = VeltSdkConfig(
-    database={
-        'connection_string': os.environ['MONGODB_URI'],
-        'database_name': 'my_app_db',
-    },
-    collections={
-        'comments': 'velt_comment_annotations',
-        'reactions': 'velt_reactions',
-        'users': 'app_users',
-        'attachments': 'velt_attachments',
-    },
-    api_key=os.environ['VELT_API_KEY'],
-    auth_token=os.environ['VELT_AUTH_TOKEN'],
-)
-config = VeltSdkConfig(
-    database={
-        'connection_string': os.environ['MONGODB_URI'],
-        'database_name': 'my_app_db',
-    },
-    user_schema={
-        'userId': '_id',           # Your DB field for user ID
-        'name': 'display_name',   # Your DB field for user name
-        'email': 'email_address', # Your DB field for email
-        'photoUrl': 'avatar_url', # Your DB field for avatar
-    },
-    api_key=os.environ['VELT_API_KEY'],
-    auth_token=os.environ['VELT_AUTH_TOKEN'],
-)
 ```
 
 | Error Code | Status Code | Description |
@@ -340,13 +308,77 @@ config = VeltSdkConfig(
 | `INVALID_INPUT` | 400 | Malformed request data — check required fields |
 | `NOT_FOUND` | 404 | Resource not found — verify IDs |
 | `INTERNAL_ERROR` | 500 | Server-side error — retry or contact support |
+**Python exception classes for `sdk.api.*`:**
+The SDK raises typed exceptions for `sdk.api.*` calls. All exceptions extend `VeltSDKError`.
+| Exception | When raised |
+|-----------|-------------|
+| `VeltSDKError` | Base class; catch for any SDK-level error |
+| `VeltValidationError` | SDK-level validation (e.g., missing required config); `sdk.api.*` methods do not validate request payloads locally |
+| `VeltTokenError` | Token generation or authentication failure |
+| `VeltApiError` | REST API errors (network failures, unexpected responses) |
+
+**Correct (exception handling for sdk.api.* calls):**
+
+```python
+from velt_py import VeltSDK
+from velt_py.exceptions import VeltSDKError, VeltValidationError, VeltTokenError, VeltApiError
+
+sdk = VeltSDK.initialize({
+    'apiKey': 'YOUR_VELT_API_KEY',
+    'authToken': 'YOUR_VELT_AUTH_TOKEN'
+})
+
+try:
+    result = sdk.api.organizations.getOrganizations(...)
+except VeltValidationError as e:
+    # Request dataclass had invalid or missing fields
+    print('Validation error:', e)
+except VeltTokenError as e:
+    # apiKey or authToken is invalid or expired
+    print('Auth error:', e)
+except VeltApiError as e:
+    # Velt API returned a non-2xx response
+    print('API error:', e)
+except VeltSDKError as e:
+    # Catch-all for any other SDK error
+    print('SDK error:', e)
+from velt_py import VeltSDK
+
+sdk = VeltSDK.initialize({
+    'apiKey': 'YOUR_VELT_API_KEY',
+    'authToken': 'YOUR_VELT_AUTH_TOKEN',
+    'database': {
+        'connection_string': 'mongodb+srv://user:pass@cluster.mongodb.net/velt-db',
+    },
+    'collections': {
+        'comments': 'velt_comment_annotations',
+        'reactions': 'velt_reactions',
+        'users': 'app_users',
+        'attachments': 'velt_attachments',
+    }
+})
+from velt_py import VeltSDK
+
+sdk = VeltSDK.initialize({
+    'apiKey': 'YOUR_VELT_API_KEY',
+    'authToken': 'YOUR_VELT_AUTH_TOKEN',
+    'database': {
+        'connection_string': 'mongodb+srv://user:pass@cluster.mongodb.net/velt-db',
+    },
+    'user_schema': {
+        'userId': '_id',           # Your DB field for user ID
+        'name': 'display_name',   # Your DB field for user name
+        'email': 'email_address', # Your DB field for email
+        'photoUrl': 'avatar_url', # Your DB field for avatar
+    }
+})
+```
+
 ---
 Map Velt data to custom MongoDB collection names if your database has existing naming conventions:
 ---
 Map your database's user fields to Velt's expected field names:
 This mapping ensures the SDK can resolve user data from your existing user collection without requiring schema changes.
-
-Reference: `https://docs.velt.dev/api-reference/sdk/python/overview` (## Python SDK > ### Installation & Configuration)
 
 ---
 
@@ -1863,7 +1895,7 @@ Reference: https://docs.velt.dev/api-reference/sdk/models/data-models - Self-Hos
 
 **Impact: HIGH**
 
-Patterns for implementing data-provider backends in Python using the `velt-py` SDK. Covers the comments / attachments / users / reactions handlers, framework integrations (FastAPI / Flask / Django), and the same response-format contract the JS SDK enforces. Use when your provider backend is Python rather than Node.
+Patterns for implementing data-provider backends in Python using the `velt-py` SDK. Covers the `sdk.api.*` REST API backend (no database required), comments / attachments / users / reactions self-hosting handlers, framework integrations (FastAPI / Flask / Django), and the same response-format contract the JS SDK enforces. Use when your provider backend is Python rather than Node.
 
 ### 7.1 Attachment Upload and Delete via Python SDK with S3
 
@@ -1871,50 +1903,32 @@ Patterns for implementing data-provider backends in Python using the `velt-py` S
 
 Attachment operations require S3 to be configured during SDK initialization. The save method accepts file data alongside the request object, while delete removes files from both the database and S3.
 
-**Incorrect (attempting attachment operations without S3 config):**
-
-```python
-from velt import VeltSdk, VeltSdkConfig, MongoDBConfig
-
-# Missing S3 config — attachment operations will fail
-config = VeltSdkConfig(
-    api_key="your_api_key",
-    auth_token="your_auth_token",
-    mongodb=MongoDBConfig(
-        connection_string="mongodb+srv://user:pass@cluster.mongodb.net/velt_db"
-    )
-)
-
-sdk = VeltSdk(config)
-# sdk.selfHosting.attachments.saveAttachment(...) will raise an error
-```
+Do not attempt attachment operations without providing `aws` config in `VeltSDK.initialize`. Without S3 configuration, `sdk.selfHosting.attachments.saveAttachment(...)` will raise an error at runtime.
 
 **Correct (SDK init with S3 for attachments):**
 
 ```python
-from velt import VeltSdk, VeltSdkConfig, MongoDBConfig, S3Config
+from velt_py import VeltSDK
 
-config = VeltSdkConfig(
-    api_key="your_api_key",
-    auth_token="your_auth_token",
-    mongodb=MongoDBConfig(
-        connection_string="mongodb+srv://user:pass@cluster.mongodb.net/velt_db"
-    ),
-    s3=S3Config(
-        region="us-east-1",
-        access_key="AKIA...",
-        secret_key="secret...",
-        bucket="velt-attachments"
-    )
-)
-
-sdk = VeltSdk(config)
+sdk = VeltSDK.initialize({
+    'apiKey': 'YOUR_VELT_API_KEY',
+    'authToken': 'YOUR_VELT_AUTH_TOKEN',
+    'database': {
+        'connection_string': 'mongodb+srv://user:pass@cluster.mongodb.net/velt-db'
+    },
+    'aws': {
+        'bucket_name': 'velt-attachments',
+        'region': 'us-east-1',
+        'access_key_id': 'AKIA...',
+        'secret_access_key': 'secret...'
+    }
+})
 ```
 
 **Correct (upload an attachment):**
 
 ```python
-from velt import SaveAttachmentResolverRequest
+from velt_py import SaveAttachmentResolverRequest
 
 # Read file data as bytes
 with open("report.pdf", "rb") as f:
@@ -1943,7 +1957,7 @@ else:
 **Correct (delete an attachment):**
 
 ```python
-from velt import DeleteAttachmentResolverRequest
+from velt_py import DeleteAttachmentResolverRequest
 
 request = DeleteAttachmentResolverRequest(
     organization_id="org_123",
@@ -1981,7 +1995,7 @@ comments = sdk.selfHosting.comments.getComments({
 **Correct (get comments):**
 
 ```python
-from velt import GetCommentResolverRequest
+from velt_py import GetCommentResolverRequest
 
 request = GetCommentResolverRequest(
     organization_id="org_123",
@@ -2000,7 +2014,7 @@ else:
 **Correct (save comments):**
 
 ```python
-from velt import SaveCommentResolverRequest
+from velt_py import SaveCommentResolverRequest
 
 request = SaveCommentResolverRequest(
     organization_id="org_123",
@@ -2024,7 +2038,7 @@ if response.success:
 **Correct (delete comment):**
 
 ```python
-from velt import DeleteCommentResolverRequest
+from velt_py import DeleteCommentResolverRequest
 
 request = DeleteCommentResolverRequest(
     organization_id="org_123",
@@ -2055,7 +2069,7 @@ if response.success:
 **Verification:**
 
 ```python
-from velt import (
+from velt_py import (
     # Comments
     GetCommentResolverRequest,
     SaveCommentResolverRequest,
@@ -2100,25 +2114,24 @@ Initialize the Velt SDK once at application startup, then use it across request 
 # myapp/apps.py
 import os
 from django.apps import AppConfig
-from velt import VeltSdk, VeltSdkConfig, MongoDBConfig
+from velt_py import VeltSDK
 
 class MyAppConfig(AppConfig):
     name = 'myapp'
     velt_sdk = None
 
     def ready(self):
-        MyAppConfig.velt_sdk = VeltSdk(VeltSdkConfig(
-            api_key=os.environ["VELT_API_KEY"],
-            auth_token=os.environ["VELT_AUTH_TOKEN"],
-            mongodb=MongoDBConfig(
-                connection_string=os.environ["MONGODB_URI"]
-            )
-        ))
+        MyAppConfig.velt_sdk = VeltSDK.initialize({
+            'database': {
+                'connection_string': os.environ["MONGODB_URI"]
+            }
+        })
+        # VELT_API_KEY and VELT_AUTH_TOKEN are read from environment automatically
 # myapp/views.py
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from velt import GetCommentResolverRequest
+from velt_py import GetCommentResolverRequest
 from .apps import MyAppConfig
 
 @csrf_exempt
@@ -2146,17 +2159,16 @@ def get_comments(request):
 ```python
 import os
 from flask import Flask, request, jsonify
-from velt import VeltSdk, VeltSdkConfig, MongoDBConfig, GetCommentResolverRequest
+from velt_py import VeltSDK, GetCommentResolverRequest
 
 app = Flask(__name__)
 
-sdk = VeltSdk(VeltSdkConfig(
-    api_key=os.environ["VELT_API_KEY"],
-    auth_token=os.environ["VELT_AUTH_TOKEN"],
-    mongodb=MongoDBConfig(
-        connection_string=os.environ["MONGODB_URI"]
-    )
-))
+sdk = VeltSDK.initialize({
+    'database': {
+        'connection_string': os.environ["MONGODB_URI"]
+    }
+})
+# VELT_API_KEY and VELT_AUTH_TOKEN are read from environment automatically
 
 @app.route("/api/comments/get", methods=["POST"])
 def get_comments():
@@ -2179,17 +2191,16 @@ def get_comments():
 ```python
 import os
 from fastapi import FastAPI, Request
-from velt import VeltSdk, VeltSdkConfig, MongoDBConfig, GetCommentResolverRequest
+from velt_py import VeltSDK, GetCommentResolverRequest
 
 app = FastAPI()
 
-sdk = VeltSdk(VeltSdkConfig(
-    api_key=os.environ["VELT_API_KEY"],
-    auth_token=os.environ["VELT_AUTH_TOKEN"],
-    mongodb=MongoDBConfig(
-        connection_string=os.environ["MONGODB_URI"]
-    )
-))
+sdk = VeltSDK.initialize({
+    'database': {
+        'connection_string': os.environ["MONGODB_URI"]
+    }
+})
+# VELT_API_KEY and VELT_AUTH_TOKEN are read from environment automatically
 
 @app.post("/api/comments/get")
 async def get_comments(req: Request):
@@ -2211,7 +2222,69 @@ Reference: `https://docs.velt.dev/api-reference/sdk/python/overview` (## Python 
 
 ---
 
-### 7.4 Users and Reactions Management via Python SDK
+### 7.4 Use sdk.api.* for REST API Operations Without a Database
+
+**Impact: HIGH (Using sdk.api.* eliminates the need for MongoDB/AWS setup when calling Velt APIs directly, reducing backend complexity significantly)**
+
+The `sdk.api.*` namespace provides direct access to Velt's REST APIs from Python. It has feature parity with the Velt Node SDK and requires no MongoDB or AWS configuration — only `apiKey` and `authToken`. Use it when you need to manage Velt data server-side without self-hosting.
+
+Do not call the Velt REST API directly with `requests` or `httpx` — the typed request dataclasses and the `sdk.api.*` namespace handle authentication headers, serialization, and error propagation for you.
+
+**Correct (initialize for REST API use and call services):**
+
+```python
+from velt_py import VeltSDK
+from velt_py.models.organization import AddOrganizationsRequest, GetOrganizationsRequest
+from velt_py.models.document import AddDocumentsRequest
+
+sdk = VeltSDK.initialize({
+    'apiKey': 'YOUR_VELT_API_KEY',
+    'authToken': 'YOUR_VELT_AUTH_TOKEN'
+})
+
+# Add an organization
+result = sdk.api.organizations.addOrganizations(
+    AddOrganizationsRequest(
+        organizations=[{'organizationId': 'org-123', 'organizationName': 'My Org'}]
+    )
+)
+if 'error' in result:
+    print('Failed:', result['error'])
+else:
+    print('Success:', result['result'])
+
+# Add documents to an organization
+result = sdk.api.documents.addDocuments(
+    AddDocumentsRequest(
+        organizationId='org-123',
+        documents=[{'documentId': 'doc-1', 'documentName': 'My Doc'}]
+    )
+)
+```
+
+**Available services under `sdk.api.*`:**
+| Service | Namespace |
+|---------|-----------|
+| Organizations | `sdk.api.organizations` |
+| Folders | `sdk.api.folders` |
+| Documents | `sdk.api.documents` |
+| Users | `sdk.api.users` |
+| User Groups | `sdk.api.userGroups` |
+| Notifications | `sdk.api.notifications` |
+| Comment Annotations | `sdk.api.commentAnnotations` |
+| Activities | `sdk.api.activities` |
+| Access Control | `sdk.api.accessControl` |
+| CRDT | `sdk.api.crdt` |
+| Presence | `sdk.api.presence` |
+| Livestate | `sdk.api.livestate` |
+| Recordings | `sdk.api.recordings` |
+| GDPR | `sdk.api.gdpr` |
+| Workspace | `sdk.api.workspace` |
+| Token | `sdk.api.token` |
+
+---
+
+### 7.5 Users and Reactions Management via Python SDK
 
 **Impact: MEDIUM (Incorrect request types prevent user lookups and reaction sync)**
 
@@ -2229,7 +2302,7 @@ users = sdk.selfHosting.users.getUsers({
 **Correct (get users):**
 
 ```python
-from velt import GetUserResolverRequest
+from velt_py import GetUserResolverRequest
 
 request = GetUserResolverRequest(
     organization_id="org_123"
@@ -2248,7 +2321,7 @@ else:
 **Correct (get reactions):**
 
 ```python
-from velt import GetReactionResolverRequest
+from velt_py import GetReactionResolverRequest
 
 request = GetReactionResolverRequest(
     organization_id="org_123",
@@ -2266,7 +2339,7 @@ if response.success:
 **Correct (save reactions):**
 
 ```python
-from velt import SaveReactionResolverRequest
+from velt_py import SaveReactionResolverRequest
 
 request = SaveReactionResolverRequest(
     organization_id="org_123",
@@ -2291,7 +2364,7 @@ if response.success:
 **Correct (delete reaction):**
 
 ```python
-from velt import DeleteReactionResolverRequest
+from velt_py import DeleteReactionResolverRequest
 
 request = DeleteReactionResolverRequest(
     organization_id="org_123",
@@ -2309,7 +2382,7 @@ if response.success:
 **Available request type imports:**
 
 ```python
-from velt import (
+from velt_py import (
     GetUserResolverRequest,
     GetReactionResolverRequest,
     SaveReactionResolverRequest,

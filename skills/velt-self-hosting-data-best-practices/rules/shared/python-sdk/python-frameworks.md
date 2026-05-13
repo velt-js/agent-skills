@@ -15,20 +15,19 @@ Initialize the Velt SDK once at application startup, then use it across request 
 # myapp/apps.py
 import os
 from django.apps import AppConfig
-from velt import VeltSdk, VeltSdkConfig, MongoDBConfig
+from velt_py import VeltSDK
 
 class MyAppConfig(AppConfig):
     name = 'myapp'
     velt_sdk = None
 
     def ready(self):
-        MyAppConfig.velt_sdk = VeltSdk(VeltSdkConfig(
-            api_key=os.environ["VELT_API_KEY"],
-            auth_token=os.environ["VELT_AUTH_TOKEN"],
-            mongodb=MongoDBConfig(
-                connection_string=os.environ["MONGODB_URI"]
-            )
-        ))
+        MyAppConfig.velt_sdk = VeltSDK.initialize({
+            'database': {
+                'connection_string': os.environ["MONGODB_URI"]
+            }
+        })
+        # VELT_API_KEY and VELT_AUTH_TOKEN are read from environment automatically
 ```
 
 ```python
@@ -36,7 +35,7 @@ class MyAppConfig(AppConfig):
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from velt import GetCommentResolverRequest
+from velt_py import GetCommentResolverRequest
 from .apps import MyAppConfig
 
 @csrf_exempt
@@ -64,17 +63,16 @@ def get_comments(request):
 ```python
 import os
 from flask import Flask, request, jsonify
-from velt import VeltSdk, VeltSdkConfig, MongoDBConfig, GetCommentResolverRequest
+from velt_py import VeltSDK, GetCommentResolverRequest
 
 app = Flask(__name__)
 
-sdk = VeltSdk(VeltSdkConfig(
-    api_key=os.environ["VELT_API_KEY"],
-    auth_token=os.environ["VELT_AUTH_TOKEN"],
-    mongodb=MongoDBConfig(
-        connection_string=os.environ["MONGODB_URI"]
-    )
-))
+sdk = VeltSDK.initialize({
+    'database': {
+        'connection_string': os.environ["MONGODB_URI"]
+    }
+})
+# VELT_API_KEY and VELT_AUTH_TOKEN are read from environment automatically
 
 @app.route("/api/comments/get", methods=["POST"])
 def get_comments():
@@ -97,17 +95,16 @@ def get_comments():
 ```python
 import os
 from fastapi import FastAPI, Request
-from velt import VeltSdk, VeltSdkConfig, MongoDBConfig, GetCommentResolverRequest
+from velt_py import VeltSDK, GetCommentResolverRequest
 
 app = FastAPI()
 
-sdk = VeltSdk(VeltSdkConfig(
-    api_key=os.environ["VELT_API_KEY"],
-    auth_token=os.environ["VELT_AUTH_TOKEN"],
-    mongodb=MongoDBConfig(
-        connection_string=os.environ["MONGODB_URI"]
-    )
-))
+sdk = VeltSDK.initialize({
+    'database': {
+        'connection_string': os.environ["MONGODB_URI"]
+    }
+})
+# VELT_API_KEY and VELT_AUTH_TOKEN are read from environment automatically
 
 @app.post("/api/comments/get")
 async def get_comments(req: Request):

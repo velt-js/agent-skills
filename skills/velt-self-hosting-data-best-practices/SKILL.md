@@ -9,7 +9,7 @@ metadata:
 
 # Velt Self-Hosting Data Best Practices
 
-Comprehensive implementation guide for Velt's self-hosting data feature in React and Next.js applications. Contains 15 rules across 7 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's self-hosting data feature in React and Next.js applications. Contains 16 rules across 7 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
@@ -32,7 +32,8 @@ Reference these guidelines when:
 | 3 | Attachment Data Provider | HIGH | `attachment-` |
 | 4 | Additional Providers | MEDIUM | `provider-` |
 | 5 | Backend Implementation | MEDIUM | `backend-` |
-| 6 | Debugging | LOW-MEDIUM | `debug-` |
+| 6 | Python SDK | HIGH | `python-` |
+| 7 | Debugging | LOW-MEDIUM | `debug-` |
 
 ## Quick Reference
 
@@ -62,7 +63,15 @@ Reference these guidelines when:
 - `backend-database-patterns` — Implement database storage with upsert and proper indexing
 - `backend-s3-attachments` — Store and delete attachments in S3-compatible object storage
 
-### 6. Debugging (LOW-MEDIUM)
+### 6. Python SDK (HIGH)
+
+- `python-rest-api-backend` — Use sdk.api.* for REST API operations without a database (no MongoDB required)
+- `python-comments` — Comments CRUD via sdk.selfHosting.comments
+- `python-attachments` — Attachment upload and delete via sdk.selfHosting.attachments with S3
+- `python-users-reactions` — Users and reactions management via sdk.selfHosting.users/reactions
+- `python-frameworks` — Django, Flask, and FastAPI integration patterns
+
+### 7. Debugging (LOW-MEDIUM)
 
 - `debug-data-provider-events` — Monitor data provider events for troubleshooting
 

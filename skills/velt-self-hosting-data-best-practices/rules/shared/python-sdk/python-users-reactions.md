@@ -21,7 +21,7 @@ users = sdk.selfHosting.users.getUsers({
 **Correct (get users):**
 
 ```python
-from velt import GetUserResolverRequest
+from velt_py import GetUserResolverRequest
 
 request = GetUserResolverRequest(
     organization_id="org_123"
@@ -40,7 +40,7 @@ else:
 **Correct (get reactions):**
 
 ```python
-from velt import GetReactionResolverRequest
+from velt_py import GetReactionResolverRequest
 
 request = GetReactionResolverRequest(
     organization_id="org_123",
@@ -58,7 +58,7 @@ if response.success:
 **Correct (save reactions):**
 
 ```python
-from velt import SaveReactionResolverRequest
+from velt_py import SaveReactionResolverRequest
 
 request = SaveReactionResolverRequest(
     organization_id="org_123",
@@ -83,7 +83,7 @@ if response.success:
 **Correct (delete reaction):**
 
 ```python
-from velt import DeleteReactionResolverRequest
+from velt_py import DeleteReactionResolverRequest
 
 request = DeleteReactionResolverRequest(
     organization_id="org_123",
@@ -101,7 +101,7 @@ if response.success:
 **Available request type imports:**
 
 ```python
-from velt import (
+from velt_py import (
     GetUserResolverRequest,
     GetReactionResolverRequest,
     SaveReactionResolverRequest,
@@ -117,7 +117,7 @@ from velt import (
 - Always check `response.success` before accessing `response.data`.
 
 **Verification:**
-- [ ] Request types are imported from `velt`
+- [ ] Request types are imported from `velt_py`
 - [ ] Typed request objects are passed, not raw dicts
 - [ ] Required fields (`organization_id`, `document_id`, `comment_id`) are provided
 - [ ] Response `success` is checked before accessing `data`
