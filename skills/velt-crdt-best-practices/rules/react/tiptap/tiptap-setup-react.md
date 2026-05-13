@@ -1,13 +1,15 @@
 ---
-title: Use useVeltTiptapCrdtExtension Hook for React Tiptap
-impact: CRITICAL
-impactDescription: Required for Tiptap collaboration in React
-tags: tiptap, react, hook, useVeltTiptapCrdtExtension
+title: Use useVeltTiptapCrdtExtension Hook for React Tiptap (v1 — DEPRECATED)
+impact: LOW
+impactDescription: v1 API retained for backwards-compatibility only. New integrations must use the v2 useCollaboration hook (see tiptap-collaboration-manager.md and tiptap-v1-to-v2-migration.md).
+tags: tiptap, react, hook, useVeltTiptapCrdtExtension, deprecated, v1
 ---
 
-## Use useVeltTiptapCrdtExtension Hook for React Tiptap
+## Use useVeltTiptapCrdtExtension Hook for React Tiptap (v1 — DEPRECATED)
 
-In React, use `useVeltTiptapCrdtExtension` to get the `VeltCrdt` extension for Tiptap. Pass it to `useEditor` extensions array.
+> **DEPRECATED:** This rule documents the v1 React Tiptap CRDT API and is retained for backwards-compatibility reference only. **New integrations must use `useCollaboration` from `@veltdev/tiptap-crdt-react`** — see `rules/shared/tiptap/tiptap-collaboration-manager.md` for the canonical v2 pattern and `rules/shared/tiptap/tiptap-v1-to-v2-migration.md` for the migration table.
+
+In React, the v1 API uses `useVeltTiptapCrdtExtension` to get the `VeltCrdt` extension for Tiptap. Pass it to `useEditor` extensions array.
 
 **Incorrect (missing VeltCrdt extension):**
 

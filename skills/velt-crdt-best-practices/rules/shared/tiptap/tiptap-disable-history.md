@@ -12,10 +12,13 @@ Tiptap's built-in history extension conflicts with CRDT's undo/redo mechanism. Y
 **Incorrect (history enabled - causes conflicts):**
 
 ```tsx
-const editor = useEditor({
+const { extension } = useCollaboration({ editorId: 'my-tiptap-editor' });
+
+const editor = new Editor({
+  element: editorElRef.current,
   extensions: [
     StarterKit,  // history enabled by default!
-    ...(VeltCrdt ? [VeltCrdt] : []),
+    extension,
   ],
 });
 // Undo/redo will conflict with CRDT, causing desync
@@ -24,15 +27,22 @@ const editor = useEditor({
 **Correct (history explicitly disabled):**
 
 ```tsx
-const editor = useEditor({
-  extensions: [
-    StarterKit.configure({
-      undoRedo: false,  // CRITICAL: Disable history (Tiptap v3 uses undoRedo)
-    }),
-    ...(VeltCrdt ? [VeltCrdt] : []),
-  ],
-  content: '',
-}, [VeltCrdt]);
+const { extension } = useCollaboration({ editorId: 'my-tiptap-editor' });
+
+useEffect(() => {
+  if (!extension || !editorElRef.current) return;
+  const editor = new Editor({
+    element: editorElRef.current,
+    extensions: [
+      StarterKit.configure({
+        undoRedo: false,  // CRITICAL: Disable history (Tiptap v3 uses undoRedo)
+      }),
+      extension,
+    ],
+    content: '',
+  });
+  return () => editor.destroy();
+}, [extension]);
 ```
 
 **Why this matters:**

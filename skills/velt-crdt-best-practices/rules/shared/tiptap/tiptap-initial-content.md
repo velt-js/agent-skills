@@ -7,12 +7,12 @@ tags: tiptap, crdt, initialContent, html, format
 
 ## Use HTML String Format for Tiptap CRDT Initial Content
 
-The `initialContent` parameter of `useVeltTiptapCrdtExtension` accepts an **HTML string**, not a JSON object. Passing a JSON object will render raw JSON text in the editor.
+The `initialContent` parameter of `useCollaboration` (v2) — and the deprecated `useVeltTiptapCrdtExtension` (v1) — accepts an **HTML string**, not a JSON object. Passing a JSON object will render raw JSON text in the editor.
 
 **Incorrect (JSON object — renders as raw text):**
 
 ```tsx
-const { VeltCrdt } = useVeltTiptapCrdtExtension({
+const { extension } = useCollaboration({
   editorId: 'my-editor',
   // WRONG: This renders as literal JSON text in the editor
   initialContent: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hello' }] }] },
@@ -22,7 +22,7 @@ const { VeltCrdt } = useVeltTiptapCrdtExtension({
 **Correct (HTML string):**
 
 ```tsx
-const { VeltCrdt } = useVeltTiptapCrdtExtension({
+const { extension } = useCollaboration({
   editorId: 'my-editor',
   // CORRECT: HTML string renders as formatted content
   initialContent: '<p>Hello world</p>',
@@ -32,7 +32,7 @@ const { VeltCrdt } = useVeltTiptapCrdtExtension({
 **Correct (no initial content — let CRDT handle it):**
 
 ```tsx
-const { VeltCrdt } = useVeltTiptapCrdtExtension({
+const { extension } = useCollaboration({
   editorId: 'my-editor',
   // CORRECT: Omit initialContent for new documents — CRDT manages content
 });
@@ -51,7 +51,7 @@ const veltInitialContent = useMemo(() => {
   return generateHTML(backendContent, [StarterKit]);
 }, [backendContent]);
 
-const { VeltCrdt } = useVeltTiptapCrdtExtension({
+const { extension } = useCollaboration({
   editorId: 'my-editor',
   initialContent: veltInitialContent,
 });
@@ -62,6 +62,27 @@ const { VeltCrdt } = useVeltTiptapCrdtExtension({
 - For new documents, omit `initialContent` or pass `undefined`
 - For seeding from a backend, convert to HTML string first
 - Never pass a raw JSON object — it will display as text
+- `initialContent` is applied **exactly once**, only when the document is brand new. To force-overwrite existing remote content (e.g., "reset to template"), pass `forceResetInitialContent: true`.
+
+**Force-reset to template (use sparingly — destroys remote state):**
+
+```tsx
+const { extension } = useCollaboration({
+  editorId: 'my-tiptap-editor',
+  initialContent: '<p>Fresh start!</p>',
+  forceResetInitialContent: true,  // Always overwrite remote content on init
+});
+```
+
+```js
+// Non-React equivalent
+const manager = await createCollaboration({
+  editorId: 'my-document-id',
+  veltClient: client,
+  initialContent: '<p>Fresh start!</p>',
+  forceResetInitialContent: true,
+});
+```
 
 **Verification:**
 - [ ] Editor displays formatted text, not raw JSON

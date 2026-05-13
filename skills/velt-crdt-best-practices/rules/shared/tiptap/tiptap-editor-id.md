@@ -13,12 +13,12 @@ Each Tiptap editor must have a unique `editorId`. If you have multiple editors i
 
 ```tsx
 // Page 1: Document editor
-const { VeltCrdt } = useVeltTiptapCrdtExtension({
+const { extension } = useCollaboration({
   editorId: 'editor',  // Generic ID
 });
 
 // Page 2: Notes sidebar
-const { VeltCrdt } = useVeltTiptapCrdtExtension({
+const { extension } = useCollaboration({
   editorId: 'editor',  // Same ID - content will merge!
 });
 ```
@@ -27,12 +27,12 @@ const { VeltCrdt } = useVeltTiptapCrdtExtension({
 
 ```tsx
 // Page 1: Document editor
-const { VeltCrdt } = useVeltTiptapCrdtExtension({
+const { extension } = useCollaboration({
   editorId: `document-${documentId}`,  // Unique per document
 });
 
 // Page 2: Notes sidebar
-const { VeltCrdt } = useVeltTiptapCrdtExtension({
+const { extension } = useCollaboration({
   editorId: `notes-${documentId}`,  // Different namespace
 });
 ```

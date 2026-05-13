@@ -24,15 +24,23 @@ When both Comments and CRDT features are selected for a Tiptap editor, the `Tipt
 ```tsx
 import { TiptapVeltComments, addComment, renderComments } from "@veltdev/tiptap-velt-comments";
 import { useCommentAnnotations } from "@veltdev/react";
+import { useCollaboration } from "@veltdev/tiptap-crdt-react";
 
-const editor = useEditor({
-  extensions: [
-    StarterKit.configure({ undoRedo: false }),
-    TiptapVeltComments,              // MUST be before CRDT extension
-    ...(VeltCrdt ? [VeltCrdt] : []), // CRDT extension last
-  ],
-  immediatelyRender: false,
-}, [VeltCrdt]);
+const { extension } = useCollaboration({ editorId: 'my-tiptap-editor' });
+
+useEffect(() => {
+  if (!extension || !editorElRef.current) return;
+  const editor = new Editor({
+    element: editorElRef.current,
+    extensions: [
+      StarterKit.configure({ undoRedo: false }),
+      TiptapVeltComments,  // MUST be before the CRDT extension
+      extension,           // CRDT extension last
+    ],
+    content: '',
+  });
+  return () => editor.destroy();
+}, [extension]);
 ```
 
 ### Part 2: Render comment highlights

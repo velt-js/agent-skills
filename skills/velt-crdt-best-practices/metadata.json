@@ -1,5 +1,5 @@
 {
-  "version": "2.0.0",
+  "version": "2.0.1",
   "organization": "Velt",
   "date": "January 2026",
   "abstract": "Comprehensive best practices guide for implementing real-time collaborative editing with Velt CRDT (Yjs). Contains 33 rules across 5 categories: Core CRDT (11 rules), Tiptap (7 rules), BlockNote (4 rules), CodeMirror (6 rules), and ReactFlow (5 rules). Each rule includes explanations, incorrect vs. correct code examples, verification checklists, and source pointers to official Velt documentation.",
@@ -14,7 +14,7 @@
       "name": "Tiptap",
       "folder": "tiptap",
       "impact": "CRITICAL",
-      "rules": 7
+      "rules": 9
     },
     {
       "name": "BlockNote",

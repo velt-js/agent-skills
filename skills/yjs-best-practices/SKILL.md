@@ -4,12 +4,12 @@ description: "Yjs CRDT best practices for building real-time collaborative appli
 license: MIT
 metadata:
   author: velt
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Yjs Best Practices
 
-Comprehensive guide for implementing real-time collaborative applications with Yjs — the high-performance CRDT framework. Contains 20 rules across 7 categories covering document lifecycle, shared types, providers, editor bindings, awareness, undo/redo, and common pitfalls.
+Comprehensive guide for implementing real-time collaborative applications with Yjs — the high-performance CRDT framework. Contains 24 rules across 8 categories covering document lifecycle, shared types, providers, editor bindings, awareness, undo/redo, common pitfalls, and debugging.
 
 ## When to Apply
 

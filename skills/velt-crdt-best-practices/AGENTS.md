@@ -1,5 +1,5 @@
 # Velt Crdt Best Practices
-|v2.0.0|Velt|January 2026
+|v2.0.1|Velt|January 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
 |root: ./rules
 
@@ -10,7 +10,7 @@
 
 ## 2. Tiptap Integration — CRITICAL
 |react/tiptap:{tiptap-nextjs-ssr.md,tiptap-setup-react.md}
-|shared/tiptap:{tiptap-cursor-css.md,tiptap-disable-history.md,tiptap-install.md,tiptap-comments-integration.md,tiptap-testing.md,tiptap-initial-content.md,tiptap-editor-id.md}
+|shared/tiptap:{tiptap-cursor-css.md,tiptap-disable-history.md,tiptap-install.md,tiptap-comments-integration.md,tiptap-v1-to-v2-migration.md,tiptap-testing.md,tiptap-initial-content.md,tiptap-collaboration-manager.md,tiptap-editor-id.md}
 |non-react/tiptap:{tiptap-setup-vanilla.md}
 
 ## 3. BlockNote Integration — HIGH

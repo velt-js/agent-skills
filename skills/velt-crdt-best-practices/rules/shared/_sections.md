@@ -37,14 +37,16 @@ Rules are organized into category folders under `rules/`.
 **Description:** Rich text collaborative editing with Tiptap. Covers installation, setup, history conflict, cursor styling, and testing.
 
 **Rules:**
-- `tiptap-install` - Install Tiptap packages
-- `tiptap-setup-react` - useVeltTiptapCrdtExtension (React)
-- `tiptap-setup-vanilla` - createVeltTipTapStore (non-React)
+- `tiptap-install` - Install Tiptap packages (v2: drops `@tiptap/react` & `@tiptap/extension-collaboration*`, adds `yjs` & `@veltdev/types`)
+- `tiptap-setup-react` - useVeltTiptapCrdtExtension (React, v1 — deprecated; see `tiptap-v1-to-v2-migration`)
+- `tiptap-setup-vanilla` - createVeltTipTapStore (non-React, v1 — deprecated; see `tiptap-v1-to-v2-migration`)
+- `tiptap-collaboration-manager` - v2 `useCollaboration` / `createCollaboration` + `CollaborationManager` API (status, sync, versions, Yjs escape hatches)
+- `tiptap-v1-to-v2-migration` - Migrate from `useVeltTiptapCrdtExtension` / `createVeltTiptapCrdtExtension` to v2
 - `tiptap-disable-history` - Disable Tiptap history
 - `tiptap-editor-id` - Unique editorId
 - `tiptap-comments-integration` - CRITICAL: Add TiptapVeltComments extension when using comments + CRDT (prevents freeze)
 - `tiptap-cursor-css` - Collaboration cursor CSS (y-prosemirror + Tiptap extension classes)
-- `tiptap-initial-content` - Use HTML string format for initialContent (not JSON)
+- `tiptap-initial-content` - Use HTML string format for initialContent (not JSON); `forceResetInitialContent` for template resets
 - `tiptap-nextjs-ssr` - Load Tiptap with SSR disabled in Next.js
 - `tiptap-testing` - Test collaboration
 

@@ -1,6 +1,6 @@
 # Velt Crdt Best Practices
 
-**Version 2.0.0**  
+**Version 2.0.1**  
 Velt  
 January 2026
 
@@ -43,15 +43,17 @@ Comprehensive best practices guide for implementing real-time collaborative edit
 
 2. [Tiptap Integration](#2-tiptap-integration) — **CRITICAL**
    - 2.1 [Load Tiptap Editor with SSR Disabled in Next.js](#21-load-tiptap-editor-with-ssr-disabled-in-nextjs)
-   - 2.2 [Use useVeltTiptapCrdtExtension Hook for React Tiptap](#22-use-usevelttiptapcrdtextension-hook-for-react-tiptap)
+   - 2.2 [Use useVeltTiptapCrdtExtension Hook for React Tiptap (v1 — DEPRECATED)](#22-use-usevelttiptapcrdtextension-hook-for-react-tiptap-v1-deprecated)
    - 2.3 [Add CSS for Collaboration Cursors in Tiptap](#23-add-css-for-collaboration-cursors-in-tiptap)
    - 2.4 [Disable Tiptap History When Using CRDT](#24-disable-tiptap-history-when-using-crdt)
    - 2.5 [Install Tiptap CRDT Packages Correctly](#25-install-tiptap-crdt-packages-correctly)
    - 2.6 [Integrate TiptapVeltComments Extension When Using Comments with CRDT](#26-integrate-tiptapveltcomments-extension-when-using-comments-with-crdt)
-   - 2.7 [Test Tiptap Collaboration with Multiple Users](#27-test-tiptap-collaboration-with-multiple-users)
-   - 2.8 [Use HTML String Format for Tiptap CRDT Initial Content](#28-use-html-string-format-for-tiptap-crdt-initial-content)
-   - 2.9 [Use Unique editorId for Each Tiptap Instance](#29-use-unique-editorid-for-each-tiptap-instance)
-   - 2.10 [Use createVeltTipTapStore for Non-React Tiptap](#210-use-createvelttiptapstore-for-non-react-tiptap)
+   - 2.7 [Migrate Tiptap CRDT Integrations from v1 to v2](#27-migrate-tiptap-crdt-integrations-from-v1-to-v2)
+   - 2.8 [Test Tiptap Collaboration with Multiple Users](#28-test-tiptap-collaboration-with-multiple-users)
+   - 2.9 [Use HTML String Format for Tiptap CRDT Initial Content](#29-use-html-string-format-for-tiptap-crdt-initial-content)
+   - 2.10 [Use the CollaborationManager API for Status, Versions, and Yjs Internals](#210-use-the-collaborationmanager-api-for-status-versions-and-yjs-internals)
+   - 2.11 [Use Unique editorId for Each Tiptap Instance](#211-use-unique-editorid-for-each-tiptap-instance)
+   - 2.12 [Use createVeltTipTapStore for Non-React Tiptap](#212-use-createvelttiptapstore-for-non-react-tiptap)
 
 3. [BlockNote Integration](#3-blocknote-integration) — **HIGH**
    - 3.1 [Install BlockNote CRDT Package](#31-install-blocknote-crdt-package)
@@ -1337,11 +1339,13 @@ import { useEditor, EditorContent } from '@tiptap/react';
 
 ---
 
-### 2.2 Use useVeltTiptapCrdtExtension Hook for React Tiptap
+### 2.2 Use useVeltTiptapCrdtExtension Hook for React Tiptap (v1 — DEPRECATED)
 
-**Impact: CRITICAL (Required for Tiptap collaboration in React)**
+**Impact: LOW (v1 API retained for backwards-compatibility only. New integrations must use the v2 useCollaboration hook (see tiptap-collaboration-manager.md and tiptap-v1-to-v2-migration.md).)**
 
-In React, use `useVeltTiptapCrdtExtension` to get the `VeltCrdt` extension for Tiptap. Pass it to `useEditor` extensions array.
+> **DEPRECATED:** This rule documents the v1 React Tiptap CRDT API and is retained for backwards-compatibility reference only. **New integrations must use `useCollaboration` from `@veltdev/tiptap-crdt-react`** — see `rules/shared/tiptap/tiptap-collaboration-manager.md` for the canonical v2 pattern and `rules/shared/tiptap/tiptap-v1-to-v2-migration.md` for the migration table.
+
+In React, the v1 API uses `useVeltTiptapCrdtExtension` to get the `VeltCrdt` extension for Tiptap. Pass it to `useEditor` extensions array.
 
 **Incorrect (missing VeltCrdt extension):**
 
@@ -1491,10 +1495,13 @@ Tiptap's built-in history extension conflicts with CRDT's undo/redo mechanism. Y
 **Incorrect (history enabled - causes conflicts):**
 
 ```tsx
-const editor = useEditor({
+const { extension } = useCollaboration({ editorId: 'my-tiptap-editor' });
+
+const editor = new Editor({
+  element: editorElRef.current,
   extensions: [
     StarterKit,  // history enabled by default!
-    ...(VeltCrdt ? [VeltCrdt] : []),
+    extension,
   ],
 });
 // Undo/redo will conflict with CRDT, causing desync
@@ -1503,15 +1510,22 @@ const editor = useEditor({
 **Correct (history explicitly disabled):**
 
 ```tsx
-const editor = useEditor({
-  extensions: [
-    StarterKit.configure({
-      undoRedo: false,  // CRITICAL: Disable history (Tiptap v3 uses undoRedo)
-    }),
-    ...(VeltCrdt ? [VeltCrdt] : []),
-  ],
-  content: '',
-}, [VeltCrdt]);
+const { extension } = useCollaboration({ editorId: 'my-tiptap-editor' });
+
+useEffect(() => {
+  if (!extension || !editorElRef.current) return;
+  const editor = new Editor({
+    element: editorElRef.current,
+    extensions: [
+      StarterKit.configure({
+        undoRedo: false,  // CRITICAL: Disable history (Tiptap v3 uses undoRedo)
+      }),
+      extension,
+    ],
+    content: '',
+  });
+  return () => editor.destroy();
+}, [extension]);
 ```
 
 Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (## Notes > **Disable history**: Turn off Tiptap `history` when using collaboration)
@@ -1527,13 +1541,13 @@ Install all required Tiptap and Velt CRDT packages. React apps use `@veltdev/tip
 **Correct (React / Next.js):**
 
 ```bash
-npm install @veltdev/tiptap-crdt-react @tiptap/react @tiptap/starter-kit @tiptap/extension-collaboration @tiptap/extension-collaboration-cursor
+npm install @veltdev/tiptap-crdt-react @veltdev/tiptap-crdt @veltdev/react @veltdev/types @tiptap/core @tiptap/starter-kit yjs
 ```
 
 **Correct (Other Frameworks - Vue, Angular, vanilla):**
 
 ```bash
-npm install @veltdev/tiptap-crdt @veltdev/client @tiptap/core @tiptap/starter-kit @tiptap/extension-collaboration-caret
+npm install @veltdev/tiptap-crdt @veltdev/client @tiptap/core @tiptap/starter-kit yjs
 ```
 
 Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (### Step 1: Install Dependencies)
@@ -1554,15 +1568,23 @@ When both Comments and CRDT features are selected for a Tiptap editor, the `Tipt
 <VeltComments textMode={false} shadowDom={false} />
 import { TiptapVeltComments, addComment, renderComments } from "@veltdev/tiptap-velt-comments";
 import { useCommentAnnotations } from "@veltdev/react";
+import { useCollaboration } from "@veltdev/tiptap-crdt-react";
 
-const editor = useEditor({
-  extensions: [
-    StarterKit.configure({ undoRedo: false }),
-    TiptapVeltComments,              // MUST be before CRDT extension
-    ...(VeltCrdt ? [VeltCrdt] : []), // CRDT extension last
-  ],
-  immediatelyRender: false,
-}, [VeltCrdt]);
+const { extension } = useCollaboration({ editorId: 'my-tiptap-editor' });
+
+useEffect(() => {
+  if (!extension || !editorElRef.current) return;
+  const editor = new Editor({
+    element: editorElRef.current,
+    extensions: [
+      StarterKit.configure({ undoRedo: false }),
+      TiptapVeltComments,  // MUST be before the CRDT extension
+      extension,           // CRDT extension last
+    ],
+    content: '',
+  });
+  return () => editor.destroy();
+}, [extension]);
 const commentAnnotations = useCommentAnnotations();
 
 useEffect(() => {
@@ -1591,7 +1613,174 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap`
 
 ---
 
-### 2.7 Test Tiptap Collaboration with Multiple Users
+### 2.7 Migrate Tiptap CRDT Integrations from v1 to v2
+
+**Impact: HIGH (v1 APIs (useVeltTiptapCrdtExtension, createVeltTiptapCrdtExtension) are deprecated; new integrations must use the v2 useCollaboration / createCollaboration entry points)**
+
+The v1 Tiptap CRDT API (`useVeltTiptapCrdtExtension` for React, `createVeltTiptapCrdtExtension` for non-React) is deprecated and remains exported only for backward compatibility. All new integrations must use the v2 entry points (`useCollaboration` / `createCollaboration`), which return a `CollaborationManager` with reactive status, sync state, and a richer Yjs surface. When editing existing user code, migrate the call sites; do not leave v1 and v2 interleaved.
+
+### React: v1 → v2
+
+| Aspect | v1 (deprecated) | v2 (current) |
+|---|---|---|
+| Entry point | `useVeltTiptapCrdtExtension(config)` | `useCollaboration(config)` |
+| Extension access | `response.VeltCrdt` | `response.extension` |
+| Store access | `response.store` (`VeltTipTapStore`) | `response.manager` (`CollaborationManager`) |
+| Version management | `store.saveVersion()`, `store.getVersions()`, `store.setStateFromVersion(v)` | `manager.saveVersion()`, `manager.getVersions()`, `manager.restoreVersion(versionId)` |
+| Status tracking | Not available | `response.status`, `response.isSynced` |
+| Error handling | `onConnectionError` callback | `onError` callback + `response.error` state |
+| Sync notification | `onSynced` callback (fires once) | `response.isSynced` (reactive) |
+| Editor mounting | `useEditor` with `VeltCrdt` in deps | `new Editor(...)` inside `useEffect([extension])` |
+| Cleanup | Automatic on unmount | Automatic on unmount |
+
+**Incorrect (v1 — deprecated):**
+
+```tsx
+import { useVeltTiptapCrdtExtension } from '@veltdev/tiptap-crdt-react';
+
+const { VeltCrdt, isLoading, store } = useVeltTiptapCrdtExtension({
+  editorId: 'my-doc',
+  initialContent: '<p>Hello</p>',
+  onSynced: (doc) => console.log('Synced!'),
+  onConnectionError: (err) => console.error(err),
+});
+
+const editor = useEditor({
+  extensions: [
+    StarterKit.configure({ undoRedo: false }),
+    ...(VeltCrdt ? [VeltCrdt] : []),
+  ],
+}, [VeltCrdt]);
+
+// Versions
+const versions = await store.getVersions();
+await store.setStateFromVersion(versions[0]);
+```
+
+**Correct (v2):**
+
+```tsx
+import { useCollaboration } from '@veltdev/tiptap-crdt-react';
+import { Editor } from '@tiptap/core';
+import StarterKit from '@tiptap/starter-kit';
+
+const editorElRef = useRef<HTMLDivElement>(null);
+
+const { extension, isLoading, isSynced, status, error, manager } = useCollaboration({
+  editorId: 'my-doc',
+  initialContent: '<p>Hello</p>',
+  onError: (err) => console.error(err),
+});
+
+useEffect(() => {
+  if (!extension || !editorElRef.current) return;
+  const editor = new Editor({
+    element: editorElRef.current,
+    extensions: [StarterKit.configure({ undoRedo: false }), extension],
+    content: '',
+  });
+  return () => editor.destroy();
+}, [extension]);
+
+// Versions
+const versions = await manager.getVersions();
+await manager.restoreVersion(versions[0].versionId);
+
+// Status (new)
+if (error) return <div>Error: {error.message}</div>;
+if (isLoading) return <div>Connecting...</div>;
+```
+
+| Aspect | v1 (deprecated) | v2 (current) |
+|---|---|---|
+| Entry point | `createVeltTiptapCrdtExtension(config, callback)` | `await createCollaboration(config)` |
+| Return value | Cleanup function | `CollaborationManager` instance |
+| Extension access | Via callback: `response.VeltCrdt` | Via method: `manager.createExtension()` |
+| Store access | Via callback: `response.store` | Via method: `manager.getStore()` |
+| Version management | `store.saveVersion()`, `store.getVersions()`, `store.setStateFromVersion(v)` | `manager.saveVersion()`, `manager.getVersions()`, `manager.restoreVersion(versionId)` |
+| Status tracking | Not available | `manager.onStatusChange()`, `manager.onSynced()` |
+| Cleanup | Call returned cleanup function | `manager.destroy()` or `editor.destroy()` (triggers auto-cleanup) |
+| Error handling | `onConnectionError` callback | `onError` callback |
+| Sync notification | `onSynced` callback (fires once) | `manager.onSynced()` (subscribable) |
+| Yjs internals | `store.getYDoc()`, `store.getYXml()` | `manager.getDoc()`, `manager.getXmlFragment()`, `manager.getAwareness()`, `manager.getProvider()` |
+
+**Incorrect (v1 — deprecated):**
+
+```js
+import { createVeltTiptapCrdtExtension } from '@veltdev/tiptap-crdt';
+
+const cleanup = createVeltTiptapCrdtExtension(
+  {
+    editorId: 'my-doc',
+    veltClient: client,
+    initialContent: '<p>Hello</p>',
+    onSynced: (doc) => console.log('Synced!'),
+    onConnectionError: (err) => console.error(err),
+  },
+  ({ VeltCrdt, store }) => {
+    const editor = new Editor({
+      extensions: [
+        StarterKit.configure({ undoRedo: false }),
+        ...(VeltCrdt ? [VeltCrdt] : []),
+      ],
+    });
+  }
+);
+
+// Later: tear down
+cleanup();
+```
+
+**Correct (v2):**
+
+```js
+import { createCollaboration } from '@veltdev/tiptap-crdt';
+
+// Gate on Velt readiness before creating the manager
+client.getVeltInitState().subscribe(async (isReady) => {
+  if (!isReady) return;
+
+  const manager = await createCollaboration({
+    editorId: 'my-doc',
+    veltClient: client,
+    initialContent: '<p>Hello</p>',
+    onError: (err) => console.error(err),
+  });
+
+  const editor = new Editor({
+    element: document.querySelector('#editor'),
+    extensions: [
+      StarterKit.configure({ undoRedo: false }),
+      manager.createExtension(),
+    ],
+    content: '',
+  });
+
+  // Subscribe to sync (replaces onSynced callback)
+  manager.onSynced((synced) => synced && console.log('Synced!'));
+  manager.onStatusChange((status) => console.log('Status:', status));
+
+  // Tear down via editor (preferred) or manager.destroy()
+  // editor.destroy() cascades to manager.destroy() via the extension's onDestroy hook
+});
+```
+
+- [ ] All `useVeltTiptapCrdtExtension` imports replaced with `useCollaboration`
+- [ ] All `createVeltTiptapCrdtExtension` callback flows replaced with `await createCollaboration(...)`
+- [ ] `VeltCrdt` references renamed to `extension`
+- [ ] `store.*` version calls migrated to `manager.*` equivalents (`saveVersion`, `getVersions`, `restoreVersion`)
+- [ ] `onConnectionError` callbacks renamed to `onError`
+- [ ] `onSynced` one-shot callbacks replaced with `manager.onSynced(...)` subscription or `isSynced` reactive state
+- [ ] React editor creation moved out of `useEditor` and into `useEffect([extension])` with `new Editor(...)`
+- [ ] Non-React flow gated on `client.getVeltInitState().subscribe(...)` before calling `createCollaboration`
+- [ ] Old `store.getYDoc` / `store.getYXml` calls replaced with `manager.getDoc` / `manager.getXmlFragment`
+- [ ] v1 cleanup function replaced with `manager.destroy()` or relying on editor-driven auto-destroy
+
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (## Migration Guide: v1 to v2; ## Legacy API (v1))
+
+---
+
+### 2.8 Test Tiptap Collaboration with Multiple Users
 
 **Impact: LOW (Validates collaboration works correctly)**
 
@@ -1611,16 +1800,16 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (## 
 
 ---
 
-### 2.8 Use HTML String Format for Tiptap CRDT Initial Content
+### 2.9 Use HTML String Format for Tiptap CRDT Initial Content
 
 **Impact: HIGH (Passing JSON objects as initialContent renders raw JSON text in the editor instead of formatted content)**
 
-The `initialContent` parameter of `useVeltTiptapCrdtExtension` accepts an **HTML string**, not a JSON object. Passing a JSON object will render raw JSON text in the editor.
+The `initialContent` parameter of `useCollaboration` (v2) — and the deprecated `useVeltTiptapCrdtExtension` (v1) — accepts an **HTML string**, not a JSON object. Passing a JSON object will render raw JSON text in the editor.
 
 **Incorrect (JSON object — renders as raw text):**
 
 ```tsx
-const { VeltCrdt } = useVeltTiptapCrdtExtension({
+const { extension } = useCollaboration({
   editorId: 'my-editor',
   // WRONG: This renders as literal JSON text in the editor
   initialContent: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Hello' }] }] },
@@ -1630,7 +1819,7 @@ const { VeltCrdt } = useVeltTiptapCrdtExtension({
 **Correct (HTML string):**
 
 ```tsx
-const { VeltCrdt } = useVeltTiptapCrdtExtension({
+const { extension } = useCollaboration({
   editorId: 'my-editor',
   // CORRECT: HTML string renders as formatted content
   initialContent: '<p>Hello world</p>',
@@ -1640,7 +1829,7 @@ const { VeltCrdt } = useVeltTiptapCrdtExtension({
 **Correct (no initial content — let CRDT handle it):**
 
 ```tsx
-const { VeltCrdt } = useVeltTiptapCrdtExtension({
+const { extension } = useCollaboration({
   editorId: 'my-editor',
   // CORRECT: Omit initialContent for new documents — CRDT manages content
 });
@@ -1659,9 +1848,26 @@ const veltInitialContent = useMemo(() => {
   return generateHTML(backendContent, [StarterKit]);
 }, [backendContent]);
 
-const { VeltCrdt } = useVeltTiptapCrdtExtension({
+const { extension } = useCollaboration({
   editorId: 'my-editor',
   initialContent: veltInitialContent,
+});
+```
+
+**Force-reset to template (use sparingly — destroys remote state):**
+
+```js
+const { extension } = useCollaboration({
+  editorId: 'my-tiptap-editor',
+  initialContent: '<p>Fresh start!</p>',
+  forceResetInitialContent: true,  // Always overwrite remote content on init
+});
+// Non-React equivalent
+const manager = await createCollaboration({
+  editorId: 'my-document-id',
+  veltClient: client,
+  initialContent: '<p>Fresh start!</p>',
+  forceResetInitialContent: true,
 });
 ```
 
@@ -1669,7 +1875,102 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap`
 
 ---
 
-### 2.9 Use Unique editorId for Each Tiptap Instance
+### 2.10 Use the CollaborationManager API for Status, Versions, and Yjs Internals
+
+**Impact: HIGH (Without using the manager API, you lose access to connection status, sync state, version management, and Yjs escape hatches in v2)**
+
+In v2 of `@veltdev/tiptap-crdt(-react)`, `useCollaboration` (React) and `createCollaboration` (non-React) both surface a `CollaborationManager` instance. The manager is the single entry point for connection status, sync state, version management, and Yjs-level escape hatches. Wire UI state to its observables (or reactive return values) instead of trying to read Yjs internals directly from the editor.
+
+**Correct (React — read reactive state from the hook):**
+
+```tsx
+import { useCollaboration } from '@veltdev/tiptap-crdt-react';
+
+const { extension, isLoading, isSynced, status, error, manager } = useCollaboration({
+  editorId: 'my-tiptap-editor',
+  initialContent: '<p>Start typing...</p>',
+  onError: (err) => console.error('Collaboration error:', err),
+});
+
+if (error) return <div>Error: {error.message}</div>;
+if (isLoading || !extension) return <div>Connecting...</div>;
+
+return (
+  <>
+    <div>Status: {status} | Synced: {isSynced ? 'Yes' : 'No'}</div>
+    <div ref={editorElRef} />
+  </>
+);
+```
+
+**Correct (non-React — subscribe via the manager):**
+
+```js
+import { createCollaboration } from '@veltdev/tiptap-crdt';
+
+const manager = await createCollaboration({
+  editorId: 'my-document-id',
+  veltClient: client,
+  initialContent: '<p>Start typing...</p>',
+  onError: (err) => console.error('Collaboration error:', err),
+});
+
+// Subscribe to status / sync — always store the unsubscribe and call it on teardown
+const unsubStatus = manager.onStatusChange((status) => console.log('status', status));
+const unsubSynced = manager.onSynced((synced) => console.log('synced', synced));
+
+// Read current values at any time
+console.log(manager.status);       // 'connecting' | 'connected' | 'disconnected'
+console.log(manager.synced);       // boolean
+console.log(manager.initialized);  // boolean
+
+// On teardown
+unsubStatus();
+unsubSynced();
+manager.destroy(); // safe to call multiple times; auto-fires when editor is destroyed
+// Save a named snapshot — returns a versionId
+const versionId = await manager.saveVersion('Before major edit');
+
+// List versions: [{ versionId, versionName, timestamp }, ...]
+const versions = await manager.getVersions();
+
+// Restore by versionId — pushes the restored state to all clients
+await manager.restoreVersion(versions[0].versionId);
+
+// Apply a Version object's state locally (no broadcast)
+await manager.setStateFromVersion(version);
+const doc        = manager.getDoc();         // Y.Doc
+const xml        = manager.getXmlFragment(); // Y.XmlFragment | null  (TipTap content root)
+const provider   = manager.getProvider();    // SyncProvider
+const awareness  = manager.getAwareness();   // Awareness (Yjs awareness protocol)
+const crdtStore  = manager.getStore();       // Velt CRDT Store<string>
+```
+
+The manager exposes the underlying Yjs primitives for advanced use (custom plugins, debugging, interop with other Yjs tooling). Prefer the manager's high-level methods first; reach for these only when you actually need Yjs-level control.
+
+**Incorrect (poking at the editor for Yjs internals):**
+
+```js
+// WRONG: reach for editor.storage or editor.view to find Y.Doc — undefined behaviour
+const ydoc = (editor as any).storage?.collaboration?.document;
+// SETUP
+const unsubStatus = manager.onStatusChange((s) => updateBadge(s));
+const unsubSynced = manager.onSynced((synced) => updateBadge(undefined, synced));
+
+// TEARDOWN — call before manager.destroy() and on component unmount
+unsubStatus();
+unsubSynced();
+manager.destroy();
+```
+
+Every `manager.on*` method returns an `Unsubscribe` function. Treat them like event listeners — always pair `subscribe` with `unsubscribe` so listeners do not leak:
+In React, the `useCollaboration` hook handles this automatically — use the returned reactive `status` / `isSynced` / `error` values instead of calling `manager.onStatusChange` manually unless you need imperative side effects.
+
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (### Step 3, 5, 6, 11; ## APIs)
+
+---
+
+### 2.11 Use Unique editorId for Each Tiptap Instance
 
 **Impact: HIGH (Prevents content cross-contamination)**
 
@@ -1679,12 +1980,12 @@ Each Tiptap editor must have a unique `editorId`. If you have multiple editors i
 
 ```tsx
 // Page 1: Document editor
-const { VeltCrdt } = useVeltTiptapCrdtExtension({
+const { extension } = useCollaboration({
   editorId: 'editor',  // Generic ID
 });
 
 // Page 2: Notes sidebar
-const { VeltCrdt } = useVeltTiptapCrdtExtension({
+const { extension } = useCollaboration({
   editorId: 'editor',  // Same ID - content will merge!
 });
 ```
@@ -1693,12 +1994,12 @@ const { VeltCrdt } = useVeltTiptapCrdtExtension({
 
 ```tsx
 // Page 1: Document editor
-const { VeltCrdt } = useVeltTiptapCrdtExtension({
+const { extension } = useCollaboration({
   editorId: `document-${documentId}`,  // Unique per document
 });
 
 // Page 2: Notes sidebar
-const { VeltCrdt } = useVeltTiptapCrdtExtension({
+const { extension } = useCollaboration({
   editorId: `notes-${documentId}`,  // Different namespace
 });
 ```
@@ -1707,7 +2008,7 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (## 
 
 ---
 
-### 2.10 Use createVeltTipTapStore for Non-React Tiptap
+### 2.12 Use createVeltTipTapStore for Non-React Tiptap
 
 **Impact: CRITICAL (Required for Tiptap collaboration in Vue/Angular/vanilla)**
 

@@ -107,6 +107,21 @@ ydoc.destroy()
 - [ ] Provider, editor, and Y.Doc are destroyed on cleanup
 - [ ] Undo/redo works correctly across collaborative sessions
 
+### Using a Wrapped Integration (e.g., Velt CRDT v2)
+
+Higher-level wrappers (such as `@veltdev/tiptap-crdt(-react)` v2) hide the `y-prosemirror` plumbing behind a single bundled TipTap `Extension` and a `CollaborationManager` object. The Yjs primitives are still there — they are exposed as escape hatches on the manager so that Yjs-level tooling (custom plugins, snapshots, awareness debugging, persistence providers) still works:
+
+```js
+// With @veltdev/tiptap-crdt v2 — the manager wraps y-prosemirror + a network provider.
+const doc        = manager.getDoc();         // Y.Doc
+const xml        = manager.getXmlFragment(); // Y.XmlFragment | null (TipTap content root)
+const awareness  = manager.getAwareness();   // Awareness (Yjs awareness protocol)
+const provider   = manager.getProvider();    // network provider (sync)
+```
+
+When working with these wrappers, the same Yjs rules apply: disable TipTap's `undoRedo` / `history` (the wrapper relies on Yjs's undo manager), do not construct a second `Y.Doc` for the same editor, and reach for the Yjs primitives only when the wrapper's high-level API is insufficient.
+
 ## Source
 
 - https://docs.yjs.dev/ecosystem/editor-bindings/tiptap2
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap (wrapped Yjs + TipTap integration)

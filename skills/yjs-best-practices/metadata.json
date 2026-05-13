@@ -1,0 +1,12 @@
+{
+  "version": "1.1.0",
+  "organization": "Velt",
+  "date": "May 2026",
+  "abstract": "Comprehensive guide for building real-time collaborative applications with Yjs — the high-performance CRDT framework. Covers Y.Doc lifecycle (creation, updates, garbage collection, transactions), shared types (Y.Text, Y.Array, Y.Map, Y.XmlFragment), network and persistence providers (y-websocket, y-webrtc, y-indexeddb, custom providers), editor bindings (TipTap, ProseMirror, CodeMirror, Quill, Monaco), awareness protocol for cursor/presence, UndoManager patterns for shared-type undo/redo, and well-known pitfalls (duplicate Yjs imports, subdocument handling, v2 encoding migration). All guidance is framework-agnostic Yjs best practice; for Velt's wrapped Tiptap integration (`useCollaboration`, CollaborationManager), see velt-crdt-best-practices.",
+  "references": [
+    "https://docs.yjs.dev",
+    "https://github.com/yjs/yjs",
+    "https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap",
+    "https://docs.velt.dev"
+  ]
+}
