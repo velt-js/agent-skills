@@ -1,5 +1,5 @@
 {
-  "version": "1.0.1",
+  "version": "1.0.2",
   "organization": "Velt",
   "date": "May 2026",
   "abstract": "Comprehensive guide for integrating Velt's server-side surface: the Velt REST API v2, JWT-based authentication for the frontend SDK, and webhook event handling. Covers the required `x-velt-api-key` and `x-velt-auth-token` header contract, JWT token generation and refresh flows (48h expiry), full CRUD over comment annotations, comments, notifications, users (including GDPR data export/delete), documents, organizations, folders, activity logs and CRDT documents via REST. Also covers v1 webhook setup plus v2 / Svix enterprise webhooks with retries and transformations, payload shapes for comment, huddle and CRDT events, and signature verification. All guidance is evidence-backed from official Velt documentation. For the self-hosted Python SDK (`velt-py`) used to store data on your own infrastructure, see `velt-self-hosting-data-best-practices`.",
@@ -11,6 +11,7 @@
     "https://docs.velt.dev/webhooks/advanced",
     "https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-v2",
     "https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/get-comments",
-    "https://console.velt.dev"
+    "https://console.velt.dev",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/notifications/add-notifications"
   ]
 }

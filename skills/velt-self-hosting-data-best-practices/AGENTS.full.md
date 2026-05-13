@@ -1,6 +1,6 @@
 # Velt Self Hosting Data Best Practices
 
-**Version 1.0.1**  
+**Version 1.0.2**  
 Velt  
 March 2026
 
@@ -1411,6 +1411,45 @@ const notificationDataProvider: NotificationDataProvider = {
 ```
 
 Headline/body templates, template data, and `notificationSourceData` are NOT stored on Velt — they live exclusively on your database and are merged back via `get` at render time. Your `get` handler must return the full PII shape (headline, body, source data) for the SDK to hydrate the notification correctly.
+
+**Correct (minimal resolver-eligible POST body to `POST https://api.velt.dev/v2/notifications/add`):**
+
+```json
+{
+  "data": {
+    "organizationId": "yourOrganizationId",
+    "documentId": "yourDocumentId",
+    "actionUser": {
+      "userId": "yourUserId",
+      "name": "User Name",
+      "email": "user@example.com"
+    },
+    "notificationId": "custom-notif-001",
+    "isNotificationResolverUsed": true,
+    "notificationSource": "custom",
+    "notifyUsers": [
+      { "userId": "recipientUserId", "email": "recipient@example.com" }
+    ],
+    "notifyAll": false
+  }
+}
+```
+
+**Incorrect (missing `notificationSource: 'custom'` — silently bypasses the resolver and your `get` handler is never called):**
+
+```json
+{
+  "data": {
+    "organizationId": "yourOrganizationId",
+    "documentId": "yourDocumentId",
+    "notificationId": "custom-notif-001",
+    "isNotificationResolverUsed": true,
+    "notifyUsers": [{ "userId": "recipientUserId" }]
+  }
+}
+```
+
+See the [Add Notifications API (v2)](https://docs.velt.dev/api-reference/rest-apis/v2/notifications/add-notifications) for the full parameter reference.
 
 Reference: https://docs.velt.dev/self-host-data/notifications ("Sample Data")
 

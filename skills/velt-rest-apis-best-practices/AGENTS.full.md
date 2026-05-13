@@ -1,6 +1,6 @@
 # Velt Rest Apis Best Practices
 
-**Version 1.0.1**  
+**Version 1.0.2**  
 Velt  
 May 2026
 
@@ -726,9 +726,16 @@ Send custom notifications and manage notification configuration. All endpoints a
 
 **Required headers:**
 
-```bash
+```typescript
 x-velt-api-key: YOUR_API_KEY
 x-velt-auth-token: YOUR_AUTH_TOKEN
+```
+
+Use `displayHeadlineMessageTemplate` with template variables to create dynamic notification messages.
+
+**Required vs. optional fields on `POST /v2/notifications/add`:**
+
+```bash
 POST https://api.velt.dev/v2/notifications/add
 
 {
@@ -759,11 +766,59 @@ POST https://api.velt.dev/v2/notifications/add
 }
 ```
 
-Use `displayHeadlineMessageTemplate` with template variables to create dynamic notification messages.
+**Correct (resolver-eligible write — minimal payload):**
 
-**Common template variables:**
+```json
+POST https://api.velt.dev/v2/notifications/add
+{
+  "data": {
+    "organizationId": "yourOrganizationId",
+    "documentId": "yourDocumentId",
+    "actionUser": {
+      "userId": "yourUserId",
+      "name": "User Name",
+      "email": "user@example.com"
+    },
+    "notificationId": "custom-notif-001",
+    "isNotificationResolverUsed": true,
+    "notificationSource": "custom",
+    "notifyUsers": [
+      {
+        "userId": "recipientUserId",
+        "email": "recipient@example.com"
+      }
+    ],
+    "notifyAll": false
+  }
+}
+```
+
+**Incorrect (resolver flag set but `notificationSource` missing — will NOT route through your data provider):**
+
+```json
+{
+  "data": {
+    "organizationId": "yourOrganizationId",
+    "documentId": "yourDocumentId",
+    "notificationId": "custom-notif-001",
+    "isNotificationResolverUsed": true,
+    "notifyUsers": [{ "userId": "recipientUserId" }]
+  }
+}
+```
+
+**Incorrect (resolver mode but templates also included — wastes payload; templates are ignored when the resolver hydrates):**
 
 ```bash
+{
+  "data": {
+    "notificationId": "custom-notif-001",
+    "isNotificationResolverUsed": true,
+    "notificationSource": "custom",
+    "displayHeadlineMessageTemplate": "{actionUser} did a thing",
+    "displayBodyMessage": "Stored on Velt — defeats the purpose of self-hosting"
+  }
+}
 # Get notifications for a user
 POST https://api.velt.dev/v2/notifications/get
 {
@@ -1175,3 +1230,4 @@ Reference: `https://docs.velt.dev/api-reference/rest-api/overview` (## REST API 
 - https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-v2
 - https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/get-comments
 - https://console.velt.dev
+- https://docs.velt.dev/api-reference/rest-apis/v2/notifications/add-notifications
