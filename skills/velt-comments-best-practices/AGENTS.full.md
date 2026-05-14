@@ -6929,7 +6929,47 @@ const visibilityClicked = useCommentEventCallback('visibilityOptionClicked');
 const veltEvent = useVeltEventCallback('veltButtonClick');
 ```
 
-Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior - Events
+**Correct (React — subscribe to abandoned draft):**
+
+```jsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function DraftHandler() {
+  const draftEvent = useCommentEventCallback('addCommentDraft');
+
+  useEffect(() => {
+    if (!draftEvent) return;
+    // draftEvent.comment.commentText — unsaved text
+    // draftEvent.comment.commentHtml — unsaved HTML
+    // draftEvent.annotationId — parent thread ID
+    // draftEvent.commentAnnotation — full parent thread object
+    console.log('User abandoned reply:', draftEvent.comment.commentText);
+    console.log('Annotation:', draftEvent.annotationId);
+  }, [draftEvent]);
+
+  return null;
+}
+```
+
+**Correct (Other frameworks — subscribe to abandoned draft):**
+
+```typescript
+const commentElement = client.getCommentElement();
+const subscription = commentElement.on('addCommentDraft').subscribe((event) => {
+  // event: AddCommentDraftEvent
+  // event.annotationId, event.commentAnnotation, event.comment, event.metadata
+  console.log('User abandoned reply:', event.comment.commentText);
+  console.log('Annotation:', event.annotationId);
+});
+
+// Clean up on teardown
+subscription.unsubscribe();
+```
+
+References:
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior - Events
+- https://docs.velt.dev/api-reference/sdk/models/data-models#addcommentdraftevent
 
 ---
 
