@@ -9,7 +9,7 @@ metadata:
 
 # Velt CRDT Best Practices
 
-Comprehensive best practices guide for implementing real-time collaborative editing with Velt CRDT (Yjs), maintained by Velt. Contains 38 rules across 5 categories, prioritized by impact to guide automated code generation and debugging.
+Comprehensive best practices guide for implementing real-time collaborative editing with Velt CRDT (Yjs), maintained by Velt. Contains 42 rules across 5 categories, prioritized by impact to guide automated code generation and debugging.
 
 ## When to Apply
 
@@ -41,6 +41,10 @@ Reference these guidelines when:
 - `core-v1-to-v2-migration` - Migration table: `useVeltCrdtStore` → `useStore` (`id` → `storeId`, new status/sync/error/onError, `useAwareness`)
 - `core-store-create-vanilla` - Use createVeltStore for non-React (entry point unchanged in v2)
 - `core-store-types` - Choose correct store type (text/array/map/xml/xmltext)
+- `core-store-array` - Array store: useStore/createVeltStore with type:'array', Array.isArray() guard, add/remove item patterns
+- `core-store-map` - Map store: useStore/createVeltStore with type:'map', object guard, key-level update/delete patterns
+- `core-store-text` - Text store: useStore/createVeltStore with type:'text', textarea binding, null coalesce with ?? ''
+- `core-store-xml` - XML store: NEVER call update(); mutate via store.getXml() (Y.XmlFragment) + Yjs APIs; requires npm i yjs
 - `core-store-subscribe` - Subscribe to store changes for remote updates
 - `core-store-update` - Use update() method to modify values
 - `core-version-save` - Save named version checkpoints

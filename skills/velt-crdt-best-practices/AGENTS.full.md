@@ -37,11 +37,15 @@ Comprehensive best practices guide for implementing real-time collaborative edit
    - 1.14 [Use Custom Encryption Provider for Sensitive Data](#114-use-custom-encryption-provider-for-sensitive-data)
    - 1.15 [Use REST APIs to Manage CRDT Data Server-Side](#115-use-rest-apis-to-manage-crdt-data-server-side)
    - 1.16 [Use setActivityDebounceTime() to Control CRDT Activity Flush Frequency](#116-use-setactivitydebouncetime-to-control-crdt-activity-flush-frequency)
-   - 1.17 [Use update() Method to Modify Store Values](#117-use-update-method-to-modify-store-values)
-   - 1.18 [Use useStore (v2) for Reactive CRDT Stores with Status, Sync, and Error State](#118-use-usestore-v2-for-reactive-crdt-stores-with-status-sync-and-error-state)
-   - 1.19 [Use VeltCrdtStoreMap for Runtime Debugging](#119-use-veltcrdtstoremap-for-runtime-debugging)
-   - 1.20 [Use Webhooks to Listen for CRDT Data Changes](#120-use-webhooks-to-listen-for-crdt-data-changes)
-   - 1.21 [Use createVeltStore for Non-React CRDT Stores](#121-use-createveltstore-for-non-react-crdt-stores)
+   - 1.17 [Use type:'array' Store for Collaborative Ordered Lists](#117-use-typearray-store-for-collaborative-ordered-lists)
+   - 1.18 [Use type:'map' Store for Collaborative Key-Value Objects](#118-use-typemap-store-for-collaborative-key-value-objects)
+   - 1.19 [Use type:'text' Store for Collaborative Plain Text](#119-use-typetext-store-for-collaborative-plain-text)
+   - 1.20 [Use type:'xml' Store with Yjs APIs — Never Call update()](#120-use-typexml-store-with-yjs-apis-never-call-update)
+   - 1.21 [Use update() Method to Modify Store Values](#121-use-update-method-to-modify-store-values)
+   - 1.22 [Use useStore (v2) for Reactive CRDT Stores with Status, Sync, and Error State](#122-use-usestore-v2-for-reactive-crdt-stores-with-status-sync-and-error-state)
+   - 1.23 [Use VeltCrdtStoreMap for Runtime Debugging](#123-use-veltcrdtstoremap-for-runtime-debugging)
+   - 1.24 [Use Webhooks to Listen for CRDT Data Changes](#124-use-webhooks-to-listen-for-crdt-data-changes)
+   - 1.25 [Use createVeltStore for Non-React CRDT Stores](#125-use-createveltstore-for-non-react-crdt-stores)
 
 2. [Tiptap Integration](#2-tiptap-integration) — **CRITICAL**
    - 2.1 [Load Tiptap Editor with SSR Disabled in Next.js](#21-load-tiptap-editor-with-ssr-disabled-in-nextjs)
@@ -1148,7 +1152,503 @@ crdtElement.setActivityDebounceTime(30000);
 
 ---
 
-### 1.17 Use update() Method to Modify Store Values
+### 1.17 Use type:'array' Store for Collaborative Ordered Lists
+
+**Impact: HIGH (Array stores use Y.Array semantics for conflict-free ordered-list merging; using a text store to serialize JSON arrays loses per-element merge granularity and causes data loss on concurrent edits)**
+
+An array store is backed by Yjs `Y.Array` and is the correct type for any ordered, list-shaped collaborative data (todo lists, item queues, ordered sequences). The `useStore` hook (React) and `createVeltStore` factory (non-React) both accept `type: 'array'`. The hook handles initialization, real-time subscriptions, and cleanup automatically.
+
+Always guard the returned `value` with `Array.isArray()` before calling `.map()` or spreading, because the value is `null` before the store is hydrated.
+
+Do not serialize an array to JSON and store it in a `text` store — this loses per-element merge granularity and causes entire-array replacement on concurrent edits.
+
+**Correct (React — useStore with type:'array'):**
+
+```tsx
+import { useStore } from '@veltdev/crdt-react';
+
+interface Item {
+  id: string;
+  name: string;
+}
+
+function CollaborativeList() {
+  const {
+    value: items,
+    update: updateItems,
+    store,
+    isLoading,
+    error,
+  } = useStore<Item[]>({
+    storeId: 'my-array-store',
+    type: 'array',
+    initialValue: [{ id: '1', name: 'First item' }],
+  });
+
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+
+  // Guard before map/spread — value is null until the store is hydrated
+  const itemList = Array.isArray(items) ? items : [];
+
+  // Add a new item — read the latest synchronous value from store inside handlers
+  const addItem = (name: string) => {
+    const current = store.getValue() || [];
+    if (Array.isArray(current)) {
+      updateItems([...current, { id: crypto.randomUUID(), name }]);
+    }
+  };
+
+  // Remove an item
+  const removeItem = (id: string) => {
+    const current = store.getValue() || [];
+    if (Array.isArray(current)) {
+      updateItems(current.filter((item) => item.id !== id));
+    }
+  };
+
+  return (
+    <ul>
+      {itemList.map((item) => (
+        <li key={item.id}>
+          {item.name}
+          <button onClick={() => removeItem(item.id)}>Remove</button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+**Correct (non-React — createVeltStore with type:'array'):**
+
+```js
+import { createVeltStore } from '@veltdev/crdt';
+
+async function initStore(veltClient) {
+  const store = await createVeltStore({
+    id: 'my-array-store',
+    type: 'array',
+    initialValue: [{ id: '1', name: 'First item' }],
+    veltClient,
+  });
+  if (!store) return;
+
+  // Seed UI with current value
+  renderItems(Array.isArray(store.getValue()) ? store.getValue() : []);
+
+  // Subscribe to all future changes (local and remote)
+  const unsubscribe = store.subscribe((newItems) => {
+    renderItems(Array.isArray(newItems) ? newItems : []);
+  });
+
+  // Call unsubscribe when the component/view is torn down
+  return unsubscribe;
+}
+```
+
+**forceResetInitialContent (optional):**
+
+```tsx
+const { value: items } = useStore<Item[]>({
+  storeId: 'my-array-store',
+  type: 'array',
+  initialValue: defaultItems,
+  forceResetInitialContent: true,
+});
+```
+
+---
+
+### 1.18 Use type:'map' Store for Collaborative Key-Value Objects
+
+**Impact: HIGH (Map stores use Y.Map semantics for per-key conflict-free merging; using a text store to serialize objects loses key-level merge granularity and causes full-object replacement on concurrent edits)**
+
+A map store is backed by Yjs `Y.Map` and is the correct type for any key-value shaped collaborative data (settings, form state, configuration objects). The `useStore` hook (React) and `createVeltStore` factory (non-React) both accept `type: 'map'`. The hook handles initialization, real-time subscriptions, and cleanup automatically.
+
+Always guard the returned `value` with `typeof value === 'object' && value !== null && !Array.isArray(value)` before iterating with `Object.entries()` or `Object.keys()`, because the value is `null` before the store is hydrated.
+
+Do not serialize an object to JSON and store it in a `text` store — this loses per-key merge granularity and causes entire-object replacement on concurrent edits.
+
+**Correct (React — useStore with type:'map'):**
+
+```tsx
+import { useStore } from '@veltdev/crdt-react';
+
+type DataMap = Record<string, string>;
+
+function CollaborativeKVStore() {
+  const {
+    value: entries,
+    update: updateEntries,
+    store,
+    isLoading,
+    error,
+  } = useStore<DataMap>({
+    storeId: 'my-map-store',
+    type: 'map',
+    initialValue: { key1: 'value1' },
+  });
+
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+
+  // Guard: value is a plain object (not array, not null) before iterating
+  const entriesMap =
+    entries && typeof entries === 'object' && !Array.isArray(entries) ? entries : {};
+
+  // Set or overwrite a key — read latest synchronous value from store inside handlers
+  const setKey = (key: string, val: string) => {
+    const current = store.getValue() || {};
+    updateEntries({ ...current, [key]: val });
+  };
+
+  // Remove a key
+  const deleteKey = (key: string) => {
+    const current = store.getValue() || {};
+    const updated = { ...current };
+    delete updated[key];
+    updateEntries(updated);
+  };
+
+  return (
+    <ul>
+      {Object.entries(entriesMap).map(([key, value]) => (
+        <li key={key}>
+          {key}: {value}
+          <button onClick={() => deleteKey(key)}>Remove</button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+```
+
+**Correct (non-React — createVeltStore with type:'map'):**
+
+```js
+import { createVeltStore } from '@veltdev/crdt';
+
+async function initStore(veltClient) {
+  const store = await createVeltStore({
+    id: 'my-map-store',
+    type: 'map',
+    initialValue: { key1: 'value1' },
+    veltClient,
+  });
+  if (!store) return;
+
+  // Seed UI with current value
+  renderEntries(store.getValue() || {});
+
+  // Subscribe to all future changes (local and remote)
+  const unsubscribe = store.subscribe((newData) => {
+    renderEntries(newData && typeof newData === 'object' && !Array.isArray(newData) ? newData : {});
+  });
+
+  return unsubscribe;
+}
+```
+
+**forceResetInitialContent (optional):**
+
+```tsx
+const { value: entries } = useStore<DataMap>({
+  storeId: 'my-map-store',
+  type: 'map',
+  initialValue: defaultEntries,
+  forceResetInitialContent: true,
+});
+```
+
+---
+
+### 1.19 Use type:'text' Store for Collaborative Plain Text
+
+**Impact: HIGH (Text stores use Y.Text semantics for character-level conflict-free merging; binding a textarea to this store enables real-time collaborative plain-text editing without managing subscriptions manually)**
+
+A text store is backed by Yjs `Y.Text` and is the correct type for any plain-text collaborative data (notes, code snippets, simple text fields). The `useStore` hook (React) and `createVeltStore` factory (non-React) both accept `type: 'text'`. The hook handles initialization, real-time subscriptions, and cleanup automatically.
+
+Always coalesce the reactive `value` with `?? ''` (or `|| ''`) before binding it to a textarea or display element, because the value is `null` before the store is hydrated.
+
+Do not use the `map` or `array` type to store plain text, and do not split a single text document into multiple stores to work around merge conflicts — `Y.Text` already handles concurrent character-level edits correctly.
+
+**Correct (React — useStore with type:'text'):**
+
+```tsx
+import { useStore } from '@veltdev/crdt-react';
+
+function CollaborativeNotepad() {
+  const {
+    value: text,
+    update: updateText,
+    isLoading,
+    error,
+  } = useStore<string>({
+    storeId: 'my-text-store',
+    type: 'text',
+    initialValue: '',
+  });
+
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+
+  return (
+    <textarea
+      // Coalesce null to empty string — value is null before the store is hydrated
+      value={text ?? ''}
+      onChange={(e) => updateText(e.target.value)}
+      placeholder="Start typing..."
+    />
+  );
+}
+```
+
+**Correct (non-React — createVeltStore with type:'text'):**
+
+```js
+import { createVeltStore } from '@veltdev/crdt';
+
+async function initStore(veltClient) {
+  const store = await createVeltStore({
+    id: 'my-text-store',
+    type: 'text',
+    initialValue: '',
+    veltClient,
+  });
+  if (!store) return;
+
+  // Seed the UI with the current value
+  const textarea = document.querySelector('.notepad-textarea');
+  if (textarea) textarea.value = store.getValue() || '';
+
+  // Subscribe to all future changes (local and remote)
+  const unsubscribe = store.subscribe((newText) => {
+    // Only update the textarea if it is not focused to avoid cursor jump
+    if (textarea && textarea !== document.activeElement) {
+      textarea.value = typeof newText === 'string' ? newText : '';
+    }
+  });
+
+  // Wire textarea input to store.update()
+  if (textarea) {
+    textarea.addEventListener('input', () => {
+      store.update(textarea.value);
+    });
+  }
+
+  return unsubscribe;
+}
+```
+
+**forceResetInitialContent (optional):**
+
+```tsx
+const { value: text } = useStore<string>({
+  storeId: 'my-text-store',
+  type: 'text',
+  initialValue: defaultText,
+  forceResetInitialContent: true,
+});
+```
+
+---
+
+### 1.20 Use type:'xml' Store with Yjs APIs — Never Call update()
+
+**Impact: CRITICAL (XML stores do NOT support the update() method — calling it is a no-op or causes errors; all mutations must go through store.getXml() (Y.XmlFragment) and Yjs APIs directly, and the yjs package must be installed separately)**
+
+An XML store is backed by Yjs `Y.XmlFragment` and is the correct type for tree-shaped collaborative data (outline editors, structured documents, or any DOM-like hierarchy). Unlike `text`, `map`, and `array` stores, **the XML store does not use `update()`**. All mutations must go through Yjs APIs directly via `store.getXml()`.
+
+The `xml` type also requires the `yjs` package as a direct dependency — install it with `npm i yjs` in addition to the Velt CRDT packages.
+
+Do not call `update()` on an XML store — it is not supported and will not propagate mutations. Do not use `type: 'xml'` for plain text or flat key-value data; use `type: 'text'` or `type: 'map'` instead.
+
+**Correct (React — useStore with type:'xml', mutations via store.getXml()):**
+
+```tsx
+import { useStore } from '@veltdev/crdt-react';
+import * as Y from 'yjs'; // requires: npm i yjs
+import { useEffect, useRef, useState } from 'react';
+
+interface TreeNode {
+  id: string;
+  text: string;
+  children: TreeNode[];
+}
+
+function CollaborativeOutline() {
+  const xmlRef = useRef<Y.XmlFragment | null>(null);
+  const [nodes, setNodes] = useState<TreeNode[]>([]);
+
+  // useStore returns store, isLoading, error — there is no update() for xml stores
+  const { store, isLoading, error } = useStore<string>({
+    storeId: 'my-xml-store',
+    type: 'xml',
+  });
+
+  useEffect(() => {
+    if (!store) return;
+
+    // Get the raw Y.XmlFragment — all mutations go through this object
+    const xml = store.getXml() as unknown as Y.XmlFragment | null;
+    if (!xml) return;
+    xmlRef.current = xml;
+
+    // Populate with initial content if the document is empty
+    // Wrap mutations in doc.transact() for atomic batching
+    if (xml.length === 0) {
+      const doc = store.getDoc();
+      doc.transact(() => {
+        const el = new Y.XmlElement('node');
+        el.setAttribute('id', 'root-1');
+        el.setAttribute('text', 'Getting Started');
+        xml.insert(0, [el]);
+      });
+    }
+
+    // Seed React state with the current tree
+    setNodes(xmlFragmentToNodes(xml));
+
+    // Subscribe to all future changes (local and remote)
+    const unsub = store.subscribe(() => {
+      if (xmlRef.current) {
+        setNodes(xmlFragmentToNodes(xmlRef.current));
+      }
+    });
+
+    return () => unsub();
+  }, [store]);
+
+  // Mutate via Yjs APIs — setAttribute is fine-grained and merges better than replacement
+  const updateNodeText = (nodeId: string, newText: string) => {
+    const xml = xmlRef.current;
+    if (!xml) return;
+    const el = findElementById(xml, nodeId);
+    if (el) el.setAttribute('text', newText);
+  };
+
+  // Add a child node inside a transaction for atomicity
+  const addNode = (text: string) => {
+    const xml = xmlRef.current;
+    if (!xml || !store) return;
+    const doc = store.getDoc();
+    doc.transact(() => {
+      const el = new Y.XmlElement('node');
+      el.setAttribute('id', crypto.randomUUID());
+      el.setAttribute('text', text);
+      xml.insert(xml.length, [el]);
+    });
+  };
+
+  if (isLoading) return <div>Loading...</div>;
+  if (error) return <div>Error: {error.message}</div>;
+
+  return (
+    <ul>
+      {nodes.map((node) => (
+        <li key={node.id}>
+          <input
+            value={node.text}
+            onChange={(e) => updateNodeText(node.id, e.target.value)}
+          />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// Helper: convert Y.XmlFragment to a plain-object tree
+function xmlFragmentToNodes(container: Y.XmlFragment | Y.XmlElement): TreeNode[] {
+  const nodes: TreeNode[] = [];
+  for (let i = 0; i < container.length; i++) {
+    const child = container.get(i);
+    if (child instanceof Y.XmlElement && child.nodeName === 'node') {
+      nodes.push({
+        id: child.getAttribute('id') || '',
+        text: child.getAttribute('text') || '',
+        children: xmlFragmentToNodes(child),
+      });
+    }
+  }
+  return nodes;
+}
+
+// Helper: find a Y.XmlElement by 'id' attribute (recursive)
+function findElementById(
+  container: Y.XmlFragment | Y.XmlElement,
+  id: string
+): Y.XmlElement | null {
+  for (let i = 0; i < container.length; i++) {
+    const child = container.get(i);
+    if (child instanceof Y.XmlElement) {
+      if (child.getAttribute('id') === id) return child;
+      const found = findElementById(child, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+```
+
+**Correct (non-React — createVeltStore with type:'xml'):**
+
+```js
+import { createVeltStore } from '@veltdev/crdt';
+import * as Y from 'yjs'; // requires: npm i yjs
+
+async function initStore(veltClient) {
+  const store = await createVeltStore({
+    id: 'my-xml-store',
+    type: 'xml',
+    // No initialValue — seed via Yjs APIs after checking xml.length === 0
+    veltClient,
+  });
+  if (!store) return;
+
+  const xml = store.getXml();
+  if (!xml) return;
+
+  // Populate with initial content if the document is empty
+  if (xml.length === 0) {
+    const doc = store.getDoc();
+    doc.transact(() => {
+      const el = new Y.XmlElement('node');
+      el.setAttribute('id', 'root-1');
+      el.setAttribute('text', 'Getting Started');
+      xml.insert(0, [el]);
+    });
+  }
+
+  // Seed the UI
+  renderTree(xml);
+
+  // Subscribe to all future changes (local and remote)
+  const unsubscribe = store.subscribe(() => {
+    renderTree(xml);
+  });
+
+  return unsubscribe;
+}
+```
+
+**Force-resetting XML initial content:**
+
+```tsx
+const xml = store.getXml() as unknown as Y.XmlFragment | null;
+if (!xml || !store) return;
+
+const doc = store.getDoc();
+doc.transact(() => {
+  // Delete all existing content, then re-populate
+  if (xml.length > 0) xml.delete(0, xml.length);
+  populateInitialContent(xml);
+});
+```
+
+---
+
+### 1.21 Use update() Method to Modify Store Values
 
 **Impact: HIGH (Ensures changes sync to all collaborators)**
 
@@ -1205,7 +1705,7 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### S
 
 ---
 
-### 1.18 Use useStore (v2) for Reactive CRDT Stores with Status, Sync, and Error State
+### 1.22 Use useStore (v2) for Reactive CRDT Stores with Status, Sync, and Error State
 
 **Impact: CRITICAL (v2 useStore hook is the canonical entry point; without it, you lose status/sync/error reactivity and forceResetInitialContent, and your code stays pinned to deprecated v1 surface)**
 
@@ -1351,7 +1851,7 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (## AP
 
 ---
 
-### 1.19 Use VeltCrdtStoreMap for Runtime Debugging
+### 1.23 Use VeltCrdtStoreMap for Runtime Debugging
 
 **Impact: LOW (Enables real-time inspection of CRDT state)**
 
@@ -1395,7 +1895,7 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### D
 
 ---
 
-### 1.20 Use Webhooks to Listen for CRDT Data Changes
+### 1.24 Use Webhooks to Listen for CRDT Data Changes
 
 **Impact: HIGH (Enables server-side reactions to collaborative data changes)**
 
@@ -1470,7 +1970,7 @@ function CrdtChangeListener() {
 
 ---
 
-### 1.21 Use createVeltStore for Non-React CRDT Stores
+### 1.25 Use createVeltStore for Non-React CRDT Stores
 
 **Impact: CRITICAL (Required for Vue, Angular, vanilla JS integrations)**
 

@@ -2278,6 +2278,7 @@ result = sdk.api.documents.addDocuments(
 | Presence | `sdk.api.presence` |
 | Livestate | `sdk.api.livestate` |
 | Recordings | `sdk.api.recordings` |
+| Rewriter | `sdk.api.rewriter` |
 | GDPR | `sdk.api.gdpr` |
 | Workspace | `sdk.api.workspace` |
 | Token | `sdk.api.token` |

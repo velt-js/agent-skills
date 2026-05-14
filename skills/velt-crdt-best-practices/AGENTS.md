@@ -5,7 +5,7 @@
 
 ## 1. Core CRDT — CRITICAL
 |react/core:{core-crdt-utils-hooks.md,core-store-create-react.md}
-|shared/core:{core-store-types.md,core-velt-init.md,core-install.md,core-store-lifecycle.md,core-v1-to-v2-migration.md,core-version-save.md,core-event-subscription.md,core-store-subscribe.md,core-debug-testing.md,core-activity-action-types.md,core-message-stream.md,core-encryption.md,core-rest-api.md,core-activity-debounce.md,core-store-update.md,core-store-v2-api.md,core-debug-storemap.md,core-webhooks.md}
+|shared/core:{core-store-types.md,core-velt-init.md,core-install.md,core-store-lifecycle.md,core-v1-to-v2-migration.md,core-version-save.md,core-event-subscription.md,core-store-subscribe.md,core-debug-testing.md,core-activity-action-types.md,core-message-stream.md,core-encryption.md,core-rest-api.md,core-activity-debounce.md,core-store-array.md,core-store-map.md,core-store-text.md,core-store-xml.md,core-store-update.md,core-store-v2-api.md,core-debug-storemap.md,core-webhooks.md}
 |non-react/core:{core-store-create-vanilla.md}
 
 ## 2. Tiptap Integration — CRITICAL
