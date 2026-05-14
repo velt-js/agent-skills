@@ -15,7 +15,7 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 2. REST API Endpoints (rest-api)
 
 **Impact:** HIGH
-**Description:** CRUD patterns for the Velt REST API v2 surface — comment annotations and comments, notifications and notification config, users (add / get / update / delete plus GDPR data operations), documents / organizations / folders, and activity logs / CRDT documents. All endpoints are POST and use the `https://api.velt.dev/v2` base URL; endpoint identity is verbatim (path and version prefix matter). Includes request and response shape guidance, including the GET response envelope (annotation-level fields, expanded `reactionAnnotations` objects vs. `reactionAnnotationIds`, timestamp formats).
+**Description:** CRUD patterns for the Velt REST API v2 surface — comment annotations and comments, notifications and notification config, users (add / get / update / delete plus GDPR data operations), documents / organizations / folders, activity logs / CRDT documents, and the Approval Engine (14 `/v2/workflow/` endpoints covering definitions, executions, and steps). All endpoints are POST and use the `https://api.velt.dev/v2` base URL; endpoint identity is verbatim (path and version prefix matter). Includes request and response shape guidance, including the GET response envelope (annotation-level fields, expanded `reactionAnnotations` objects vs. `reactionAnnotationIds`, timestamp formats), idempotency guidance for execution dispatch, and webhook signature verification patterns.
 
 ---
 

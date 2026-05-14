@@ -9,7 +9,7 @@ metadata:
 
 # Velt REST APIs Best Practices
 
-Comprehensive guide for Velt REST API v2, JWT authentication, and webhooks. Contains 9 rules across 4 categories covering core setup, REST API endpoints, webhook handling, and debugging.
+Comprehensive guide for Velt REST API v2, JWT authentication, and webhooks. Contains 10 rules across 4 categories covering core setup, REST API endpoints, webhook handling, and debugging.
 
 ## When to Apply
 
@@ -41,6 +41,7 @@ Reference these guidelines when:
 - `rest-documents-orgs` — Document, organization, folder management
 - `rest-notifications` — Notification add/get/update/delete + config
 - `rest-activities-crdt` — Activity logs + CRDT data endpoints
+- `rest-approval-engine` — All 14 `/v2/workflow/` Approval Engine endpoints: definitions CRUD, execution dispatch/cancel/list/events, step decision recording and admin overrides; includes idempotency, webhook delivery, and quorum policy guidance
 
 ### Webhooks (MEDIUM)
 - `webhooks-basic` — v1 setup, event types, payload format, security
