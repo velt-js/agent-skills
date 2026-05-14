@@ -1,0 +1,54 @@
+{
+  "skill_name": "velt-rewriter-best-practices",
+  "evals": [
+    {
+      "id": 0,
+      "name": "basic-setup-react",
+      "prompt": "I'm building a Next.js app and want to add the Velt AI rewriter so users can highlight a paragraph and click a button to rewrite it. Show me a complete React component that wires up the rewriter end to end — enable the feature, listen for selections, ask the AI to rewrite, and apply the result to the page. Use Gemini.",
+      "expected_output": "A complete React/Next.js component using useVeltClient + useEffect that calls enableRewriter, subscribes to on('textSelected'), calls askAi with a gemini-* model, and calls replaceText({ text, event }) passing the full event through. Should also dispose the subscription and disableRewriter on cleanup.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "feature-vs-toolbar-toggle",
+      "prompt": "In my app I want the Velt rewriter to be ACTIVE on a page — text-selection events should still fire so I can render my own custom UI — but I do NOT want the default Velt selection toolbar to appear. What API calls should I make?",
+      "expected_output": "Should explain that enableRewriter() turns the feature on (events fire), and disableDefaultUI() hides only the toolbar without affecting events. Should NOT recommend disableRewriter() (which would turn off events). Should explicitly call out that this is a feature-toggle vs UI-toggle distinction.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "switch-providers",
+      "prompt": "I currently call rewriter.askAi with model 'gpt-4o'. I want to switch to Anthropic's Claude. Do I need to change anything besides the model string? Is there a provider field I need to set?",
+      "expected_output": "Should state that Velt auto-routes the provider based on the model-string prefix (gpt-* → OpenAI, claude-* → Anthropic, gemini-* → Google), so only the model string needs to change. Should explicitly say there is NO provider field. Bonus: mention custom LLM API keys via Velt Console.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "replaceText-event-threading",
+      "prompt": "I'm calling rewriter.askAi successfully and getting back response.text. Now I want to apply that text to the page. I tried doing `document.querySelector('p').innerHTML = response.text` but it's breaking my Velt comments. What's the right way?",
+      "expected_output": "Should recommend rewriterElement.replaceText({ text: response.text, event }) — passing the FULL event from the textSelected subscription (not event.text or a selector). Should explain that manual DOM manipulation loses Velt's anchor metadata and breaks anchored comments.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "name": "custom-rewriter-dialog",
+      "prompt": "I want to build a fully custom AI rewriter dialog using Velt's wireframes. How do I read the AI-generated options list and the loading state inside the wireframe slot? Show a minimal VeltRewriterDialogWireframe example.",
+      "expected_output": "Should use velt-data field='componentConfig.options.<index>' or .length, velt-if='{componentConfig.loading}' or '!{componentConfig.apiCalled}', and velt-class with componentConfig.* bindings. Should use the full componentConfig.<path> prefix (not bare 'loading'). Should mention disableDefaultUI() is the right partner for a custom UI.",
+      "files": []
+    },
+    {
+      "id": 5,
+      "name": "anchor-comment-not-replace",
+      "prompt": "I want my AI rewriter to suggest a rewrite, but rather than immediately replacing the text I want a reviewer to see the suggestion as an anchored comment, then approve it. How do I anchor the AI's suggestion as a Velt comment on the selected text range?",
+      "expected_output": "Should recommend rewriterElement.addComment({ text: aiResponse.text, event }) — passing the full event. Should clarify this is the Rewriter's addComment (not the Comments-feature addComment). Should mention that addComment + replaceText can be combined (comment first, replace on approval).",
+      "files": []
+    },
+    {
+      "id": 6,
+      "name": "typescript-model-typing",
+      "prompt": "I'm using TypeScript and want autocomplete on the model field of my askAi call. What type should I import, where from? Will it break if I pass a model identifier that's not in the official list yet?",
+      "expected_output": "Should import AiModel (and/or RewriterAskAiRequest) from @veltdev/types. Should explain that AiModel is an open union with (string & NonNullable<unknown>) escape hatch — passing an unenumerated model string still compiles without a cast.",
+      "files": []
+    }
+  ]
+}

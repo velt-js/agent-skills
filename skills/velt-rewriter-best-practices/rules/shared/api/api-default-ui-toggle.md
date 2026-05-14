@@ -57,4 +57,4 @@ rewriterElement.disableDefaultUI();
 - [ ] `enableDefaultUI()` is available to restore the toolbar if toggling dynamically
 
 **Source Pointers:**
-- https://docs.velt.dev/async-collaboration/rewriter/api-reference - RewriterElement API reference
+- https://docs.velt.dev/ai/rewriter/customize-behavior#enabledefaultui - `enableDefaultUI` / `disableDefaultUI` API reference

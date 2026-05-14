@@ -1,13 +1,17 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "organization": "Velt",
   "date": "May 2026",
-  "abstract": "Velt Rewriter implementation guide covering the AI text-rewriter primitive, programmatic control of the default selection toolbar, and type-safe AI model selection via the AiModel union type on RewriterAskAiRequest. Provides patterns for integrating Velt's Rewriter into React, Next.js, and other web applications.",
+  "abstract": "Velt Rewriter implementation guide covering the AI text-rewriter pipeline (enableRewriter → on('textSelected') → askAi → replaceText / addComment), multi-provider AI generation auto-routed by model prefix (OpenAI / Anthropic / Gemini), default-toolbar control, type-safe AiModel selection, and wireframe-driven custom UI for the Rewriter primitives. Patterns for integrating Velt Rewriter into React, Next.js, and other web applications.",
   "references": [
     "https://docs.velt.dev",
-    "https://docs.velt.dev/async-collaboration/rewriter/overview",
-    "https://docs.velt.dev/async-collaboration/rewriter/api-reference",
+    "https://docs.velt.dev/ai/rewriter/overview",
+    "https://docs.velt.dev/ai/rewriter/setup",
+    "https://docs.velt.dev/ai/rewriter/customize-behavior",
     "https://docs.velt.dev/api-reference/sdk/models/data-models#rewriteraskairequest",
+    "https://docs.velt.dev/api-reference/sdk/models/data-models#rewriterreplacetextrequest",
+    "https://docs.velt.dev/api-reference/sdk/models/data-models#rewriteraddcommentrequest",
+    "https://docs.velt.dev/api-reference/sdk/models/data-models#textselectedevent",
     "https://docs.velt.dev/ui-customization/features/async/rewriter/wireframe-variables",
     "https://console.velt.dev"
   ]
