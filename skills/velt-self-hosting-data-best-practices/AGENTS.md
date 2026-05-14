@@ -22,7 +22,7 @@
 |shared/data:{data-types-reference.md}
 
 ## 7. Python SDK — HIGH
-|shared/python-sdk:{python-attachments.md,python-comments.md,python-frameworks.md,python-rest-api-backend.md,python-users-reactions.md}
+|shared/python-sdk:{python-attachments.md,python-comments.md,python-frameworks.md,python-token.md,python-rest-api-backend.md,python-users-reactions.md}
 
 ## 8. Debugging — LOW-MEDIUM
 |shared/debug:{debug-data-provider-events.md}

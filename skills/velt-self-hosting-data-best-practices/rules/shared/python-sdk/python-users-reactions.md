@@ -29,12 +29,13 @@ request = GetUserResolverRequest(
 
 response = sdk.selfHosting.users.getUsers(request)
 
-if response.success:
-    users = response.data
+# response is a plain dict with camelCase keys
+if response['success']:
+    users = response['data']
     for user in users:
         print(f"User: {user['userId']} - {user['email']}")
 else:
-    print(f"Error: {response.error}")
+    print(f"Error: {response['error']}")
 ```
 
 **Correct (get reactions):**
@@ -44,14 +45,13 @@ from velt_py import GetReactionResolverRequest
 
 request = GetReactionResolverRequest(
     organization_id="org_123",
-    document_id="doc_456",
-    comment_id="comment_1"
+    document_id="doc_456"
 )
 
 response = sdk.selfHosting.reactions.getReactions(request)
 
-if response.success:
-    reactions = response.data
+if response['success']:
+    reactions = response['data']
     print(f"Found {len(reactions)} reactions")
 ```
 
@@ -63,20 +63,18 @@ from velt_py import SaveReactionResolverRequest
 request = SaveReactionResolverRequest(
     organization_id="org_123",
     document_id="doc_456",
-    comment_id="comment_1",
     reactions=[
         {
             "reactionId": "reaction_1",
             "emoji": "thumbsup",
-            "userId": "user_789",
-            "timestamp": 1700000000000
+            "userId": "user_789"
         }
     ]
 )
 
 response = sdk.selfHosting.reactions.saveReactions(request)
 
-if response.success:
+if response['success']:
     print("Reactions saved")
 ```
 
@@ -88,13 +86,12 @@ from velt_py import DeleteReactionResolverRequest
 request = DeleteReactionResolverRequest(
     organization_id="org_123",
     document_id="doc_456",
-    comment_id="comment_1",
     reaction_id="reaction_1"
 )
 
 response = sdk.selfHosting.reactions.deleteReaction(request)
 
-if response.success:
+if response['success']:
     print("Reaction deleted")
 ```
 
@@ -112,15 +109,17 @@ from velt_py import (
 **Key points:**
 
 - All methods require typed request objects, not raw dictionaries.
-- `getUsers` only needs `organization_id`. Reaction methods need `organization_id`, `document_id`, and `comment_id`.
-- `saveReactions` accepts a list for batch operations.
-- Always check `response.success` before accessing `response.data`.
+- `getUsers` only needs `organization_id`. Reaction methods need `organization_id` and `document_id` — there is no `comment_id` field on any reaction request type.
+- `saveReactions` accepts a `reactions` list for batch operations.
+- `deleteReaction` requires `reaction_id` only (no `comment_id`).
+- `VeltSelfHostingResponse` is a plain Python dict — use `response['success']`, `response['data']`, `response['errorCode']` (not attribute access).
+- Always check `response['success']` before accessing `response['data']`.
 
 **Verification:**
 - [ ] Request types are imported from `velt_py`
 - [ ] Typed request objects are passed, not raw dicts
-- [ ] Required fields (`organization_id`, `document_id`, `comment_id`) are provided
-- [ ] Response `success` is checked before accessing `data`
-- [ ] Error handling covers `response.error` and `response.error_code`
+- [ ] Reaction requests use `organization_id` and `document_id` only (no `comment_id`)
+- [ ] Response is accessed as a dict: `response['success']`, `response['data']`, `response['errorCode']`
+- [ ] Error handling uses `response['error']` and `response['errorCode']`
 
 **Source Pointer:** `https://docs.velt.dev/api-reference/sdk/python/users` (## Python SDK > ### Users & Reactions)

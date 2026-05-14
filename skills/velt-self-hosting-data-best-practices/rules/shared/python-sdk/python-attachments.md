@@ -43,7 +43,7 @@ with open("report.pdf", "rb") as f:
 request = SaveAttachmentResolverRequest(
     organization_id="org_123",
     document_id="doc_456",
-    comment_id="comment_1"
+    attachment_id="attachment_789"
 )
 
 response = sdk.selfHosting.attachments.saveAttachment(
@@ -53,11 +53,11 @@ response = sdk.selfHosting.attachments.saveAttachment(
     mime_type="application/pdf"
 )
 
-if response.success:
-    attachment_url = response.data
+if response['success']:
+    attachment_url = response['data']
     print(f"Uploaded: {attachment_url}")
 else:
-    print(f"Upload failed: {response.error}")
+    print(f"Upload failed: {response['error']}")
 ```
 
 **Correct (delete an attachment):**
@@ -68,13 +68,12 @@ from velt_py import DeleteAttachmentResolverRequest
 request = DeleteAttachmentResolverRequest(
     organization_id="org_123",
     document_id="doc_456",
-    comment_id="comment_1",
     attachment_id="attachment_789"
 )
 
 response = sdk.selfHosting.attachments.deleteAttachment(request)
 
-if response.success:
+if response['success']:
     print("Attachment deleted from database and S3")
 ```
 
@@ -91,7 +90,7 @@ if response.success:
 - [ ] S3 bucket exists and IAM credentials have correct permissions
 - [ ] File data is read as bytes, not text
 - [ ] `mime_type` matches the actual file type
-- [ ] Response `success` is checked before using the returned URL
-- [ ] Delete operations specify `attachment_id`
+- [ ] Response is accessed as a dict: `response['success']`, `response['data']`
+- [ ] Delete operations specify `attachment_id` only (no `comment_id`)
 
 **Source Pointer:** `https://docs.velt.dev/api-reference/sdk/python/attachments` (## Python SDK > ### Attachments)

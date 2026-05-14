@@ -53,8 +53,9 @@ Comprehensive guide for Velt self-hosting data feature, enabling storage of sens
    - 7.1 [Attachment Upload and Delete via Python SDK with S3](#71-attachment-upload-and-delete-via-python-sdk-with-s3)
    - 7.2 [Comments CRUD Operations via Python SDK](#72-comments-crud-operations-via-python-sdk)
    - 7.3 [Django, Flask, and FastAPI Integration Patterns](#73-django-flask-and-fastapi-integration-patterns)
-   - 7.4 [Use sdk.api.* for REST API Operations Without a Database](#74-use-sdkapi-for-rest-api-operations-without-a-database)
-   - 7.5 [Users and Reactions Management via Python SDK](#75-users-and-reactions-management-via-python-sdk)
+   - 7.4 [Generate Auth Tokens via sdk.selfHosting.token.getToken](#74-generate-auth-tokens-via-sdkselfhostingtokengettoken)
+   - 7.5 [Use sdk.api.* for REST API Operations Without a Database](#75-use-sdkapi-for-rest-api-operations-without-a-database)
+   - 7.6 [Users and Reactions Management via Python SDK](#76-users-and-reactions-management-via-python-sdk)
 
 8. [Debugging](#8-debugging) — **LOW-MEDIUM**
    - 8.1 [Monitor Data Provider Events for Troubleshooting](#81-monitor-data-provider-events-for-troubleshooting)
@@ -1937,7 +1938,7 @@ with open("report.pdf", "rb") as f:
 request = SaveAttachmentResolverRequest(
     organization_id="org_123",
     document_id="doc_456",
-    comment_id="comment_1"
+    attachment_id="attachment_789"
 )
 
 response = sdk.selfHosting.attachments.saveAttachment(
@@ -1947,11 +1948,11 @@ response = sdk.selfHosting.attachments.saveAttachment(
     mime_type="application/pdf"
 )
 
-if response.success:
-    attachment_url = response.data
+if response['success']:
+    attachment_url = response['data']
     print(f"Uploaded: {attachment_url}")
 else:
-    print(f"Upload failed: {response.error}")
+    print(f"Upload failed: {response['error']}")
 ```
 
 **Correct (delete an attachment):**
@@ -1962,13 +1963,12 @@ from velt_py import DeleteAttachmentResolverRequest
 request = DeleteAttachmentResolverRequest(
     organization_id="org_123",
     document_id="doc_456",
-    comment_id="comment_1",
     attachment_id="attachment_789"
 )
 
 response = sdk.selfHosting.attachments.deleteAttachment(request)
 
-if response.success:
+if response['success']:
     print("Attachment deleted from database and S3")
 ```
 
@@ -2004,11 +2004,12 @@ request = GetCommentResolverRequest(
 
 response = sdk.selfHosting.comments.getComments(request)
 
-if response.success:
-    comments = response.data
+# response is a plain dict with camelCase keys
+if response['success']:
+    comments = response['data']
     print(f"Retrieved {len(comments)} comments")
 else:
-    print(f"Error {response.error_code}: {response.error}")
+    print(f"Error {response['errorCode']}: {response['error']}")
 ```
 
 **Correct (save comments):**
@@ -2019,20 +2020,23 @@ from velt_py import SaveCommentResolverRequest
 request = SaveCommentResolverRequest(
     organization_id="org_123",
     document_id="doc_456",
-    comments=[
+    comment_annotations=[
         {
-            "commentId": "comment_1",
-            "body": "This needs review",
-            "userId": "user_789",
-            "timestamp": 1700000000000
+            "annotationId": "annotation_1",
+            "commentData": [
+                {
+                    "commentText": "This needs review",
+                    "from": {"userId": "user_789"}
+                }
+            ]
         }
     ]
 )
 
 response = sdk.selfHosting.comments.saveComments(request)
 
-if response.success:
-    print(f"Saved successfully, status: {response.status_code}")
+if response['success']:
+    print(f"Saved successfully, status: {response.get('statusCode', 200)}")
 ```
 
 **Correct (delete comment):**
@@ -2043,27 +2047,35 @@ from velt_py import DeleteCommentResolverRequest
 request = DeleteCommentResolverRequest(
     organization_id="org_123",
     document_id="doc_456",
-    comment_id="comment_1"
+    annotation_id="annotation_1",
+    comment_id=1
 )
 
 response = sdk.selfHosting.comments.deleteComment(request)
 
-if response.success:
+if response['success']:
     print("Comment deleted")
 ```
 
 **Response format:**
 
 ```python
-# Success response
-# response.success == True
-# response.status_code == 200
-# response.data == [...]  (for get) or confirmation (for save/delete)
+# VeltSelfHostingResponse is a plain Python dict with camelCase keys
 
-# Error response
-# response.success == False
-# response.error == "Comment not found"
-# response.error_code == 404
+# Success
+response = {'success': True, 'statusCode': 200, 'data': {...}}
+
+# Error
+response = {'success': False, 'statusCode': 500, 'error': 'Comment not found', 'errorCode': 'INTERNAL_ERROR'}
+
+# Access pattern
+if response['success']:
+    data = response['data']
+else:
+    print(f"Error {response['errorCode']}: {response['error']}")
+
+# Safe optional field access
+status = response.get('statusCode', 200)
 ```
 
 **Verification:**
@@ -2149,9 +2161,10 @@ def get_comments(request):
 
     response = sdk.selfHosting.comments.getComments(resolver_request)
 
-    if response.success:
-        return JsonResponse({"data": response.data})
-    return JsonResponse({"error": response.error}, status=response.error_code)
+    # response is a plain dict with camelCase keys
+    if response['success']:
+        return JsonResponse({"data": response['data']})
+    return JsonResponse({"error": response['error']}, status=response.get('statusCode', 500))
 ```
 
 **Flask — Initialize at module level:**
@@ -2181,9 +2194,9 @@ def get_comments():
 
     response = sdk.selfHosting.comments.getComments(resolver_request)
 
-    if response.success:
-        return jsonify({"data": response.data})
-    return jsonify({"error": response.error}), response.error_code
+    if response['success']:
+        return jsonify({"data": response['data']})
+    return jsonify({"error": response['error']}), response.get('statusCode', 500)
 ```
 
 **FastAPI — Initialize at module level, use async endpoints:**
@@ -2213,16 +2226,63 @@ async def get_comments(req: Request):
 
     response = sdk.selfHosting.comments.getComments(resolver_request)
 
-    if response.success:
-        return {"data": response.data}
-    return {"error": response.error}
+    if response['success']:
+        return {"data": response['data']}
+    return {"error": response['error']}
 ```
 
 Reference: `https://docs.velt.dev/api-reference/sdk/python/overview` (## Python SDK > ### Framework Integration)
 
 ---
 
-### 7.4 Use sdk.api.* for REST API Operations Without a Database
+### 7.4 Generate Auth Tokens via sdk.selfHosting.token.getToken
+
+**Impact: HIGH (Issuing auth tokens server-side with the self-hosting variant ensures token generation works within your own infrastructure without a separate REST call)**
+
+The Python SDK exposes `sdk.selfHosting.token.getToken` to generate a Velt auth token for a user on the server side. This is the self-hosting variant of token generation — use it when your backend already has MongoDB + AWS configured via `sdk.selfHosting.*`. The generated token is passed to the frontend `authProvider` prop so the client can authenticate without exposing your API credentials.
+
+Do not call the Velt REST auth endpoint directly with `requests` or `httpx` and do not attempt to construct the JWT manually. Unlike other `sdk.selfHosting.*` methods, `getToken` does **not** accept a typed request dataclass — pass arguments as keyword arguments directly.
+
+**Correct (generate token and return to frontend):**
+
+```python
+from velt_py import VeltSDK
+
+sdk = VeltSDK.initialize({
+    'apiKey': 'YOUR_VELT_API_KEY',
+    'authToken': 'YOUR_VELT_AUTH_TOKEN',
+    'database': {
+        'mongoURI': 'YOUR_MONGO_URI',
+        'dbName': 'YOUR_DB_NAME'
+    }
+})
+
+result = sdk.selfHosting.token.getToken(
+    organizationId='org-123',
+    userId='user-1',
+    email='user@example.com',   # optional
+    isAdmin=False                # optional, defaults to False
+)
+
+if result['success']:
+    token = result['data']['token']   # JWT string — pass to frontend authProvider
+else:
+    print(f"Token error {result.get('errorCode')}: {result.get('error')}")
+```
+
+**Response shape:**
+
+```python
+# Success
+{'success': True, 'statusCode': 200, 'data': {'token': 'eyJhbGciOi...'}}
+
+# Error
+{'success': False, 'statusCode': 500, 'error': '...', 'errorCode': 'INTERNAL_ERROR'}
+```
+
+---
+
+### 7.5 Use sdk.api.* for REST API Operations Without a Database
 
 **Impact: HIGH (Using sdk.api.* eliminates the need for MongoDB/AWS setup when calling Velt APIs directly, reducing backend complexity significantly)**
 
@@ -2285,7 +2345,7 @@ result = sdk.api.documents.addDocuments(
 
 ---
 
-### 7.5 Users and Reactions Management via Python SDK
+### 7.6 Users and Reactions Management via Python SDK
 
 **Impact: MEDIUM (Incorrect request types prevent user lookups and reaction sync)**
 
@@ -2311,12 +2371,13 @@ request = GetUserResolverRequest(
 
 response = sdk.selfHosting.users.getUsers(request)
 
-if response.success:
-    users = response.data
+# response is a plain dict with camelCase keys
+if response['success']:
+    users = response['data']
     for user in users:
         print(f"User: {user['userId']} - {user['email']}")
 else:
-    print(f"Error: {response.error}")
+    print(f"Error: {response['error']}")
 ```
 
 **Correct (get reactions):**
@@ -2326,14 +2387,13 @@ from velt_py import GetReactionResolverRequest
 
 request = GetReactionResolverRequest(
     organization_id="org_123",
-    document_id="doc_456",
-    comment_id="comment_1"
+    document_id="doc_456"
 )
 
 response = sdk.selfHosting.reactions.getReactions(request)
 
-if response.success:
-    reactions = response.data
+if response['success']:
+    reactions = response['data']
     print(f"Found {len(reactions)} reactions")
 ```
 
@@ -2345,20 +2405,18 @@ from velt_py import SaveReactionResolverRequest
 request = SaveReactionResolverRequest(
     organization_id="org_123",
     document_id="doc_456",
-    comment_id="comment_1",
     reactions=[
         {
             "reactionId": "reaction_1",
             "emoji": "thumbsup",
-            "userId": "user_789",
-            "timestamp": 1700000000000
+            "userId": "user_789"
         }
     ]
 )
 
 response = sdk.selfHosting.reactions.saveReactions(request)
 
-if response.success:
+if response['success']:
     print("Reactions saved")
 ```
 
@@ -2370,13 +2428,12 @@ from velt_py import DeleteReactionResolverRequest
 request = DeleteReactionResolverRequest(
     organization_id="org_123",
     document_id="doc_456",
-    comment_id="comment_1",
     reaction_id="reaction_1"
 )
 
 response = sdk.selfHosting.reactions.deleteReaction(request)
 
-if response.success:
+if response['success']:
     print("Reaction deleted")
 ```
 

@@ -31,11 +31,12 @@ request = GetCommentResolverRequest(
 
 response = sdk.selfHosting.comments.getComments(request)
 
-if response.success:
-    comments = response.data
+# response is a plain dict with camelCase keys
+if response['success']:
+    comments = response['data']
     print(f"Retrieved {len(comments)} comments")
 else:
-    print(f"Error {response.error_code}: {response.error}")
+    print(f"Error {response['errorCode']}: {response['error']}")
 ```
 
 **Correct (save comments):**
@@ -46,20 +47,23 @@ from velt_py import SaveCommentResolverRequest
 request = SaveCommentResolverRequest(
     organization_id="org_123",
     document_id="doc_456",
-    comments=[
+    comment_annotations=[
         {
-            "commentId": "comment_1",
-            "body": "This needs review",
-            "userId": "user_789",
-            "timestamp": 1700000000000
+            "annotationId": "annotation_1",
+            "commentData": [
+                {
+                    "commentText": "This needs review",
+                    "from": {"userId": "user_789"}
+                }
+            ]
         }
     ]
 )
 
 response = sdk.selfHosting.comments.saveComments(request)
 
-if response.success:
-    print(f"Saved successfully, status: {response.status_code}")
+if response['success']:
+    print(f"Saved successfully, status: {response.get('statusCode', 200)}")
 ```
 
 **Correct (delete comment):**
@@ -70,42 +74,53 @@ from velt_py import DeleteCommentResolverRequest
 request = DeleteCommentResolverRequest(
     organization_id="org_123",
     document_id="doc_456",
-    comment_id="comment_1"
+    annotation_id="annotation_1",
+    comment_id=1
 )
 
 response = sdk.selfHosting.comments.deleteComment(request)
 
-if response.success:
+if response['success']:
     print("Comment deleted")
 ```
 
 **Response format:**
 
 ```python
-# Success response
-# response.success == True
-# response.status_code == 200
-# response.data == [...]  (for get) or confirmation (for save/delete)
+# VeltSelfHostingResponse is a plain Python dict with camelCase keys
 
-# Error response
-# response.success == False
-# response.error == "Comment not found"
-# response.error_code == 404
+# Success
+response = {'success': True, 'statusCode': 200, 'data': {...}}
+
+# Error
+response = {'success': False, 'statusCode': 500, 'error': 'Comment not found', 'errorCode': 'INTERNAL_ERROR'}
+
+# Access pattern
+if response['success']:
+    data = response['data']
+else:
+    print(f"Error {response['errorCode']}: {response['error']}")
+
+# Safe optional field access
+status = response.get('statusCode', 200)
 ```
 
 **Key points:**
 
 - Always import the correct request type: `GetCommentResolverRequest`, `SaveCommentResolverRequest`, `DeleteCommentResolverRequest`.
 - `organization_id` and `document_id` are required for all comment operations.
-- Check `response.success` before accessing `response.data` — failed requests populate `response.error` and `response.error_code` instead.
-- The save method accepts a list of comments, allowing batch operations.
+- `SaveCommentResolverRequest` takes `comment_annotations` (list[dict]), not `comments`.
+- `DeleteCommentResolverRequest` requires both `annotation_id` (str) and `comment_id` (int).
+- `VeltSelfHostingResponse` is a plain Python dict — use `response['success']`, `response['data']`, `response['errorCode']` (not attribute access).
+- Check `response['success']` before accessing `response['data']` — failed requests populate `response['error']` and `response['errorCode']` instead.
 
 **Verification:**
 - [ ] Request types are imported from `velt_py`
 - [ ] Typed request objects are used, not raw dicts
 - [ ] `organization_id` and `document_id` are provided
-- [ ] Response `success` field is checked before accessing `data`
-- [ ] Error responses are handled with `error` and `error_code`
+- [ ] `SaveCommentResolverRequest` uses `comment_annotations=`, not `comments=`
+- [ ] `DeleteCommentResolverRequest` includes both `annotation_id` (str) and `comment_id` (int)
+- [ ] Response is accessed as a dict: `response['success']`, `response['data']`, `response['errorCode']`
 
 **Source Pointer:** `https://docs.velt.dev/api-reference/sdk/python/comments` (## Python SDK > ### Comments)
 

@@ -9,7 +9,7 @@ metadata:
 
 # Velt Self-Hosting Data Best Practices
 
-Comprehensive implementation guide for Velt's self-hosting data feature in React and Next.js applications. Contains 16 rules across 7 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's self-hosting data feature in React and Next.js applications. Contains 17 rules across 7 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
@@ -70,6 +70,7 @@ Reference these guidelines when:
 - `python-attachments` — Attachment upload and delete via sdk.selfHosting.attachments with S3
 - `python-users-reactions` — Users and reactions management via sdk.selfHosting.users/reactions
 - `python-frameworks` — Django, Flask, and FastAPI integration patterns
+- `python-token` — Generate user auth tokens via sdk.selfHosting.token.getToken for frontend authProvider
 
 ### 7. Debugging (LOW-MEDIUM)
 

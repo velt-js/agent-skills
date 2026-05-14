@@ -53,9 +53,10 @@ def get_comments(request):
 
     response = sdk.selfHosting.comments.getComments(resolver_request)
 
-    if response.success:
-        return JsonResponse({"data": response.data})
-    return JsonResponse({"error": response.error}, status=response.error_code)
+    # response is a plain dict with camelCase keys
+    if response['success']:
+        return JsonResponse({"data": response['data']})
+    return JsonResponse({"error": response['error']}, status=response.get('statusCode', 500))
 ```
 
 **Flask — Initialize at module level:**
@@ -85,9 +86,9 @@ def get_comments():
 
     response = sdk.selfHosting.comments.getComments(resolver_request)
 
-    if response.success:
-        return jsonify({"data": response.data})
-    return jsonify({"error": response.error}), response.error_code
+    if response['success']:
+        return jsonify({"data": response['data']})
+    return jsonify({"error": response['error']}), response.get('statusCode', 500)
 ```
 
 **FastAPI — Initialize at module level, use async endpoints:**
@@ -117,9 +118,9 @@ async def get_comments(req: Request):
 
     response = sdk.selfHosting.comments.getComments(resolver_request)
 
-    if response.success:
-        return {"data": response.data}
-    return {"error": response.error}
+    if response['success']:
+        return {"data": response['data']}
+    return {"error": response['error']}
 ```
 
 **Key points:**
