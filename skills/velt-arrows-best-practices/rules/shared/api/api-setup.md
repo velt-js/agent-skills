@@ -83,7 +83,7 @@ function ArrowsBootstrap() {
 const arrowElement = Velt.getArrowElement();
 ```
 
-**Custom tool button — child-slot replacement (React / Next.js):**
+**Custom tool button — child-replacement pattern (React / Next.js):**
 
 ```tsx
 import { VeltArrowTool } from '@veltdev/react';
@@ -98,7 +98,7 @@ function YourToolbar() {
 }
 ```
 
-**Custom tool button — child-slot replacement (Other Frameworks):**
+**Custom tool button — child-replacement (Other Frameworks):**
 
 ```html
 <velt-arrow-tool>
@@ -106,6 +106,22 @@ function YourToolbar() {
   <button class="myArrowButton">Draw arrow</button>
 </velt-arrow-tool>
 ```
+
+**Named `slot="button"` variant (alternative form):**
+
+```tsx
+<VeltArrowTool>
+  <button slot="button">Arrow</button>
+</VeltArrowTool>
+```
+
+```html
+<velt-arrow-tool>
+  <button slot="button">Arrow</button>
+</velt-arrow-tool>
+```
+
+Both forms work — the plain child pattern (most common in the official `custom-button.mdx` docs) and the named-slot pattern (from the `slots.mdx` page) target the same `button` slot. Prefer the plain child form for new code; the named `slot="button"` attribute is explicit and helpful if you ever need to add additional slots in the future.
 
 **Common pitfalls:**
 - DO NOT mount `<VeltArrows>` inside a conditional that unmounts on tool toggle — it owns the per-document arrow state. Mount it once at the top of the tree.

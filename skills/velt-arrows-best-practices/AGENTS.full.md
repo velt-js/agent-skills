@@ -117,7 +117,7 @@ function ArrowsBootstrap() {
 const arrowElement = Velt.getArrowElement();
 ```
 
-**Custom tool button — child-slot replacement (React / Next.js):**
+**Custom tool button — child-replacement pattern (React / Next.js):**
 
 ```tsx
 import { VeltArrowTool } from '@veltdev/react';
@@ -132,7 +132,7 @@ function YourToolbar() {
 }
 ```
 
-**Custom tool button — child-slot replacement (Other Frameworks):**
+**Custom tool button — child-replacement (Other Frameworks):**
 
 ```html
 <velt-arrow-tool>
@@ -140,6 +140,19 @@ function YourToolbar() {
   <button class="myArrowButton">Draw arrow</button>
 </velt-arrow-tool>
 ```
+
+**Named `slot="button"` variant (alternative form):**
+
+```html
+<VeltArrowTool>
+  <button slot="button">Arrow</button>
+</VeltArrowTool>
+<velt-arrow-tool>
+  <button slot="button">Arrow</button>
+</velt-arrow-tool>
+```
+
+Both forms work — the plain child pattern (most common in the official `custom-button.mdx` docs) and the named-slot pattern (from the `slots.mdx` page) target the same `button` slot. Prefer the plain child form for new code; the named `slot="button"` attribute is explicit and helpful if you ever need to add additional slots in the future.
 
 ---
 
@@ -220,11 +233,41 @@ velt-arrow-tool::part(button-icon) {
 ```
 
 If you need to replace the button wholesale rather than restyle it, use the child-slot pattern from `api-setup` (pass your own `<button>` as a child of `<VeltArrowTool>`).
+The arrow visual's stack order is controlled by a single CSS custom property, documented under Global Styles:
+
+**Arrow z-index variable:**
+
+```css
+:root {
+  --velt-arrow-z-index: 2147483557; /* default — sits just below modal overlays */
+}
+```
+
+Override at any scope (`:root`, a wrapper, or an inline style) if arrows are appearing behind a custom overlay or being occluded by your own high-z-index UI. The default is intentionally close to the int32 max so most app UI sits below it.
 Arrows do **not** currently expose `<velt-...-wireframe>` tags. The `velt-data` / `velt-if` / `velt-class` template-variable system available on Comments / Activity / Notifications wireframes is not yet supported for Arrows. Until wireframe-tag registration ships:
 - Customize visuals via CSS `::part(...)` hooks on the tool button
 - Replace the tool button entirely via the child-slot pattern
-- Style the arrow visual via CSS variables (see Global Styles in the docs)
-Do NOT suggest a `<velt-arrow-pin-wireframe>` or similar — those tags don't exist yet. The data shapes (`componentConfig.arrowPinAnnotation`, `componentConfig.annotationDragging`, etc.) are documented in the official wireframe-variables page for forward-compatibility but cannot be used today.
+- Style the arrow visual via the `--velt-arrow-z-index` CSS variable (and Global Styles in the docs)
+Do NOT suggest a `<velt-arrow-pin-wireframe>` or similar — those tags don't exist yet.
+
+**Forward-compatibility — subcomponents and `componentConfig` variables (documented, not yet wireable):**
+
+```typescript
+arrows-tool          <velt-arrows-tool>           The trigger to draw a new arrow.
+arrow-pin            <velt-arrow-pin>             A placed arrow on the document.
+arrow-pin-portal     <velt-arrow-pin-portal>      The per-pin overlay portal that renders the arrow visual.
+arrows-container     <velt-arrows-container>      The per-document orchestrator that hosts every placed arrow.
+componentConfig.arrowPinAnnotation       ArrowAnnotation       The arrow annotation (positions, color, author).
+componentConfig.user                     User                  The currently identified end-user.
+componentConfig.targetElement            HTMLElement           DOM target the arrow is anchored to.
+componentConfig.annotationDragging       boolean               Arrow is currently being dragged.
+componentConfig.dragPosition             { top, left } | null  Live drag position (used to compute inline style).
+componentConfig.offsetTop                number                Vertical position offset.
+componentConfig.offsetLeft               number                Horizontal position offset.
+componentConfig.selectedAnnotationsMap   SelectedAnnotationsMap  Map keyed by annotationId — truthy when selected.
+```
+
+Treat this list as forward-compat reference only — you cannot read these variables via `velt-data` / `velt-if` / `velt-class` until wireframe-tag registration ships for Arrows.
 
 ---
 
@@ -276,6 +319,15 @@ interface AnnotationProperty {
 ```
 
 `AnnotationProperty` is shared with other Velt annotation types — `arrowLength` and `arrowAngle` are the two fields that are specifically meaningful for arrows. The viewport / screen fields let consumers re-project the arrow correctly on a screen of a different size.
+
+**Verification Checklist:**
+
+```typescript
+// Keyed by annotationId — truthy entry means "this annotation is currently selected".
+type SelectedAnnotationsMap = Record<string /* annotationId */, CommentAnnotation>;
+```
+
+The map is shared across annotation types (comments and arrows alike), keyed by `annotationId`. Today, you don't typically need this in Arrows code — but it's the type the official wireframe-variable docs reference for selection state, so it's documented here for forward-compatibility.
 
 ---
 

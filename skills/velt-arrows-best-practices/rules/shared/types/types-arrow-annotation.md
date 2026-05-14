@@ -57,6 +57,18 @@ interface AnnotationProperty {
 - [ ] Re-projection logic uses `viewportWidth` / `viewportHeight` to scale `arrowLength` if the viewer's screen differs from the author's
 - [ ] `from` is treated as a Velt `User` object (with `userId`, `name`, etc.), not a bare string
 
+### Related — `SelectedAnnotationsMap` (forward-compat)
+
+If you eventually consume wireframe `componentConfig.selectedAnnotationsMap` once wireframe-tag interpolation ships for Arrows (see `config-customize` for the current limitation), this is the shape:
+
+```typescript
+// Keyed by annotationId — truthy entry means "this annotation is currently selected".
+type SelectedAnnotationsMap = Record<string /* annotationId */, CommentAnnotation>;
+```
+
+The map is shared across annotation types (comments and arrows alike), keyed by `annotationId`. Today, you don't typically need this in Arrows code — but it's the type the official wireframe-variable docs reference for selection state, so it's documented here for forward-compatibility.
+
 **Source Pointers:**
 - https://docs.velt.dev/api-reference/sdk/models/data-models#arrowannotation
 - https://docs.velt.dev/api-reference/sdk/models/data-models#annotationproperty
+- https://docs.velt.dev/api-reference/sdk/models/data-models#selectedannotationsmap
