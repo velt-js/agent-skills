@@ -1,0 +1,54 @@
+{
+  "skill_name": "velt-approval-engine-best-practices",
+  "evals": [
+    {
+      "id": 0,
+      "name": "basic-definition-create",
+      "prompt": "I need to create a workflow in Velt's Approval Engine: an AI agent drafts marketing copy, then two human reviewers (legal and brand) must BOTH approve in parallel, then a publish agent runs. Show me the full POST request body to /v2/workflow/definitions/create with the nodes, edges, and the group for parallel review.",
+      "expected_output": "JSON with nodes (agent + human types), edges connecting them, and a groups entry with memberNodeIds=[human-legal, human-brand], expectedSteps=2, quorum=2. Human nodes use reviewers: [{ userId, mandatory: true }] (not legacy reviewerIds). definitionId, name, and scope are present.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "dispatch-with-idempotency",
+      "prompt": "Show me how to dispatch a Velt Approval Engine execution from my Node.js backend. I want to make sure if my request retries on a 5xx error I don't end up with duplicate workflows. Include the auth headers and the request body.",
+      "expected_output": "POST to /v2/workflow/executions/dispatch with x-velt-api-key + x-velt-auth-token headers (not in body), data: { definitionId, idempotencyKey, ... }. Should explain that the same idempotencyKey returns deduplicated: true and that should be treated as success.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "webhook-signature-verification",
+      "prompt": "I'm receiving Velt Approval Engine webhooks at my Node/Express endpoint. Show me how to verify the signature. I'm currently using express.json() and computing HMAC over JSON.stringify(req.body) but verification keeps failing.",
+      "expected_output": "Explain that JSON.stringify reorders/whitespace-changes the body so HMAC mismatches. Switch to express.raw({ type: 'application/json' }) and compute HMAC-SHA256 over the raw bytes (req.body Buffer). Use crypto.timingSafeEqual for comparison. Parse x-velt-signature as 'sha256=<hex>'.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "parallel-quorum-policies",
+      "prompt": "I have a group of 3 human reviewers in parallel for a Velt approval. When 2 of them approve I want the workflow to immediately move forward and cancel the third reviewer's pending decision. Which onQuorumMet policy should I use, and how exactly does it differ from the other policies?",
+      "expected_output": "Use cancelOnQuorum. Explain that cancelOnQuorum cancels waiting siblings on first-time quorum (system:group-quorum actor) and members that already completed still fan out via their own edges. Contrast with waitAll (default — only emits group.quorum-met) and joinOnQuorum (fires one group-owned step per shared successor, requires all members share same successors).",
+      "files": []
+    },
+    {
+      "id": 4,
+      "name": "missed-webhook-recovery",
+      "prompt": "My webhook receiver was down for 30 minutes. Velt's docs say delivery is at-least-once with retries, but my service was unreachable for the entire retry window. How do I recover the events I missed for executions that are still in flight?",
+      "expected_output": "Use POST /v2/workflow/executions/getEvents with data.sinceSeq=<last-stored-seq> per execution. Returns events with seq > sinceSeq in order. Feed through the same idempotent handler keyed on (executionId, seq). Note that seq values may be non-contiguous (internal events fill gaps) — that's normal.",
+      "files": []
+    },
+    {
+      "id": 5,
+      "name": "sla-breach-routing",
+      "prompt": "I want a human review step that auto-escalates if the reviewer doesn't decide within 4 hours. How do I configure the SLA on the node, and what edge configuration do I need? I'm getting an INVALID_ARGUMENT error from /definitions/create.",
+      "expected_output": "Set slaMs: 14400000 (4h in ms) on the human node. The linter rejects with missing-breach-edge unless the node has an outgoing edge routed for breach handling — explain you need a breach-routed edge to an escalation node. Should also recommend including a normal (non-breach) edge for the success path.",
+      "files": []
+    },
+    {
+      "id": 6,
+      "name": "record-reviewer-decision",
+      "prompt": "A user in my app clicked 'Approve' on a pending review for a Velt Approval Engine execution. From my backend, how do I tell Velt the decision was made? The step is currently in step.awaiting-approval. Show the API call.",
+      "expected_output": "POST /v2/workflow/steps/recordReviewerDecision with data: { executionId, stepId, reviewerId, decision: 'approve', reason? }. reviewerId must match a configured reviewers[].userId on the node. Response carries aggregatorStatus + resumeScheduled — don't poll, the webhook will fire.",
+      "files": []
+    }
+  ]
+}
