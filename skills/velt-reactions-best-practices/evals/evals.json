@@ -1,0 +1,54 @@
+{
+  "skill_name": "velt-reactions-best-practices",
+  "evals": [
+    {
+      "id": 0,
+      "name": "basic-setup-article",
+      "prompt": "I have a blog post container in my Next.js app: <section id='post-42'>...post content...</section>. I want to add Velt inline emoji reactions so readers can react to it. Show me the minimum I need to add.",
+      "expected_output": "Import VeltInlineReactionsSection from @veltdev/react. Place inside the section. Pass targetReactionElementId='post-42' matching the container id. Should NOT use react-component names like VeltReactions or VeltEmojiReactions which don't exist.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "custom-reactions-three-shapes",
+      "prompt": "I want my Velt inline reactions to use a custom emoji set: a fire emoji loaded as a PNG, a custom brand icon I host, and a 🤣 text emoji. How do I configure this — show the customReactions map.",
+      "expected_output": "customReactions map with three entries, each using ONE of: { url: 'https://...png' }, { iconUrl: '...' }, { emoji: '🤣' }. Should NOT mix shapes in a single entry. Should mention can pass via customReactions prop on <VeltInlineReactionsSection> or via client.getReactionElement().setCustomReactions().",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "kebab-vs-camel-attribute",
+      "prompt": "I'm using vanilla HTML (no React). My <velt-inline-reactions-section targetReactionElementId='post-42'> doesn't seem to attach to anything. What's wrong?",
+      "expected_output": "On the web component (HTML), use kebab-case `target-reaction-element-id`, NOT camelCase `targetReactionElementId`. React JSX uses camelCase; HTML uses kebab.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "custom-pin-highlight-mine",
+      "prompt": "I want to render a custom emoji pin via Velt wireframes that adds a CSS class 'mine' when the current user is one of the people who reacted with this emoji. Which wireframe tag and which componentConfig variable do I use?",
+      "expected_output": "Wireframe tag: <VeltReactionPinWireframe> (or velt-reaction-pin-wireframe). Variable: componentConfig.isReactionSelectedByCurrentUser (boolean). Use velt-class=\"'mine': {componentConfig.isReactionSelectedByCurrentUser}\".",
+      "files": []
+    },
+    {
+      "id": 4,
+      "name": "iteration-variable-user-vs-componentconfig",
+      "prompt": "Inside the Velt reaction pin's tooltip, I'm iterating over each reactor and want to show their name. I tried `<velt-data field='componentConfig.user.name' />` inside <velt-reaction-pin-tooltip-user-wireframe> but it's not showing anything. What's the right variable?",
+      "expected_output": "Inside per-iteration tags like <velt-reaction-pin-tooltip-user-wireframe>, use the iteration variable `user` directly (no componentConfig prefix): `<velt-data field='user.name' />`. Should explain componentConfig is for parent scope; iteration vars use bare names.",
+      "files": []
+    },
+    {
+      "id": 5,
+      "name": "emoji-picker-row-isSelected",
+      "prompt": "I'm customizing the Velt reactions emoji picker row. I want to toggle a class on the row when it's the currently-selected emoji, and show both the glyph and the emoji name. Show the wireframe code.",
+      "expected_output": "Use <VeltReactionsPanelItemWireframe> (or velt-reactions-panel-item-wireframe). Use iteration vars `emoji.value` (glyph), `emoji.name` (name), `isSelected` (selection state). Use velt-class=\"'is-selected': {isSelected}\" on the row.",
+      "files": []
+    },
+    {
+      "id": 6,
+      "name": "reaction-annotation-shape-filter",
+      "prompt": "I'm subscribing to all annotations on a Velt document and want to filter just the reaction annotations to count totals per emoji. What's the data type, and what field tells me the emoji?",
+      "expected_output": "Type is ReactionAnnotation. Filter on annotation.type === 'reaction'. Each reaction's emoji lives on the per-entry reactions array (Reaction[]). Should NOT invent a top-level annotation.emoji field if not present (the docs spec shows reactions[] holds the individual reactions; emoji glyph is shown via wireframe binding componentConfig.annotation.emoji per the pin scope).",
+      "files": []
+    }
+  ]
+}

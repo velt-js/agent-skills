@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "organization": "Velt",
+  "date": "May 2026",
+  "abstract": "Velt Inline Reactions implementation guide — the emoji-reaction feature for adding contextual emoji feedback to elements of your app. Covers VeltInlineReactionsSection placement with required targetReactionElementId binding, custom reaction emoji configuration (url / iconUrl / emoji) via the customReactions prop or client.getReactionElement().setCustomReactions(), the wireframe primitives (velt-reaction-tool-wireframe, velt-reaction-pin-wireframe, velt-inline-reactions-section-wireframe) and their nested children, and the ReactionAnnotation data shape.",
+  "references": [
+    "https://docs.velt.dev",
+    "https://docs.velt.dev/async-collaboration/reactions/overview",
+    "https://docs.velt.dev/async-collaboration/reactions/setup",
+    "https://docs.velt.dev/async-collaboration/reactions/customize-behavior",
+    "https://docs.velt.dev/ui-customization/features/async/reactions-wireframe-variables",
+    "https://docs.velt.dev/ui-customization/features/async/inline-reactions",
+    "https://docs.velt.dev/api-reference/sdk/models/data-models#reactionannotation"
+  ]
+}
