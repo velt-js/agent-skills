@@ -1,0 +1,54 @@
+{
+  "skill_name": "velt-view-analytics-best-practices",
+  "evals": [
+    {
+      "id": 0,
+      "name": "basic-setup-toolbar",
+      "prompt": "I want to add Velt's 'who viewed this document today' badge to my Next.js app's toolbar. What's the simplest setup?",
+      "expected_output": "Place <VeltViewAnalytics/> in the toolbar. Imported from @veltdev/react. Should mention assuming VeltProvider + document already configured. Should NOT recommend useUsersOnDocument/presence/Vercel-KV/webhook workarounds.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "location-scoped-trigger",
+      "prompt": "My Velt document has multiple tabs. I want the View Analytics badge to count views per-tab, not for the whole document. How do I scope it to the currently-active tab (id 'tab-3')?",
+      "expected_output": "Pass type='location' AND location-id='tab-3' on <VeltViewAnalytics>. Should explain that location-id alone doesn't work without type='location'.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "react-hook-viewers-count",
+      "prompt": "I want to render a custom badge that just shows the count of unique viewers today — no Velt default UI. What React hook should I use, and how do I get the count?",
+      "expected_output": "Use useUniqueViewsByUser() from @veltdev/react. Count is .length on the returned array (null-guard for first render). Should note no <VeltViewAnalytics> needed for hook-only path.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "vanilla-js-observable",
+      "prompt": "I'm not using React. From plain JS, how do I subscribe to the unique views by date for my Velt document and log them? Show the exact API call.",
+      "expected_output": "client.getViewsElement().getUniqueViewsByDate().subscribe(...). PLURAL getViewsElement. Manual unsubscribe(). Optional locationId arg. Should NOT call getViewElement (singular).",
+      "files": []
+    },
+    {
+      "id": 4,
+      "name": "custom-trigger-wireframe",
+      "prompt": "I want a fully custom 'Viewed today' button — my own styling, my own count, my own click behavior — but still backed by Velt's view-analytics data. Which wireframe tag, and which componentConfig variable holds the count?",
+      "expected_output": "Use <VeltViewAnalyticsWireframe> (or <velt-view-analytics-wireframe>). Count: componentConfig.todayViewsCount. Bind via <velt-data field='componentConfig.todayViewsCount'>. Should NOT recommend the dialog wireframe.",
+      "files": []
+    },
+    {
+      "id": 5,
+      "name": "dialog-viewer-list-wireframe",
+      "prompt": "I want a custom recent-viewers list inside the View Analytics dialog popover — instead of Velt's default styling. Which wireframe tag do I customize, and which componentConfig variable gives me the sorted list of viewers?",
+      "expected_output": "Use <VeltViewAnalyticsDialogWireframe> (or <velt-view-analytics-dialog-wireframe>). Variable: componentConfig.userViews (sorted { user, timestamp }[]). Access fields like componentConfig.userViews.0.user.name. componentConfig.userViews.length for count.",
+      "files": []
+    },
+    {
+      "id": 6,
+      "name": "treads-visible-spelling",
+      "prompt": "I want to toggle a CSS class on my custom Velt view-analytics trigger whenever the dialog is open. I tried `velt-class=\"'open': {componentConfig.threadsVisible}\"` but it's not working. What's wrong?",
+      "expected_output": "The correct variable is componentConfig.treadsVisible (legacy SDK spelling — TREADS, not threads). Should also note flat-config requires the componentConfig. prefix.",
+      "files": []
+    }
+  ]
+}

@@ -1,0 +1,14 @@
+{
+  "version": "1.0.0",
+  "organization": "Velt",
+  "date": "May 2026",
+  "abstract": "Velt View Analytics implementation guide — the 'viewed today' indicator with trigger badge and recent-viewers dialog. Covers VeltViewAnalytics component placement, location-scoped triggers, React hooks (useUniqueViewsByUser / useUniqueViewsByDate), the non-React client.getViewsElement().get*().subscribe pattern, and the three wireframe tags (velt-view-analytics-wireframe / -dialog-wireframe / -bottom-sheet-wireframe) plus their componentConfig.* template variables.",
+  "references": [
+    "https://docs.velt.dev",
+    "https://docs.velt.dev/async-collaboration/view-analytics/overview",
+    "https://docs.velt.dev/async-collaboration/view-analytics/setup",
+    "https://docs.velt.dev/async-collaboration/view-analytics/customize-behavior",
+    "https://docs.velt.dev/ui-customization/features/async/view-analytics/wireframe-variables",
+    "https://docs.velt.dev/api-reference/sdk/api/api-methods#view-analytics"
+  ]
+}
