@@ -1,0 +1,17 @@
+{
+  "version": "1.0.0",
+  "organization": "Velt",
+  "date": "May 2026",
+  "abstract": "Velt Arrows implementation guide — the directional-arrow annotation feature for visual feedback and design review. Covers VeltArrows / VeltArrowTool component placement, the client.getArrowElement() handle, allowedElementIds restriction (prop and method form), darkMode, custom-button slot replacement, CSS ::part hooks, and the ArrowAnnotation / AnnotationProperty data shapes (including arrowLength / arrowAngle).",
+  "references": [
+    "https://docs.velt.dev",
+    "https://docs.velt.dev/async-collaboration/arrows/overview",
+    "https://docs.velt.dev/async-collaboration/arrows/setup",
+    "https://docs.velt.dev/async-collaboration/arrows/customize-behavior",
+    "https://docs.velt.dev/api-reference/sdk/models/data-models#arrowannotation",
+    "https://docs.velt.dev/api-reference/sdk/models/data-models#annotationproperty",
+    "https://docs.velt.dev/ui-customization/features/async/arrows/parts",
+    "https://docs.velt.dev/ui-customization/features/async/arrows/custom-button",
+    "https://docs.velt.dev/ui-customization/features/async/arrows/wireframe-variables"
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "skill_name": "velt-arrows-best-practices",
+  "evals": [
+    {
+      "id": 0,
+      "name": "basic-setup-react",
+      "prompt": "I'm adding Velt Arrows to my Next.js app so users can point at things in our design-review tool. Show me a minimal complete setup: which components to mount and where.",
+      "expected_output": "Mount <VeltArrows/> at the root once + <VeltArrowTool/> inside a toolbar. Import both from @veltdev/react. Should explain that VeltArrows owns per-document state and only one should be mounted.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "restrict-allowed-elements",
+      "prompt": "In my Velt Arrows app, users are drawing arrows over the navbar and sidebar. I only want arrows allowed inside the canvas region (a div with id='canvas-region'). What's the API?",
+      "expected_output": "Use allowedElementIds={['canvas-region']} as a <VeltArrows> prop. Should mention the runtime method form arrowElement.allowedElementIds([...]) as alternative.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "custom-tool-button",
+      "prompt": "I want to replace the default Velt arrow tool icon with my own button that says 'Draw Arrow' and uses my brand styling. How do I do this in React?",
+      "expected_output": "Pass your custom <button> as a child of <VeltArrowTool>. The child replaces the default icon button entirely. NOT to use CSS display:none on the default.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "style-tool-button-css",
+      "prompt": "I want to make the Velt arrow tool icon bigger via CSS — change it from default to 24px. I tried `velt-arrow-tool svg { width: 24px }` but my CSS isn't applying. What's going on?",
+      "expected_output": "velt-arrow-tool uses Shadow DOM so descendant selectors don't reach inside. Use ::part() — specifically `velt-arrow-tool::part(button-icon) { width: 1.5rem; height: 1.5rem; }`. Available parts: container, button-container, button-icon.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "name": "wireframe-tag-misconception",
+      "prompt": "I want to build a custom Velt arrow pin overlay using a <velt-arrow-pin-wireframe> tag with velt-data bindings on componentConfig.arrowPinAnnotation. Can you show me an example?",
+      "expected_output": "Should call out that <velt-arrow-pin-wireframe> does NOT yet exist — Arrows do not support wireframe-tag interpolation today. Should redirect to CSS ::part hooks for the tool button, the child-slot custom-button pattern, and CSS variables for the arrow visual. Should NOT fabricate a working example using non-existent wireframe tags.",
+      "files": []
+    },
+    {
+      "id": 5,
+      "name": "arrow-annotation-shape",
+      "prompt": "I'm subscribing to all annotations on a Velt document and want to filter just the arrows so I can render a thumbnail showing the angle and length of each. What's the data shape and which fields hold the rotation and length?",
+      "expected_output": "Filter on annotation.type === 'arrow' (ArrowAnnotation has type defaulting to 'arrow'). arrowLength and arrowAngle live on the props field (AnnotationProperty). Should mention these are optional and need null-guarding.",
+      "files": []
+    },
+    {
+      "id": 6,
+      "name": "dark-mode",
+      "prompt": "How do I enable dark mode on Velt Arrows in my Next.js app?",
+      "expected_output": "Pass darkMode={true} prop on <VeltArrows>. Default is false. Show React + Other Frameworks (dark-mode='true' attribute) form.",
+      "files": []
+    }
+  ]
+}
