@@ -1,0 +1,15 @@
+{
+  "version": "1.0.0",
+  "organization": "Velt",
+  "date": "May 2026",
+  "abstract": "Velt Area Comments implementation guide — the rectangle area-annotation feature that lets users draw a box on the page and attach a comment to that region. Covers the area-comment toggle (default ON; areaComment prop on VeltComments, enableAreaComment/disableAreaComment runtime methods on commentElement), the three Area primitives (tool / pin-portal / container) and which one exposes a wireframe tag (only velt-area-pin-portal-wireframe today), the full componentConfig.* reference for that wireframe, and the AreaAnnotation / AreaProperty / AreaTargetAnnotation / AreaMetadata data shapes.",
+  "references": [
+    "https://docs.velt.dev",
+    "https://docs.velt.dev/async-collaboration/comments/customize-behavior#enableareacomment",
+    "https://docs.velt.dev/ui-customization/features/async/area/wireframe-variables",
+    "https://docs.velt.dev/api-reference/sdk/models/data-models#areaannotation",
+    "https://docs.velt.dev/api-reference/sdk/models/data-models#areaproperty",
+    "https://docs.velt.dev/api-reference/sdk/models/data-models#areatargetannotation",
+    "https://docs.velt.dev/api-reference/sdk/models/data-models#areametadata"
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "skill_name": "velt-area-best-practices",
+  "evals": [
+    {
+      "id": 0,
+      "name": "disable-area-mode",
+      "prompt": "My Velt app has comments working fine, but I don't want users to be able to draw rectangle area annotations — only point comments. How do I disable area comments?",
+      "expected_output": "Pass areaComment={false} as a prop on <VeltComments> in React, OR call commentElement.disableAreaComment() from client.getCommentElement(). Should note area is ON by default. Should NOT recommend a non-existent <VeltArea> or getAreaElement() handle.",
+      "files": []
+    },
+    {
+      "id": 1,
+      "name": "runtime-toggle-area",
+      "prompt": "I have a 'review mode' toggle in my app's settings panel. When review mode is ON, users should be able to draw Velt area comments; when OFF, no area drawing. Both should be runtime-toggleable (not just initial-render). Show me the API.",
+      "expected_output": "Use client.getCommentElement().enableAreaComment() and disableAreaComment() runtime methods. Should NOT suggest using the prop (which is initial-render only). Should note the handle is getCommentElement (NOT getAreaElement which does not exist).",
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "no-velt-area-component",
+      "prompt": "I'm trying to add Velt area annotations to my page. I tried <VeltArea /> and <VeltAreaTool /> imports from @veltdev/react but they don't exist. What components should I use?",
+      "expected_output": "Should clarify there is NO standalone VeltArea or VeltAreaTool component. Area is a mode of <VeltComments>. Area mode is ON by default, so just adding <VeltComments /> enables area drawing. Use areaComment={false} to turn it off.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "custom-area-pin-wireframe",
+      "prompt": "I want to render a custom Velt area pin overlay — my own border style, my own author label, plus a special CSS class when the pin is selected. Which wireframe tag and which componentConfig variables?",
+      "expected_output": "Use <VeltAreaPinPortalWireframe> (React) or <velt-area-pin-portal-wireframe> (HTML). Read componentConfig.areaPinAnnotation.from.name for author. Use velt-class with componentConfig.selected. Should mention this is the ONLY Area primitive with a wireframe tag today; tool and container do NOT register wireframes.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "name": "linked-comment-count-badge",
+      "prompt": "I have a Velt area pin and I want to render a small 'N comments' badge on it that shows how many comments are linked to that area. Inside the area-pin wireframe, which componentConfig variable holds the comment data?",
+      "expected_output": "Use componentConfig.commentPinAnnotation (optional — guard with velt-if). It's a CommentAnnotation. Comments count: componentConfig.commentPinAnnotation.comments.length. Should NOT suggest a fictional componentConfig.linkedComments or componentConfig.commentCount.",
+      "files": []
+    },
+    {
+      "id": 5,
+      "name": "area-annotation-shape-link",
+      "prompt": "I'm subscribing to all annotations on a Velt document. I want to find all area annotations and, for each one, figure out which comment thread (if any) is attached to it. What's the data type and which field holds the comment linkage?",
+      "expected_output": "Filter on annotation.type === 'area' (AreaAnnotation). The linkage is targetAnnotations: AreaTargetAnnotation[] — each entry has type ('comment' or 'tag') and annotationId. Match annotationId against the CommentAnnotation list to find the comment. Should NOT suggest metadata, commentId, or other invented fields.",
+      "files": []
+    },
+    {
+      "id": 6,
+      "name": "multi-target-elements",
+      "prompt": "I noticed a Velt area annotation has both `targetElement` and `targetElements` (plural) on its shape. What's the difference and which one should I read?",
+      "expected_output": "targetElement (singular) is the original target reference. targetElements (plural) is the multi-element targeting list — Area supports anchoring to multiple elements. For multi-anchor logic, read targetElements[]. The singular form is a convenience pointer to the first/original target.",
+      "files": []
+    }
+  ]
+}
