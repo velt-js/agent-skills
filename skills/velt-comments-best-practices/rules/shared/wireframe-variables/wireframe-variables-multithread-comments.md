@@ -42,27 +42,27 @@ function Panel() {
 import { VeltMultiThreadCommentDialogPanelWireframe, VeltMultiThreadCommentDialogWireframe } from '@veltdev/react';
 
 <VeltMultiThreadCommentDialogPanelWireframe
-  velt-class="'dark': {darkMode}, 'readonly': {readOnly}, 'inbox': {inboxMode}, 'filter-{minimalFilter}': true">
+  veltClass="'dark': {darkMode}, 'readonly': {readOnly}, 'inbox': {inboxMode}, 'filter-{minimalFilter}': true">
   <header className="my-mt__header">
     <VeltMultiThreadCommentDialogWireframe.CommentCount>
-      <velt-data field="nonDraftCommentsCount" /> threads
+      <VeltData field="nonDraftCommentsCount" /> threads
     </VeltMultiThreadCommentDialogWireframe.CommentCount>
     <VeltMultiThreadCommentDialogWireframe.MinimalFilterDropdown.Trigger
-      velt-class="'open': {minimalFilterDropdownOpen}">
-      <span><velt-data field="minimalFilter" /></span>
+      veltClass="'open': {minimalFilterDropdownOpen}">
+      <span><VeltData field="minimalFilter" /></span>
     </VeltMultiThreadCommentDialogWireframe.MinimalFilterDropdown.Trigger>
   </header>
 
   <VeltMultiThreadCommentDialogWireframe.List />
 
   <VeltMultiThreadCommentDialogWireframe.EmptyPlaceholder
-    velt-if="{noCommentsFound} || {noCommentsFoundForAppliedFilters}">
+    veltIf="{noCommentsFound} || {noCommentsFoundForAppliedFilters}">
     <p>No threads to show.</p>
     <VeltMultiThreadCommentDialogWireframe.ResetFilterButton />
   </VeltMultiThreadCommentDialogWireframe.EmptyPlaceholder>
 
   <VeltMultiThreadCommentDialogWireframe.ComposerContainer
-    velt-if="!{hideMultiThreadAnnotationComposer}" />
+    veltIf="!{hideMultiThreadAnnotationComposer}" />
 </VeltMultiThreadCommentDialogPanelWireframe>
 ```
 

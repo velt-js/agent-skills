@@ -45,11 +45,11 @@ import { VeltRecorderButtonWireframe } from '@veltdev/react';
 <VeltRecorderButtonWireframe>
   <button
     className="rec"
-    velt-class="'is-recording': {componentConfigSignal.recordingInProgress}, 'is-disabled': {componentConfigSignal.disabled}, 'theme-dark': {componentConfigSignal.darkMode}">
-    <span velt-if="!{componentConfigSignal.recordingInProgress}">
-      <velt-data field="componentConfigSignal.buttonLabel" />
+    veltClass="'is-recording': {componentConfigSignal.recordingInProgress}, 'is-disabled': {componentConfigSignal.disabled}, 'theme-dark': {componentConfigSignal.darkMode}">
+    <span veltIf="!{componentConfigSignal.recordingInProgress}">
+      <VeltData field="componentConfigSignal.buttonLabel" />
     </span>
-    <span velt-if="{componentConfigSignal.recordingInProgress}">Recording…</span>
+    <span veltIf="{componentConfigSignal.recordingInProgress}">Recording…</span>
   </button>
 </VeltRecorderButtonWireframe>
 ```
@@ -180,7 +180,7 @@ The recorder feature has a large set of overridable surfaces. They are grouped h
 | `<velt-recorder-control-panel-wireframe>` | Root. Props: `mode` (`'floating' \| 'thread'`), `panelId`. |
 | `<velt-recorder-control-panel-floating-mode-wireframe>` (+ `-container-wireframe`, `-waveform-wireframe`) | Floating layout. |
 | `<velt-recorder-control-panel-thread-mode-wireframe>` | Thread (composer-embedded) layout. |
-| `<velt-recorder-control-panel-collapsed-button-wireframe>` (+ `-on-wireframe` / `-off-wireframe`) | Collapsed-state button. Gate `-on` on `{componentConfigSignal.recordingInProgress}`, `-off` on the inverse. |
+| `<velt-recorder-control-panel-collapsed-button-wireframe>` (+ `-on-wireframe` / `-off-wireframe`) | Collapsed-state button. Gate `-on` on `{componentConfigSignal.isRecording}`, `-off` on the inverse. |
 | `<velt-recorder-control-panel-paused-wireframe>` | Paused-state overlay. |
 | `<velt-recorder-control-panel-loading-wireframe>` | Loading state (initialising recorder). |
 | `<velt-recorder-control-panel-screen-wireframe>` (+ `-mini-container-wireframe`) | Screen-recording overlays. |
@@ -207,11 +207,11 @@ A custom record button paired with a custom playback overlay (scrubber + delete)
 ```jsx
 <VeltRecorderButtonWireframe>
   <button className="my-record"
-          velt-class="'is-recording': {componentConfigSignal.recordingInProgress}">
-    <span velt-if="!{componentConfigSignal.recordingInProgress}">
-      <velt-data field="componentConfigSignal.buttonLabel" />
+          veltClass="'is-recording': {componentConfigSignal.recordingInProgress}">
+    <span veltIf="!{componentConfigSignal.recordingInProgress}">
+      <VeltData field="componentConfigSignal.buttonLabel" />
     </span>
-    <span velt-if="{componentConfigSignal.recordingInProgress}">Stop</span>
+    <span veltIf="{componentConfigSignal.recordingInProgress}">Stop</span>
   </button>
 </VeltRecorderButtonWireframe>
 
@@ -219,9 +219,9 @@ A custom record button paired with a custom playback overlay (scrubber + delete)
   <VeltRecorderPlayerVideoWireframe><video /></VeltRecorderPlayerVideoWireframe>
   <VeltRecorderPlayerOverlayWireframe>
     <VeltRecorderPlayerTimeWireframe>
-      <velt-data field="componentConfigSignal.currentTimeValue" />
+      <VeltData field="componentConfigSignal.currentTimeValue" />
       /
-      <velt-data field="componentConfigSignal.totalTimeValue" />
+      <VeltData field="componentConfigSignal.totalTimeValue" />
     </VeltRecorderPlayerTimeWireframe>
     <VeltRecorderPlayerTimelineWireframe />
     <VeltRecorderPlayerDeleteWireframe />

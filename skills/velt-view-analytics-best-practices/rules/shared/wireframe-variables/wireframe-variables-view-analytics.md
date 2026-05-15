@@ -48,10 +48,10 @@ import { VeltViewAnalyticsWireframe } from '@veltdev/react';
 <VeltViewAnalyticsWireframe>
   <button
     className="my-trigger"
-    velt-class="'is-open': {componentConfig.treadsVisible}, 'is-phone': {componentConfig.isPhone}">
+    veltClass="'is-open': {componentConfig.treadsVisible}">
     <span>Viewed today</span>
-    <span velt-if="{componentConfig.todayViewsCount} > 0">
-      <velt-data field="componentConfig.todayViewsCount" />
+    <span className="my-trigger__count">
+      <VeltData field="componentConfig.todayViewsCount" />
     </span>
   </button>
 </VeltViewAnalyticsWireframe>
@@ -92,14 +92,14 @@ componentConfig.bottomSheetMode  boolean                                        
 import { VeltViewAnalyticsDialogWireframe } from '@veltdev/react';
 
 <VeltViewAnalyticsDialogWireframe
-  velt-if="{componentConfig.treadsVisible} && !{componentConfig.bottomSheetMode}">
+  veltIf="{componentConfig.treadsVisible} && !{componentConfig.bottomSheetMode}">
   <header>
-    <strong><velt-data field="componentConfig.userViews.length" /></strong> recent viewers
+    <strong><VeltData field="componentConfig.userViews.length" /></strong> recent viewers
   </header>
   <ul className="my-viewer-list">
     <li>
-      <velt-data field="componentConfig.userViews.0.user.name" />
-      <time><velt-data field="componentConfig.userViews.0.timestamp" /></time>
+      <VeltData field="componentConfig.userViews.0.user.name" />
+      <time><VeltData field="componentConfig.userViews.0.timestamp" /></time>
     </li>
   </ul>
 </VeltViewAnalyticsDialogWireframe>
@@ -111,11 +111,11 @@ import { VeltViewAnalyticsDialogWireframe } from '@veltdev/react';
 import { VeltViewAnalyticsBottomSheetWireframe } from '@veltdev/react';
 
 <VeltViewAnalyticsBottomSheetWireframe
-  velt-if="{componentConfig.treadsVisible} && {componentConfig.bottomSheetMode}">
+  veltIf="{componentConfig.treadsVisible} && {componentConfig.bottomSheetMode}">
   <header>Viewers today</header>
   <ul>
     <li>
-      <velt-data field="componentConfig.userViews.0.user.name" />
+      <VeltData field="componentConfig.userViews.0.user.name" />
     </li>
   </ul>
 </VeltViewAnalyticsBottomSheetWireframe>

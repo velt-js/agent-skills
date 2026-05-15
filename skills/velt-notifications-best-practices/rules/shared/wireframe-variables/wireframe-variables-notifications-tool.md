@@ -33,38 +33,31 @@ function Bell({ panelOpen }) {
 ```jsx
 import { VeltNotificationsToolWireframe } from '@veltdev/react';
 
-<VeltNotificationsToolWireframe
-  velt-class="'panel-open': {notificationsPanelVisible}, 'has-unread': {unreadNotificationsForYou.length} > 0">
-  <button className="my-notif-btn">
-    <VeltNotificationsToolWireframe.UnreadIcon
-      velt-if="{unreadNotificationsForYou.length} > 0" />
-    <VeltNotificationsToolWireframe.Icon
-      velt-if="{unreadNotificationsForYou.length} === 0" />
-    <VeltNotificationsToolWireframe.UnreadCount
-      velt-if="{unreadNotificationsForYou.length} > 0">
-      <span className="my-notif-btn__count">
-        <velt-data field="unreadNotificationsForYou.length" />
-      </span>
-    </VeltNotificationsToolWireframe.UnreadCount>
-    <VeltNotificationsToolWireframe.Label />
-  </button>
-</VeltNotificationsToolWireframe>
+<VeltWireframe>
+  <VeltNotificationsToolWireframe veltClass="'panel-open': {notificationsPanelVisible}">
+    <button className="my-bell">
+      <VeltNotificationsToolWireframe.Icon />
+      <VeltNotificationsToolWireframe.UnreadIcon />
+      <VeltNotificationsToolWireframe.Label />
+      <VeltNotificationsToolWireframe.UnreadCount />
+    </button>
+  </VeltNotificationsToolWireframe>
+</VeltWireframe>
 ```
 
 **HTML / web-component equivalent:**
 
 ```html
-<velt-notifications-tool-wireframe
-  velt-class="'panel-open': {notificationsPanelVisible}, 'has-unread': {unreadNotificationsForYou.length} > 0">
-  <velt-notifications-tool-unread-icon-wireframe
-    velt-if="{unreadNotificationsForYou.length} > 0"></velt-notifications-tool-unread-icon-wireframe>
-  <velt-notifications-tool-icon-wireframe
-    velt-if="{unreadNotificationsForYou.length} === 0"></velt-notifications-tool-icon-wireframe>
-  <velt-notifications-tool-unread-count-wireframe
-    velt-if="{unreadNotificationsForYou.length} > 0">
-    <span><velt-data field="unreadNotificationsForYou.length"></velt-data></span>
-  </velt-notifications-tool-unread-count-wireframe>
-</velt-notifications-tool-wireframe>
+<velt-wireframe>
+  <velt-notifications-tool-wireframe>
+    <button class="my-bell" velt-class="'panel-open': {notificationsPanelVisible}">
+      <velt-notifications-tool-icon-wireframe></velt-notifications-tool-icon-wireframe>
+      <velt-notifications-tool-unread-icon-wireframe></velt-notifications-tool-unread-icon-wireframe>
+      <velt-notifications-tool-label-wireframe></velt-notifications-tool-label-wireframe>
+      <velt-notifications-tool-unread-count-wireframe></velt-notifications-tool-unread-count-wireframe>
+    </button>
+  </velt-notifications-tool-wireframe>
+</velt-wireframe>
 ```
 
 ### Variable namespaces

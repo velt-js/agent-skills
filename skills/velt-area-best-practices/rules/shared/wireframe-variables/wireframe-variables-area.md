@@ -1,24 +1,25 @@
 ---
-title: Area wireframe variables — only `<velt-area-pin-portal-wireframe>` registers; full componentConfig.* reference for the area pin overlay
+title: Area wireframe variables — limited wireframe support; full componentConfig.* reference for the area pin overlay
 impact: MEDIUM
-impactDescription: Knowing which Area primitive actually exposes a wireframe tag (only the pin portal) prevents wasted effort on the tool and container; binding componentConfig is how you build a fully custom area pin while staying driven by the same data stream
+impactDescription: Knowing that no dedicated *-wireframe tag is registered for Area primitives prevents wasted effort; binding componentConfig is how you build custom area pin styling through CSS while staying driven by the same data stream
 tags: area, wireframe, template-variables, velt-data, velt-if, velt-class, componentConfig, areaPinAnnotation, selected, isResizing, hideAreaAnnotation, areaProperties, areaAnnotationColor, resizingOffset
 ---
 
-## Area wireframe variables — only the pin portal exposes a wireframe tag
+## Area wireframe variables — limited wireframe support
 
-The Area feature has three customer-facing primitives. Today, only ONE of them registers a `<velt-...-wireframe>` tag:
+The Area feature has three customer-facing primitives. None of them currently register a dedicated `<velt-...-wireframe>` tag. The variables below describe the `componentConfig` exposed by `<velt-area-pin-portal>`:
 
 **Wireframe registrations:**
 
 ```
 <velt-area-tool>             No wireframe tag (CSS styling only).
-<velt-area-pin-portal>       Wireframe tag: <velt-area-pin-portal-wireframe>
-                             React: <VeltAreaPinPortalWireframe>
+<velt-area-pin-portal>       No direct wireframe slot — the area-pin renders through its
+                             portal. Per-pin visual customization is not currently exposed
+                             via a dedicated *-wireframe tag.
 <velt-area-container>        No wireframe tag (CSS styling only).
 ```
 
-To customize the area pin (the rectangle overlay on the page), use the pin-portal wireframe. To customize the tool or container, you're limited to CSS targeting on the public elements.
+To customize the area pin appearance, target CSS classes driven by `componentConfig.*` variables on the host element. To customize the tool or container, target CSS on the public elements.
 
 This feature uses the **flat-config** access pattern — every variable is referenced via the explicit `componentConfig.<path>` form. Dropping the prefix (`<velt-data field="selected" />`) resolves to nothing.
 
@@ -42,69 +43,24 @@ componentConfig.offsetTop                 number               Vertical position
 componentConfig.offsetLeft                number               Horizontal position offset (used for inline style).
 ```
 
-### Custom area pin overlay
+### Accessing componentConfig
 
-**Custom area pin (React / Next.js) — highlights selection, dims when hidden, shows a resize handle during drag:**
+Since there is no wireframe slot, `componentConfig.*` variables are not available via `velt-data` interpolation. Use CSS to target the area pin's host element classes. The `componentConfig` shape above is documented so you understand the runtime model when inspecting element attributes.
 
-```tsx
-import { VeltAreaPinPortalWireframe } from '@veltdev/react';
-
-<VeltAreaPinPortalWireframe
-  velt-class="'is-selected': {componentConfig.selected}, 'is-hidden': {componentConfig.hideAreaAnnotation}, 'is-resizing': {componentConfig.isResizing}">
-  <div className="my-area-pin">
-    <span className="my-area-pin__author">
-      <velt-data field="componentConfig.areaPinAnnotation.from.name" />
-    </span>
-    <span
-      className="my-area-pin__resize-handle"
-      velt-if="{componentConfig.selected}" />
-  </div>
-</VeltAreaPinPortalWireframe>
-```
-
-**Custom area pin (Other Frameworks):**
-
-```html
-<velt-area-pin-portal-wireframe
-  velt-class="'is-selected': {componentConfig.selected}, 'is-hidden': {componentConfig.hideAreaAnnotation}, 'is-resizing': {componentConfig.isResizing}">
-  <div class="my-area-pin">
-    <span class="my-area-pin__author">
-      <velt-data field="componentConfig.areaPinAnnotation.from.name"></velt-data>
-    </span>
-    <span class="my-area-pin__resize-handle"
-          velt-if="{componentConfig.selected}"></span>
-  </div>
-</velt-area-pin-portal-wireframe>
-```
-
-### Reading the linked comment from the pin
-
-`componentConfig.commentPinAnnotation` is set when the area scopes a comment thread. Use it to render comment-count badges or other thread-derived UI directly inside the area pin overlay:
-
-**Comment-count badge inside the area pin:**
-
-```tsx
-<VeltAreaPinPortalWireframe>
-  <div className="my-area-pin">
-    <span velt-if="{componentConfig.commentPinAnnotation}">
-      <velt-data field="componentConfig.commentPinAnnotation.comments.length" /> comments
-    </span>
-  </div>
-</VeltAreaPinPortalWireframe>
-```
+`componentConfig.commentPinAnnotation` is set when the area scopes a comment thread. This information is available through the Velt comment annotations API if you need to react to it in application code.
 
 **Common pitfalls — DO NOT:**
 
 ```
-1. DO NOT drop the componentConfig. prefix. Flat-config requires the full path.
-2. DO NOT look for a <velt-area-tool-wireframe> or
-   <velt-area-container-wireframe> tag. Neither exists yet — only the
-   pin portal registers a wireframe today.
+1. DO NOT look for a <velt-area-pin-portal-wireframe>,
+   <velt-area-tool-wireframe>, or <velt-area-container-wireframe> tag.
+   None of the Area primitives register a dedicated wireframe tag —
+   customize through CSS on the public host elements.
+2. DO NOT drop the componentConfig. prefix if you access these variables
+   through Angular signal inputs. Flat-config requires the full path.
 3. DO NOT compute position from resizingOffset.top / offsetLeft etc.
-   yourself. Those are internal values that the runtime uses to compute
-   the inline style. Reading them for display is fine; treating them as
-   the authoritative geometry source is wrong (use
-   areaPinAnnotation.areaProperties for geometry).
+   yourself. Those are internal values the runtime uses to compute inline
+   style. Use areaPinAnnotation.areaProperties for persisted geometry.
 4. DO NOT use componentConfig.areaPinAnnotationOnResize for the
    steady-state annotation. It only carries data during an active resize
    drag.
@@ -113,16 +69,14 @@ import { VeltAreaPinPortalWireframe } from '@veltdev/react';
 **Verification checklist:**
 
 ```
-- Custom area pin uses <VeltAreaPinPortalWireframe> (React) or
-  <velt-area-pin-portal-wireframe> (HTML) — not a non-existent tool /
-  container wireframe.
-- All componentConfig.* reads use the full path.
-- Selection / resize / hidden state is read via componentConfig.selected /
-  isResizing / hideAreaAnnotation.
-- Linked comment access goes via componentConfig.commentPinAnnotation
-  (guarded with velt-if because it's optional).
-- Geometry / offset numbers are read but not treated as the authoritative
-  source — areaPinAnnotation.areaProperties is the persisted geometry.
+- Area pin appearance is customized through CSS on <velt-area-pin-portal>
+  (not through a wireframe tag — none exists).
+- All componentConfig.* reads (if accessed via Angular signal inputs)
+  use the full path.
+- Selection / resize / hidden state classes are driven by CSS rules
+  targeting the host element's class list.
+- Linked comment data is accessed via the Velt comment annotations API,
+  not via componentConfig.commentPinAnnotation inside a wireframe slot.
 ```
 
 **Cross-reference — Area shares the comment-dialog wireframe:**

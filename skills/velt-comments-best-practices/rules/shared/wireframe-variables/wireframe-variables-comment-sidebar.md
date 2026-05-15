@@ -52,11 +52,11 @@ import { VeltCommentsSidebarWireframe } from '@veltdev/react';
     <VeltCommentSidebarHeaderWireframe>
       <h2>Comments</h2>
       <VeltCommentsSidebarFilterButtonWireframe
-        velt-class="'has-filters': {appliedFiltersCount} > 0">
+        veltClass="'has-filters': {appliedFiltersCount} > 0">
         Filter
-        <span velt-if="{appliedFiltersCount} > 0">
-          <velt-data field="appliedFiltersCount" />
-        </span>
+        <VeltIf condition="{appliedFiltersCount} > 0">
+          <span><VeltData field="appliedFiltersCount" /></span>
+        </VeltIf>
       </VeltCommentsSidebarFilterButtonWireframe>
       <VeltCommentSidebarCloseButtonWireframe />
     </VeltCommentSidebarHeaderWireframe>
@@ -65,20 +65,22 @@ import { VeltCommentsSidebarWireframe } from '@veltdev/react';
     <VeltCommentSidebarListWireframe />
 
     <VeltCommentsSidebarEmptyPlaceholderWireframe
-      velt-if="{componentConfig.noCommentsFound} || {componentConfig.noCommentsFoundForAppliedFilters}">
+      veltIf="{componentConfig.noCommentsFound} || {componentConfig.noCommentsFoundForAppliedFilters}">
       <p>No comments to show.</p>
       <VeltCommentsSidebarResetFilterButtonWireframe
-        velt-if="{appliedFiltersCount} > 0">
+        veltIf="{appliedFiltersCount} > 0">
         Clear filters
       </VeltCommentsSidebarResetFilterButtonWireframe>
     </VeltCommentsSidebarEmptyPlaceholderWireframe>
 
     <VeltCommentsSidebarFocusedThreadWireframe>
-      <div className="my-focused" velt-if="{focusedAnnotation}">
-        <button>Back</button>
-        <h3><velt-data field="focusedAnnotation.from.name" /></h3>
-        <p><velt-data field="focusedAnnotation.comments.0.commentText" /></p>
-      </div>
+      <VeltIf condition="{focusedAnnotation}">
+        <div className="my-focused">
+          <button>Back</button>
+          <h3><VeltData field="focusedAnnotation.from.name" /></h3>
+          <p><VeltData field="focusedAnnotation.comments.0.commentText" /></p>
+        </div>
+      </VeltIf>
     </VeltCommentsSidebarFocusedThreadWireframe>
   </VeltCommentsSidebarWrapperWireframe>
 </VeltCommentsSidebarWireframe>

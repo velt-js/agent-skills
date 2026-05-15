@@ -19,7 +19,7 @@
 |shared/ui:{ui-wireframes.md}
 
 ## 6. Wireframe Variables — MEDIUM
-|shared/wireframe-variables:{wireframe-variables-cursors.md,wireframe-variables-live-selection.md}
+|shared/wireframe-variables:{wireframe-variables-cursors.md}
 
 ## 7. Debugging — LOW-MEDIUM
 |shared/debug:{debug-common-issues.md}

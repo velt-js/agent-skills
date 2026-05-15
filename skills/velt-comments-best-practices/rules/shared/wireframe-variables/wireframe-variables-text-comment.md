@@ -11,43 +11,21 @@ The Text Comment wireframe family (`<velt-text-comment-...-wireframe>` / `<VeltT
 
 For the structural catalog of which wireframe tags exist and how they nest, see `ui/ui-wireframes.md`. For the Text Comment mode itself (setup, allowed elements, rewriter wiring), see `mode/mode-text-comments.md` if present, or the Text Comment overview docs.
 
-**Incorrect (re-implementing selection state and gating the toolbar from the host component):**
+Do not re-implement selection state and gate the toolbar from the host component. The wireframe already exposes `showAdder`, `selectedWordsCount`, `isUserAllowed`, and `rewriterEnabled` as injected variables. Manual `selectionchange` subscriptions break the wireframe contract.
 
-```jsx
-import { VeltTextCommentToolWireframe, VeltTextCommentToolbarWireframe } from '@veltdev/react';
-import { useEffect, useState } from 'react';
-
-function MyTextTool() {
-  // Reimplements showAdder + word counting the wireframe already exposes.
-  const [words, setWords] = useState(0);
-  const [show, setShow] = useState(false);
-  useEffect(() => { /* manual selectionchange subscription ... */ }, []);
-  if (!show) return null;
-  return (
-    <VeltTextCommentToolWireframe className={words > 0 ? 'has-words' : ''}>
-      <span>{words} words selected</span>
-      <VeltTextCommentToolbarWireframe />
-    </VeltTextCommentToolWireframe>
-  );
-}
-```
-
-**Correct (read the slot's injected variables via `velt-data` / `velt-if` / `velt-class`):**
+**Correct (read the slot's injected variables via `velt-data` / `veltIf` / `veltClass`):**
 
 ```jsx
 import { VeltTextCommentToolWireframe, VeltTextCommentToolbarWireframe } from '@veltdev/react';
 
 <VeltTextCommentToolWireframe
-  velt-if="{isUserAllowed} && {enableTextComments}"
-  velt-class="'has-words': {selectedWordsCount} > 0, 'dark': {darkMode}">
-  <span className="my-tool__count">
-    <velt-data field="selectedWordsCount" /> words
-  </span>
+  veltClass="'has-words': {selectedWordsCount} > 0">
+  <span><VeltData field="selectedWordsCount" /> words selected</span>
   <VeltTextCommentToolbarWireframe>
     <VeltTextCommentToolbarWireframe.CommentAnnotation>
       Comment
     </VeltTextCommentToolbarWireframe.CommentAnnotation>
-    <VeltTextCommentToolbarWireframe.Copywriter velt-if="{rewriterEnabled}">
+    <VeltTextCommentToolbarWireframe.Copywriter veltIf="{rewriterEnabled}">
       Rewrite with AI
     </VeltTextCommentToolbarWireframe.Copywriter>
   </VeltTextCommentToolbarWireframe>

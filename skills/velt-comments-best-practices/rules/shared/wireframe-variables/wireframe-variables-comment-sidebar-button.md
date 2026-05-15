@@ -13,49 +13,29 @@ Unlike Comment Bubble / Comment Dialog (which expose mapped short names at the r
 
 For the structural catalog of which wireframe tags exist, see `ui/ui-wireframes.md`. This rule documents the *variable-binding* layer on top.
 
-**Incorrect (rebuilding visibility / unread state from hooks and aliasing flat-config variables as if they were mapped):**
+Do not rebuild visibility or unread state from hooks and alias flat-config variables as if they were mapped. The wireframe already exposes `globalConfig.featureState.sidebarVisible`, `componentConfig.data.unreadCount`, and `componentConfig.data.annotations.length` as flat-config variables.
 
-```jsx
-import { useCommentAnnotations, useVeltClient } from '@veltdev/react';
-import { VeltSidebarButtonWireframe } from '@veltdev/react';
-
-function Trigger() {
-  const annotations = useCommentAnnotations();
-  // Reimplements unreadCount + sidebarVisible the wireframe already exposes.
-  const unread = annotations?.filter(a => a.unread).length ?? 0;
-  const [open, setOpen] = useState(false);
-  return (
-    <VeltSidebarButtonWireframe>
-      <button className={open ? 'trigger active' : 'trigger'}>
-        <VeltSidebarButtonWireframe.Icon />
-        <span>{annotations?.length}</span>
-        {unread > 0 && <span className="dot">{unread}</span>}
-      </button>
-    </VeltSidebarButtonWireframe>
-  );
-}
-```
-
-**Correct (read the slot's injected flat-config variables via `velt-data` / `velt-if` / `velt-class`):**
+**Correct (read the slot's injected flat-config variables via `velt-data` / `veltIf` / `veltClass`):**
 
 ```jsx
 import { VeltSidebarButtonWireframe } from '@veltdev/react';
 
-<VeltSidebarButtonWireframe>
-  <button
-    className="my-trigger"
-    velt-class="'is-active': {globalConfig.featureState.sidebarVisible}, 'floating': {componentConfig.uiState.floatingMode}, 'dark': {componentConfig.uiState.darkMode}">
+<VeltSidebarButtonWireframe veltClass="'active': {globalConfig.featureState.sidebarVisible}">
+  <button className="my-sidebar-trigger">
     <VeltSidebarButtonWireframe.Icon />
     <VeltSidebarButtonWireframe.CommentsCount>
-      <span velt-if="{componentConfig.uiState.commentCountType} === 'total'">
-        <velt-data field="componentConfig.data.annotations.length" />
-      </span>
-      <span velt-if="{componentConfig.uiState.commentCountType} === 'unread'">
-        <velt-data field="componentConfig.data.unreadCount" />
-      </span>
+      <VeltIf condition="{componentConfig.uiState.commentCountType} === 'total'">
+        <span><VeltData field="componentConfig.data.annotations.length" /></span>
+      </VeltIf>
+      <VeltIf condition="{componentConfig.uiState.commentCountType} === 'unread'">
+        <span><VeltData field="componentConfig.data.unreadCount" /></span>
+      </VeltIf>
     </VeltSidebarButtonWireframe.CommentsCount>
-    <VeltSidebarButtonWireframe.UnreadIcon
-      velt-if="{componentConfig.data.unreadCount} > 0" />
+    <VeltSidebarButtonWireframe.UnreadIcon veltIf="{componentConfig.data.unreadCount} > 0">
+      <span className="my-unread-dot">
+        <VeltData field="componentConfig.data.unreadCount" />
+      </span>
+    </VeltSidebarButtonWireframe.UnreadIcon>
   </button>
 </VeltSidebarButtonWireframe>
 ```

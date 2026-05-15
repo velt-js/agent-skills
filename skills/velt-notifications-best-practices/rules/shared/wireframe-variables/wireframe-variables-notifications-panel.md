@@ -11,99 +11,44 @@ The Notifications Panel wireframe family (`<velt-notifications-panel-...-wirefra
 
 For the structural catalog of which wireframe tags exist and how they nest, see `ui/ui-wireframes.md`. This rule documents the *variable-binding* layer on top of that structure.
 
-**Incorrect (rebuilding tab/unread/empty state from hooks and conditionally mounting slots):**
+Do not rebuild tab/unread/empty state from hooks and conditionally mount slots. The panel already exposes `selectedTab`, `TABS`, `unreadNotificationsForYou`, and `isAllRead` as injected variables.
 
-```jsx
-import { useNotificationsData, useUnreadNotificationsCount } from '@veltdev/react';
-import { VeltNotificationsPanelWireframe } from '@veltdev/react';
-
-function Panel() {
-  const data = useNotificationsData();
-  const unread = useUnreadNotificationsCount();
-  const [tab, setTab] = useState('forYou');
-  const isAllRead = (data?.notificationsForYouInSession?.length ?? 0) === 0;
-  return (
-    <VeltNotificationsPanelWireframe>
-      <VeltNotificationsPanelWireframe.Header>
-        <button
-          className={tab === 'forYou' ? 'is-active' : ''}
-          onClick={() => setTab('forYou')}>
-          For you {unread > 0 && <span>{unread}</span>}
-        </button>
-      </VeltNotificationsPanelWireframe.Header>
-      {isAllRead && <div>You're all caught up.</div>}
-    </VeltNotificationsPanelWireframe>
-  );
-}
-```
-
-**Correct (read the injected variables via `velt-data` / `velt-if` / `velt-class`):**
+**Correct (read the injected variables via `velt-data` / `velt-if` / `velt-class` — a minimal panel with title bar and content area):**
 
 ```jsx
 import { VeltNotificationsPanelWireframe } from '@veltdev/react';
 
-<VeltNotificationsPanelWireframe>
-  <VeltNotificationsPanelWireframe.Title>
-    <h2>Notifications</h2>
-    <VeltNotificationsPanelWireframe.SettingsButton velt-if="{settingsEnabled}" />
-    <VeltNotificationsPanelWireframe.CloseButton />
-  </VeltNotificationsPanelWireframe.Title>
-
-  <VeltNotificationsPanelWireframe.Header>
-    <VeltNotificationsPanelWireframe.Header.TabForYou
-      velt-class="'is-active': '{selectedTab} === {TABS.ForYou}'">
-      For you
-      <span velt-if="{unreadNotificationsForYou} > 0">
-        <velt-data field="unreadNotificationsForYou" />
-      </span>
-    </VeltNotificationsPanelWireframe.Header.TabForYou>
-    <VeltNotificationsPanelWireframe.Header.TabAll
-      velt-class="'is-active': '{selectedTab} === {TABS.All}'">
-      All
-    </VeltNotificationsPanelWireframe.Header.TabAll>
-  </VeltNotificationsPanelWireframe.Header>
-
-  <VeltNotificationsPanelWireframe.Content>
-    <VeltNotificationsPanelWireframe.Content.List>
-      <article
-        className="my-notif"
-        velt-class="'is-unread': '!{notification.read}'">
-        <strong><velt-data field="notification.from.name" /></strong>
-        <p><velt-data field="notification.title" /></p>
-      </article>
-    </VeltNotificationsPanelWireframe.Content.List>
-
-    <VeltNotificationsPanelWireframe.Content.AllReadContainer velt-if="{isAllRead}">
-      <span>You're all caught up.</span>
-    </VeltNotificationsPanelWireframe.Content.AllReadContainer>
-  </VeltNotificationsPanelWireframe.Content>
-</VeltNotificationsPanelWireframe>
+<VeltWireframe>
+  <VeltNotificationsPanelWireframe>
+    <VeltNotificationsPanelWireframe.Header>
+      <div className="my-panel__title">
+        <VeltNotificationsPanelWireframe.Title />
+        <VeltNotificationsPanelWireframe.ReadAllButton />
+        <VeltNotificationsPanelWireframe.SettingsButton />
+        <VeltNotificationsPanelWireframe.CloseButton />
+      </div>
+    </VeltNotificationsPanelWireframe.Header>
+    <VeltNotificationsPanelWireframe.Content />
+  </VeltNotificationsPanelWireframe>
+</VeltWireframe>
 ```
 
 **HTML / web-component equivalent:**
 
 ```html
-<velt-notifications-panel-wireframe>
-  <velt-notifications-panel-header-wireframe>
-    <velt-notifications-panel-header-tab-for-you-wireframe
-      velt-class="'is-active': '{selectedTab} === {TABS.ForYou}'">
-      For you
-      <span velt-if="{unreadNotificationsForYou} > 0">
-        <velt-data field="unreadNotificationsForYou"></velt-data>
-      </span>
-    </velt-notifications-panel-header-tab-for-you-wireframe>
-  </velt-notifications-panel-header-wireframe>
-  <velt-notifications-panel-content-wireframe>
-    <velt-notifications-panel-content-list-wireframe>
-      <article velt-class="'is-unread': '!{notification.read}'">
-        <velt-data field="notification.title"></velt-data>
-      </article>
-    </velt-notifications-panel-content-list-wireframe>
-    <velt-notifications-panel-content-all-read-container-wireframe velt-if="{isAllRead}">
-      <span>You're all caught up.</span>
-    </velt-notifications-panel-content-all-read-container-wireframe>
-  </velt-notifications-panel-content-wireframe>
-</velt-notifications-panel-wireframe>
+<velt-wireframe>
+  <velt-notifications-panel-wireframe>
+    <velt-notifications-panel-header-wireframe>
+      <div class="my-panel__title">
+        <velt-notifications-panel-title-wireframe></velt-notifications-panel-title-wireframe>
+        <velt-notifications-panel-read-all-button-wireframe></velt-notifications-panel-read-all-button-wireframe>
+        <velt-notifications-panel-settings-button-wireframe></velt-notifications-panel-settings-button-wireframe>
+        <velt-notifications-panel-close-button-wireframe></velt-notifications-panel-close-button-wireframe>
+      </div>
+    </velt-notifications-panel-header-wireframe>
+    <velt-notifications-panel-content-wireframe></velt-notifications-panel-content-wireframe>
+  </velt-notifications-panel-wireframe>
+</velt-wireframe>
 ```
 
 ### Variable namespaces

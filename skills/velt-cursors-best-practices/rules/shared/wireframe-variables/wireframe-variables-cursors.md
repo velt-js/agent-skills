@@ -9,61 +9,29 @@ tags: wireframe, template-variables, velt-data, velt-if, velt-class, componentCo
 
 The Cursors wireframe exposes a fixed set of template variables that you read with three directives — `<velt-data field="...">` for text, `velt-if="{var}"` for conditional rendering, and `velt-class="'cls': {var}"` for class toggling. Live Cursors uses the **flat-config** access pattern: variables are addressed via the explicit `componentConfig.<path>` form, **not** short names. The orchestrating `<velt-cursor>` element is not itself wireframed — only the per-user `<velt-cursor-pointer-wireframe>` is customizable, and its `componentConfig` is **per-user** (one instance per remote cursor).
 
-**Incorrect (rebuilding pointer state from `useCursorUsers` and short-name variable lookups):**
+Do not rebuild pointer state from `useCursorUsers` or use short-name variable lookups. The wireframe already supplies each pointer's data via `componentConfig.<path>`.
+
+**Correct (read the per-user `componentConfig` via `VeltData` / `velt-if` / `velt-class`):**
 
 ```jsx
-import { useCursorUsers } from '@veltdev/react';
-import VeltCursorPointerWireframe from '@veltdev/react/VeltCursorPointerWireframe';
-
-function Pointer({ user, isSelf }) {
-  const cursorUsers = useCursorUsers(); // re-fetches data the wireframe already supplies
-  return (
-    <VeltCursorPointerWireframe>
-      {/* Short-name form does NOT resolve for Cursors — flat-config requires componentConfig.<path> */}
-      <velt-data field="cursorUser.name" />
-      {isSelf && <span className="self">(you)</span>}
-    </VeltCursorPointerWireframe>
-  );
-}
-```
-
-**Correct (read the per-user `componentConfig` via `velt-data` / `velt-if` / `velt-class`):**
-
-```jsx
-<VeltCursorPointerWireframe
-  velt-class="'is-self': {componentConfig.selfCursorPointer}, 'is-huddle': {componentConfig.showAudio} || {componentConfig.showVideo}">
-  <VeltCursorPointerWireframe.Default velt-if="{componentConfig.showDefault}">
-    <VeltCursorPointerWireframe.DefaultName>
-      <velt-data field="componentConfig.cursorUser.name" />
-    </VeltCursorPointerWireframe.DefaultName>
-  </VeltCursorPointerWireframe.Default>
-
-  <VeltCursorPointerWireframe.Avatar velt-if="{componentConfig.showAvatar}">
-    <img />
-  </VeltCursorPointerWireframe.Avatar>
-
-  <VeltCursorPointerWireframe.AudioHuddle velt-if="{componentConfig.showAudio}">
-    <VeltCursorPointerWireframe.AudioHuddle.Audio />
-  </VeltCursorPointerWireframe.AudioHuddle>
-
-  <VeltCursorPointerWireframe.VideoHuddle
-    velt-if="{componentConfig.showVideo} && {componentConfig.stream}" />
+<VeltCursorPointerWireframe>
+  <div className="my-cursor" style={{ background: '{componentConfig.cursorUser.color}' }}>
+    <span className="my-cursor__name" style={{ color: '{componentConfig.getTextColor()}' }}>
+      <VeltData field="componentConfig.cursorUser.name" />
+    </span>
+  </div>
 </VeltCursorPointerWireframe>
 ```
 
 **HTML / web-component equivalent:**
 
 ```html
-<velt-cursor-pointer-wireframe
-  velt-class="'is-self': {componentConfig.selfCursorPointer}">
-  <velt-cursor-pointer-default-wireframe velt-if="{componentConfig.showDefault}">
-    <velt-cursor-pointer-default-name-wireframe>
-      <velt-data field="componentConfig.cursorUser.name"></velt-data>
-    </velt-cursor-pointer-default-name-wireframe>
-  </velt-cursor-pointer-default-wireframe>
-  <velt-cursor-pointer-avatar-wireframe velt-if="{componentConfig.showAvatar}">
-    <img />
-  </velt-cursor-pointer-avatar-wireframe>
+<velt-cursor-pointer-wireframe>
+  <div class="my-cursor" [style.background]="'{componentConfig.cursorUser.color}'">
+    <span class="my-cursor__name" [style.color]="'{componentConfig.getTextColor()}'">
+      {{ '{componentConfig.cursorUser.name}' }}
+    </span>
+  </div>
 </velt-cursor-pointer-wireframe>
 ```
 

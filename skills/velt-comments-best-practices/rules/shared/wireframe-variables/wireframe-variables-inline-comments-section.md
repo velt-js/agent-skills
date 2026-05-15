@@ -42,21 +42,21 @@ function Section({ targetElementId }) {
 import { VeltInlineCommentsSectionWireframe } from '@veltdev/react';
 
 <VeltInlineCommentsSectionWireframe
-  velt-class="'theme-dark': {darkMode}, 'readonly': {featureState.readOnly}, 'composer-{composerPosition}': true">
-  <VeltInlineCommentsSectionWireframe.Skeleton velt-if="{skeletonLoading}" />
+  veltClass="'dark': {darkMode}, 'readonly': {featureState.readOnly}, 'composer-{composerPosition}': true">
+  <VeltInlineCommentsSectionWireframe.Skeleton veltIf="{skeletonLoading}" />
 
   <header className="my-section__header">
     <VeltInlineCommentsSectionWireframe.CommentCount>
-      <velt-data field="annotations.length" /> comments
+      <VeltData field="annotations.length" /> comments
     </VeltInlineCommentsSectionWireframe.CommentCount>
 
     <VeltInlineCommentsSectionWireframe.FilterDropdown.Trigger
-      velt-class="'open': {filterState.filterDropdownOpen}">
-      <span>Filter (<velt-data field="filterState.filters.length" />)</span>
+      veltClass="'open': {filterState.filterDropdownOpen}">
+      <span>Filter (<VeltData field="filterState.filters.length" />)</span>
     </VeltInlineCommentsSectionWireframe.FilterDropdown.Trigger>
 
     <VeltInlineCommentsSectionWireframe.SortingDropdown.Trigger>
-      <span>Sort: <velt-data field="sortState.activeSortOption" /></span>
+      <span>Sort: <VeltData field="sortState.activeSortOption" /></span>
     </VeltInlineCommentsSectionWireframe.SortingDropdown.Trigger>
   </header>
 

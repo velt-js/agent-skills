@@ -1018,10 +1018,10 @@ function ActivityRow({ row }) {
 ```jsx
 import VeltActivityLogWireframe from '@veltdev/react/VeltActivityLogWireframe';
 
-<VeltActivityLogWireframe velt-if="{isEnabled} && {isOpen}">
+<VeltActivityLogWireframe veltIf="{isEnabled} && {isOpen}">
   <VeltActivityLogWireframe.List>
     <VeltActivityLogWireframe.List.Item
-      velt-class="'mine': {activity.user.userId} === {user.userId}"
+      veltClass="'mine': {activity.user.userId} === {user.userId}"
     >
       <VeltActivityLogWireframe.List.Item.Avatar />
       <VeltActivityLogWireframe.List.Item.Content>
@@ -1031,8 +1031,8 @@ import VeltActivityLogWireframe from '@veltdev/react/VeltActivityLogWireframe';
       </VeltActivityLogWireframe.List.Item.Content>
       <VeltActivityLogWireframe.List.Item.Time />
     </VeltActivityLogWireframe.List.Item>
-    <VeltActivityLogWireframe.List.ShowMore velt-if="{remainingCount} > 0">
-      <span>Show <velt-data field="remainingCount" /> more</span>
+    <VeltActivityLogWireframe.List.ShowMore veltIf="{remainingCount} > 0">
+      <span>Show <VeltData field="remainingCount" /> more</span>
     </VeltActivityLogWireframe.List.ShowMore>
   </VeltActivityLogWireframe.List>
 </VeltActivityLogWireframe>

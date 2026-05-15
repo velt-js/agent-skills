@@ -53,10 +53,10 @@ function Dialog({ annotationId }) {
 import { VeltCommentDialogWireframe } from '@veltdev/react';
 
 <VeltCommentDialogWireframe>
-  <div className="my-dialog" velt-class="'is-editing': {editComment}, 'is-private': {isPrivateComment}, 'theme-dark': {darkMode}">
+  <div className="my-dialog" veltClass="'is-editing': {editComment}, 'is-private': {isPrivateComment}, 'dark': {darkMode}">
     <VeltCommentDialogWireframe.Header>
       <VeltCommentDialogWireframe.ResolveButton
-        velt-if="{enableResolve} && {canResolveAnnotation} && (!{resolveStatusAccessAdminOnly} || {isUserAdmin})">
+        veltIf="{enableResolve} && {canResolveAnnotation} && (!{resolveStatusAccessAdminOnly} || {isUserAdmin})">
         Resolve
       </VeltCommentDialogWireframe.ResolveButton>
       <VeltCommentDialogWireframe.CloseButton />
@@ -65,9 +65,9 @@ import { VeltCommentDialogWireframe } from '@veltdev/react';
     <VeltCommentDialogWireframe.Body>
       <VeltCommentDialogWireframe.Threads>
         <VeltCommentDialogWireframe.ThreadCard>
-          <article className="my-comment" velt-class="'is-first': '{commentIndex} === 0'">
-            <strong><velt-data field="comment.from.name" /></strong>
-            <p><velt-data field="comment.commentText" /></p>
+          <article className="my-comment" veltClass="'is-first': '{commentIndex} === 0'">
+            <strong><VeltData field="comment.from.name" /></strong>
+            <p><VeltData field="comment.commentText" /></p>
             <VeltCommentDialogWireframe.ThreadCardEdited />
           </article>
         </VeltCommentDialogWireframe.ThreadCard>

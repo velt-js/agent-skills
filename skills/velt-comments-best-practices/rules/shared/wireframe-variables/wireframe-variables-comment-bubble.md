@@ -11,48 +11,33 @@ The Comment Bubble wireframe family (`<velt-comment-bubble-...-wireframe>` / `<V
 
 For the structural catalog of which wireframe tags exist and how they nest, see `ui/ui-wireframes.md`. This rule documents the *variable-binding* layer on top of that structure.
 
-**Incorrect (rebuilding bubble state from `useCommentAnnotations` and conditionally mounting wireframe slots):**
+Do not rebuild bubble state from `useCommentAnnotations` and conditionally mount wireframe slots. The wireframe already exposes `annotation.unread`, `selectedAnnotationsMap`, and `annotation.from.name` as injected variables. Reimplementing this breaks the wireframe contract and causes double state tracking.
 
-```jsx
-import { useCommentAnnotations } from '@veltdev/react';
-import { VeltCommentBubbleWireframe } from '@veltdev/react';
-
-function Bubble({ annotationId }) {
-  const annotations = useCommentAnnotations();
-  const annotation = annotations?.find(a => a.annotationId === annotationId);
-  // Reimplements unread + selected tracking the wireframe already exposes.
-  const unread = annotation?.unread;
-  const selected = useSelectedAnnotation()?.annotationId === annotationId;
-  if (!annotation) return null;
-  return (
-    <VeltCommentBubbleWireframe className={`${unread ? 'unread' : ''} ${selected ? 'selected' : ''}`}>
-      <span>{annotation.from?.name}</span>
-    </VeltCommentBubbleWireframe>
-  );
-}
-```
-
-**Correct (read the slot's injected variables via `velt-data` / `velt-if` / `velt-class`):**
+**Correct (read the slot's injected variables via `velt-data` / `veltIf` / `veltClass`):**
 
 ```jsx
 import { VeltCommentBubbleWireframe } from '@veltdev/react';
 
 <VeltCommentBubbleWireframe
-  velt-class="'unread': {annotation.unread}, 'selected': {selectedAnnotationsMap[annotation.annotationId]}">
+  veltClass="'unread': {annotation.unread}, 'selected': {selectedAnnotationsMap[annotation.annotationId]}">
   <div className="my-bubble">
     <VeltCommentBubbleWireframe.Avatar>
-      <img className="my-bubble__avatar" />
+      <img className="my-bubble__avatar" src="{annotation.from.photoUrl}" />
     </VeltCommentBubbleWireframe.Avatar>
     <span className="my-bubble__name">
-      <velt-data field="annotation.from.name" />
+      <VeltData field="annotation.from.name" />
     </span>
     <VeltCommentBubbleWireframe.CommentsCount>
-      <span className="my-bubble__count" velt-if="{annotation.comments.length} > 1">
-        <velt-data field="annotation.comments.length" />
-      </span>
+      <VeltIf condition="{annotation.comments.length} > 1">
+        <span className="my-bubble__count">
+          <VeltData field="annotation.comments.length" />
+        </span>
+      </VeltIf>
     </VeltCommentBubbleWireframe.CommentsCount>
     <VeltCommentBubbleWireframe.UnreadIcon>
-      <span className="my-bubble__dot" velt-if="{annotation.unread}" />
+      <VeltIf condition="{annotation.unread}">
+        <span className="my-bubble__dot" />
+      </VeltIf>
     </VeltCommentBubbleWireframe.UnreadIcon>
   </div>
 </VeltCommentBubbleWireframe>

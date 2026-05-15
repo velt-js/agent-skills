@@ -13,26 +13,7 @@ The Rewriter uses the **flat-config** access pattern — variables are reference
 
 The wireframe layer is independent of the rewriter's default-UI toolbar. `disableDefaultUI()` on `RewriterElement` hides the built-in toolbar but does **not** disable the feature — events keep firing and your wireframe slots keep receiving config updates, so you can render fully custom UI from the same data stream.
 
-**Incorrect (rebuilding rewriter state from the element handle and conditionally mounting slots):**
-
-```jsx
-import { useVeltClient } from '@veltdev/react';
-
-function CustomRewriterDialog({ annotation }) {
-  const client = useVeltClient();
-  const [loading, setLoading] = useState(false);
-  const [options, setOptions] = useState([]);
-  // Reimplements loading / options / apiCalled tracking that the wireframe
-  // already exposes via componentConfig.loading, .options, .apiCalled.
-  useEffect(() => { /* manual subscriptions on RewriterElement ... */ }, [client]);
-  if (!annotation) return null;
-  return (
-    <div className={loading ? 'rewriter is-loading' : 'rewriter'}>
-      {options.length > 0 && <ul>{options.map(o => <li>{o}</li>)}</ul>}
-    </div>
-  );
-}
-```
+Do not rebuild rewriter state from the element handle and conditionally mount slots. The wireframe already exposes `componentConfig.loading`, `componentConfig.options`, and `componentConfig.apiCalled` directly.
 
 **Correct (read the slot's injected `componentConfig` via `velt-data` / `velt-if` / `velt-class`):**
 
@@ -40,15 +21,17 @@ function CustomRewriterDialog({ annotation }) {
 import { VeltRewriterDialogWireframe } from '@veltdev/react';
 
 <VeltRewriterDialogWireframe
-  velt-class="'is-loading': {componentConfig.loading}">
-  <header velt-if="{componentConfig.apiCalled}">
-    <velt-data field="componentConfig.options.length" /> options
-  </header>
-  <header velt-if="!{componentConfig.apiCalled}">Pick a rewrite to start</header>
-  <div velt-if="{componentConfig.loading}">Generating…</div>
-  <ul velt-if="!{componentConfig.loading}">
-    <li><velt-data field="componentConfig.options.0" /></li>
-  </ul>
+  veltClass="'is-loading': {componentConfig.loading}">
+  <VeltIf condition="{componentConfig.apiCalled}">
+    <header><VeltData field="componentConfig.options.length" /> options</header>
+  </VeltIf>
+  <VeltIf condition="!{componentConfig.apiCalled}">
+    <header>Pick a rewrite to start</header>
+  </VeltIf>
+  <VeltIf condition="{componentConfig.loading}"><div>Generating…</div></VeltIf>
+  <VeltIf condition="!{componentConfig.loading}">
+    <ul><li><VeltData field="componentConfig.options.0" /></li></ul>
+  </VeltIf>
 </VeltRewriterDialogWireframe>
 ```
 

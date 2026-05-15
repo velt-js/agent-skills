@@ -42,7 +42,6 @@ Comprehensive guide for Velt's real-time cursor tracking feature — rendering c
 
 6. [Wireframe Variables](#6-wireframe-variables) — **MEDIUM**
    - 6.1 [Bind Cursors Wireframe Slots Using componentConfig Template Variables](#61-bind-cursors-wireframe-slots-using-componentconfig-template-variables)
-   - 6.2 [Bind Live Selection Wireframe Slots Using componentConfig Template Variables](#62-bind-live-selection-wireframe-slots-using-componentconfig-template-variables)
 
 7. [Debugging](#7-debugging) — **LOW-MEDIUM**
    - 7.1 [Troubleshoot Common Cursor Issues](#71-troubleshoot-common-cursor-issues)
@@ -715,61 +714,29 @@ Template variables exposed inside the Cursors and Live Selection wireframe trees
 
 The Cursors wireframe exposes a fixed set of template variables that you read with three directives — `<velt-data field="...">` for text, `velt-if="{var}"` for conditional rendering, and `velt-class="'cls': {var}"` for class toggling. Live Cursors uses the **flat-config** access pattern: variables are addressed via the explicit `componentConfig.<path>` form, **not** short names. The orchestrating `<velt-cursor>` element is not itself wireframed — only the per-user `<velt-cursor-pointer-wireframe>` is customizable, and its `componentConfig` is **per-user** (one instance per remote cursor).
 
-**Incorrect (rebuilding pointer state from `useCursorUsers` and short-name variable lookups):**
+Do not rebuild pointer state from `useCursorUsers` or use short-name variable lookups. The wireframe already supplies each pointer's data via `componentConfig.<path>`.
+
+**Correct (read the per-user `componentConfig` via `VeltData` / `velt-if` / `velt-class`):**
 
 ```jsx
-import { useCursorUsers } from '@veltdev/react';
-import VeltCursorPointerWireframe from '@veltdev/react/VeltCursorPointerWireframe';
-
-function Pointer({ user, isSelf }) {
-  const cursorUsers = useCursorUsers(); // re-fetches data the wireframe already supplies
-  return (
-    <VeltCursorPointerWireframe>
-      {/* Short-name form does NOT resolve for Cursors — flat-config requires componentConfig.<path> */}
-      <velt-data field="cursorUser.name" />
-      {isSelf && <span className="self">(you)</span>}
-    </VeltCursorPointerWireframe>
-  );
-}
-```
-
-**Correct (read the per-user `componentConfig` via `velt-data` / `velt-if` / `velt-class`):**
-
-```jsx
-<VeltCursorPointerWireframe
-  velt-class="'is-self': {componentConfig.selfCursorPointer}, 'is-huddle': {componentConfig.showAudio} || {componentConfig.showVideo}">
-  <VeltCursorPointerWireframe.Default velt-if="{componentConfig.showDefault}">
-    <VeltCursorPointerWireframe.DefaultName>
-      <velt-data field="componentConfig.cursorUser.name" />
-    </VeltCursorPointerWireframe.DefaultName>
-  </VeltCursorPointerWireframe.Default>
-
-  <VeltCursorPointerWireframe.Avatar velt-if="{componentConfig.showAvatar}">
-    <img />
-  </VeltCursorPointerWireframe.Avatar>
-
-  <VeltCursorPointerWireframe.AudioHuddle velt-if="{componentConfig.showAudio}">
-    <VeltCursorPointerWireframe.AudioHuddle.Audio />
-  </VeltCursorPointerWireframe.AudioHuddle>
-
-  <VeltCursorPointerWireframe.VideoHuddle
-    velt-if="{componentConfig.showVideo} && {componentConfig.stream}" />
+<VeltCursorPointerWireframe>
+  <div className="my-cursor" style={{ background: '{componentConfig.cursorUser.color}' }}>
+    <span className="my-cursor__name" style={{ color: '{componentConfig.getTextColor()}' }}>
+      <VeltData field="componentConfig.cursorUser.name" />
+    </span>
+  </div>
 </VeltCursorPointerWireframe>
 ```
 
 **HTML / web-component equivalent:**
 
 ```html
-<velt-cursor-pointer-wireframe
-  velt-class="'is-self': {componentConfig.selfCursorPointer}">
-  <velt-cursor-pointer-default-wireframe velt-if="{componentConfig.showDefault}">
-    <velt-cursor-pointer-default-name-wireframe>
-      <velt-data field="componentConfig.cursorUser.name"></velt-data>
-    </velt-cursor-pointer-default-name-wireframe>
-  </velt-cursor-pointer-default-wireframe>
-  <velt-cursor-pointer-avatar-wireframe velt-if="{componentConfig.showAvatar}">
-    <img />
-  </velt-cursor-pointer-avatar-wireframe>
+<velt-cursor-pointer-wireframe>
+  <div class="my-cursor" [style.background]="'{componentConfig.cursorUser.color}'">
+    <span class="my-cursor__name" [style.color]="'{componentConfig.getTextColor()}'">
+      {{ '{componentConfig.cursorUser.name}' }}
+    </span>
+  </div>
 </velt-cursor-pointer-wireframe>
 ```
 
@@ -824,78 +791,6 @@ Each registered as `<velt-cursor-pointer-...-wireframe>` and resolves the per-us
 **2. DO NOT try to wireframe the root `<velt-cursor>`.** It has no `<velt-cursor-wireframe>` registration. Customize the per-user pointer via `<velt-cursor-pointer-wireframe>` instead.
 **3. DO NOT mix root and per-user variables in the same slot.** Inside `<velt-cursor-pointer-wireframe>`, `componentConfig` is per-user — `componentConfig.cursorUsers` (root, plural) is not defined; use `componentConfig.cursorUser` (per-user, singular).
 **4. DO NOT gate both default and huddle variants without checking `showDefault` / `showAudio` / `showVideo`.** These flags are mutually exclusive in practice; without them you render overlapping pointers.
-
----
-
-### 6.2 Bind Live Selection Wireframe Slots Using componentConfig Template Variables
-
-**Impact: MEDIUM (Drives the remote-user selection indicator's dynamic content, conditional rendering, and class toggling without manual subscriptions)**
-
-The **Live Selection** feature renders a floating "user X is selecting this" indicator anchored to a remote user's current selection range. The customizable primitive is `<velt-selection-element-portal-wireframe>` (React: `VeltSelectionElementPortalWireframe`). Like Cursors, Live Selection uses the **flat-config** access pattern — every variable is addressed via the explicit `componentConfig.<path>` form, never short names. Read variables with `<velt-data field="...">` for text, `velt-if="{var}"` for conditional rendering, and `velt-class="'cls': {var}"` for class toggling.
-
-**Incorrect (short-name lookup, no `componentConfig.` prefix):**
-
-```jsx
-<VeltSelectionElementPortalWireframe>
-  {/* Does NOT resolve — Live Selection is flat-config */}
-  <velt-data field="selections.0.user.name" />
-</VeltSelectionElementPortalWireframe>
-```
-
-**Correct (flat-config `componentConfig.<path>` with gating):**
-
-```jsx
-<VeltSelectionElementPortalWireframe
-  velt-if="{componentConfig.selections.length} > 0"
-  velt-class="'pos-{componentConfig.userIndicatorPosition}': true, 'type-{componentConfig.userIndicatorType}': true">
-  <div className="my-selection-indicator">
-    <img
-      className="my-selection-indicator__avatar"
-      velt-if="{componentConfig.userIndicatorType} === 'Avatar'" />
-    <span
-      className="my-selection-indicator__name"
-      velt-if="{componentConfig.userIndicatorType} === 'Name'">
-      <velt-data field="componentConfig.selections.0.user.name" />
-    </span>
-  </div>
-</VeltSelectionElementPortalWireframe>
-```
-
-**HTML / web-component equivalent:**
-
-```html
-<velt-selection-element-portal-wireframe
-  velt-if="{componentConfig.selections.length} > 0"
-  velt-class="'pos-{componentConfig.userIndicatorPosition}': true">
-  <div class="my-selection-indicator">
-    <span class="my-selection-indicator__name">
-      <velt-data field="componentConfig.selections.0.user.name"></velt-data>
-    </span>
-  </div>
-</velt-selection-element-portal-wireframe>
-```
-
-| Variable | Type | Use |
-|---|---|---|
-| `componentConfig.position` | `CursorPosition \| null` | Selection bounding-rect (`top`, `left`, `right`, `bottom`). Internal — used to compute inline style. |
-| `componentConfig.userIndicatorPosition` | `UserIndicatorPosition` | Where the indicator is anchored relative to the selection range. |
-| `componentConfig.userIndicatorType` | `UserIndicatorType` | What to render — avatar, name label, or both. |
-| `componentConfig.overlayPosition` | `{ originX, originY, overlayX, overlayY }` | CDK overlay anchoring config. Internal. |
-| `componentConfig.selections` | `Selection[]` | Active remote selections. Each entry has `user` plus selection-range data. |
-Types referenced by the variables above (see [data-models.mdx](/api-reference/sdk/models/data-models)):
-| Type | Shape | Notes |
-|---|---|---|
-| `UserIndicatorPosition` | `'start' \| 'end' \| ...` | Enum — anchor edge of the selection range. New in this release. |
-| `UserIndicatorType` | `'Avatar' \| 'Name' \| ...` | Enum — what to show inside the indicator. New in this release. |
-| `CursorPosition` | `{ top, left, right, bottom }` | Selection bounding-rect — shared with cursor positioning. |
-| `Selection` | `{ user: User, ... }` | Remote-selection record. `user` is the standard `User` type. |
-| `User` | See data-models | Identified end-user (used by `componentConfig.selections.<i>.user`). |
-| Tag | Public element | Notes |
-|---|---|---|
-| `<velt-selection-element-portal-wireframe>` | `<velt-selection-element-portal>` | The floating user-indicator (avatar / name / colour bar). No `shouldShow` override — render is gated by whether `componentConfig.selections` has any active entries. |
-**1. DO NOT drop the `componentConfig.` prefix.** Live Selection is flat-config. `<velt-data field="selections.0.user.name" />` resolves to nothing.
-**2. DO NOT render the indicator unconditionally.** Gate the wireframe (or its inner content) on `velt-if="{componentConfig.selections.length} > 0"` — otherwise you render an empty floater when no remote user is selecting.
-**3. DO NOT branch on `userIndicatorType` without covering all values.** The enum includes more than `'Avatar'` / `'Name'`; use class-toggle (`velt-class="'type-{componentConfig.userIndicatorType}': true"`) to style every variant uniformly.
 
 ---
 

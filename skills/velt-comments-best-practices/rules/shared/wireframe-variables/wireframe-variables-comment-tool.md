@@ -42,18 +42,15 @@ function CommentToolButton() {
 }
 ```
 
-**Correct (read the slot's variables via `velt-data` / `velt-if` / `velt-class`):**
+**Correct (read the slot's variables via `velt-data` / `veltIf` / `veltClass`):**
 
 ```jsx
 import { VeltCommentToolWireframe } from '@veltdev/react';
 
-<VeltCommentToolWireframe>
-  <button
-    className="my-tool"
-    velt-class="'is-active': {addCommentMode}, 'is-off': '!{commentToolEnabled}'">
-    <svg className="my-tool__icon" />
-    <span velt-if="!{addCommentMode}">Add comment</span>
-    <span velt-if="{addCommentMode}">Click anywhere to comment</span>
+<VeltCommentToolWireframe veltClass="'active': {addCommentMode}, 'disabled': '!{commentToolEnabled}'">
+  <button className="my-comment-button">
+    <VeltIf condition="{addCommentMode}"><span>Click anywhere…</span></VeltIf>
+    <VeltIf condition="!{addCommentMode}"><span>Add comment</span></VeltIf>
   </button>
 </VeltCommentToolWireframe>
 ```

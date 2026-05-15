@@ -42,17 +42,17 @@ import {
 } from '@veltdev/react';
 
 <VeltTranscriptionPanelWireframe
-  velt-class="'visible': {componentConfig.transcriptionVisible}, 'mode-{componentConfig.mode}': true">
+  veltClass="'visible': {componentConfig.transcriptionVisible}, 'mode-{componentConfig.mode}': true">
   <VeltTranscriptionSummaryWireframe>
-    <p velt-if="{componentConfig.showMoreSummary}">
-      <velt-data field="componentConfig.transcription.summary" />
+    <p veltIf="{componentConfig.showMoreSummary}">
+      <VeltData field="componentConfig.transcription.summary" />
     </p>
   </VeltTranscriptionSummaryWireframe>
 
   <VeltTranscriptionContentItemWireframe
-    velt-class="'is-active': '{segment.startTimeInSeconds} <= {currentTime} && {segment.endTimeInSeconds} > {currentTime}'">
-    <time><velt-data field="segment.startTime" /></time>
-    <p><velt-data field="segment.text" /></p>
+    veltClass="'is-active': '{segment.startTimeInSeconds} <= {currentTime} && {segment.endTimeInSeconds} > {currentTime}'">
+    <time><VeltData field="segment.startTime" /></time>
+    <p><VeltData field="segment.text" /></p>
   </VeltTranscriptionContentItemWireframe>
 </VeltTranscriptionPanelWireframe>
 ```

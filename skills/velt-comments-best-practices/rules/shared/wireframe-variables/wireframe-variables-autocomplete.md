@@ -13,24 +13,7 @@ Unlike the Comment Bubble / Comment Dialog families, Autocomplete uses the **fla
 
 For the structural catalog of which wireframe tags exist and how they nest, see `ui/ui-wireframes.md`. This rule documents the *variable-binding* layer on top.
 
-**Incorrect (filtering / grouping the mention list yourself instead of reading the flattened items the panel already exposes):**
-
-```jsx
-import { useContacts } from '@veltdev/react';
-import { VeltAutocompletePanelWireframe } from '@veltdev/react';
-
-function Panel({ query }) {
-  const contacts = useContacts();
-  // Reimplements flattening + grouping that componentConfig.flattenedItems already does.
-  const items = contacts?.filter(c => c.name.includes(query));
-  if (!items?.length) return <p>No matches.</p>;
-  return (
-    <VeltAutocompletePanelWireframe>
-      {items.map(c => <div key={c.userId}>{c.name}</div>)}
-    </VeltAutocompletePanelWireframe>
-  );
-}
-```
+Do not filter or group the mention list yourself using `useContacts`. The panel already produces `componentConfig.flattenedItems` with the correct ordering and grouping applied. Reimplementing flattening breaks the virtual-scroll contract and produces stale results.
 
 **Correct (let the wireframe iterate, read `option` / `chip` per row, gate empty-state with `componentConfig.flattenedItems.length`):**
 
@@ -44,17 +27,17 @@ import {
 
 <VeltAutocompletePanelWireframe>
   <VeltAutocompleteOptionWireframe>
-    <div className="my-option" velt-class="'is-group': {option.group}">
+    <div className="my-option" veltClass="'is-group': {option.group}">
       <img className="my-option__avatar" />
-      <strong><velt-data field="option.name" /></strong>
-      <span><velt-data field="option.email" /></span>
+      <strong><VeltData field="option.name" /></strong>
+      <span><VeltData field="option.email" /></span>
     </div>
   </VeltAutocompleteOptionWireframe>
 
-  <VeltAutocompleteGroupOptionWireframe velt-if="{componentConfig.customGroupsEnabled}">
+  <VeltAutocompleteGroupOptionWireframe veltIf="{componentConfig.customGroupsEnabled}">
     <div className="my-group">
-      <velt-data field="option.group.name" />
-      (<velt-data field="option.group.userCount" />)
+      <VeltData field="option.group.name" />
+      (<VeltData field="option.group.userCount" />)
     </div>
   </VeltAutocompleteGroupOptionWireframe>
 

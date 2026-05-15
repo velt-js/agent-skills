@@ -280,12 +280,14 @@ import { VeltWireframe, VeltReactionPinWireframe } from '@veltdev/react';
 
 <VeltWireframe>
   <VeltReactionPinWireframe
-    velt-class="'is-mine': {componentConfig.isReactionSelectedByCurrentUser}">
+    veltClass="'is-mine': {componentConfig.isReactionSelectedByCurrentUser}">
     <button className="my-pin">
-      <span><velt-data field="componentConfig.annotation.emoji" /></span>
-      <span velt-if="{componentConfig.annotation.users.length} > 1">
-        <velt-data field="componentConfig.annotation.users.length" />
-      </span>
+      <span><VeltData field="componentConfig.annotation.emoji" /></span>
+      <VeltIf condition="{componentConfig.annotation.users.length} > 1">
+        <span>
+          <VeltData field="componentConfig.annotation.users.length" />
+        </span>
+      </VeltIf>
     </button>
   </VeltReactionPinWireframe>
 </VeltWireframe>
@@ -371,22 +373,22 @@ import {
 
 <VeltWireframe>
   {/* Emoji picker row (reactions-panel) — uses context vars emoji + isSelected */}
-  <VeltReactionsPanelItemWireframe>
-    <button
-      className="my-emoji-row"
-      velt-class="'is-selected': {isSelected}">
-      <VeltReactionsPanelItemEmojiWireframe>
-        <span className="my-emoji"><velt-data field="emoji.value" /></span>
-      </VeltReactionsPanelItemEmojiWireframe>
-      <velt-data field="emoji.name" />
+  <VeltReactionsPanelWireframe.Items.Item>
+    <button className="my-emoji-row">
+      <VeltReactionsPanelWireframe.Items.Item.Emoji>
+        <span className="my-emoji">
+          <VeltData field="emoji.value" />
+        </span>
+      </VeltReactionsPanelWireframe.Items.Item.Emoji>
+      <VeltData field="emoji.name" />
     </button>
-  </VeltReactionsPanelItemWireframe>
+  </VeltReactionsPanelWireframe.Items.Item>
 
   {/* Tooltip reactor row (reaction-pin tooltip) — uses context var user */}
   <VeltReactionPinTooltipUserWireframe>
     <li className="reactor-row">
-      <img velt-if="{user.photoUrl}" />
-      <velt-data field="user.name" />
+      <VeltIf condition="{user.photoUrl}"><img /></VeltIf>
+      <VeltData field="user.name" />
     </li>
   </VeltReactionPinTooltipUserWireframe>
 </VeltWireframe>

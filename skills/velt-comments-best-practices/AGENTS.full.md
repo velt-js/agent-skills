@@ -7230,24 +7230,7 @@ Unlike the Comment Bubble / Comment Dialog families, Autocomplete uses the **fla
 
 For the structural catalog of which wireframe tags exist and how they nest, see `ui/ui-wireframes.md`. This rule documents the *variable-binding* layer on top.
 
-**Incorrect (filtering / grouping the mention list yourself instead of reading the flattened items the panel already exposes):**
-
-```jsx
-import { useContacts } from '@veltdev/react';
-import { VeltAutocompletePanelWireframe } from '@veltdev/react';
-
-function Panel({ query }) {
-  const contacts = useContacts();
-  // Reimplements flattening + grouping that componentConfig.flattenedItems already does.
-  const items = contacts?.filter(c => c.name.includes(query));
-  if (!items?.length) return <p>No matches.</p>;
-  return (
-    <VeltAutocompletePanelWireframe>
-      {items.map(c => <div key={c.userId}>{c.name}</div>)}
-    </VeltAutocompletePanelWireframe>
-  );
-}
-```
+Do not filter or group the mention list yourself using `useContacts`. The panel already produces `componentConfig.flattenedItems` with the correct ordering and grouping applied. Reimplementing flattening breaks the virtual-scroll contract and produces stale results.
 
 **Correct (let the wireframe iterate, read `option` / `chip` per row, gate empty-state with `componentConfig.flattenedItems.length`):**
 
@@ -7261,17 +7244,17 @@ import {
 
 <VeltAutocompletePanelWireframe>
   <VeltAutocompleteOptionWireframe>
-    <div className="my-option" velt-class="'is-group': {option.group}">
+    <div className="my-option" veltClass="'is-group': {option.group}">
       <img className="my-option__avatar" />
-      <strong><velt-data field="option.name" /></strong>
-      <span><velt-data field="option.email" /></span>
+      <strong><VeltData field="option.name" /></strong>
+      <span><VeltData field="option.email" /></span>
     </div>
   </VeltAutocompleteOptionWireframe>
 
-  <VeltAutocompleteGroupOptionWireframe velt-if="{componentConfig.customGroupsEnabled}">
+  <VeltAutocompleteGroupOptionWireframe veltIf="{componentConfig.customGroupsEnabled}">
     <div className="my-group">
-      <velt-data field="option.group.name" />
-      (<velt-data field="option.group.userCount" />)
+      <VeltData field="option.group.name" />
+      (<VeltData field="option.group.userCount" />)
     </div>
   </VeltAutocompleteGroupOptionWireframe>
 
@@ -7337,48 +7320,33 @@ The Comment Bubble wireframe family (`<velt-comment-bubble-...-wireframe>` / `<V
 
 For the structural catalog of which wireframe tags exist and how they nest, see `ui/ui-wireframes.md`. This rule documents the *variable-binding* layer on top of that structure.
 
-**Incorrect (rebuilding bubble state from `useCommentAnnotations` and conditionally mounting wireframe slots):**
+Do not rebuild bubble state from `useCommentAnnotations` and conditionally mount wireframe slots. The wireframe already exposes `annotation.unread`, `selectedAnnotationsMap`, and `annotation.from.name` as injected variables. Reimplementing this breaks the wireframe contract and causes double state tracking.
 
-```jsx
-import { useCommentAnnotations } from '@veltdev/react';
-import { VeltCommentBubbleWireframe } from '@veltdev/react';
-
-function Bubble({ annotationId }) {
-  const annotations = useCommentAnnotations();
-  const annotation = annotations?.find(a => a.annotationId === annotationId);
-  // Reimplements unread + selected tracking the wireframe already exposes.
-  const unread = annotation?.unread;
-  const selected = useSelectedAnnotation()?.annotationId === annotationId;
-  if (!annotation) return null;
-  return (
-    <VeltCommentBubbleWireframe className={`${unread ? 'unread' : ''} ${selected ? 'selected' : ''}`}>
-      <span>{annotation.from?.name}</span>
-    </VeltCommentBubbleWireframe>
-  );
-}
-```
-
-**Correct (read the slot's injected variables via `velt-data` / `velt-if` / `velt-class`):**
+**Correct (read the slot's injected variables via `velt-data` / `veltIf` / `veltClass`):**
 
 ```jsx
 import { VeltCommentBubbleWireframe } from '@veltdev/react';
 
 <VeltCommentBubbleWireframe
-  velt-class="'unread': {annotation.unread}, 'selected': {selectedAnnotationsMap[annotation.annotationId]}">
+  veltClass="'unread': {annotation.unread}, 'selected': {selectedAnnotationsMap[annotation.annotationId]}">
   <div className="my-bubble">
     <VeltCommentBubbleWireframe.Avatar>
-      <img className="my-bubble__avatar" />
+      <img className="my-bubble__avatar" src="{annotation.from.photoUrl}" />
     </VeltCommentBubbleWireframe.Avatar>
     <span className="my-bubble__name">
-      <velt-data field="annotation.from.name" />
+      <VeltData field="annotation.from.name" />
     </span>
     <VeltCommentBubbleWireframe.CommentsCount>
-      <span className="my-bubble__count" velt-if="{annotation.comments.length} > 1">
-        <velt-data field="annotation.comments.length" />
-      </span>
+      <VeltIf condition="{annotation.comments.length} > 1">
+        <span className="my-bubble__count">
+          <VeltData field="annotation.comments.length" />
+        </span>
+      </VeltIf>
     </VeltCommentBubbleWireframe.CommentsCount>
     <VeltCommentBubbleWireframe.UnreadIcon>
-      <span className="my-bubble__dot" velt-if="{annotation.unread}" />
+      <VeltIf condition="{annotation.unread}">
+        <span className="my-bubble__dot" />
+      </VeltIf>
     </VeltCommentBubbleWireframe.UnreadIcon>
   </div>
 </VeltCommentBubbleWireframe>
@@ -7537,10 +7505,10 @@ function Dialog({ annotationId }) {
 import { VeltCommentDialogWireframe } from '@veltdev/react';
 
 <VeltCommentDialogWireframe>
-  <div className="my-dialog" velt-class="'is-editing': {editComment}, 'is-private': {isPrivateComment}, 'theme-dark': {darkMode}">
+  <div className="my-dialog" veltClass="'is-editing': {editComment}, 'is-private': {isPrivateComment}, 'dark': {darkMode}">
     <VeltCommentDialogWireframe.Header>
       <VeltCommentDialogWireframe.ResolveButton
-        velt-if="{enableResolve} && {canResolveAnnotation} && (!{resolveStatusAccessAdminOnly} || {isUserAdmin})">
+        veltIf="{enableResolve} && {canResolveAnnotation} && (!{resolveStatusAccessAdminOnly} || {isUserAdmin})">
         Resolve
       </VeltCommentDialogWireframe.ResolveButton>
       <VeltCommentDialogWireframe.CloseButton />
@@ -7549,9 +7517,9 @@ import { VeltCommentDialogWireframe } from '@veltdev/react';
     <VeltCommentDialogWireframe.Body>
       <VeltCommentDialogWireframe.Threads>
         <VeltCommentDialogWireframe.ThreadCard>
-          <article className="my-comment" velt-class="'is-first': '{commentIndex} === 0'">
-            <strong><velt-data field="comment.from.name" /></strong>
-            <p><velt-data field="comment.commentText" /></p>
+          <article className="my-comment" veltClass="'is-first': '{commentIndex} === 0'">
+            <strong><VeltData field="comment.from.name" /></strong>
+            <p><VeltData field="comment.commentText" /></p>
             <VeltCommentDialogWireframe.ThreadCardEdited />
           </article>
         </VeltCommentDialogWireframe.ThreadCard>
@@ -7693,49 +7661,29 @@ Unlike Comment Bubble / Comment Dialog (which expose mapped short names at the r
 
 For the structural catalog of which wireframe tags exist, see `ui/ui-wireframes.md`. This rule documents the *variable-binding* layer on top.
 
-**Incorrect (rebuilding visibility / unread state from hooks and aliasing flat-config variables as if they were mapped):**
+Do not rebuild visibility or unread state from hooks and alias flat-config variables as if they were mapped. The wireframe already exposes `globalConfig.featureState.sidebarVisible`, `componentConfig.data.unreadCount`, and `componentConfig.data.annotations.length` as flat-config variables.
 
-```jsx
-import { useCommentAnnotations, useVeltClient } from '@veltdev/react';
-import { VeltSidebarButtonWireframe } from '@veltdev/react';
-
-function Trigger() {
-  const annotations = useCommentAnnotations();
-  // Reimplements unreadCount + sidebarVisible the wireframe already exposes.
-  const unread = annotations?.filter(a => a.unread).length ?? 0;
-  const [open, setOpen] = useState(false);
-  return (
-    <VeltSidebarButtonWireframe>
-      <button className={open ? 'trigger active' : 'trigger'}>
-        <VeltSidebarButtonWireframe.Icon />
-        <span>{annotations?.length}</span>
-        {unread > 0 && <span className="dot">{unread}</span>}
-      </button>
-    </VeltSidebarButtonWireframe>
-  );
-}
-```
-
-**Correct (read the slot's injected flat-config variables via `velt-data` / `velt-if` / `velt-class`):**
+**Correct (read the slot's injected flat-config variables via `velt-data` / `veltIf` / `veltClass`):**
 
 ```jsx
 import { VeltSidebarButtonWireframe } from '@veltdev/react';
 
-<VeltSidebarButtonWireframe>
-  <button
-    className="my-trigger"
-    velt-class="'is-active': {globalConfig.featureState.sidebarVisible}, 'floating': {componentConfig.uiState.floatingMode}, 'dark': {componentConfig.uiState.darkMode}">
+<VeltSidebarButtonWireframe veltClass="'active': {globalConfig.featureState.sidebarVisible}">
+  <button className="my-sidebar-trigger">
     <VeltSidebarButtonWireframe.Icon />
     <VeltSidebarButtonWireframe.CommentsCount>
-      <span velt-if="{componentConfig.uiState.commentCountType} === 'total'">
-        <velt-data field="componentConfig.data.annotations.length" />
-      </span>
-      <span velt-if="{componentConfig.uiState.commentCountType} === 'unread'">
-        <velt-data field="componentConfig.data.unreadCount" />
-      </span>
+      <VeltIf condition="{componentConfig.uiState.commentCountType} === 'total'">
+        <span><VeltData field="componentConfig.data.annotations.length" /></span>
+      </VeltIf>
+      <VeltIf condition="{componentConfig.uiState.commentCountType} === 'unread'">
+        <span><VeltData field="componentConfig.data.unreadCount" /></span>
+      </VeltIf>
     </VeltSidebarButtonWireframe.CommentsCount>
-    <VeltSidebarButtonWireframe.UnreadIcon
-      velt-if="{componentConfig.data.unreadCount} > 0" />
+    <VeltSidebarButtonWireframe.UnreadIcon veltIf="{componentConfig.data.unreadCount} > 0">
+      <span className="my-unread-dot">
+        <VeltData field="componentConfig.data.unreadCount" />
+      </span>
+    </VeltSidebarButtonWireframe.UnreadIcon>
   </button>
 </VeltSidebarButtonWireframe>
 ```
@@ -7844,11 +7792,11 @@ import { VeltCommentsSidebarWireframe } from '@veltdev/react';
     <VeltCommentSidebarHeaderWireframe>
       <h2>Comments</h2>
       <VeltCommentsSidebarFilterButtonWireframe
-        velt-class="'has-filters': {appliedFiltersCount} > 0">
+        veltClass="'has-filters': {appliedFiltersCount} > 0">
         Filter
-        <span velt-if="{appliedFiltersCount} > 0">
-          <velt-data field="appliedFiltersCount" />
-        </span>
+        <VeltIf condition="{appliedFiltersCount} > 0">
+          <span><VeltData field="appliedFiltersCount" /></span>
+        </VeltIf>
       </VeltCommentsSidebarFilterButtonWireframe>
       <VeltCommentSidebarCloseButtonWireframe />
     </VeltCommentSidebarHeaderWireframe>
@@ -7857,20 +7805,22 @@ import { VeltCommentsSidebarWireframe } from '@veltdev/react';
     <VeltCommentSidebarListWireframe />
 
     <VeltCommentsSidebarEmptyPlaceholderWireframe
-      velt-if="{componentConfig.noCommentsFound} || {componentConfig.noCommentsFoundForAppliedFilters}">
+      veltIf="{componentConfig.noCommentsFound} || {componentConfig.noCommentsFoundForAppliedFilters}">
       <p>No comments to show.</p>
       <VeltCommentsSidebarResetFilterButtonWireframe
-        velt-if="{appliedFiltersCount} > 0">
+        veltIf="{appliedFiltersCount} > 0">
         Clear filters
       </VeltCommentsSidebarResetFilterButtonWireframe>
     </VeltCommentsSidebarEmptyPlaceholderWireframe>
 
     <VeltCommentsSidebarFocusedThreadWireframe>
-      <div className="my-focused" velt-if="{focusedAnnotation}">
-        <button>Back</button>
-        <h3><velt-data field="focusedAnnotation.from.name" /></h3>
-        <p><velt-data field="focusedAnnotation.comments.0.commentText" /></p>
-      </div>
+      <VeltIf condition="{focusedAnnotation}">
+        <div className="my-focused">
+          <button>Back</button>
+          <h3><VeltData field="focusedAnnotation.from.name" /></h3>
+          <p><VeltData field="focusedAnnotation.comments.0.commentText" /></p>
+        </div>
+      </VeltIf>
     </VeltCommentsSidebarFocusedThreadWireframe>
   </VeltCommentsSidebarWrapperWireframe>
 </VeltCommentsSidebarWireframe>
@@ -7952,18 +7902,15 @@ function CommentToolButton() {
 }
 ```
 
-**Correct (read the slot's variables via `velt-data` / `velt-if` / `velt-class`):**
+**Correct (read the slot's variables via `velt-data` / `veltIf` / `veltClass`):**
 
 ```jsx
 import { VeltCommentToolWireframe } from '@veltdev/react';
 
-<VeltCommentToolWireframe>
-  <button
-    className="my-tool"
-    velt-class="'is-active': {addCommentMode}, 'is-off': '!{commentToolEnabled}'">
-    <svg className="my-tool__icon" />
-    <span velt-if="!{addCommentMode}">Add comment</span>
-    <span velt-if="{addCommentMode}">Click anywhere to comment</span>
+<VeltCommentToolWireframe veltClass="'active': {addCommentMode}, 'disabled': '!{commentToolEnabled}'">
+  <button className="my-comment-button">
+    <VeltIf condition="{addCommentMode}"><span>Click anywhere…</span></VeltIf>
+    <VeltIf condition="!{addCommentMode}"><span>Add comment</span></VeltIf>
   </button>
 </VeltCommentToolWireframe>
 ```
@@ -8081,21 +8028,21 @@ function Section({ targetElementId }) {
 import { VeltInlineCommentsSectionWireframe } from '@veltdev/react';
 
 <VeltInlineCommentsSectionWireframe
-  velt-class="'theme-dark': {darkMode}, 'readonly': {featureState.readOnly}, 'composer-{composerPosition}': true">
-  <VeltInlineCommentsSectionWireframe.Skeleton velt-if="{skeletonLoading}" />
+  veltClass="'dark': {darkMode}, 'readonly': {featureState.readOnly}, 'composer-{composerPosition}': true">
+  <VeltInlineCommentsSectionWireframe.Skeleton veltIf="{skeletonLoading}" />
 
   <header className="my-section__header">
     <VeltInlineCommentsSectionWireframe.CommentCount>
-      <velt-data field="annotations.length" /> comments
+      <VeltData field="annotations.length" /> comments
     </VeltInlineCommentsSectionWireframe.CommentCount>
 
     <VeltInlineCommentsSectionWireframe.FilterDropdown.Trigger
-      velt-class="'open': {filterState.filterDropdownOpen}">
-      <span>Filter (<velt-data field="filterState.filters.length" />)</span>
+      veltClass="'open': {filterState.filterDropdownOpen}">
+      <span>Filter (<VeltData field="filterState.filters.length" />)</span>
     </VeltInlineCommentsSectionWireframe.FilterDropdown.Trigger>
 
     <VeltInlineCommentsSectionWireframe.SortingDropdown.Trigger>
-      <span>Sort: <velt-data field="sortState.activeSortOption" /></span>
+      <span>Sort: <VeltData field="sortState.activeSortOption" /></span>
     </VeltInlineCommentsSectionWireframe.SortingDropdown.Trigger>
   </header>
 
@@ -8193,27 +8140,27 @@ function Panel() {
 import { VeltMultiThreadCommentDialogPanelWireframe, VeltMultiThreadCommentDialogWireframe } from '@veltdev/react';
 
 <VeltMultiThreadCommentDialogPanelWireframe
-  velt-class="'dark': {darkMode}, 'readonly': {readOnly}, 'inbox': {inboxMode}, 'filter-{minimalFilter}': true">
+  veltClass="'dark': {darkMode}, 'readonly': {readOnly}, 'inbox': {inboxMode}, 'filter-{minimalFilter}': true">
   <header className="my-mt__header">
     <VeltMultiThreadCommentDialogWireframe.CommentCount>
-      <velt-data field="nonDraftCommentsCount" /> threads
+      <VeltData field="nonDraftCommentsCount" /> threads
     </VeltMultiThreadCommentDialogWireframe.CommentCount>
     <VeltMultiThreadCommentDialogWireframe.MinimalFilterDropdown.Trigger
-      velt-class="'open': {minimalFilterDropdownOpen}">
-      <span><velt-data field="minimalFilter" /></span>
+      veltClass="'open': {minimalFilterDropdownOpen}">
+      <span><VeltData field="minimalFilter" /></span>
     </VeltMultiThreadCommentDialogWireframe.MinimalFilterDropdown.Trigger>
   </header>
 
   <VeltMultiThreadCommentDialogWireframe.List />
 
   <VeltMultiThreadCommentDialogWireframe.EmptyPlaceholder
-    velt-if="{noCommentsFound} || {noCommentsFoundForAppliedFilters}">
+    veltIf="{noCommentsFound} || {noCommentsFoundForAppliedFilters}">
     <p>No threads to show.</p>
     <VeltMultiThreadCommentDialogWireframe.ResetFilterButton />
   </VeltMultiThreadCommentDialogWireframe.EmptyPlaceholder>
 
   <VeltMultiThreadCommentDialogWireframe.ComposerContainer
-    velt-if="!{hideMultiThreadAnnotationComposer}" />
+    veltIf="!{hideMultiThreadAnnotationComposer}" />
 </VeltMultiThreadCommentDialogPanelWireframe>
 ```
 
@@ -8288,43 +8235,21 @@ The Text Comment wireframe family (`<velt-text-comment-...-wireframe>` / `<VeltT
 
 For the structural catalog of which wireframe tags exist and how they nest, see `ui/ui-wireframes.md`. For the Text Comment mode itself (setup, allowed elements, rewriter wiring), see `mode/mode-text-comments.md` if present, or the Text Comment overview docs.
 
-**Incorrect (re-implementing selection state and gating the toolbar from the host component):**
+Do not re-implement selection state and gate the toolbar from the host component. The wireframe already exposes `showAdder`, `selectedWordsCount`, `isUserAllowed`, and `rewriterEnabled` as injected variables. Manual `selectionchange` subscriptions break the wireframe contract.
 
-```jsx
-import { VeltTextCommentToolWireframe, VeltTextCommentToolbarWireframe } from '@veltdev/react';
-import { useEffect, useState } from 'react';
-
-function MyTextTool() {
-  // Reimplements showAdder + word counting the wireframe already exposes.
-  const [words, setWords] = useState(0);
-  const [show, setShow] = useState(false);
-  useEffect(() => { /* manual selectionchange subscription ... */ }, []);
-  if (!show) return null;
-  return (
-    <VeltTextCommentToolWireframe className={words > 0 ? 'has-words' : ''}>
-      <span>{words} words selected</span>
-      <VeltTextCommentToolbarWireframe />
-    </VeltTextCommentToolWireframe>
-  );
-}
-```
-
-**Correct (read the slot's injected variables via `velt-data` / `velt-if` / `velt-class`):**
+**Correct (read the slot's injected variables via `velt-data` / `veltIf` / `veltClass`):**
 
 ```jsx
 import { VeltTextCommentToolWireframe, VeltTextCommentToolbarWireframe } from '@veltdev/react';
 
 <VeltTextCommentToolWireframe
-  velt-if="{isUserAllowed} && {enableTextComments}"
-  velt-class="'has-words': {selectedWordsCount} > 0, 'dark': {darkMode}">
-  <span className="my-tool__count">
-    <velt-data field="selectedWordsCount" /> words
-  </span>
+  veltClass="'has-words': {selectedWordsCount} > 0">
+  <span><VeltData field="selectedWordsCount" /> words selected</span>
   <VeltTextCommentToolbarWireframe>
     <VeltTextCommentToolbarWireframe.CommentAnnotation>
       Comment
     </VeltTextCommentToolbarWireframe.CommentAnnotation>
-    <VeltTextCommentToolbarWireframe.Copywriter velt-if="{rewriterEnabled}">
+    <VeltTextCommentToolbarWireframe.Copywriter veltIf="{rewriterEnabled}">
       Rewrite with AI
     </VeltTextCommentToolbarWireframe.Copywriter>
   </VeltTextCommentToolbarWireframe>

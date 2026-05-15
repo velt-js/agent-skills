@@ -5,51 +5,16 @@ impactDescription: Drives the remote-user selection indicator's dynamic content,
 tags: wireframe, template-variables, velt-data, velt-if, velt-class, componentConfig, flat-config, live-selection, selection-element-portal
 ---
 
-## Bind Live Selection Wireframe Slots Using componentConfig Template Variables
+## Live Selection Wireframe Variables — Limited Support
 
-The **Live Selection** feature renders a floating "user X is selecting this" indicator anchored to a remote user's current selection range. The customizable primitive is `<velt-selection-element-portal-wireframe>` (React: `VeltSelectionElementPortalWireframe`). Like Cursors, Live Selection uses the **flat-config** access pattern — every variable is addressed via the explicit `componentConfig.<path>` form, never short names. Read variables with `<velt-data field="...">` for text, `velt-if="{var}"` for conditional rendering, and `velt-class="'cls': {var}"` for class toggling.
+**Important:** Live Selection does **not** currently expose a `<velt-...-wireframe>` tag. `velt-data` / `velt-if` / `velt-class` interpolation is not yet available on this feature. Until wireframe-tag registration ships, customize Live Selection through CSS targeting `<velt-selection-element-portal>`. The variables below document the runtime model for reference.
 
-**Incorrect (short-name lookup, no `componentConfig.` prefix):**
+The **Live Selection** feature renders a floating "user X is selecting this" indicator anchored to a remote user's current selection range. Once wireframe-tag interpolation ships, Live Selection will use the **flat-config** access pattern — every variable addressed via the explicit `componentConfig.<path>` form, never short names.
 
-```jsx
-<VeltSelectionElementPortalWireframe>
-  {/* Does NOT resolve — Live Selection is flat-config */}
-  <velt-data field="selections.0.user.name" />
-</VeltSelectionElementPortalWireframe>
-```
+- **Wireframe (HTML):** No direct wireframe slot — per-element visual customization is not currently exposed via a dedicated `*-wireframe` tag.
+- **Wireframe (React):** No direct wireframe slot.
 
-**Correct (flat-config `componentConfig.<path>` with gating):**
-
-```jsx
-<VeltSelectionElementPortalWireframe
-  velt-if="{componentConfig.selections.length} > 0"
-  velt-class="'pos-{componentConfig.userIndicatorPosition}': true, 'type-{componentConfig.userIndicatorType}': true">
-  <div className="my-selection-indicator">
-    <img
-      className="my-selection-indicator__avatar"
-      velt-if="{componentConfig.userIndicatorType} === 'Avatar'" />
-    <span
-      className="my-selection-indicator__name"
-      velt-if="{componentConfig.userIndicatorType} === 'Name'">
-      <velt-data field="componentConfig.selections.0.user.name" />
-    </span>
-  </div>
-</VeltSelectionElementPortalWireframe>
-```
-
-**HTML / web-component equivalent:**
-
-```html
-<velt-selection-element-portal-wireframe
-  velt-if="{componentConfig.selections.length} > 0"
-  velt-class="'pos-{componentConfig.userIndicatorPosition}': true">
-  <div class="my-selection-indicator">
-    <span class="my-selection-indicator__name">
-      <velt-data field="componentConfig.selections.0.user.name"></velt-data>
-    </span>
-  </div>
-</velt-selection-element-portal-wireframe>
-```
+Use CSS to customize Live Selection appearance until wireframe-tag support ships.
 
 ### `<velt-selection-element-portal-wireframe>` variables
 
@@ -77,21 +42,20 @@ Types referenced by the variables above (see [data-models.mdx](/api-reference/sd
 
 | Tag | Public element | Notes |
 |---|---|---|
-| `<velt-selection-element-portal-wireframe>` | `<velt-selection-element-portal>` | The floating user-indicator (avatar / name / colour bar). No `shouldShow` override — render is gated by whether `componentConfig.selections` has any active entries. |
+| `<velt-selection-element-portal>` | `<velt-selection-element-portal>` | The floating user-indicator (avatar / name / colour bar). No direct `*-wireframe` tag currently registered. |
 
 ### Common mistakes — DO NOT
 
-**1. DO NOT drop the `componentConfig.` prefix.** Live Selection is flat-config. `<velt-data field="selections.0.user.name" />` resolves to nothing.
+**1. DO NOT use `<velt-selection-element-portal-wireframe>`.** No wireframe tag is registered for Live Selection. Attempting to use it will have no effect.
 
-**2. DO NOT render the indicator unconditionally.** Gate the wireframe (or its inner content) on `velt-if="{componentConfig.selections.length} > 0"` — otherwise you render an empty floater when no remote user is selecting.
+**2. DO NOT try to use `velt-data` / `velt-if` / `velt-class` on the selection indicator.** These directives require a registered wireframe tag to inject variables. Use CSS on `<velt-selection-element-portal>` instead.
 
-**3. DO NOT branch on `userIndicatorType` without covering all values.** The enum includes more than `'Avatar'` / `'Name'`; use class-toggle (`velt-class="'type-{componentConfig.userIndicatorType}': true"`) to style every variant uniformly.
+**3. DO NOT drop the `componentConfig.` prefix** if/when wireframe tag support ships. Live Selection uses flat-config — once available, all variable reads will require the full path.
 
 **Verification:**
-- [ ] All variable references use the `componentConfig.<path>` form (flat-config), never short names
-- [ ] Indicator render is gated on `{componentConfig.selections.length} > 0`
-- [ ] `userIndicatorPosition` / `userIndicatorType` are consumed via `velt-class` or `velt-if`, not parsed manually
-- [ ] `componentConfig.position` is treated as internal — used for layout, not for app logic
+- [ ] Live Selection appearance is customized through CSS on `<velt-selection-element-portal>`
+- [ ] No `<velt-selection-element-portal-wireframe>` usage (tag not registered)
+- [ ] `velt-data` / `velt-if` / `velt-class` are NOT used on this feature until wireframe-tag support is confirmed
 
 **Source Pointers:**
 - https://docs.velt.dev/ui-customization/features/realtime/live-selection-wireframe-variables — "Live Selection Wireframe Variables"

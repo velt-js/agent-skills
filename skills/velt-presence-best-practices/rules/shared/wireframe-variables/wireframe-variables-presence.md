@@ -13,51 +13,17 @@ This family uses the **flat-config** access pattern — every variable is refere
 
 For the structural catalog of which wireframe tags exist and how they nest, see `ui/ui-wireframes.md`. This rule documents the *variable-binding* layer on top.
 
-**Incorrect (subscribing to presence data and re-rendering the list yourself instead of reading what the wireframe already iterates):**
-
-```jsx
-import { usePresenceData, VeltPresenceWireframe } from '@veltdev/react';
-
-function Avatars() {
-  const users = usePresenceData();
-  // Reimplements iteration + overflow that the wireframe already does.
-  const visible = users?.slice(0, 5);
-  return (
-    <VeltPresenceWireframe>
-      {visible?.map(u => <img key={u.userId} src={u.photoUrl} />)}
-    </VeltPresenceWireframe>
-  );
-}
-```
+Do not subscribe to presence data and re-render the list yourself. The wireframe already iterates `componentConfig.filteredPresenceUsers` and applies max-users overflow.
 
 **Correct (let the wireframe iterate, read `componentConfig.user` per row, gate overflow with `filteredPresenceUsers.length > maxUsers`):**
 
 ```jsx
-<VeltPresenceWireframe>
-  <VeltPresenceWireframe.AvatarList>
-    <VeltPresenceWireframe.AvatarListItem>
-      <img className="my-avatar" />
-      <span><velt-data field="componentConfig.user.name" /></span>
-    </VeltPresenceWireframe.AvatarListItem>
-  </VeltPresenceWireframe.AvatarList>
-
-  <VeltPresenceWireframe.AvatarRemainingCount
-    velt-if="{componentConfig.filteredPresenceUsers.length} > {componentConfig.maxUsers}">
-    +<velt-data field="componentConfig.filteredPresenceUsers.length" />
-  </VeltPresenceWireframe.AvatarRemainingCount>
-
-  <VeltPresenceWireframe.Tooltip>
-    <div className="my-tooltip" velt-class="'is-active': {componentConfig.isActive}">
-      <strong><velt-data field="componentConfig.user.name" /></strong>
-      <VeltPresenceWireframe.Tooltip.UserActive velt-if="{componentConfig.isActive}">
-        Active now
-      </VeltPresenceWireframe.Tooltip.UserActive>
-      <VeltPresenceWireframe.Tooltip.UserInactive velt-if="!{componentConfig.isActive}">
-        Last seen <velt-data field="componentConfig.lastActiveAt" />
-      </VeltPresenceWireframe.Tooltip.UserInactive>
-    </div>
-  </VeltPresenceWireframe.Tooltip>
-</VeltPresenceWireframe>
+<VeltWireframe>
+  <VeltPresenceWireframe>
+    <VeltPresenceWireframe.AvatarList />
+    <VeltPresenceWireframe.AvatarRemainingCount />
+  </VeltPresenceWireframe>
+</VeltWireframe>
 ```
 
 ### Component Config (root state)
@@ -89,13 +55,13 @@ These resolve **only** inside the iteration or tooltip tag that owns them — bu
 
 ### Wireframe tags
 
-| Wireframe tag | React component | Notes |
+| Wireframe tag (HTML) | React component | Notes |
 |---|---|---|
-| `<velt-presence-wireframe>` | `<VeltPresenceWireframe>` | Root — hosts every other tag. No extra variables. |
-| `<velt-presence-avatar-list-wireframe>` | `<VeltPresenceWireframe.AvatarList>` | List container — iterates `componentConfig.filteredPresenceUsers`. |
-| `<velt-presence-avatar-list-item-wireframe>` | `<VeltPresenceWireframe.AvatarListItem>` | Per-user avatar — `componentConfig.user` rebinds to the iteration's `PresenceUser`. |
-| `<velt-presence-avatar-remaining-count-wireframe>` | `<VeltPresenceWireframe.AvatarRemainingCount>` | "+N" overflow badge. `shouldShow` requires `filteredPresenceUsers.length > maxUsers`. |
-| `<velt-presence-tooltip-wireframe>` | `<VeltPresenceWireframe.Tooltip>` | Hover tooltip — exposes `user`, `isActive`, `lastActiveAt`. Composes the five child tags below. |
+| `<velt-presence-wireframe>` | `<VeltPresenceWireframe />` | Root — hosts every other tag. No extra variables. |
+| `<velt-presence-avatar-list-wireframe>` | `<VeltPresenceWireframe.AvatarList />` | List container — iterates `componentConfig.filteredPresenceUsers`. |
+| `<velt-presence-avatar-list-item-wireframe>` | `<VeltPresenceWireframe.AvatarListItem />` | Per-user avatar — `componentConfig.user` rebinds to the iteration's `PresenceUser`. |
+| `<velt-presence-avatar-remaining-count-wireframe>` | `<VeltPresenceWireframe.AvatarRemainingCount />` | "+N" overflow badge. `shouldShow` requires `filteredPresenceUsers.length > maxUsers`. |
+| `<velt-presence-tooltip-wireframe>` | `<VeltPresenceTooltipWireframe />` | Hover tooltip — exposes `user`, `isActive`, `lastActiveAt`. Composes the five child tags below. |
 | `<velt-presence-tooltip-avatar-wireframe>` | — | Hovered user's avatar — bind `componentConfig.user.photoUrl`. |
 | `<velt-presence-tooltip-status-container-wireframe>` | — | Wrapper for the active/inactive status row. |
 | `<velt-presence-tooltip-user-name-wireframe>` | — | Hovered user's name — bind `componentConfig.user.name`. |

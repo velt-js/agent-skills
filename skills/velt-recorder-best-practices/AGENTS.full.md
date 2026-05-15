@@ -1883,11 +1883,11 @@ import { VeltRecorderButtonWireframe } from '@veltdev/react';
 <VeltRecorderButtonWireframe>
   <button
     className="rec"
-    velt-class="'is-recording': {componentConfigSignal.recordingInProgress}, 'is-disabled': {componentConfigSignal.disabled}, 'theme-dark': {componentConfigSignal.darkMode}">
-    <span velt-if="!{componentConfigSignal.recordingInProgress}">
-      <velt-data field="componentConfigSignal.buttonLabel" />
+    veltClass="'is-recording': {componentConfigSignal.recordingInProgress}, 'is-disabled': {componentConfigSignal.disabled}, 'theme-dark': {componentConfigSignal.darkMode}">
+    <span veltIf="!{componentConfigSignal.recordingInProgress}">
+      <VeltData field="componentConfigSignal.buttonLabel" />
     </span>
-    <span velt-if="{componentConfigSignal.recordingInProgress}">Recording…</span>
+    <span veltIf="{componentConfigSignal.recordingInProgress}">Recording…</span>
   </button>
 </VeltRecorderButtonWireframe>
 ```
@@ -1906,11 +1906,11 @@ import { VeltRecorderButtonWireframe } from '@veltdev/react';
 </velt-recorder-button-wireframe>
 <VeltRecorderButtonWireframe>
   <button className="my-record"
-          velt-class="'is-recording': {componentConfigSignal.recordingInProgress}">
-    <span velt-if="!{componentConfigSignal.recordingInProgress}">
-      <velt-data field="componentConfigSignal.buttonLabel" />
+          veltClass="'is-recording': {componentConfigSignal.recordingInProgress}">
+    <span veltIf="!{componentConfigSignal.recordingInProgress}">
+      <VeltData field="componentConfigSignal.buttonLabel" />
     </span>
-    <span velt-if="{componentConfigSignal.recordingInProgress}">Stop</span>
+    <span veltIf="{componentConfigSignal.recordingInProgress}">Stop</span>
   </button>
 </VeltRecorderButtonWireframe>
 
@@ -1918,9 +1918,9 @@ import { VeltRecorderButtonWireframe } from '@veltdev/react';
   <VeltRecorderPlayerVideoWireframe><video /></VeltRecorderPlayerVideoWireframe>
   <VeltRecorderPlayerOverlayWireframe>
     <VeltRecorderPlayerTimeWireframe>
-      <velt-data field="componentConfigSignal.currentTimeValue" />
+      <VeltData field="componentConfigSignal.currentTimeValue" />
       /
-      <velt-data field="componentConfigSignal.totalTimeValue" />
+      <VeltData field="componentConfigSignal.totalTimeValue" />
     </VeltRecorderPlayerTimeWireframe>
     <VeltRecorderPlayerTimelineWireframe />
     <VeltRecorderPlayerDeleteWireframe />
@@ -2016,7 +2016,7 @@ The recorder feature has a large set of overridable surfaces. They are grouped h
 | `<velt-recorder-control-panel-wireframe>` | Root. Props: `mode` (`'floating' \| 'thread'`), `panelId`. |
 | `<velt-recorder-control-panel-floating-mode-wireframe>` (+ `-container-wireframe`, `-waveform-wireframe`) | Floating layout. |
 | `<velt-recorder-control-panel-thread-mode-wireframe>` | Thread (composer-embedded) layout. |
-| `<velt-recorder-control-panel-collapsed-button-wireframe>` (+ `-on-wireframe` / `-off-wireframe`) | Collapsed-state button. Gate `-on` on `{componentConfigSignal.recordingInProgress}`, `-off` on the inverse. |
+| `<velt-recorder-control-panel-collapsed-button-wireframe>` (+ `-on-wireframe` / `-off-wireframe`) | Collapsed-state button. Gate `-on` on `{componentConfigSignal.isRecording}`, `-off` on the inverse. |
 | `<velt-recorder-control-panel-paused-wireframe>` | Paused-state overlay. |
 | `<velt-recorder-control-panel-loading-wireframe>` | Loading state (initialising recorder). |
 | `<velt-recorder-control-panel-screen-wireframe>` (+ `-mini-container-wireframe`) | Screen-recording overlays. |
@@ -2082,17 +2082,17 @@ import {
 } from '@veltdev/react';
 
 <VeltTranscriptionPanelWireframe
-  velt-class="'visible': {componentConfig.transcriptionVisible}, 'mode-{componentConfig.mode}': true">
+  veltClass="'visible': {componentConfig.transcriptionVisible}, 'mode-{componentConfig.mode}': true">
   <VeltTranscriptionSummaryWireframe>
-    <p velt-if="{componentConfig.showMoreSummary}">
-      <velt-data field="componentConfig.transcription.summary" />
+    <p veltIf="{componentConfig.showMoreSummary}">
+      <VeltData field="componentConfig.transcription.summary" />
     </p>
   </VeltTranscriptionSummaryWireframe>
 
   <VeltTranscriptionContentItemWireframe
-    velt-class="'is-active': '{segment.startTimeInSeconds} <= {currentTime} && {segment.endTimeInSeconds} > {currentTime}'">
-    <time><velt-data field="segment.startTime" /></time>
-    <p><velt-data field="segment.text" /></p>
+    veltClass="'is-active': '{segment.startTimeInSeconds} <= {currentTime} && {segment.endTimeInSeconds} > {currentTime}'">
+    <time><VeltData field="segment.startTime" /></time>
+    <p><VeltData field="segment.text" /></p>
   </VeltTranscriptionContentItemWireframe>
 </VeltTranscriptionPanelWireframe>
 ```
