@@ -2,7 +2,7 @@
 title: Approval Engine workflow model — nodes, edges, groups, quorum policies, and step IDs
 impact: HIGH
 impactDescription: Every REST payload carries these shapes; misunderstanding them produces either INVALID_ARGUMENT linter failures at create time or stuck-forever executions at runtime
-tags: approval-engine, workflow, definition, nodes, edges, groups, quorum, agent, human, webhook, reviewers, reviewerIds, slaMs, onQuorumMet, requiredNodeIds, stepId
+tags: approval-engine, workflow, definition, nodes, edges, groups, quorum, agent, human, reviewers, reviewerIds, slaMs, onQuorumMet, requiredNodeIds, stepId
 ---
 
 ## Approval Engine workflow model — nodes, edges, groups, quorum policies, and step IDs
@@ -20,9 +20,6 @@ agent      Runs an agent. Non-blocking by default (completes asynchronously with
 
 human      Requires reviewer approval. Drives via /steps/recordReviewerDecision. Parks in
            "waiting" until aggregator resolves.
-
-webhook    Schema-accepted for forward compatibility; runtime handler is deferred in v1.
-           Most v1 workflows use agent + human only.
 ```
 
 **Agent node shape:**
@@ -172,7 +169,7 @@ Step:      pending → running → (waiting) → completed | failed | skipped | 
 ```
 
 **Verification Checklist:**
-- [ ] Node `type` is one of `agent` / `human` / `webhook` (most v1 workflows use `agent` + `human` only)
+- [ ] Node `type` is one of `agent` / `human`
 - [ ] Every `human` node provides exactly one of `reviewers[]` or `reviewerIds[]` — never both
 - [ ] Every `human` node using the new shape has at least one `reviewers[].mandatory: true`
 - [ ] Every `blocking: true` agent node includes `resolutionPolicy` (with `minCount` when `kind === "minResolved"`)

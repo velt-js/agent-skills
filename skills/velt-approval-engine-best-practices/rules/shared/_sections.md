@@ -8,7 +8,7 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 1. Concepts (concepts)
 
 **Impact:** HIGH
-**Description:** The workflow model — what a definition is, how nodes (`agent` / `human` / `webhook`) connect via edges, how groups model parallel quorum, how the three `onQuorumMet` policies (`waitAll` / `cancelOnQuorum` / `joinOnQuorum`) drive fan-out, the deterministic stepId formats, and the execution/step status flows. Read this before any REST rule — the endpoint payloads carry these shapes verbatim.
+**Description:** The workflow model — what a definition is, how nodes (`agent` / `human`) connect via edges, how groups model parallel quorum, how the three `onQuorumMet` policies (`waitAll` / `cancelOnQuorum` / `joinOnQuorum`) drive fan-out, the deterministic stepId formats, and the execution/step status flows. Read this before any REST rule — the endpoint payloads carry these shapes verbatim.
 
 ---
 

@@ -39,7 +39,7 @@ Velt Approval Engine implementation guide covering the declarative workflow runt
 
 **Impact: HIGH**
 
-The workflow model — what a definition is, how nodes (`agent` / `human` / `webhook`) connect via edges, how groups model parallel quorum, how the three `onQuorumMet` policies (`waitAll` / `cancelOnQuorum` / `joinOnQuorum`) drive fan-out, the deterministic stepId formats, and the execution/step status flows. Read this before any REST rule — the endpoint payloads carry these shapes verbatim.
+The workflow model — what a definition is, how nodes (`agent` / `human`) connect via edges, how groups model parallel quorum, how the three `onQuorumMet` policies (`waitAll` / `cancelOnQuorum` / `joinOnQuorum`) drive fan-out, the deterministic stepId formats, and the execution/step status flows. Read this before any REST rule — the endpoint payloads carry these shapes verbatim.
 
 ### 1.1 Approval Engine workflow model — nodes, edges, groups, quorum policies, and step IDs
 
@@ -58,9 +58,6 @@ agent      Runs an agent. Non-blocking by default (completes asynchronously with
 
 human      Requires reviewer approval. Drives via /steps/recordReviewerDecision. Parks in
            "waiting" until aggregator resolves.
-
-webhook    Schema-accepted for forward compatibility; runtime handler is deferred in v1.
-           Most v1 workflows use agent + human only.
 ```
 
 **Agent node shape:**
@@ -559,7 +556,7 @@ interface ExecutionView {
 interface StepView {
   stepId: string;
   nodeId: string;
-  nodeType: 'agent' | 'human' | 'webhook';
+  nodeType: 'agent' | 'human';
   status: 'pending' | 'running' | 'waiting' | 'completed' | 'failed' | 'skipped' | 'cancelled' | 'breached';
   groupId: string | null;
   startedAt: number | null;

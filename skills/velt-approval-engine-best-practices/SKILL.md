@@ -14,7 +14,7 @@ Implementation guide for the Velt Approval Engine — a declarative workflow run
 ## When to Apply
 
 Reference these guidelines when:
-- Authoring approval workflow **definitions** — nodes (`agent`, `human`, and the v1-deferred `webhook` type), edges (with optional `when` gating expressions), groups (parallel quorum)
+- Authoring approval workflow **definitions** — nodes (`agent`, `human`), edges (with optional `when` gating expressions), groups (parallel quorum)
 - **Dispatching executions** — always with an `idempotencyKey`; configuring `webhookUrl` + `webhookSecret` together
 - **Recording decisions** — human reviewer approvals/rejections (`/steps/recordReviewerDecision`) or external blocking-agent resolutions (`/steps/recordAgentResolution`)
 - **Building webhook receivers** — HMAC-SHA256 signature verification on raw bytes, idempotency on `(executionId, seq)`, retry schedule, missed-event recovery

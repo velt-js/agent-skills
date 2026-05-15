@@ -33,7 +33,7 @@ interface ExecutionView {
 interface StepView {
   stepId: string;
   nodeId: string;
-  nodeType: 'agent' | 'human' | 'webhook';
+  nodeType: 'agent' | 'human';
   status: 'pending' | 'running' | 'waiting' | 'completed' | 'failed' | 'skipped' | 'cancelled' | 'breached';
   groupId: string | null;
   startedAt: number | null;
