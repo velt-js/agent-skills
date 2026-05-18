@@ -1,0 +1,48 @@
+{
+  "skill_name": "velt-node-sdk-best-practices",
+  "evals": [
+    {
+      "id": 0,
+      "name": "rest-only-init-and-token-endpoint",
+      "prompt": "i'm building the /api/velt-auth endpoint in my Next.js app at apps/web/app/api/velt-auth/route.ts — when our React frontend mounts VeltProvider it'll POST {userId, orgId, email} to this endpoint to get a velt auth token back. we don't need any of the self-hosting stuff, just need to call out to velt's rest api from Node. show me the route handler — env vars VELT_API_KEY/VELT_AUTH_TOKEN are in vercel",
+      "expected_output": "Next.js App Router POST handler at apps/web/app/api/velt-auth/route.ts. Uses @veltdev/node. Module-scope VeltSDK.initialize without a `database` section (REST-only). Calls sdk.api.token.getToken with positional args (organizationId, userId, email, isAdmin?). Reads the token from result.result.data.token (REST envelope, not result.success). Returns the token to the client as JSON.",
+      "files": [],
+      "assertions": [
+        {"id": "uses-veltdev-node-package", "text": "Imports VeltSDK from @veltdev/node (not raw fetch to Velt REST URL)", "type": "code_check"},
+        {"id": "rest-only-init-no-database", "text": "VeltSDK.initialize is called WITHOUT a `database` key (REST-only mode)", "type": "code_check"},
+        {"id": "module-scope-sdk", "text": "SDK is instantiated once at module/global scope, NOT per-request inside POST", "type": "code_check"},
+        {"id": "token-positional-args", "text": "Calls sdk.api.token.getToken with positional args (string, string, ...), NOT a request object", "type": "code_check"},
+        {"id": "reads-rest-envelope", "text": "Reads token from result.result.data.token (the nested REST envelope)", "type": "code_check"}
+      ]
+    },
+    {
+      "id": 1,
+      "name": "self-hosting-comments-data-provider",
+      "prompt": "adding a Velt comment data provider to my Express backend at server/routes/velt-comments.ts. The frontend's veltDataProvider hook will POST {action, metadata, commentAnnotation} to this route — i need to forward that to my MongoDB-backed self-hosted comments store and return whatever the SDK gives me to the frontend. Mongo is at MONGO_URL. show me the handler + sdk init.",
+      "expected_output": "Express handler. VeltSDK.initialize includes `database: { connection_string: process.env.MONGO_URL }`. Lazy-loads the comments service with `await sdk.selfHosting.getComments()`. Calls saveComments / getComments / deleteComment based on the action. Returns the SDK's flat envelope to the frontend. Wires `await sdk.close()` to SIGTERM.",
+      "files": [],
+      "assertions": [
+        {"id": "uses-veltdev-node-package", "text": "Imports VeltSDK from @veltdev/node (not a custom MongoDB schema)", "type": "code_check"},
+        {"id": "self-hosting-init-with-database", "text": "VeltSDK.initialize includes a `database` config with connection_string (or host/user/pass)", "type": "code_check"},
+        {"id": "uses-mongo-url-env", "text": "Reads MongoDB connection from MONGO_URL env var", "type": "code_check"},
+        {"id": "lazy-loads-comments-service", "text": "Uses `await sdk.selfHosting.getComments()` to load the comments service (NOT sdk.selfHosting.comments directly, NOT without await)", "type": "code_check"},
+        {"id": "uses-sdk-methods-by-action", "text": "Dispatches to saveComments / getComments / deleteComment based on the request's `action` field", "type": "code_check"},
+        {"id": "wires-shutdown", "text": "Wires `await sdk.close()` on SIGTERM or SIGINT for graceful shutdown", "type": "code_check"}
+      ]
+    },
+    {
+      "id": 2,
+      "name": "debug-envelope-confusion-and-errors",
+      "prompt": "i'm getting weird errors in production — my code does `if (result.success) { ... }` after `await sdk.api.commentAnnotations.getCommentAnnotations({organizationIds: ['acme']})` but it's never entering the if-branch even though i can see data coming back in my logs. also when i catch errors i just do `catch (e) { console.error(e) }` and we lost useful info when a token expired last week. what should the right pattern be?",
+      "expected_output": "Diagnoses that sdk.api.* returns nested envelope; recommends typed error classes with instanceof; notes the self-hosting envelope is different.",
+      "files": [],
+      "assertions": [
+        {"id": "explains-nested-rest-envelope", "text": "Explains sdk.api.* returns `{ result: { status, message, data, ... } }` — read result.result, not result.success", "type": "text_check"},
+        {"id": "recommends-result-result-status", "text": "Recommends `result.result.status === 'success'` (or equivalent path under result.result.*)", "type": "text_check"},
+        {"id": "names-typed-error-classes", "text": "Names at least 3 of the 5 typed error classes (VeltSDKError, VeltApiError, VeltTokenError, VeltDatabaseError, VeltValidationError)", "type": "text_check"},
+        {"id": "uses-instanceof", "text": "Recommends `instanceof` for error discrimination", "type": "text_check"},
+        {"id": "mentions-self-hosting-envelope-distinct", "text": "Notes the self-hosting envelope is different (flat with `success` boolean / `errorCode`)", "type": "text_check"}
+      ]
+    }
+  ]
+}
