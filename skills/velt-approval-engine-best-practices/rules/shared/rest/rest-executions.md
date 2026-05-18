@@ -53,9 +53,11 @@ POST https://api.velt.dev/v2/workflow/executions/get
 
 ```bash
 POST https://api.velt.dev/v2/workflow/executions/list
-{ "data": { "definitionId": "marketing-copy-approval", "status": "running", "limit": 50 } }
-// Response: { "result": { "executions": ExecutionView[], "nextCursor": "..." } }
+{ "data": { "definitionId": "marketing-copy-approval", "status": "running", "pageSize": 50 } }
+// Response: { "result": { "items": ExecutionView[], "nextCursor": "...", "hasMore": true } }
 ```
+
+**v1 filter limitation:** `/executions/list` does NOT accept `organizationId` or `documentId` as filter parameters. To fetch executions scoped to an organization or document, filter client-side after paginating all results by `definitionId`. Cross-scope filtering is not supported in the current release.
 
 **Cancel:**
 
@@ -80,7 +82,9 @@ Returns all externally-visible events with `seq > sinceSeq`, in order. The recov
 2. After an outage, call `/executions/getEvents` with that `seq` to fetch the gap.
 3. Re-apply the events idempotently using `(executionId, seq)` as the dedup key.
 
-**`seq` values can be non-contiguous** — internal-only events (`step.scheduled`, `step.started`, `step.retried`, etc.) fill gaps but are never delivered externally. Do not treat a missing seq as a problem; treat the externally-visible events as the source of truth.
+**`seq` values can be non-contiguous** — internal-only events (`step.scheduled`, `step.started`, `step.retried`, `step.resumed`, `step.response-recorded`, `step.overridden`, `parallel-group.completed`, `idempotency.suppressed`) fill gaps but are never delivered externally. Do not treat a missing seq as a problem; treat the externally-visible events as the source of truth.
+
+**Externally-visible event types returned by `getEvents`:** the complete catalog of types that appear in the stream matches the webhook event catalog (see `webhooks-delivery`), including the loop events `loop.iteration-started` and `loop.exhausted`. Any type not in that catalog is an internal-only event and is filtered out of this endpoint's response. Use the `webhooks-delivery` rule as the authoritative enumeration — `getEvents` and the webhook stream emit the same externally-visible event set.
 
 **Verification Checklist:**
 - [ ] Every `/executions/dispatch` call includes an `idempotencyKey` derived from a stable upstream identifier

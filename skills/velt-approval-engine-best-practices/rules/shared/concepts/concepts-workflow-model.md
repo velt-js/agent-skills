@@ -1,11 +1,11 @@
 ---
-title: Approval Engine workflow model — nodes, edges, groups, quorum policies, and step IDs
+title: Approval Engine workflow model — nodes, edges, groups, quorum policies, loop regions, and step IDs
 impact: HIGH
 impactDescription: Every REST payload carries these shapes; misunderstanding them produces either INVALID_ARGUMENT linter failures at create time or stuck-forever executions at runtime
-tags: approval-engine, workflow, definition, nodes, edges, groups, quorum, agent, human, reviewers, reviewerIds, slaMs, onQuorumMet, requiredNodeIds, stepId
+tags: approval-engine, workflow, definition, nodes, edges, groups, quorum, agent, human, reviewers, reviewerIds, slaMs, onQuorumMet, requiredNodeIds, stepId, loops, onReject, reviewerEmails, commentBody
 ---
 
-## Approval Engine workflow model — nodes, edges, groups, quorum policies, and step IDs
+## Approval Engine workflow model — nodes, edges, groups, quorum policies, loop regions, and step IDs
 
 An Approval Engine **definition** is a static, versioned blueprint composed of three things: **nodes** (work units), **edges** (transitions between them), and **groups** (parallel sets with quorum). The same shapes appear in `/definitions/create`, `/definitions/update`, and `/definitions/get` responses — there is no separate schema language.
 
@@ -50,12 +50,123 @@ Agent node config fields: `agentId` (required), `promptOverride` (≤ 8000 chars
   "type": "human",
   "config": {
     "reviewers": [{ "userId": "u_legal_01", "mandatory": true }],
-    "commentBody": "Please review for legal compliance."
+    "reviewerEmails": ["legal@example.com"],
+    "commentBody": "Please review for legal compliance.",
+    "onReject": { "routeToNodeId": "human-escalate" }
   }
 }
 ```
 
 Exactly one of `reviewers[]` (preferred) or `reviewerIds[]` (legacy) must be provided. Both are accepted by the engine — `reviewerIds[]` is kept for back-compat. Supplying both at once is rejected with `cannot set both reviewerIds and reviewers — use one`. The `reviewers[]` form must include at least one `mandatory: true`, and userIds must be unique.
+
+`reviewerEmails` (optional, 0–50 string entries) stores email addresses alongside the `reviewers[]` list. The value surfaces in the human step's `output.reviewerEmails` after the step resumes — use it to drive downstream notification UIs. The engine does not validate that emails correspond to configured reviewers.
+
+`commentBody` (optional, ≤ 8 000 chars) is stored on the human step's `output` for use by your reviewer-facing UI. The engine does NOT auto-create a Velt annotation or comment thread per human step in v1 — your application is responsible for surfacing this string to reviewers and, if you use the legacy comment-resolution flow, for creating the comment thread the reviewer replies to.
+
+**`onReject` shorthand — per-node rejection routing:**
+
+Authors can express the rejection path directly on a `human` node instead of declaring a top-level `loops[]` region or hand-writing a `when`-gated edge. Two mutually exclusive forms:
+
+**Correct (Form A — route on reject):**
+
+```json
+{
+  "nodeId": "human-review",
+  "type": "human",
+  "config": {
+    "reviewers": [{ "userId": "u1", "mandatory": true }],
+    "onReject": { "routeToNodeId": "human-escalate" }
+  }
+}
+```
+
+Form A synthesizes a reject-gated edge from this node to `routeToNodeId`.
+
+**Correct (Form B — loop back on reject):**
+
+```json
+{
+  "nodeId": "human-review",
+  "type": "human",
+  "config": {
+    "reviewers": [{ "userId": "u1", "mandatory": true }],
+    "onReject": {
+      "loopBack": {
+        "toNodeId": "agent-draft",
+        "maxIterations": 3,
+        "onExhausted": { "routeToNodeId": "human-final-call" }
+      }
+    }
+  }
+}
+```
+
+Form B synthesizes a top-level loop region with `entryNodeId = toNodeId`. `maxIterations` defaults to 5 (range 1–20). `onExhausted.routeToNodeId` specifies the node spawned when the cap is reached; omitting it causes the execution to fail on exhaustion. A custom `when` predicate may be specified; the default is mandatory-reject.
+
+**Strict-mode requirement:** every `human` node must satisfy one of the following, or the definition is rejected with `INVALID_ARGUMENT`:
+- `config.onReject` is set (either form), OR
+- the node is a `bodyNodeIds` member of a top-level `loops[]` entry.
+
+The engine desugars `onReject` at write time — it strips `onReject` from the stored config and appends the synthesized edges or loop region to the top-level arrays. `GET /definitions/get` returns this canonical (desugared) form. Note: `onReject.routeToNodeId` set on a `joinOnQuorum` group member is dead code at runtime — the group container owns fan-out on quorum, so the per-member route is never fired.
+
+**Loop regions (`loops[]`):**
+
+A loop region lets a workflow re-enter an earlier node when a reviewer rejects, instead of failing outright. Declare loops at the top level of a definition, peer to `groups[]`. Use a top-level loop (rather than the `onReject` shorthand) when multiple parallel reviewers share a single retry counter, or when you need explicit `loopId` control for event tracking.
+
+**Correct (top-level loops[] declaration):**
+
+```json
+{
+  "loops": [
+    {
+      "loopId": "draft-revision",
+      "entryNodeId": "agent-draft",
+      "bodyNodeIds": ["agent-draft", "human-legal", "human-brand"],
+      "onIterationReject": {
+        "when": "{\"op\":\"and\",\"args\":[...]}"
+      },
+      "onExhausted": { "routeToNodeId": "human-escalate" },
+      "maxIterations": 5
+    }
+  ]
+}
+```
+
+`loops[]` fields:
+
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `loopId` | string | yes | 1–64 chars. Stable identifier used in loop events. |
+| `entryNodeId` | string | yes | Node spawned first on each iteration. Must be in `bodyNodeIds`. |
+| `bodyNodeIds` | string[] | yes | 1–50 nodes inside the iteration scope. |
+| `onIterationReject.when` | string (JSON-AST) | no | Predicate to trigger iteration N+1. Default: `decision == reject && rejectorMandatory == true`. |
+| `onExhausted.routeToNodeId` | string | no | Node spawned when `maxIterations` reached. Omitting causes execution failure on exhaustion. |
+| `maxIterations` | integer | yes | 1–20. Hard cap per execution instance. |
+
+**Body-shape constraints:** the body must be one of: (a) a single-terminal sequential subgraph (one node with no outgoing edges inside the body), or (b) a group-bounded body where every member shares a `joinOnQuorum` group with `quorum === expectedSteps`. Violating either shape triggers loop linter codes (see `rest-definitions` rule).
+
+**Critical — loop predicate caveat with `/steps/resolve` reject actions:** the default `onIterationReject.when` predicate is `decision == 'reject' && rejectorMandatory == true`. When a step is resolved via the `/steps/resolve` endpoint with `action: "reviewer-reject"` or `action: "force-reject"`, the engine does NOT populate `output.rejectedBy` or `output.rejectorMandatory` on the step. As a result, this default predicate will evaluate to false and the loop region will NOT iterate — the execution will follow the non-loop edge instead. If your loop region must fire on rejection, use `recordReviewerDecision` with a mandatory reviewer (which does populate `rejectorMandatory: true`) rather than the resolve reject actions.
+
+**`previousAttempts` payload:** on iteration N+1, the entry step's input object includes:
+
+```json
+{
+  "iteration": 2,
+  "loopId": "draft-revision",
+  "previousAttempts": [
+    {
+      "iteration": 1,
+      "authorOutput": {},
+      "rejectedBy": "u_legal_01",
+      "rejectorMandatory": true,
+      "rejectionReason": "missing clause",
+      "rejectedAt": 1716000000000
+    }
+  ]
+}
+```
+
+Use this to give the entry agent full context about prior rejection reasons so it can revise its output accordingly.
 
 **Edge shape:**
 
@@ -172,6 +283,10 @@ Step:      pending → running → (waiting) → completed | failed | skipped | 
 - [ ] Node `type` is one of `agent` / `human`
 - [ ] Every `human` node provides exactly one of `reviewers[]` or `reviewerIds[]` — never both
 - [ ] Every `human` node using the new shape has at least one `reviewers[].mandatory: true`
+- [ ] Every `human` node satisfies strict-mode: has `config.onReject` set OR is a member of a top-level `loops[]` body
+- [ ] `reviewerEmails` has 0–50 entries (if provided)
+- [ ] `commentBody` is ≤ 8 000 chars; application surfaces it to reviewers (engine does NOT auto-create annotations)
+- [ ] `onReject.loopBack.maxIterations` is 1–20 (default 5)
 - [ ] Every `blocking: true` agent node includes `resolutionPolicy` (with `minCount` when `kind === "minResolved"`)
 - [ ] Every node with `slaMs` has at least one outgoing breach-routed edge (avoids `missing-breach-edge`)
 - [ ] Each node belongs to at most one group
@@ -179,6 +294,7 @@ Step:      pending → running → (waiting) → completed | failed | skipped | 
 - [ ] `cancelOnQuorum` groups have `quorum < expectedSteps` (avoids `group-cancelonquorum-requires-quorum-lt-expected`)
 - [ ] `joinOnQuorum` groups: all members share the same successor set (avoids `group-joinonquorum-members-must-share-successors`)
 - [ ] Approval-counting groups contain only `human` or `blocking: true` agents — never non-blocking agents
+- [ ] Every `loops[]` entry: `entryNodeId` is in `bodyNodeIds`, `maxIterations` 1–20, no node appears in more than one loop body, `onExhausted.routeToNodeId` (if set) references a node outside the loop body
 
 **Source Pointers:**
 - https://docs.velt.dev/ai/approval-engine/overview — concepts overview, step ID formats

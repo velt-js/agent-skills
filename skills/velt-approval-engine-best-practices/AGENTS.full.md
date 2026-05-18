@@ -21,7 +21,7 @@ Velt Approval Engine implementation guide covering the declarative workflow runt
 ## Table of Contents
 
 1. [Concepts](#1-concepts) — **HIGH**
-   - 1.1 [Approval Engine workflow model — nodes, edges, groups, quorum policies, and step IDs](#11-approval-engine-workflow-model-nodes-edges-groups-quorum-policies-and-step-ids)
+   - 1.1 [Approval Engine workflow model — nodes, edges, groups, quorum policies, loop regions, and step IDs](#11-approval-engine-workflow-model-nodes-edges-groups-quorum-policies-loop-regions-and-step-ids)
 
 2. [REST Endpoints](#2-rest-endpoints) — **HIGH**
    - 2.1 [Approval Engine REST foundations — auth headers, envelope, canonical error codes, and schema-validation messages](#21-approval-engine-rest-foundations-auth-headers-envelope-canonical-error-codes-and-schema-validation-messages)
@@ -39,9 +39,9 @@ Velt Approval Engine implementation guide covering the declarative workflow runt
 
 **Impact: HIGH**
 
-The workflow model — what a definition is, how nodes (`agent` / `human`) connect via edges, how groups model parallel quorum, how the three `onQuorumMet` policies (`waitAll` / `cancelOnQuorum` / `joinOnQuorum`) drive fan-out, the deterministic stepId formats, and the execution/step status flows. Read this before any REST rule — the endpoint payloads carry these shapes verbatim.
+The workflow model — what a definition is, how nodes (`agent` / `human`) connect via edges, how groups model parallel quorum, how the three `onQuorumMet` policies (`waitAll` / `cancelOnQuorum` / `joinOnQuorum`) drive fan-out, the `onReject` shorthand (Form A: routeToNodeId; Form B: loopBack) and strict-mode requirement, top-level `loops[]` (loopId, entryNodeId, bodyNodeIds, maxIterations 1–20, previousAttempts threading), `reviewerEmails` (0–50, surfaces in step output), `commentBody` (stored on output only — application must surface to reviewers), the deterministic stepId formats, and the execution/step status flows. Read this before any REST rule — the endpoint payloads carry these shapes verbatim.
 
-### 1.1 Approval Engine workflow model — nodes, edges, groups, quorum policies, and step IDs
+### 1.1 Approval Engine workflow model — nodes, edges, groups, quorum policies, loop regions, and step IDs
 
 **Impact: HIGH (Every REST payload carries these shapes; misunderstanding them produces either INVALID_ARGUMENT linter failures at create time or stuck-forever executions at runtime)**
 
@@ -88,12 +88,103 @@ Agent node config fields: `agentId` (required), `promptOverride` (≤ 8000 chars
   "type": "human",
   "config": {
     "reviewers": [{ "userId": "u_legal_01", "mandatory": true }],
-    "commentBody": "Please review for legal compliance."
+    "reviewerEmails": ["legal@example.com"],
+    "commentBody": "Please review for legal compliance.",
+    "onReject": { "routeToNodeId": "human-escalate" }
   }
 }
 ```
 
 Exactly one of `reviewers[]` (preferred) or `reviewerIds[]` (legacy) must be provided. Both are accepted by the engine — `reviewerIds[]` is kept for back-compat. Supplying both at once is rejected with `cannot set both reviewerIds and reviewers — use one`. The `reviewers[]` form must include at least one `mandatory: true`, and userIds must be unique.
+`reviewerEmails` (optional, 0–50 string entries) stores email addresses alongside the `reviewers[]` list. The value surfaces in the human step's `output.reviewerEmails` after the step resumes — use it to drive downstream notification UIs. The engine does not validate that emails correspond to configured reviewers.
+`commentBody` (optional, ≤ 8 000 chars) is stored on the human step's `output` for use by your reviewer-facing UI. The engine does NOT auto-create a Velt annotation or comment thread per human step in v1 — your application is responsible for surfacing this string to reviewers and, if you use the legacy comment-resolution flow, for creating the comment thread the reviewer replies to.
+
+**Correct (Form A — route on reject):**
+
+```json
+{
+  "nodeId": "human-review",
+  "type": "human",
+  "config": {
+    "reviewers": [{ "userId": "u1", "mandatory": true }],
+    "onReject": { "routeToNodeId": "human-escalate" }
+  }
+}
+```
+
+Form A synthesizes a reject-gated edge from this node to `routeToNodeId`.
+
+**Correct (Form B — loop back on reject):**
+
+```json
+{
+  "nodeId": "human-review",
+  "type": "human",
+  "config": {
+    "reviewers": [{ "userId": "u1", "mandatory": true }],
+    "onReject": {
+      "loopBack": {
+        "toNodeId": "agent-draft",
+        "maxIterations": 3,
+        "onExhausted": { "routeToNodeId": "human-final-call" }
+      }
+    }
+  }
+}
+```
+
+Form B synthesizes a top-level loop region with `entryNodeId = toNodeId`. `maxIterations` defaults to 5 (range 1–20). `onExhausted.routeToNodeId` specifies the node spawned when the cap is reached; omitting it causes the execution to fail on exhaustion. A custom `when` predicate may be specified; the default is mandatory-reject.
+**Strict-mode requirement:** every `human` node must satisfy one of the following, or the definition is rejected with `INVALID_ARGUMENT`:
+- `config.onReject` is set (either form), OR
+- the node is a `bodyNodeIds` member of a top-level `loops[]` entry.
+The engine desugars `onReject` at write time — it strips `onReject` from the stored config and appends the synthesized edges or loop region to the top-level arrays. `GET /definitions/get` returns this canonical (desugared) form. Note: `onReject.routeToNodeId` set on a `joinOnQuorum` group member is dead code at runtime — the group container owns fan-out on quorum, so the per-member route is never fired.
+
+**Correct (top-level loops[] declaration):**
+
+```json
+{
+  "loops": [
+    {
+      "loopId": "draft-revision",
+      "entryNodeId": "agent-draft",
+      "bodyNodeIds": ["agent-draft", "human-legal", "human-brand"],
+      "onIterationReject": {
+        "when": "{\"op\":\"and\",\"args\":[...]}"
+      },
+      "onExhausted": { "routeToNodeId": "human-escalate" },
+      "maxIterations": 5
+    }
+  ]
+}
+{
+  "iteration": 2,
+  "loopId": "draft-revision",
+  "previousAttempts": [
+    {
+      "iteration": 1,
+      "authorOutput": {},
+      "rejectedBy": "u_legal_01",
+      "rejectorMandatory": true,
+      "rejectionReason": "missing clause",
+      "rejectedAt": 1716000000000
+    }
+  ]
+}
+```
+
+`loops[]` fields:
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `loopId` | string | yes | 1–64 chars. Stable identifier used in loop events. |
+| `entryNodeId` | string | yes | Node spawned first on each iteration. Must be in `bodyNodeIds`. |
+| `bodyNodeIds` | string[] | yes | 1–50 nodes inside the iteration scope. |
+| `onIterationReject.when` | string (JSON-AST) | no | Predicate to trigger iteration N+1. Default: `decision == reject && rejectorMandatory == true`. |
+| `onExhausted.routeToNodeId` | string | no | Node spawned when `maxIterations` reached. Omitting causes execution failure on exhaustion. |
+| `maxIterations` | integer | yes | 1–20. Hard cap per execution instance. |
+**Body-shape constraints:** the body must be one of: (a) a single-terminal sequential subgraph (one node with no outgoing edges inside the body), or (b) a group-bounded body where every member shares a `joinOnQuorum` group with `quorum === expectedSteps`. Violating either shape triggers loop linter codes (see `rest-definitions` rule).
+**Critical — loop predicate caveat with `/steps/resolve` reject actions:** the default `onIterationReject.when` predicate is `decision == 'reject' && rejectorMandatory == true`. When a step is resolved via the `/steps/resolve` endpoint with `action: "reviewer-reject"` or `action: "force-reject"`, the engine does NOT populate `output.rejectedBy` or `output.rejectorMandatory` on the step. As a result, this default predicate will evaluate to false and the loop region will NOT iterate — the execution will follow the non-loop edge instead. If your loop region must fire on rejection, use `recordReviewerDecision` with a mandatory reviewer (which does populate `rejectorMandatory: true`) rather than the resolve reject actions.
+**`previousAttempts` payload:** on iteration N+1, the entry step's input object includes:
+Use this to give the entry agent full context about prior rejection reasons so it can revise its output accordingly.
 
 **Edge shape:**
 
@@ -208,7 +299,7 @@ Step:      pending → running → (waiting) → completed | failed | skipped | 
 
 **Impact: HIGH**
 
-The 14 POST endpoints under `/v2/workflow/*`. Split by resource: **foundations** (auth headers, request/response envelope, canonical error codes, schema-validation messages); **definitions** (5 endpoints + full 16-rule linter reference); **executions** (5 endpoints — dispatch with `idempotencyKey` + webhook config; cancel; getEvents with `sinceSeq`); **steps** (4 endpoints; admin-only `/steps/cancel` and `/steps/resolve`); **object-views** (TypeScript interfaces for `ExecutionView`, `StepView`, `DefinitionView`, `ApprovalEventView`, and the human/`joinOnQuorum` payload shapes).
+The 14 POST endpoints under `/v2/workflow/*`. Split by resource: **foundations** (auth headers, request/response envelope, canonical error codes, schema-validation messages); **definitions** (5 endpoints + full 25-rule linter reference — 16 graph+group rules + 9 new loop rules); **executions** (5 endpoints — dispatch with `idempotencyKey` + webhook config; cancel; getEvents with `sinceSeq`); **steps** (4 endpoints; admin-only `/steps/cancel` with optional `actorId` and `/steps/resolve` with optional `reason` + `actorId`); **object-views** (TypeScript interfaces for `ExecutionView`, `StepView`, `DefinitionView`, `ApprovalEventView`, and the human/`joinOnQuorum` payload shapes).
 
 ### 2.1 Approval Engine REST foundations — auth headers, envelope, canonical error codes, and schema-validation messages
 
@@ -331,7 +422,7 @@ async function workflowApi(path, dataPayload, { apiKey, authToken }) {
 
 ### 2.2 Definitions endpoints — create, update (ifVersion), get, list, delete; full linter rule reference
 
-**Impact: HIGH (Definitions are the static blueprint of every workflow; the 16-rule linter rejects misconfigured definitions at create/update time)**
+**Impact: HIGH (Definitions are the static blueprint of every workflow; the 25-rule linter rejects misconfigured definitions at create/update time)**
 
 A **definition** is the static, versioned blueprint of a workflow. Every successful update increments `version`. In-flight executions are immune to definition changes — they pin to the version they were dispatched against.
 
@@ -380,6 +471,9 @@ POST https://api.velt.dev/v2/workflow/definitions/create
 ```
 
 `scope.level` is `"apiKey"` (workspace-wide), `"organization"` (bound to an `organizationId`), or `"document"` (bound to a `documentId` under an organization).
+**Scope per-level required fields:** when `scope.level` is `"organization"`, the top-level `organizationId` field is required. When `scope.level` is `"document"`, both `organizationId` AND `documentId` are required. Omitting either returns `INVALID_ARGUMENT`.
+**Server-namespaced IDs caveat:** the engine hashes certain client-supplied IDs (e.g., node IDs) at write time to produce stable internal identifiers. The values echoed back in the response are the engine's internal forms — they are NOT your original client-supplied strings. Do not rely on the echoed IDs matching what you sent; use `definitionId` as the stable external key.
+**`triggers` shape:** each entry in the `triggers[]` array has the form `{ triggerId, eventName?, filters? }`. Triggers are descriptive metadata only in v1 — the engine does NOT auto-dispatch executions when a trigger's event fires. Your application is responsible for calling `/executions/dispatch` in response to events. `triggers[]` is stored on the definition and surfaced in `GET` responses, but has no runtime effect.
 
 **Update — always include `ifVersion`:**
 
@@ -423,7 +517,7 @@ POST https://api.velt.dev/v2/workflow/definitions/delete
 ```
 
 Rejected with `FAILED_PRECONDITION` if any in-flight executions exist. Cancel or wait for them first.
-Definitions are validated at create AND update time. Any rule violation is rejected with `INVALID_ARGUMENT` and an explicit code in the error message.
+Definitions are validated at create AND update time. Any rule violation is rejected with `INVALID_ARGUMENT` and an explicit code in the error message. The linter now has 25 rules: 6 graph-shape rules, 10 group rules, and 9 loop rules.
 
 **Graph-shape linter codes:**
 
@@ -454,6 +548,25 @@ group-joinonquorum-members-must-share-successors
 group-required-not-in-members                   An entry in requiredNodeIds is not in memberNodeIds.
 group-required-exceeds-quorum                   requiredNodeIds.length > quorum — impossible to satisfy.
 group-node-in-multiple-groups                   A node appears as a member of two or more groups.
+```
+
+**Loop linter codes:**
+
+```typescript
+loop-duplicate-id                         Two loops share the same loopId.
+loop-entry-must-be-in-body                entryNodeId is not listed in bodyNodeIds.
+loop-body-member-missing                  A bodyNodeIds entry isn't a declared node.
+loop-body-unreachable-from-entry          Some body node is unreachable from entryNodeId
+                                          along body-internal edges.
+loop-body-must-have-single-terminal       Body shape is neither single-terminal sequential
+                                          nor group-bounded (see concepts-workflow-model).
+loop-node-in-multiple-loops               A node appears in more than one loop body.
+loop-on-exhausted-route-to-not-found      onExhausted.routeToNodeId references an unknown node.
+loop-on-exhausted-route-to-in-body        onExhausted.routeToNodeId is itself a body node —
+                                          it must route outside the loop.
+loop-group-bounded-quorum-must-equal-expected
+                                          Group-bounded body joinOnQuorum group requires
+                                          quorum === expectedSteps.
 ```
 
 These are deterministic — surface the code to the human author rather than retrying. The linter does not check runtime feasibility (e.g., a stuck-on-rejection group passes the linter; see `concepts-workflow-model`).
@@ -497,9 +610,11 @@ POST https://api.velt.dev/v2/workflow/executions/get
 
 ```bash
 POST https://api.velt.dev/v2/workflow/executions/list
-{ "data": { "definitionId": "marketing-copy-approval", "status": "running", "limit": 50 } }
-// Response: { "result": { "executions": ExecutionView[], "nextCursor": "..." } }
+{ "data": { "definitionId": "marketing-copy-approval", "status": "running", "pageSize": 50 } }
+// Response: { "result": { "items": ExecutionView[], "nextCursor": "...", "hasMore": true } }
 ```
+
+**v1 filter limitation:** `/executions/list` does NOT accept `organizationId` or `documentId` as filter parameters. To fetch executions scoped to an organization or document, filter client-side after paginating all results by `definitionId`. Cross-scope filtering is not supported in the current release.
 
 **Cancel:**
 
@@ -522,7 +637,8 @@ Returns all externally-visible events with `seq > sinceSeq`, in order. The recov
 1. Your webhook receiver durably stores the last `seq` it processed per execution.
 2. After an outage, call `/executions/getEvents` with that `seq` to fetch the gap.
 3. Re-apply the events idempotently using `(executionId, seq)` as the dedup key.
-**`seq` values can be non-contiguous** — internal-only events (`step.scheduled`, `step.started`, `step.retried`, etc.) fill gaps but are never delivered externally. Do not treat a missing seq as a problem; treat the externally-visible events as the source of truth.
+**`seq` values can be non-contiguous** — internal-only events (`step.scheduled`, `step.started`, `step.retried`, `step.resumed`, `step.response-recorded`, `step.overridden`, `parallel-group.completed`, `idempotency.suppressed`) fill gaps but are never delivered externally. Do not treat a missing seq as a problem; treat the externally-visible events as the source of truth.
+**Externally-visible event types returned by `getEvents`:** the complete catalog of types that appear in the stream matches the webhook event catalog (see `webhooks-delivery`), including the loop events `loop.iteration-started` and `loop.exhausted`. Any type not in that catalog is an internal-only event and is filtered out of this endpoint's response. Use the `webhooks-delivery` rule as the authoritative enumeration — `getEvents` and the webhook stream emit the same externally-visible event set.
 
 ---
 
@@ -647,7 +763,7 @@ This is how a group-owned downstream step sees each member's per-step output wit
 
 ### 2.5 Steps endpoints — recordReviewerDecision, recordAgentResolution, cancel (admin), resolve (admin)
 
-**Impact: HIGH (Steps endpoints drive forward progress on parked human/blocking-agent steps; admin-only endpoints (cancel/resolve) require admin-scoped auth tokens or they 403)**
+**Impact: HIGH (Steps endpoints drive forward progress on parked human/blocking-agent steps; admin-only endpoints (cancel/resolve) require admin-scoped auth tokens or they 403; the resolve action discriminator determines both permissions and loop-predicate behavior)**
 
 Four POST endpoints under `/v2/workflow/steps/*`. Two are for normal forward progress on parked steps; two are admin-only overrides.
 
@@ -669,7 +785,7 @@ POST https://api.velt.dev/v2/workflow/steps/recordReviewerDecision
 // { "result": { "recorded": true, "aggregatorStatus": "resolved", "resumeScheduled": true } }
 ```
 
-`decision` is `"approve"` or `"reject"` (strings, lowercase). `reviewerId` must be one of the node's configured `reviewers[].userId` values — anyone else returns `INVALID_ARGUMENT`.
+`decision` is `"approve"` or `"reject"` (strings, lowercase). `reviewerId` does NOT need to match a configured `reviewers[].userId` — if the caller is not in the declared reviewer list, the engine records them as an unknown responder and updates `aggregatorStatus` to reflect whether quorum shifted. No error is thrown. This means unknown-reviewer submissions are silently accepted and may affect aggregation; do NOT rely on `INVALID_ARGUMENT` to enforce reviewer identity.
 `aggregatorStatus` tells you whether the step is now fully resolved (all required reviewers have responded) or still waiting on others. `resumeScheduled: true` means the runtime has queued the downstream fan-out — don't poll or wait, the webhook will fire.
 
 **recordAgentResolution — external resolution for a blocking agent step:**
@@ -691,27 +807,61 @@ For quorum-counting, the `output.decision` field is what matters — see `concep
 
 **cancel (admin scope required):**
 
-```bash
+```json
 POST https://api.velt.dev/v2/workflow/steps/cancel
-{ "data": { "executionId": "exec_1777...", "stepId": "step_...", "reason": "escalated" } }
+{
+  "data": {
+    "executionId": "exec_1777...",
+    "stepId": "step_...",
+    "reason": "escalated",
+    "actorId": "admin_jane"
+  }
+}
+// Response: { "result": { "cancelled": true, "stepId": "step_...", "executionId": "exec_1777..." } }
 ```
 
-Cancels a single step (not the whole execution). Requires an admin-scoped auth token; non-admin tokens receive `PERMISSION_DENIED`.
+Cancels a single step (not the whole execution). Requires an admin-scoped auth token. `actorId` is REQUIRED (1–256 chars) and identifies the administrator initiating the cancellation — it is surfaced on the `step.cancelled` event's `data` payload. `reason` (optional, ≤ 500 chars) is surfaced on the same event.
+**Error matrix for `/steps/cancel`:** `INVALID_ARGUMENT` (missing required field or constraint violation) / `FAILED_PRECONDITION` (step already terminal) / `NOT_FOUND` (execution or step does not exist). Note: `PERMISSION_DENIED` is NOT in the error matrix — token-scope enforcement is handled upstream.
+**Post-GA note:** Workspace-admin RBAC will gate cancel access by workspace role; admin token scope is the control surface in the current release.
 
-**resolve (admin override):**
+**resolve — action-discriminated step resolution:**
 
-```bash
+```json
 POST https://api.velt.dev/v2/workflow/steps/resolve
-{ "data": { "executionId": "exec_1777...", "stepId": "step_...", "output": { "decision": "approve" } } }
+{
+  "data": {
+    "executionId": "exec_1777...",
+    "stepId": "step_...",
+    "action": "force-approve",
+    "output": { "note": "approved by admin in emergency" },
+    "reason": "Reviewer on PTO; emergency override",
+    "actorId": "admin_jane"
+  }
+}
+// Response: { "result": { "resolved": true, "executionId": "exec_1777...", "stepId": "step_...", "action": "force-approve" } }
 ```
 
-Admin force-complete. Bypasses reviewer-decision aggregation, agent runtime, and quorum checks. Same admin-scope requirement.
+The `action` field (REQUIRED) is the central discriminator. It determines both the resolution semantics and the auth requirements:
+| `action` value | Semantics | Auth requirement |
+|---|---|---|
+| `force-approve` | Admin sets step to approved-complete; skips aggregator | Admin-scoped token |
+| `force-reject` | Admin sets step to rejected-complete; skips aggregator | Admin-scoped token |
+| `force-complete` | Admin marks step complete without approve/reject framing | Admin-scoped token |
+| `force-fail` | Admin marks step as failed | Admin-scoped token |
+| `reviewer-approve` | Reviewer-scoped approve; routes through aggregator | `actorId` must be in `step.reviewerIds` |
+| `reviewer-reject` | Reviewer-scoped reject; routes through aggregator | `actorId` must be in `step.reviewerIds` |
+`actorId` is REQUIRED (1–256 chars). `reason` is optional, ≤ 2000 chars.
+**Reviewer-scoped auth:** `reviewer-approve` and `reviewer-reject` require `actorId` to be a member of `step.reviewerIds`. If it is not, the engine returns `PERMISSION_DENIED`.
+**Authority-of-record:** The engine computes the canonical `decision`, `approved`, and `approvalReply` fields from the action. Any keys with those names in the caller-supplied `output` object are ignored and cannot override the engine's computed values.
+**Critical — reject actions do NOT populate loop-predicate fields:** `reviewer-reject` and `force-reject` do NOT populate `output.rejectedBy` or `output.rejectorMandatory` on the step output. The default loop-region predicate `decision == 'reject' && rejectorMandatory == true` will therefore NOT fire when a step is resolved via these actions. If your loop region relies on `rejectorMandatory`, you must use `recordReviewerDecision` with a configured mandatory reviewer rather than the `/steps/resolve` reject actions. See also the loop-predicate caveat in `concepts-workflow-model`.
+**Post-GA note:** Workspace-admin RBAC will further gate force-* actions by workspace role.
 | Situation | Endpoint |
 |---|---|
 | Human reviewer is acting through your UI | `recordReviewerDecision` |
 | Out-of-band system completed a `blocking: true` agent step | `recordAgentResolution` |
 | Operator escalates / aborts a single step | `cancel` (admin) |
-| Operator force-completes a stuck step | `resolve` (admin) |
+| Operator force-resolves a stuck step (choose action) | `resolve` with appropriate `action` value |
+| Reviewer acting via resolve endpoint (in reviewerIds) | `resolve` with `reviewer-approve` or `reviewer-reject` |
 | Operator aborts the whole workflow | `/executions/cancel` (NOT `/steps/cancel`) |
 
 ---
@@ -720,7 +870,7 @@ Admin force-complete. Bypasses reviewer-decision aggregation, agent runtime, and
 
 **Impact: HIGH**
 
-Inbound webhook delivery — required HMAC-SHA256 signature verification on the raw bytes (not re-serialized JSON), the three `x-velt-*` headers, the full payload field shape, the event catalog with `data` highlights per event type, the retry schedule (immediate → +2s → +8s → +32s → +2min → +8min → DLQ), the at-least-once delivery contract with idempotency on `(executionId, seq)`, the cancellation reason vocabulary, and missed-event recovery via `/executions/getEvents?sinceSeq=N`.
+Inbound webhook delivery — required HMAC-SHA256 signature verification on the raw bytes (not re-serialized JSON), the three `x-velt-*` headers, the full payload field shape, the event catalog with `data` highlights per event type (including new `loop.iteration-started` and `loop.exhausted` events), the retry schedule (immediate → +2s → +8s → +32s → +2min → +8min → DLQ), the at-least-once delivery contract with idempotency on `(executionId, seq)`, the cancellation reason vocabulary, and missed-event recovery via `/executions/getEvents?sinceSeq=N`.
 
 ### 3.1 Webhook delivery — HMAC verification on raw bytes, payload shape, event catalog with data highlights, retry schedule, idempotency on (executionId, seq)
 
@@ -818,6 +968,12 @@ step.cancelled           same                       Cancelled via /steps/cancel 
 group.quorum-met         parallel-group.quorum-met  Parallel group's approval threshold  { groupId, total, quorum,
                                                     first satisfied                       completedTotal,
                                                                                           expectedSteps }
+loop.iteration-started   same                       Iteration N+1 spawns after a body    { loopId, iteration,
+                                                    iteration terminated rejected and     triggeredBy: 'rejection' }
+                                                    the cap wasn't hit
+loop.exhausted           same                       Loop's maxIterations cap reached     { loopId, iteration,
+                                                                                          lastRejectedBy?,
+                                                                                          lastRejectionReason? }
 ```
 
 Internal-only events (`step.scheduled`, `step.started`, `step.retried`, `step.resumed`, `step.response-recorded`, `step.overridden`, `parallel-group.completed`, `idempotency.suppressed`) fill `seq` gaps but are **never** delivered externally. Non-contiguous `seq` values are normal — do not treat a gap as an error.
@@ -828,6 +984,10 @@ Internal-only events (`step.scheduled`, `step.started`, `step.retried`, `step.re
 group-quorum-met       (system actor "system:group-quorum")
                        Engine cancelled the step because the parent group's
                        approval quorum was met under cancelOnQuorum or joinOnQuorum.
+
+loop-restart           (system actor "system:loop-restart")
+                       Engine cancelled an in-flight body step from iteration N
+                       of a loop region because iteration N+1 is starting.
 
 (admin-supplied)       Free-form reason passed to /steps/cancel.
 ```

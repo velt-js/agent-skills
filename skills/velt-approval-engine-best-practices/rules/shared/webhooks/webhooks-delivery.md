@@ -2,7 +2,7 @@
 title: Webhook delivery — HMAC verification on raw bytes, payload shape, event catalog with data highlights, retry schedule, idempotency on (executionId, seq)
 impact: HIGH
 impactDescription: Wrong signature verification (hashing re-serialized JSON instead of raw bytes) lets forged requests through; missing seq-based idempotency double-processes every retried event
-tags: approval-engine, webhooks, hmac, sha256, x-velt-signature, x-velt-event-id, x-velt-attempt, retry, dead-letter, idempotency, seq, executionId, event-types, raw-body, payload, eventId, correlationId, cancellation-reason
+tags: approval-engine, webhooks, hmac, sha256, x-velt-signature, x-velt-event-id, x-velt-attempt, retry, dead-letter, idempotency, seq, executionId, event-types, raw-body, payload, eventId, correlationId, cancellation-reason, loop.iteration-started, loop.exhausted, loopId
 ---
 
 ## Webhook delivery — HMAC verification on raw bytes, retry, event catalog
@@ -101,6 +101,12 @@ step.cancelled           same                       Cancelled via /steps/cancel 
 group.quorum-met         parallel-group.quorum-met  Parallel group's approval threshold  { groupId, total, quorum,
                                                     first satisfied                       completedTotal,
                                                                                           expectedSteps }
+loop.iteration-started   same                       Iteration N+1 spawns after a body    { loopId, iteration,
+                                                    iteration terminated rejected and     triggeredBy: 'rejection' }
+                                                    the cap wasn't hit
+loop.exhausted           same                       Loop's maxIterations cap reached     { loopId, iteration,
+                                                                                          lastRejectedBy?,
+                                                                                          lastRejectionReason? }
 ```
 
 Internal-only events (`step.scheduled`, `step.started`, `step.retried`, `step.resumed`, `step.response-recorded`, `step.overridden`, `parallel-group.completed`, `idempotency.suppressed`) fill `seq` gaps but are **never** delivered externally. Non-contiguous `seq` values are normal — do not treat a gap as an error.
@@ -113,6 +119,10 @@ Internal-only events (`step.scheduled`, `step.started`, `step.retried`, `step.re
 group-quorum-met       (system actor "system:group-quorum")
                        Engine cancelled the step because the parent group's
                        approval quorum was met under cancelOnQuorum or joinOnQuorum.
+
+loop-restart           (system actor "system:loop-restart")
+                       Engine cancelled an in-flight body step from iteration N
+                       of a loop region because iteration N+1 is starting.
 
 (admin-supplied)       Free-form reason passed to /steps/cancel.
 ```
