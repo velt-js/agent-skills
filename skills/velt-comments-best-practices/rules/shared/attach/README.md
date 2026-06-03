@@ -1,3 +1,10 @@
+---
+title: Attachments & Reactions
+impact: MEDIUM
+impactDescription: File attachment control and emoji reaction features
+tags: attachments, reactions, file-upload
+---
+
 # Attachments & Reactions
 
 **Status:** Limited Documentation

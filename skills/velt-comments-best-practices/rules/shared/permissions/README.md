@@ -1,3 +1,10 @@
+---
+title: Moderation & Permissions
+impact: LOW
+impactDescription: Access control and moderation features for comments
+tags: permissions, access-control, moderation
+---
+
 # Moderation & Permissions
 
 **Status:** Limited Documentation

@@ -42,6 +42,7 @@ Comprehensive guide for Velt's real-time cursor tracking feature — rendering c
 
 6. [Wireframe Variables](#6-wireframe-variables) — **MEDIUM**
    - 6.1 [Bind Cursors Wireframe Slots Using componentConfig Template Variables](#61-bind-cursors-wireframe-slots-using-componentconfig-template-variables)
+   - 6.2 [Bind Live Selection Wireframe Slots Using componentConfig Template Variables](#62-bind-live-selection-wireframe-slots-using-componentconfig-template-variables)
 
 7. [Debugging](#7-debugging) — **LOW-MEDIUM**
    - 7.1 [Troubleshoot Common Cursor Issues](#71-troubleshoot-common-cursor-issues)
@@ -791,6 +792,14 @@ Each registered as `<velt-cursor-pointer-...-wireframe>` and resolves the per-us
 **2. DO NOT try to wireframe the root `<velt-cursor>`.** It has no `<velt-cursor-wireframe>` registration. Customize the per-user pointer via `<velt-cursor-pointer-wireframe>` instead.
 **3. DO NOT mix root and per-user variables in the same slot.** Inside `<velt-cursor-pointer-wireframe>`, `componentConfig` is per-user — `componentConfig.cursorUsers` (root, plural) is not defined; use `componentConfig.cursorUser` (per-user, singular).
 **4. DO NOT gate both default and huddle variants without checking `showDefault` / `showAudio` / `showVideo`.** These flags are mutually exclusive in practice; without them you render overlapping pointers.
+
+---
+
+### 6.2 Bind Live Selection Wireframe Slots Using componentConfig Template Variables
+
+**Impact: MEDIUM (Drives the remote-user selection indicator's dynamic content, conditional rendering, and class toggling without manual subscriptions)**
+
+Document the Live Selection runtime model and CSS-based customization approach until wireframe-tag support ships.
 
 ---
 
