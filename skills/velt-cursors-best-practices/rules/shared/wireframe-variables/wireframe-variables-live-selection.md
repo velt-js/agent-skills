@@ -7,6 +7,8 @@ tags: wireframe, template-variables, velt-data, velt-if, velt-class, componentCo
 
 ## Live Selection Wireframe Variables — Limited Support
 
+Document the Live Selection runtime model and CSS-based customization approach until wireframe-tag support ships.
+
 **Important:** Live Selection does **not** currently expose a `<velt-...-wireframe>` tag. `velt-data` / `velt-if` / `velt-class` interpolation is not yet available on this feature. Until wireframe-tag registration ships, customize Live Selection through CSS targeting `<velt-selection-element-portal>`. The variables below document the runtime model for reference.
 
 The **Live Selection** feature renders a floating "user X is selecting this" indicator anchored to a remote user's current selection range. Once wireframe-tag interpolation ships, Live Selection will use the **flat-config** access pattern — every variable addressed via the explicit `componentConfig.<path>` form, never short names.

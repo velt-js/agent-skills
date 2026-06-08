@@ -29,10 +29,10 @@
 |react/debug:{debug-common-issues.md,debug-verification.md}
 
 ## 8. Moderation & Permissions — LOW
-|shared/permissions:{permissions-private-mode.md,permissions-comment-interaction-events.md,permissions-anonymous-user-data-provider.md,permissions-visibility-option-dropdown.md,permissions-comment-save-triggered-event.md,permissions-comment-saved-event.md}
+|shared/permissions:{permissions-private-mode.md,README.md,permissions-comment-interaction-events.md,permissions-anonymous-user-data-provider.md,permissions-visibility-option-dropdown.md,permissions-comment-save-triggered-event.md,permissions-comment-saved-event.md}
 
 ## 9. Attachments & Reactions — MEDIUM
-|shared/attach:{attach-download-control.md}
+|shared/attach:{README.md,attach-download-control.md}
 
 ## 10. Configuration — MEDIUM
 |shared/config:{config-moderation.md,config-navigation.md,config-component-props.md,config-mentions-contacts.md,config-attachments.md,config-status-priority.md,config-reactions.md,config-text-formatting.md,config-sidebar-management.md,config-dom-controls.md,config-ui-behavior.md}
