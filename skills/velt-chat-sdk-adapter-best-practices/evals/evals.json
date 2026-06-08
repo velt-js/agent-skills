@@ -1,0 +1,23 @@
+{
+  "skill_name": "velt-chat-sdk-adapter-best-practices",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I want to build a simple greeting bot for my Next.js app that responds when users @-mention it in Velt comment threads. The bot should reply with a welcome message and keep track of the conversation. Can you help me set up the Chat SDK Adapter with Velt and create the webhook endpoint?",
+      "expected_output": "A Next.js implementation with: lazy singleton getChat() using createVeltAdapter, webhook route at app/api/webhooks/velt/route.ts with runtime='nodejs' and force-dynamic, onNewMention handler with thread.subscribe() and thread.post(), resolveUsers callback, and proper env var setup.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "I need to build an AI-powered support bot using Velt and Claude. When a user @-mentions the bot in a comment thread, it should fetch the thread history, send it to Claude via the Vercel AI SDK, and stream the response back into the thread. The bot should also handle follow-up messages in the same thread. This is a Next.js app deployed on Vercel.",
+      "expected_output": "Implementation with: createVeltAdapter singleton, onNewMention with thread.subscribe() and streaming via streamText + thread.post(result.textStream), onSubscribedMessage for follow-ups with message.isMention check, fetchMessages for thread history, Vercel waitUntil pattern, proper env vars for both Velt and Anthropic.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "I have a Velt-powered collaboration app and I want to add a bot that tracks reactions on comments. When someone adds a 👍 reaction, the bot should log it. I also need to understand webhook v1 vs v2 differences because my team is debating which to use. Can you set up the reaction handling and explain the webhook configuration?",
+      "expected_output": "Implementation with: onReaction handler checking event.added and event.emoji, explanation of v1 (Basic auth) vs v2 (Svix HMAC-SHA256) with recommendation for v2, proper webhook events enabled (comment.reaction_add, comment.reaction_delete), note that writing reactions requires self-hosting. Should NOT attempt to use addReaction on managed backend.",
+      "files": []
+    }
+  ]
+}

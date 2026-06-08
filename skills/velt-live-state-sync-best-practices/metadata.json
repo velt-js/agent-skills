@@ -1,0 +1,10 @@
+{
+  "name": "velt-live-state-sync-best-practices",
+  "version": "1.0.0",
+  "description": "Velt Live State Sync implementation patterns and best practices for React, Next.js, and web applications.",
+  "author": "velt",
+  "license": "MIT",
+  "tags": ["velt", "live-state-sync", "real-time", "shared-state", "redux", "react"],
+  "rule_count": 14,
+  "categories": ["core", "hooks", "element", "redux", "api", "patterns"]
+}

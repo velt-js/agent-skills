@@ -1,0 +1,10 @@
+{
+  "version": "1.0.0",
+  "organization": "Velt",
+  "date": "June 2026",
+  "abstract": "Velt Suggestions implementation guide covering suggestion targets (data-velt-suggestion-target), suggestion mode (enable/disable), three capture approaches (auto-commit, deferred, manual), accept/reject event handling, suggestion status lifecycle (pending/accepted/rejected/stale/apply_failed), drift detection, and querying suggestions programmatically. Covers the propose-then-review editing workflow for human and AI agent suggestion comments.",
+  "references": [
+    "https://docs.velt.dev",
+    "https://docs.velt.dev/async-collaboration/suggestions/overview"
+  ]
+}

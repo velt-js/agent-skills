@@ -1,0 +1,23 @@
+{
+  "skill_name": "velt-suggestions-best-practices",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "I'm building a project management app with Velt and I want to add a feature where team members can suggest changes to task fields (like priority, assignee, due date) instead of directly editing them. The suggestions should go through an approval workflow where the project owner can accept or reject them. Can you help me implement this with Velt's suggestions feature in my Next.js app?",
+      "expected_output": "A Next.js implementation using VeltProvider with authProvider, data-velt-suggestion-target on task field inputs, enableSuggestionMode toggle, auto-commit or deferred capture, and useCommentEventCallback for suggestionAccepted/suggestionRejected handlers that apply changes to app state. Should include idempotent accept handler.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "I want to build an AI-assisted form editor where an AI agent can propose changes to form fields and a human reviewer accepts or rejects them. The form has text inputs, dropdowns, and a complex 'address' field with street, city, state, zip. How do I implement this with Velt suggestions in React? I need the AI to programmatically create suggestions and the human to review them in the Velt comment UI.",
+      "expected_output": "Implementation using manual suggestion creation (startSuggestion + commitSuggestion) for the AI agent flow, data-velt-suggestion-target on each field, registerTarget with a getter for the complex address field, useCommentEventCallback for accept/reject, and proper cleanup with unregisterTarget. Should use authProvider, not useIdentify.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "I have a React data table where users can edit cell values. I want to add a 'suggestion mode' toggle so that when enabled, edits create suggestions instead of direct changes. I also need a sidebar that shows all pending suggestions with counts per row, and the ability to accept/reject from the Velt comment dialog. How should I wire this up with Velt?",
+      "expected_output": "Implementation with data-velt-suggestion-target on each table cell using stable row.col IDs, enableSuggestionMode/disableSuggestionMode toggle with useSuggestionModeState for UI, auto-commit via onTargetEditCommit, useSuggestions with status:'pending' filter for the sidebar counts, useCommentEventCallback for accept/reject handlers, and proper authProvider setup.",
+      "files": []
+    }
+  ]
+}

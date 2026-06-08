@@ -1,0 +1,152 @@
+{
+  "skill_name": "velt-live-state-sync-best-practices",
+  "evals": [
+    {
+      "id": 1,
+      "name": "shared-counter",
+      "prompt": "Build a React component called SharedCounter that uses Velt's Live State Sync to create a real-time collaborative counter. Multiple users viewing the same document should see the counter update in real-time. The counter should have increment and decrement buttons, display the current value, and show a connection status indicator (online/offline badge). Use the simplest Velt API available for this. Include the full App component with VeltProvider setup.",
+      "expected_output": "A React component using useLiveState hook for the counter state, authProvider on VeltProvider (not useIdentify), useServerConnectionStateChangeHandler for connection status, proper null guards on the counter value, and syncDuration configuration.",
+      "assertions": [
+        {
+          "id": "a1",
+          "text": "Uses authProvider callback on VeltProvider, not useIdentify or client.identify()",
+          "type": "manual"
+        },
+        {
+          "id": "a2",
+          "text": "Uses useLiveState hook (not useSetLiveStateData/useLiveStateData or element API) as the simplest API for a counter",
+          "type": "manual"
+        },
+        {
+          "id": "a3",
+          "text": "Destructures useLiveState return as [value, setValue, connectionState] tuple",
+          "type": "manual"
+        },
+        {
+          "id": "a4",
+          "text": "Provides a string ID and initial value to useLiveState",
+          "type": "manual"
+        },
+        {
+          "id": "a5",
+          "text": "Includes null/undefined guard on counter value (e.g., (counter || 0)) since value can be null before server data",
+          "type": "manual"
+        },
+        {
+          "id": "a6",
+          "text": "Shows connection state indicator using useServerConnectionStateChangeHandler or the third useLiveState return value",
+          "type": "manual"
+        },
+        {
+          "id": "a7",
+          "text": "Imports useLiveState from @veltdev/react",
+          "type": "manual"
+        },
+        {
+          "id": "a8",
+          "text": "Does not use deprecated useIdentify or client.identify() anywhere in the code",
+          "type": "manual"
+        }
+      ],
+      "files": []
+    },
+    {
+      "id": 2,
+      "name": "redux-collaborative-canvas",
+      "prompt": "Set up a Redux store with Velt's Live State Sync middleware so that a collaborative canvas app syncs shape actions across clients. The canvas has actions: 'canvas/addShape', 'canvas/moveShape', 'canvas/deleteShape', and local-only actions: 'ui/setHoverTarget', 'ui/toggleSidebar'. Configure the middleware to only sync the canvas actions, not the UI actions. The store should also support switching between different canvas documents dynamically. Show the store setup file and a React component that switches the live state data ID when the document changes.",
+      "expected_output": "A Redux store using createLiveStateMiddleware with allowedActionTypes filtering canvas actions, a liveStateDataId, updateLiveStateDataId export, configureStore setup, and a component that calls updateLiveStateDataId on document change.",
+      "assertions": [
+        {
+          "id": "a1",
+          "text": "Uses createLiveStateMiddleware from @veltdev/react",
+          "type": "manual"
+        },
+        {
+          "id": "a2",
+          "text": "Configures allowedActionTypes or disabledActionTypes to filter canvas vs UI actions (not syncing everything)",
+          "type": "manual"
+        },
+        {
+          "id": "a3",
+          "text": "Sets an initial liveStateDataId in the middleware config",
+          "type": "manual"
+        },
+        {
+          "id": "a4",
+          "text": "Exports updateLiveStateDataId from the store file",
+          "type": "manual"
+        },
+        {
+          "id": "a5",
+          "text": "Adds middleware to configureStore via getDefaultMiddleware().concat(middleware)",
+          "type": "manual"
+        },
+        {
+          "id": "a6",
+          "text": "Shows a component that calls updateLiveStateDataId when document/canvas ID changes",
+          "type": "manual"
+        },
+        {
+          "id": "a7",
+          "text": "Uses authProvider on VeltProvider (not useIdentify) in the app setup",
+          "type": "manual"
+        },
+        {
+          "id": "a8",
+          "text": "UI actions (setHoverTarget, toggleSidebar) are excluded from sync",
+          "type": "manual"
+        }
+      ],
+      "files": []
+    },
+    {
+      "id": 3,
+      "name": "cursor-presence-element-api",
+      "prompt": "Build a collaborative cursor presence feature using Velt's Live State Sync element API (not the simple hooks). Each user's cursor position should be broadcast to all other users. Requirements: (1) Use the element API with useLiveStateSyncUtils for observable subscriptions, (2) write cursor position updates with setLiveStateData using merge, (3) subscribe to other users' cursor updates with getLiveStateData and properly clean up subscriptions, (4) add a function that uses fetchLiveStateData to load all current cursor positions on component mount as a one-shot read, (5) show the REST API call to broadcast a cursor position from the server side. Make sure to handle subscription cleanup properly.",
+      "expected_output": "A component using useLiveStateSyncUtils() element API with setLiveStateData for writing, getLiveStateData().subscribe() for reading with unsubscribe cleanup, fetchLiveStateData for one-shot read, and a server-side REST broadcast example.",
+      "assertions": [
+        {
+          "id": "a1",
+          "text": "Uses useLiveStateSyncUtils() to get the LiveStateSyncElement (not useLiveState or the simple hooks)",
+          "type": "manual"
+        },
+        {
+          "id": "a2",
+          "text": "Calls setLiveStateData with merge: true for cursor position updates",
+          "type": "manual"
+        },
+        {
+          "id": "a3",
+          "text": "Uses getLiveStateData().subscribe() for reactive cursor position subscription",
+          "type": "manual"
+        },
+        {
+          "id": "a4",
+          "text": "Properly cleans up subscription (unsubscribe in useEffect return or equivalent)",
+          "type": "manual"
+        },
+        {
+          "id": "a5",
+          "text": "Uses fetchLiveStateData for one-shot read of current cursor positions on mount",
+          "type": "manual"
+        },
+        {
+          "id": "a6",
+          "text": "Shows REST API broadcast to POST https://api.velt.dev/v1/livestate/broadcast (or v2) with correct headers (x-velt-api-key, x-velt-auth-token)",
+          "type": "manual"
+        },
+        {
+          "id": "a7",
+          "text": "Uses authProvider on VeltProvider (not useIdentify)",
+          "type": "manual"
+        },
+        {
+          "id": "a8",
+          "text": "Data persists indefinitely warning or cleanup consideration is mentioned or implemented",
+          "type": "manual"
+        }
+      ],
+      "files": []
+    }
+  ]
+}
