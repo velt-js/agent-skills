@@ -1,6 +1,6 @@
 # Velt Notifications Best Practices
 
-**Version 1.1.0**  
+**Version 1.1.1**  
 Velt  
 January 2026
 
@@ -466,15 +466,13 @@ function SettingsHandler() {
 **SDK API Alternative:**
 
 ```jsx
-import { useVeltClient } from '@veltdev/react';
+import { useNotificationUtils } from '@veltdev/react';
 
 function NotificationData() {
-  const { client } = useVeltClient();
+  const notificationElement = useNotificationUtils();
 
   useEffect(() => {
-    if (!client) return;
-
-    const notificationElement = client.getNotificationElement();
+    if (!notificationElement) return;
 
     // Subscribe to notifications
     const subscription = notificationElement
@@ -494,7 +492,7 @@ function NotificationData() {
       subscription.unsubscribe();
       countSub.unsubscribe();
     };
-  }, [client]);
+  }, [notificationElement]);
 }
 ```
 

@@ -4,7 +4,7 @@ description: Velt Notifications implementation patterns and best practices for R
 license: MIT
 metadata:
   author: velt
-  version: "1.1.0"
+  version: "1.1.1"
 ---
 
 # Velt Notifications Best Practices
