@@ -54,16 +54,18 @@ Comprehensive Velt Comments implementation guide covering comment modes, setup p
    - 3.3 [Use Comment Thread to Render Existing Comments](#33-use-comment-thread-to-render-existing-comments)
 
 4. [Comment Surfaces](#4-comment-surfaces) — **MEDIUM-HIGH**
-   - 4.1 [Use Comments Sidebar for Comment Navigation](#41-use-comments-sidebar-for-comment-navigation)
-   - 4.2 [Use Sidebar Button to Toggle Comments Panel](#42-use-sidebar-button-to-toggle-comments-panel)
-   - 4.3 [Use VeltCommentsSidebarV2 for Primitive-Architecture Sidebar Customization](#43-use-veltcommentssidebarv2-for-primitive-architecture-sidebar-customization)
+   - 4.1 [Comments Sidebar Setup, Modes, and Configuration](#41-comments-sidebar-setup-modes-and-configuration)
+   - 4.2 [Use Comments Sidebar for Comment Navigation](#42-use-comments-sidebar-for-comment-navigation)
+   - 4.3 [Use Sidebar Button to Toggle Comments Panel](#43-use-sidebar-button-to-toggle-comments-panel)
+   - 4.4 [Use VeltCommentsSidebarV2 for Primitive-Architecture Sidebar Customization](#44-use-veltcommentssidebarv2-for-primitive-architecture-sidebar-customization)
 
 5. [UI Customization](#5-ui-customization) — **MEDIUM**
    - 5.1 [Customize Comment Bubble Display](#51-customize-comment-bubble-display)
    - 5.2 [Customize Comment Dialog Appearance](#52-customize-comment-dialog-appearance)
    - 5.3 [Set defaultCondition on V2 Primitive Sub-Components to Control Default Rendering](#53-set-defaultcondition-on-v2-primitive-sub-components-to-control-default-rendering)
    - 5.4 [Use Standalone Autocomplete Primitives for Custom Autocomplete UIs](#54-use-standalone-autocomplete-primitives-for-custom-autocomplete-uis)
-   - 5.5 [Use Wireframe Components for Custom UI](#55-use-wireframe-components-for-custom-ui)
+   - 5.5 [Use VeltCommentDialogAgentSuggestion Primitives for Custom AI Suggestion UIs](#55-use-veltcommentdialogagentsuggestion-primitives-for-custom-ai-suggestion-uis)
+   - 5.6 [Use Wireframe Components for Custom UI](#56-use-wireframe-components-for-custom-ui)
 
 6. [Data Model](#6-data-model) — **MEDIUM**
    - 6.1 [Filter and Group Comments](#61-filter-and-group-comments)
@@ -89,8 +91,10 @@ Comprehensive Velt Comments implementation guide covering comment modes, setup p
    - 8.3 [Prefer Past-Tense Event Aliases commentToolClicked and sidebarButtonClicked in New Code](#83-prefer-past-tense-event-aliases-commenttoolclicked-and-sidebarbuttonclicked-in-new-code)
    - 8.4 [Register an Anonymous User Data Provider to Resolve Tagged Contact Emails to User IDs](#84-register-an-anonymous-user-data-provider-to-resolve-tagged-contact-emails-to-user-ids)
    - 8.5 [Show a Visibility Banner in the Comment Composer for Multi-Level Visibility Selection](#85-show-a-visibility-banner-in-the-comment-composer-for-multi-level-visibility-selection)
-   - 8.6 [Use commentSaveTriggered for Immediate UI Feedback Before Async Save Completes](#86-use-commentsavetriggered-for-immediate-ui-feedback-before-async-save-completes)
-   - 8.7 [Use the commentSaved Event for Reliable Post-Persist Side-Effects](#87-use-the-commentsaved-event-for-reliable-post-persist-side-effects)
+   - 8.6 [Use CommentDialogActionService.isSubmitInFlight() to Guard Against Duplicate Submits](#86-use-commentdialogactionserviceissubmitinflight-to-guard-against-duplicate-submits)
+   - 8.7 [Use commentSaveTriggered for Immediate UI Feedback Before Async Save Completes](#87-use-commentsavetriggered-for-immediate-ui-feedback-before-async-save-completes)
+   - 8.8 [Use isAnnotationPrivate() for Unified Visibility Routing](#88-use-isannotationprivate-for-unified-visibility-routing)
+   - 8.9 [Use the commentSaved Event for Reliable Post-Persist Side-Effects](#89-use-the-commentsaved-event-for-reliable-post-persist-side-effects)
 
 9. [Attachments & Reactions](#9-attachments-reactions) — **MEDIUM**
    - 9.1 [Attachments & Reactions](#91-attachments-reactions)
@@ -108,6 +112,7 @@ Comprehensive Velt Comments implementation guide covering comment modes, setup p
    - 10.9 [Programmatic Sidebar Data, Filtering, and Configuration](#109-programmatic-sidebar-data-filtering-and-configuration)
    - 10.10 [Restrict Comment Placement to Specific DOM Elements](#1010-restrict-comment-placement-to-specific-dom-elements)
    - 10.11 [UI/UX Toggle Methods — Comment Display, Interaction, and Behavior](#1011-uiux-toggle-methods-comment-display-interaction-and-behavior)
+   - 10.12 [Use accessModes in Sidebar Filters for Privacy-Based Filtering](#1012-use-accessmodes-in-sidebar-filters-for-privacy-based-filtering)
 
 11. [Events](#11-events) — **MEDIUM**
    - 11.1 [Comment Lifecycle Events — Pin Clicks, Add Events, Button Clicks](#111-comment-lifecycle-events-pin-clicks-add-events-button-clicks)
@@ -3252,7 +3257,120 @@ export default function KanbanBoard() {
 
 Navigation and display surfaces for comments. Includes the Comments Sidebar, the V2 primitive-architecture sidebar, and related toggle components.
 
-### 4.1 Use Comments Sidebar for Comment Navigation
+### 4.1 Comments Sidebar Setup, Modes, and Configuration
+
+**Impact: MEDIUM-HIGH (Sidebar is the primary surface for viewing, filtering, and navigating all comments — incorrect setup leads to missing sidebar or broken navigation)**
+
+The comments sidebar has multiple display modes, each with specific component requirements. Choosing the wrong mode or omitting a required component results in a broken or invisible sidebar.
+
+**Step 1 — Import and place components:**
+
+```jsx
+import {
+  VeltProvider,
+  VeltComments,
+  VeltCommentsSidebar,
+  VeltSidebarButton,
+  VeltCommentTool
+} from '@veltdev/react';
+
+export default function App() {
+  return (
+    <VeltProvider apiKey="API_KEY">
+      <VeltComments />
+      <VeltCommentsSidebar />
+      <div className="toolbar">
+        <VeltSidebarButton />
+        <VeltCommentTool />
+      </div>
+    </VeltProvider>
+  );
+}
+```
+
+**Embed mode:**
+
+```jsx
+<div className="sidebar-container">
+  <VeltCommentsSidebar embedMode={true} />
+</div>
+```
+
+**Floating mode (on the button, NOT the sidebar):**
+
+```jsx
+<VeltSidebarButton floatingMode={true} />
+```
+
+**Focused thread mode with navigation callback:**
+
+```jsx
+<VeltCommentsSidebar
+  focusedThreadMode={true}
+  openAnnotationInFocusMode={true}
+  onCommentNavigationButtonClick={(event) => {
+    const { pageId } = event.location;
+    navigateToPage(pageId);
+  }}
+/>
+```
+
+**Step 3 — Configure filters, grouping, and sort:**
+
+```jsx
+const filterConfig = {
+  location: { enable: true, name: 'Pages', enableGrouping: true, multiSelection: true },
+  people: { enable: true, name: 'Author', enableGrouping: true },
+  priority: { enable: true, name: 'Priority' },
+  status: { enable: true, name: 'Status' },
+  category: { enable: true, name: 'Category', enableGrouping: true },
+};
+
+<VeltCommentsSidebar
+  filterConfig={filterConfig}
+  groupConfig={{ enable: true, name: 'Group By' }}
+  sortOrder="desc"
+  sortBy="lastUpdated"
+  filterPanelLayout="menu"
+  position="right"
+/>
+```
+
+**Step 4 — Handle navigation events:**
+
+```jsx
+<VeltCommentsSidebar
+  onCommentClick={(event) => {
+    const { pageId } = event.location;
+    navigateToPage(pageId);
+  }}
+/>
+```
+
+**Programmatic open/close:**
+
+```jsx
+const commentElement = client.getCommentElement();
+commentElement.openCommentSidebar();
+commentElement.closeCommentSidebar();
+commentElement.toggleCommentSidebar();
+```
+
+**V2 Sidebar (primitive-based):**
+
+```jsx
+import { VeltCommentsSidebarV2 } from '@veltdev/react';
+
+<VeltCommentsSidebarV2 />
+// or
+<VeltCommentsSidebar version="2" />
+```
+
+V2 replaces the per-category filter panel with a unified `FilterDropdown`. For V2 wireframe customization, see the Comment Sidebar V2 Structure docs.
+
+---
+
+### 4.2 Use Comments Sidebar for Comment Navigation
 
 **Impact: MEDIUM-HIGH (Central panel for viewing, filtering, and navigating all comments)**
 
@@ -3357,7 +3475,7 @@ export default function App() {
 
 ---
 
-### 4.2 Use Sidebar Button to Toggle Comments Panel
+### 4.3 Use Sidebar Button to Toggle Comments Panel
 
 **Impact: MEDIUM-HIGH (User control for showing/hiding comments sidebar)**
 
@@ -3436,7 +3554,7 @@ export default function App() {
 
 ---
 
-### 4.3 Use VeltCommentsSidebarV2 for Primitive-Architecture Sidebar Customization
+### 4.4 Use VeltCommentsSidebarV2 for Primitive-Architecture Sidebar Customization
 
 **Impact: MEDIUM-HIGH (Full composability of every sidebar UI section via 27+ independently importable primitives, enabling precise customization without forking the entire component)**
 
@@ -3837,7 +3955,96 @@ import { VeltWireframe, VeltAutocompleteEmptyWireframe } from '@veltdev/react';
 
 ---
 
-### 5.5 Use Wireframe Components for Custom UI
+### 5.5 Use VeltCommentDialogAgentSuggestion Primitives for Custom AI Suggestion UIs
+
+**Impact: MEDIUM (Agent suggestion primitives enable fully custom accept/reject UIs for AI-generated suggestions within comment dialogs)**
+
+The `VeltCommentDialogAgentSuggestion*` primitive family provides 21 composable components for building custom UIs around AI agent suggestions within comment dialogs. These are used when suggestions are created via the Velt Suggestions API and rendered in comment threads.
+
+**Component hierarchy:**
+
+```typescript
+VeltCommentDialogAgentSuggestionBanner          — resolution banner (after accept/reject)
+├── VeltCommentDialogAgentSuggestionBannerAvatar
+│   ├── VeltCommentDialogAgentSuggestionBannerAvatarUserImage
+│   └── VeltCommentDialogAgentSuggestionBannerAvatarStatusIcon
+├── VeltCommentDialogAgentSuggestionBannerLabel
+├── VeltCommentDialogAgentSuggestionBannerSeparator
+├── VeltCommentDialogAgentSuggestionBannerResolverUserName
+└── VeltCommentDialogAgentSuggestionBannerTimestamp
+
+VeltCommentDialogAgentSuggestionHeaderTimestamp  — relative time in suggestion header
+VeltCommentDialogAgentSuggestionHeaderMenu       — overflow menu (3-dot)
+├── VeltCommentDialogAgentSuggestionHeaderMenuTrigger
+└── VeltCommentDialogAgentSuggestionHeaderMenuContent
+    └── VeltCommentDialogAgentSuggestionHeaderMenuContentItem
+        ├── VeltCommentDialogAgentSuggestionHeaderMenuContentItemIcon
+        └── VeltCommentDialogAgentSuggestionHeaderMenuContentItemLabel
+
+VeltCommentDialogAgentSuggestionBody             — suggestion title + content
+VeltCommentDialogAgentSuggestionFooter           — footer container
+└── VeltCommentDialogAgentSuggestionFooterOpenComment  — navigate to full thread
+
+VeltCommentDialogAgentSuggestionActions          — accept/reject button group
+├── VeltCommentDialogAgentSuggestionActionsActionAccept
+└── VeltCommentDialogAgentSuggestionActionsActionReject
+```
+
+**Usage pattern — Context Wrapper (recommended):**
+
+```jsx
+<VeltCommentDialogContextWrapper annotationId="abc123">
+  <VeltCommentDialogAgentSuggestionBody />
+  <VeltCommentDialogAgentSuggestionActions>
+    <VeltCommentDialogAgentSuggestionActionsActionAccept />
+    <VeltCommentDialogAgentSuggestionActionsActionReject />
+  </VeltCommentDialogAgentSuggestionActions>
+  <VeltCommentDialogAgentSuggestionBanner />
+</VeltCommentDialogContextWrapper>
+```
+
+**Usage pattern — Standalone (ID-based):**
+
+```jsx
+<VeltCommentDialogAgentSuggestionBody annotationId="abc123" />
+<VeltCommentDialogAgentSuggestionActions annotationId="abc123" />
+```
+
+**Custom resolution banner example:**
+
+```jsx
+<VeltCommentDialogAgentSuggestionBanner annotationId="abc123">
+  <VeltCommentDialogAgentSuggestionBannerAvatar>
+    <VeltCommentDialogAgentSuggestionBannerAvatarUserImage />
+    <VeltCommentDialogAgentSuggestionBannerAvatarStatusIcon />
+  </VeltCommentDialogAgentSuggestionBannerAvatar>
+  <VeltCommentDialogAgentSuggestionBannerLabel />
+  <VeltCommentDialogAgentSuggestionBannerSeparator />
+  <VeltCommentDialogAgentSuggestionBannerResolverUserName />
+  <VeltCommentDialogAgentSuggestionBannerTimestamp />
+</VeltCommentDialogAgentSuggestionBanner>
+```
+
+**Custom suggestion header with overflow menu:**
+
+```jsx
+<VeltCommentDialogAgentSuggestionHeaderTimestamp annotationId="abc123" />
+<VeltCommentDialogAgentSuggestionHeaderMenu annotationId="abc123">
+  <VeltCommentDialogAgentSuggestionHeaderMenuTrigger />
+  <VeltCommentDialogAgentSuggestionHeaderMenuContent>
+    <VeltCommentDialogAgentSuggestionHeaderMenuContentItem>
+      <VeltCommentDialogAgentSuggestionHeaderMenuContentItemIcon />
+      <VeltCommentDialogAgentSuggestionHeaderMenuContentItemLabel />
+    </VeltCommentDialogAgentSuggestionHeaderMenuContentItem>
+  </VeltCommentDialogAgentSuggestionHeaderMenuContent>
+</VeltCommentDialogAgentSuggestionHeaderMenu>
+```
+
+**HTML equivalents:** All components have kebab-case HTML custom element counterparts (e.g., `<velt-comment-dialog-agent-suggestion-banner>`). HTML uses string attributes (`annotation-id`, `default-condition="true"`), React uses camelCase props with actual booleans/objects.
+
+---
+
+### 5.6 Use Wireframe Components for Custom UI
 
 **Impact: MEDIUM (Build fully custom comment UIs with wireframe building blocks)**
 
@@ -4396,6 +4603,15 @@ interface CommentAnnotation {
   lastUpdated?: number;                // Last update timestamp (ms)
   resolved?: boolean;                  // Whether thread is resolved
   resolvedByUser?: User;               // Who resolved it
+  commentType?: string;                // Secondary discriminator, e.g. 'suggestion' for agent suggestions
+  sourceType?: string;                 // Origin of annotation — selects agent-identity vs human-author header
+  agent?: CommentAnnotationAgent;      // Present when annotation was authored by an AI agent
+  suggestion?: CommentAnnotationSuggestion; // Suggestion state for typed-suggestion annotations
+  basicAnchorData?: {                  // Client-safe anchor data derived from target element xpath
+    xpath: string;                     // From targetElement.anchor.fXPath (fallback: targetElement.fXpath)
+    topPercentage: number;             // Defaults to 0 when not set
+    leftPercentage: number;            // Defaults to 0 when not set
+  };
 }
 ```
 
@@ -4505,6 +4721,33 @@ interface CommentSidebarData {
   metadata?: Record<string, any>;
 }
 ```
+
+**CommentAnnotationAgent (AI agent identity on agent-authored annotations):**
+
+```typescript
+interface CommentAnnotationAgent {
+  name?: string;            // Agent display name shown in suggestion header
+  photoUrl?: string;        // Agent avatar URL (falls back to default icon)
+  result?: AgentResult;     // Structured output produced by the agent
+  agentFields?: string[];   // Tags for filtering via agentFields on CommentRequestQuery
+}
+
+interface AgentResult {
+  title?: string;           // Bold title at top of Agent Suggestion card body
+}
+```
+
+**CommentAnnotationSuggestion (suggestion state for typed-suggestion annotations):**
+
+```typescript
+interface CommentAnnotationSuggestion {
+  status?: 'pending' | 'accepted' | 'rejected';
+  acceptedByUserId?: string;
+  rejectedByUserId?: string;
+}
+```
+
+Suggestion state is mutated by `acceptSuggestion()` / `rejectSuggestion()` API methods. The `commentType` field on the parent annotation is `'suggestion'` for agent suggestion comments. The `sourceType` field selects the agent-identity vs human-author header variant rendered in the UI.
 
 Reference: https://docs.velt.dev/api-reference/sdk/models/data-models - Comments
 
@@ -5867,7 +6110,50 @@ interface VisibilityOptionClickedEvent {
 
 ---
 
-### 8.6 Use commentSaveTriggered for Immediate UI Feedback Before Async Save Completes
+### 8.6 Use CommentDialogActionService.isSubmitInFlight() to Guard Against Duplicate Submits
+
+**Impact: LOW-MEDIUM (Without in-flight tracking, custom submit actions in sidebar custom-actions hosts can trigger duplicate comment saves or spurious draft events)**
+
+When building custom-actions sidebar hosts that intercept the comment submit flow, `CommentDialogActionService.isSubmitInFlight()` prevents duplicate submits and spurious auto-draft saves that fire before the composer reset signal propagates.
+
+**API:**
+
+```jsx
+import { CommentDialogActionService } from '@veltdev/react';
+
+// Check if a submit is currently in flight for a specific dialog instance
+const inFlight = CommentDialogActionService.isSubmitInFlight(dialogInstanceId);
+
+// If omitted, returns false — the in-flight flag is only tracked per dialogInstanceId
+const inFlightAny = CommentDialogActionService.isSubmitInFlight();
+```
+
+**Correct (guard custom submit handler):**
+
+```jsx
+function handleCustomSubmit(dialogInstanceId) {
+  if (CommentDialogActionService.isSubmitInFlight(dialogInstanceId)) {
+    return; // already submitting — skip
+  }
+  // proceed with submit
+  commentElement.submitComment({ targetComposerElementId: dialogInstanceId });
+}
+```
+
+**Correct (skip auto-draft-save during active submit):**
+
+```jsx
+function handleAutoSave(dialogInstanceId) {
+  if (CommentDialogActionService.isSubmitInFlight(dialogInstanceId)) {
+    return; // suppress draft save during submit
+  }
+  // save draft
+}
+```
+
+---
+
+### 8.7 Use commentSaveTriggered for Immediate UI Feedback Before Async Save Completes
 
 **Impact: LOW (Show spinners or disable UI the moment the user clicks save — before the database write — without reacting too late with the post-persist commentSaved event)**
 
@@ -5943,7 +6229,86 @@ interface CommentSaveTriggeredEvent {
 
 ---
 
-### 8.7 Use the commentSaved Event for Reliable Post-Persist Side-Effects
+### 8.8 Use isAnnotationPrivate() for Unified Visibility Routing
+
+**Impact: MEDIUM (Without the shared isAnnotationPrivate() utility, privacy checks miss annotations using the new visibilityConfig field and only detect legacy iam.accessMode)**
+
+Velt has two mechanisms for marking comments as private: the legacy `iam.accessMode === 'private'` field and the newer `visibilityConfig.type` field (which can be `'restricted'` or `'organizationPrivate'`). The SDK's shared `isAnnotationPrivate()` utility checks both, so you should always route through it rather than checking a single field.
+
+**Incorrect (only checking legacy field):**
+
+```jsx
+// Wrong: misses annotations set via updateVisibility({ type: 'restricted' })
+const isPrivate = annotation.iam?.accessMode === 'private';
+```
+
+**How to set visibility:**
+
+```jsx
+const commentElement = client.getCommentElement();
+
+// Per-annotation: make restricted to specific users
+commentElement.updateVisibility({
+  annotationId: 'ann-123',
+  type: 'restricted',
+  userIds: ['user-1', 'user-2']
+});
+
+// Per-annotation: organization-private
+commentElement.updateVisibility({
+  annotationId: 'ann-123',
+  type: 'organizationPrivate',
+  organizationId: 'org-123'
+});
+
+// Per-annotation: public
+commentElement.updateVisibility({
+  annotationId: 'ann-123',
+  type: 'public'
+});
+
+// Global default for all new comments in session
+commentElement.enablePrivateMode({ type: 'restricted', userIds: ['user-1'] });
+
+// Revert to public default
+commentElement.disablePrivateMode();
+```
+
+**Visibility options UI (let users choose before submitting):**
+
+```jsx
+<VeltComments visibilityOptions={true} />
+```
+
+This shows a visibility banner on the composer letting users pick `public`, `organization-private`, `restricted-self`, or `restricted` before submitting.
+
+**Listen for visibility selection:**
+
+```jsx
+const event = useCommentEventCallback('visibilityOptionClicked');
+useEffect(() => {
+  if (event) {
+    console.log('User selected visibility:', event);
+  }
+}, [event]);
+```
+
+**Set visibility at comment creation time (programmatic):**
+
+```jsx
+const { addComment } = useAddComment();
+await addComment({
+  annotationId: 'ANNOTATION_ID',
+  comment: { commentText: 'Private note', commentHtml: '<p>Private note</p>' },
+  visibility: { type: 'restricted', userIds: ['user-1'] }
+});
+```
+
+**Two enum systems:** The API methods use `CommentVisibilityConfig` with 3 values (`'public'`, `'organizationPrivate'`, `'restricted'`). The UI wireframes use `CommentVisibilityOption` with 4 values (`'restrictedSelf'`, `'restrictedSelectedPeople'`, `'organizationPrivate'`, `'public'`). The API's single `'restricted'` value covers both "self-only" and "selected people" — distinguished by whether `userIds` is provided.
+
+---
+
+### 8.9 Use the commentSaved Event for Reliable Post-Persist Side-Effects
 
 **Impact: LOW (Trigger webhooks, analytics, or external sync only after database write confirmation — not prematurely on optimistic UI updates)**
 
@@ -6933,6 +7298,59 @@ commentElement.disableRecordingTranscription();
 ```
 
 Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior - UI/UX
+
+---
+
+### 10.12 Use accessModes in Sidebar Filters for Privacy-Based Filtering
+
+**Impact: MEDIUM (Without accessModes, sidebar cannot distinguish public from private comments — custom privacy filters will not work)**
+
+The sidebar system filter `accessModes` lets you filter comments by privacy level. It accepts `'public'` and/or `'private'` and works with both the legacy `iam.accessMode` field and the new `visibilityConfig` field — `restricted` and `organizationPrivate` map to `'private'`; `public` or unset maps to `'public'`.
+
+**Incorrect (trying to filter private comments by status or custom logic):**
+
+```jsx
+// Wrong: there is no "private" status — privacy is not a status filter
+const filters = { status: ['PRIVATE'] };
+commentElement.setCommentSidebarFilters(filters);
+```
+
+**Correct (filter sidebar to show only private comments):**
+
+```jsx
+const filters = {
+  accessModes: ['private'],
+};
+
+// Via prop
+<VeltCommentsSidebar filters={filters} />
+
+// Via API
+const commentElement = client.getCommentElement();
+commentElement.setCommentSidebarFilters(filters);
+```
+
+**Correct (filter sidebar to show only public comments):**
+
+```jsx
+const filters = {
+  accessModes: ['public'],
+};
+commentElement.setCommentSidebarFilters(filters);
+```
+
+**Correct (combine accessModes with other filters):**
+
+```jsx
+const filters = {
+  status: ['OPEN'],
+  people: [{ userId: 'user-1' }],
+  accessModes: ['private'],
+};
+commentElement.setCommentSidebarFilters(filters);
+```
+
+**Custom filter dropdown in wireframe:** If you build a custom privacy filter dropdown inside `<velt-comments-sidebar-wireframe>`, drive `accessModes` through the same `setCommentSidebarFilters()` API. The filter is resolved server-side by the sidebar pipeline, so your custom UI only needs to write the array.
 
 ---
 

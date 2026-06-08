@@ -1,15 +1,15 @@
 ---
 name: velt-setup-best-practices
-description: Velt collaboration SDK setup guide for React, Next.js, Angular, Vue, and HTML applications. Use this skill when setting up Velt for the first time, configuring VeltProvider, implementing user authentication with authProvider and JWT tokens, initializing document collaboration with setDocuments, or debugging Velt setup issues. Triggers on any task involving Velt installation, VeltProvider configuration, auth token generation, document identity setup, or project structure for Velt integration — even if the user doesn't explicitly mention "setup".
+description: Velt collaboration SDK setup guide for React, Next.js, Angular, Vue, and HTML applications. Use this skill when setting up Velt for the first time, configuring VeltProvider, implementing user authentication with authProvider and JWT tokens, initializing document collaboration with setDocuments, adding VeltUserInviteTool for share & invite flows, or debugging Velt setup issues. Triggers on any task involving Velt installation, VeltProvider configuration, auth token generation, document identity setup, share/invite components, or project structure for Velt integration — even if the user doesn't explicitly mention "setup".
 license: MIT
 metadata:
   author: velt
-  version: "1.0.0"
+  version: "1.2.0"
 ---
 
 # Velt Setup Best Practices
 
-Comprehensive setup guide for Velt collaboration SDK. Contains 24 rules across 8 categories covering installation, authentication, document setup, and project organization.
+Comprehensive setup guide for Velt collaboration SDK. Contains 25 rules across 9 categories covering installation, authentication, document setup, and project organization.
 
 ## When to Apply
 
@@ -32,7 +32,8 @@ Reference these guidelines when:
 | 5 | Config | HIGH | `config-` |
 | 6 | Project Structure | MEDIUM | `structure-` |
 | 7 | Routing Surfaces | MEDIUM | `surface-` |
-| 8 | Debugging & Testing | LOW-MEDIUM | `debug-` |
+| 8 | Components | MEDIUM | `component-` |
+| 9 | Debugging & Testing | LOW-MEDIUM | `debug-` |
 
 ## How to Use
 

@@ -2,7 +2,7 @@
 title: Comments Data Type Reference — Core Models
 impact: MEDIUM
 impactDescription: Type definitions for comment annotations, comments, status, priority, attachments
-tags: CommentAnnotation, Comment, Status, Priority, Attachment, Location, TargetElement, CommentRequestQuery, AddCommentAnnotationRequest, CommentSidebarData, types, models
+tags: CommentAnnotation, Comment, Status, Priority, Attachment, Location, TargetElement, CommentRequestQuery, AddCommentAnnotationRequest, CommentSidebarData, CommentAnnotationAgent, AgentResult, CommentAnnotationSuggestion, basicAnchorData, commentType, sourceType, types, models
 ---
 
 ## Comments Data Type Reference — Core Models
@@ -31,6 +31,15 @@ interface CommentAnnotation {
   lastUpdated?: number;                // Last update timestamp (ms)
   resolved?: boolean;                  // Whether thread is resolved
   resolvedByUser?: User;               // Who resolved it
+  commentType?: string;                // Secondary discriminator, e.g. 'suggestion' for agent suggestions
+  sourceType?: string;                 // Origin of annotation — selects agent-identity vs human-author header
+  agent?: CommentAnnotationAgent;      // Present when annotation was authored by an AI agent
+  suggestion?: CommentAnnotationSuggestion; // Suggestion state for typed-suggestion annotations
+  basicAnchorData?: {                  // Client-safe anchor data derived from target element xpath
+    xpath: string;                     // From targetElement.anchor.fXPath (fallback: targetElement.fXpath)
+    topPercentage: number;             // Defaults to 0 when not set
+    leftPercentage: number;            // Defaults to 0 when not set
+  };
 }
 ```
 
@@ -141,10 +150,38 @@ interface CommentSidebarData {
 }
 ```
 
+**CommentAnnotationAgent (AI agent identity on agent-authored annotations):**
+
+```typescript
+interface CommentAnnotationAgent {
+  name?: string;            // Agent display name shown in suggestion header
+  photoUrl?: string;        // Agent avatar URL (falls back to default icon)
+  result?: AgentResult;     // Structured output produced by the agent
+  agentFields?: string[];   // Tags for filtering via agentFields on CommentRequestQuery
+}
+
+interface AgentResult {
+  title?: string;           // Bold title at top of Agent Suggestion card body
+}
+```
+
+**CommentAnnotationSuggestion (suggestion state for typed-suggestion annotations):**
+
+```typescript
+interface CommentAnnotationSuggestion {
+  status?: 'pending' | 'accepted' | 'rejected';
+  acceptedByUserId?: string;
+  rejectedByUserId?: string;
+}
+```
+
+Suggestion state is mutated by `acceptSuggestion()` / `rejectSuggestion()` API methods. The `commentType` field on the parent annotation is `'suggestion'` for agent suggestion comments. The `sourceType` field selects the agent-identity vs human-author header variant rendered in the UI.
+
 **Verification:**
 - [ ] Using correct types for all comment-related data
 - [ ] commentId is number, annotationId is string
 - [ ] Location.id is number, not string
 - [ ] Status.type is one of 'default', 'ongoing', 'terminal'
+- [ ] Agent-authored annotations check `annotation.agent` for identity, not custom fields
 
 **Source Pointer:** https://docs.velt.dev/api-reference/sdk/models/data-models - Comments

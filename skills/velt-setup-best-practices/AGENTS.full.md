@@ -1512,8 +1512,20 @@ interface DocumentConfig {
     documentName?: string;
     [key: string]: any;    // Custom metadata fields
   };
+  folderId?: string;       // Optional: attach document to a folder
+}
+// PermissionRequest.resource shape (received by your Permission Provider)
+{
+  type: PermissionResourceType;
+  id: string;
+  source: PermissionSource;
+  organizationId: string;
+  context?: Context;
+  parentFolderId?: string;   // present when folderId was set in setDocuments()
 }
 ```
+
+**Folder context in permissions:** When `folderId` is set, the SDK forwards it as `parentFolderId` in the `PermissionRequest.resource` sent to your Permission Provider. This lets the provider enforce folder-level access control when creating documents inside folders.
 
 **Multiple Documents:**
 

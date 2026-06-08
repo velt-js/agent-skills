@@ -1,15 +1,15 @@
 ---
 name: velt-comments-best-practices
-description: Velt Comments implementation patterns and best practices for React, Next.js, and web applications. Use when adding collaborative commenting features, comment modes (Freestyle, Popover, Stream, Text, Page), rich text editor comments (TipTap, SlateJS, Lexical), media player comments, chart comments, or binding Comment Bubble / Comment Dialog / Comment Tool wireframe slots via template variables (velt-data, velt-if, velt-class).
+description: Velt Comments implementation patterns and best practices for React, Next.js, and web applications. Use when adding collaborative commenting features, comment modes (Freestyle, Popover, Stream, Text, Page), rich text editor comments (TipTap, SlateJS, Lexical), media player comments, chart comments, comments sidebar setup and customization (embed mode, floating mode, focused thread, V2 sidebar), sidebar filtering with accessModes for privacy, isAnnotationPrivate() visibility routing, CommentDialogActionService.isSubmitInFlight() for duplicate-submit guards, VeltCommentDialogAgentSuggestion primitives for AI suggestion accept/reject UIs, or binding Comment Bubble / Comment Dialog / Comment Tool wireframe slots via template variables (velt-data, velt-if, velt-class).
 license: MIT
 metadata:
   author: velt
-  version: "1.1.3"
+  version: "1.3.0"
 ---
 
 # Velt Comments Best Practices
 
-Comprehensive implementation guide for Velt's collaborative comments feature in React and Next.js applications. Contains 80 rules across 13 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's collaborative comments feature in React and Next.js applications. Contains 85 rules across 13 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
@@ -73,6 +73,7 @@ Reference these guidelines when:
 ### 4. Comment Surfaces (MEDIUM-HIGH)
 
 - `surface-sidebar` - Comments sidebar component
+- `surface-sidebar-setup` - Sidebar setup, display modes (embed/floating/page/focused-thread/fullscreen), filterConfig, groupConfig, sortOrder, V2 sidebar, navigation events
 - `surface-sidebar-v2` - Primitive-architecture V2 sidebar with 27+ composable primitives, unified filter model, and focused-thread view
 - `surface-sidebar-button` - Toggle sidebar button
 
@@ -82,6 +83,7 @@ Reference these guidelines when:
 - `ui-comment-bubble` - Customize comment bubble
 - `ui-wireframes` - Use wireframe components
 - `ui-autocomplete-primitives` - Use standalone autocomplete primitive components to build custom autocomplete UIs without requiring the full VeltAutocomplete panel
+- `ui-agent-suggestion-primitives` - 21 VeltCommentDialogAgentSuggestion* primitives for custom AI suggestion accept/reject UIs, resolution banners, header menus, and footer navigation
 - `ui-v2-primitives` - Set defaultCondition={false} on V2 primitive sub-components to bypass SDK default show/hide logic when overriding sections in wireframe compositions
 
 ### 6. Data Model (MEDIUM)
@@ -105,6 +107,8 @@ Reference these guidelines when:
 - `permissions-comment-saved-event` - Subscribe to the commentSaved event for reliable post-persist side-effects (webhooks, analytics, external sync)
 - `permissions-visibility-option-dropdown` - Enable the visibility dropdown in the comment composer to let users select public or private before submitting, and subscribe to visibilityOptionClicked events
 - `permissions-comment-save-triggered-event` - Use commentSaveTriggered for immediate UI feedback (spinners, disabled states) on save button click — before the async database write completes
+- `permissions-visibility-routing` - Use isAnnotationPrivate() utility for unified privacy checks across legacy iam.accessMode and new visibilityConfig.type (restricted, organizationPrivate)
+- `permissions-submit-in-flight` - Use CommentDialogActionService.isSubmitInFlight(dialogInstanceId) to guard against duplicate submits in custom-actions sidebar hosts
 - `permissions-comment-interaction-events` - Prefer past-tense event aliases commentToolClicked and sidebarButtonClicked over the present-tense originals in new code
 - `permissions-anonymous-user-data-provider` - Register setAnonymousUserDataProvider() to resolve tagged contact emails to userIds at comment save time
 
@@ -122,6 +126,7 @@ Reference these guidelines when:
 - `config-navigation` - Navigation, deep linking, scroll-to-comment, shareable links
 - `config-dom-controls` - Restrict comment placement to specific DOM elements
 - `config-sidebar-management` - Programmatic sidebar data, filtering, and configuration
+- `config-sidebar-access-modes` - Use accessModes filter in setCommentSidebarFilters() for privacy-based sidebar filtering (public/private)
 - `config-ui-behavior` - UI/UX toggle methods — display, interaction, behavior (20+ methods)
 - `config-moderation` - Moderation workflows — approve, accept, reject, read-only
 - `config-component-props` - Typed props interfaces for VeltComments, VeltCommentDialog, VeltCommentsSidebar, VeltInlineCommentsSection — edit-mode placeholder overrides, assignToType, focus behavior

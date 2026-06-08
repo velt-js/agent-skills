@@ -1,8 +1,8 @@
 {
-  "version": "0.1.0",
+  "version": "0.2.0",
   "organization": "Velt",
-  "date": "May 2026",
-  "abstract": "Lean v0.1.0 draft. Implementation guide for the Velt Node SDK (@veltdev/node) covering its two backends — sdk.api.* (REST API, 17 services) and sdk.selfHosting.* (MongoDB + S3 self-hosted, 7 services + token) — with emphasis on the highest-impact differentiation: the two response envelopes, the lazy-load pattern for self-hosting services, the positional-arg surprise on getToken/getAttachment/saveAttachment, and the typed error class hierarchy. To be expanded based on eval results.",
+  "date": "June 2026",
+  "abstract": "Implementation guide for the Velt Node SDK (@veltdev/node) covering its two backends — sdk.api.* (REST API, 17 services) and sdk.selfHosting.* (MongoDB + S3 self-hosted, 7 services + token) — with emphasis on response envelopes, lazy-load pattern for self-hosting services, positional-arg surprise on getToken/getAttachment/saveAttachment, typed error class hierarchy, and data models (PartialCommentAnnotation, BaseMetadata, resolvedByUserId three-state semantics, round-trip dict helpers).",
   "references": [
     "https://docs.velt.dev",
     "https://docs.velt.dev/backend-sdks/node",

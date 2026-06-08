@@ -1,15 +1,15 @@
 ---
 name: velt-presence-best-practices
-description: "Velt Presence implementation patterns and best practices for React, Next.js, and web applications. Use when adding user presence avatars, online/away/offline status indicators, real-time cursor tracking, inactivity timeout configuration, location-based presence filtering, or presence data subscriptions. Triggers on any task involving user presence, active user avatars, who's online indicators, cursor sharing, VeltPresence, VeltCursor, or collaborative awareness features — even if the user doesn't explicitly say 'presence'."
+description: "Velt Presence implementation patterns and best practices for React, Next.js, and web applications. Use when adding user presence avatars, online/away/offline status indicators, real-time cursor tracking, inactivity timeout configuration, location-based presence filtering, presence data subscriptions, or flock mode (follow me) shared navigation sessions with enableFlockMode, startFollowingUser, stopFollowingUser, onNavigate callback, and defaultFlockNavigation. Triggers on any task involving user presence, active user avatars, who's online indicators, cursor sharing, VeltPresence, VeltCursor, follow-along features, or collaborative awareness features — even if the user doesn't explicitly say 'presence'."
 license: MIT
 metadata:
   author: velt
-  version: "1.1.0"
+  version: "1.2.0"
 ---
 
 # Velt Presence Best Practices
 
-Comprehensive implementation guide for Velt's real-time user presence and cursor tracking features. Contains 14 rules across 8 categories covering setup, configuration, data access, cursor sharing, events, UI customization, wireframe template variables, and debugging.
+Comprehensive implementation guide for Velt's real-time user presence and cursor tracking features. Contains 15 rules across 8 categories covering setup, configuration, data access, cursor sharing, events, UI customization, wireframe template variables, and debugging.
 
 ## When to Apply
 
@@ -20,6 +20,7 @@ Reference these guidelines when:
 - Subscribing to presence data or user state changes
 - Filtering presence by location or document
 - Customizing presence avatar UI with wireframes
+- Implementing flock mode (follow me) for shared navigation sessions
 - Debugging presence not showing or users appearing offline
 
 ## Rule Categories by Priority
@@ -51,6 +52,7 @@ Reference these guidelines when:
 - `config-max-users` — Avatar overflow control
 - `config-self-visibility` — Include/exclude current user
 - `config-location-presence` — Location-based presence filtering
+- `config-flock-mode` — Flock mode (follow me) setup, enableFlockMode, startFollowingUser/stopFollowingUser, onNavigate callback for SPA routing, defaultFlockNavigation
 
 ### Cursor (HIGH)
 - `cursor-setup` — VeltCursor for real-time cursor tracking on canvas

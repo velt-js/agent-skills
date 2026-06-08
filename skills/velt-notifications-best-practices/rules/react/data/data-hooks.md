@@ -104,18 +104,16 @@ function SettingsHandler() {
 }
 ```
 
-**SDK API Alternative:**
+**SDK API Alternative (using `useNotificationUtils()`):**
 
 ```jsx
-import { useVeltClient } from '@veltdev/react';
+import { useNotificationUtils } from '@veltdev/react';
 
 function NotificationData() {
-  const { client } = useVeltClient();
+  const notificationElement = useNotificationUtils();
 
   useEffect(() => {
-    if (!client) return;
-
-    const notificationElement = client.getNotificationElement();
+    if (!notificationElement) return;
 
     // Subscribe to notifications
     const subscription = notificationElement
@@ -135,7 +133,7 @@ function NotificationData() {
       subscription.unsubscribe();
       countSub.unsubscribe();
     };
-  }, [client]);
+  }, [notificationElement]);
 }
 ```
 

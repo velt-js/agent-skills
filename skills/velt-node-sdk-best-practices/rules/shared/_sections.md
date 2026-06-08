@@ -21,7 +21,14 @@
 
 ---
 
-## 4. Cross-cutting pitfalls (pitfalls)
+## 4. Data models (models)
+
+**Impact:** HIGH
+**Description:** TypeScript shapes for comment annotations and metadata used by both `sdk.api.commentAnnotations` and `sdk.selfHosting` services. Includes `PartialCommentAnnotation` (the update payload), `PartialComment`, `BaseMetadata`, `PartialTargetTextRange`, and round-trip dict helpers. Getting field names or semantics wrong (especially `resolvedByUserId`'s three-state contract) causes silent data corruption.
+
+---
+
+## 5. Cross-cutting pitfalls (pitfalls)
 
 **Impact:** MEDIUM
 **Description:** The traps that don't fit cleanly into one backend: `getToken` is positional on both backends; `sdk.selfHosting.token` is a synchronous property (no loader); typed error class discrimination via `instanceof`; envelope-confusion symptoms (`result.success is undefined` etc).

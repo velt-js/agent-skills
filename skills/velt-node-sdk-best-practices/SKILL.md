@@ -4,7 +4,7 @@ description: Velt Node SDK (`@veltdev/node`) implementation patterns for Node.js
 license: MIT
 metadata:
   author: velt
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Velt Node SDK Best Practices

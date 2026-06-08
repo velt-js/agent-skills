@@ -10,7 +10,7 @@
 |shared/data:{data-presence-hooks.md,data-presence-api.md}
 
 ## 3. Configuration — HIGH-MEDIUM
-|shared/config:{config-inactivity-time.md,config-max-users.md,config-self-visibility.md,config-location-presence.md}
+|shared/config:{config-flock-mode.md,config-inactivity-time.md,config-max-users.md,config-self-visibility.md,config-location-presence.md}
 
 ## 4. Cursor — HIGH
 |react/cursor:{cursor-setup.md}

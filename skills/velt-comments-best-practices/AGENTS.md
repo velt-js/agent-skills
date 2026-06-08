@@ -16,10 +16,10 @@
 |shared/standalone:{standalone-comment-composer.md,standalone-comment-thread.md}
 
 ## 4. Comment Surfaces — MEDIUM-HIGH
-|shared/surface:{surface-sidebar.md,surface-sidebar-button.md,surface-sidebar-v2.md}
+|shared/surface:{surface-sidebar-setup.md,surface-sidebar.md,surface-sidebar-button.md,surface-sidebar-v2.md}
 
 ## 5. UI Customization — MEDIUM
-|shared/ui:{ui-comment-bubble.md,ui-comment-dialog.md,ui-v2-primitives.md,ui-autocomplete-primitives.md,ui-wireframes.md}
+|shared/ui:{ui-comment-bubble.md,ui-comment-dialog.md,ui-v2-primitives.md,ui-autocomplete-primitives.md,ui-agent-suggestion-primitives.md,ui-wireframes.md}
 
 ## 6. Data Model — MEDIUM
 |react/data:{data-filtering-grouping.md,data-comment-annotations.md}
@@ -29,13 +29,13 @@
 |react/debug:{debug-common-issues.md,debug-verification.md}
 
 ## 8. Moderation & Permissions — LOW
-|shared/permissions:{permissions-private-mode.md,README.md,permissions-comment-interaction-events.md,permissions-anonymous-user-data-provider.md,permissions-visibility-option-dropdown.md,permissions-comment-save-triggered-event.md,permissions-comment-saved-event.md}
+|shared/permissions:{permissions-private-mode.md,README.md,permissions-comment-interaction-events.md,permissions-anonymous-user-data-provider.md,permissions-visibility-option-dropdown.md,permissions-submit-in-flight.md,permissions-comment-save-triggered-event.md,permissions-visibility-routing.md,permissions-comment-saved-event.md}
 
 ## 9. Attachments & Reactions — MEDIUM
 |shared/attach:{README.md,attach-download-control.md}
 
 ## 10. Configuration — MEDIUM
-|shared/config:{config-moderation.md,config-navigation.md,config-component-props.md,config-mentions-contacts.md,config-attachments.md,config-status-priority.md,config-reactions.md,config-text-formatting.md,config-sidebar-management.md,config-dom-controls.md,config-ui-behavior.md}
+|shared/config:{config-moderation.md,config-navigation.md,config-component-props.md,config-mentions-contacts.md,config-attachments.md,config-status-priority.md,config-reactions.md,config-text-formatting.md,config-sidebar-management.md,config-dom-controls.md,config-ui-behavior.md,config-sidebar-access-modes.md}
 
 ## 11. Events — MEDIUM
 |shared/events:{events-comment-lifecycle.md}

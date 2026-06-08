@@ -30,10 +30,11 @@ Comprehensive Velt Presence implementation guide covering user-presence avatars,
    - 2.2 [Use Vanilla JS API for Presence Data](#22-use-vanilla-js-api-for-presence-data)
 
 3. [Configuration](#3-configuration) — **HIGH-MEDIUM**
-   - 3.1 [Configure Inactivity and Offline Timeouts](#31-configure-inactivity-and-offline-timeouts)
-   - 3.2 [Control Avatar Overflow with maxUsers](#32-control-avatar-overflow-with-maxusers)
-   - 3.3 [Control Current User Visibility in Presence](#33-control-current-user-visibility-in-presence)
-   - 3.4 [Filter Presence by Location within a Document](#34-filter-presence-by-location-within-a-document)
+   - 3.1 [Configure Flock Mode (Follow Me) for Shared Navigation Sessions](#31-configure-flock-mode-follow-me-for-shared-navigation-sessions)
+   - 3.2 [Configure Inactivity and Offline Timeouts](#32-configure-inactivity-and-offline-timeouts)
+   - 3.3 [Control Avatar Overflow with maxUsers](#33-control-avatar-overflow-with-maxusers)
+   - 3.4 [Control Current User Visibility in Presence](#34-control-current-user-visibility-in-presence)
+   - 3.5 [Filter Presence by Location within a Document](#35-filter-presence-by-location-within-a-document)
 
 4. [Cursor](#4-cursor) — **HIGH**
    - 4.1 [Set Up VeltCursor for Real-Time Cursor Tracking](#41-set-up-veltcursor-for-real-time-cursor-tracking)
@@ -381,7 +382,94 @@ const subscription = presenceElement
 
 Behavior knobs for the Presence component. Covers away/offline inactivity timeouts, avatar overflow (`maxUsers`), self-visibility (include/exclude current user), and location-based filtering.
 
-### 3.1 Configure Inactivity and Offline Timeouts
+### 3.1 Configure Flock Mode (Follow Me) for Shared Navigation Sessions
+
+**Impact: HIGH (Flock mode lets one user lead a shared navigation session where followers' screens mirror the leader's clicks, scrolls, and page navigations)**
+
+Flock mode is Velt's "follow along" feature (similar to Figma's). One user is the leader, and whatever they do — clicking, scrolling, navigating — happens automatically on every follower's screen.
+
+**How it works:**
+
+```jsx
+<VeltPresence flockMode={true} />
+const presenceElement = client.getPresenceElement();
+presenceElement.enableFlockMode();
+const presenceElement = client.getPresenceElement();
+
+// Start following a specific user
+presenceElement.startFollowingUser(userId);
+
+// Stop following — removes current user from the session.
+// If no followers remain, the session is destroyed.
+presenceElement.stopFollowingUser();
+```
+
+**API: Enable programmatically**
+Once enabled, users click on any presence avatar to start following that user.
+Use `startFollowingUser()` and `stopFollowingUser()` when you need to trigger follow sessions from custom UI (buttons, menus) rather than avatar clicks.
+
+**Correct (use onNavigate callback with your router):**
+
+```jsx
+import { useNavigate } from 'react-router-dom';
+
+function Toolbar() {
+  const navigate = useNavigate();
+
+  return (
+    <VeltPresence
+      flockMode={true}
+      defaultFlockNavigation={false}
+      onNavigate={(pageInfo) => navigate(pageInfo.path)}
+    />
+  );
+}
+```
+
+When you provide an `onNavigate` callback, set `defaultFlockNavigation={false}` to disable Velt's built-in `window.location.href` navigation. The callback receives a `PageInfo` object with a `path` property matching the leader's current route.
+
+**Next.js App Router example:**
+
+```html
+'use client';
+import { useRouter } from 'next/navigation';
+
+function Toolbar() {
+  const router = useRouter();
+
+  return (
+    <VeltPresence
+      flockMode={true}
+      defaultFlockNavigation={false}
+      onNavigate={(pageInfo) => router.push(pageInfo.path)}
+    />
+  );
+}
+<velt-presence flock-mode="true"></velt-presence>
+
+<!-- Disable default navigation for custom handling -->
+<velt-presence
+  flock-mode="true"
+  disable-flock-navigation="true"
+></velt-presence>
+```
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `flockMode` | `boolean` | `false` | Enable flock mode globally on this presence instance |
+| `defaultFlockNavigation` | `boolean` | `true` | Use built-in `window.location.href` navigation. Set to `false` when using `onNavigate` |
+| `onNavigate` | `(pageInfo: PageInfo) => void` | - | Callback fired when the leader navigates. Use with your app's router |
+Note: the HTML attribute for disabling default navigation is `disable-flock-navigation`, while the React prop is `defaultFlockNavigation={false}` — they express the same setting with inverted polarity.
+- [ ] `flockMode={true}` is set on VeltPresence
+- [ ] Clicking a user's avatar starts following them
+- [ ] `defaultFlockNavigation={false}` is set when using `onNavigate`
+- [ ] `onNavigate` uses your app's router (not `window.location.href`)
+- [ ] `stopFollowingUser()` properly ends the session
+- [ ] Test with two browsers: follower's screen mirrors leader's navigation
+
+---
+
+### 3.2 Configure Inactivity and Offline Timeouts
 
 **Impact: HIGH (Controls when users appear as away or offline in presence)**
 
@@ -414,7 +502,7 @@ presenceElement.setOfflineInactivityTime(600000);
 
 ---
 
-### 3.2 Control Avatar Overflow with maxUsers
+### 3.3 Control Avatar Overflow with maxUsers
 
 **Impact: MEDIUM (Limits displayed avatars and shows overflow count badge)**
 
@@ -441,7 +529,7 @@ This displays 3 avatar icons plus a "+N" badge showing how many additional users
 
 ---
 
-### 3.3 Control Current User Visibility in Presence
+### 3.4 Control Current User Visibility in Presence
 
 **Impact: MEDIUM (Include or exclude the current user from the presence avatar list)**
 
@@ -480,7 +568,7 @@ presenceElement.enableSelf();
 
 ---
 
-### 3.4 Filter Presence by Location within a Document
+### 3.5 Filter Presence by Location within a Document
 
 **Impact: MEDIUM (Show presence scoped to a specific section or area of a document)**
 
