@@ -1,6 +1,6 @@
 # Velt Self Hosting Data Best Practices
 
-**Version 1.0.5**  
+**Version 1.0.6**  
 Velt  
 March 2026
 

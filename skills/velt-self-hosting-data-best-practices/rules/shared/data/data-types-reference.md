@@ -279,12 +279,12 @@ interface PartialComment {
 interface PartialReactionAnnotation {
   annotationId: string;                                  // join key
   metadata?: BaseMetadata;                               // getClientMetadata(annotation.metadata ?? {})
-  icon: string;                                          // the only field never sent to Velt
+  icon: string;                                          // the only relocated field — never sent to Velt
   from?: PartialUser;                                    // { userId }; copied-not-moved
 }
 ```
 
-`iconUrl` and `iconEmoji` (custom reaction icon variants) are **kept** — they are sent to Velt verbatim. Only the emoji-code `icon` is withheld.
+`icon` is the only field withheld from Velt; the strip operates on the emoji-code `icon` only. Per-element `Reaction` entries on the Velt-side `reactions[]` carry their own `variant` field — they are kept verbatim and are not part of the `Partial` payload.
 
 #### `PartialRecorderAnnotation` (your DB)
 
