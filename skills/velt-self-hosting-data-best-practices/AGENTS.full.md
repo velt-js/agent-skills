@@ -1,6 +1,6 @@
 # Velt Self Hosting Data Best Practices
 
-**Version 1.0.3**  
+**Version 1.0.4**  
 Velt  
 March 2026
 
@@ -147,17 +147,36 @@ const dataProviders = {
 };
 ```
 
-**SDK methods:**
+**Two registration styles (pick one — both accept the same `VeltDataProvider` object):**
 
 ```tsx
-// Method 1: Via VeltProvider prop (recommended for React)
-<VeltProvider apiKey={KEY} authProvider={auth} dataProviders={dataProviders}>
+// Style 1: React — VeltProvider `dataProviders` prop (canonical for React/Next.js)
+<VeltProvider apiKey={KEY} authProvider={auth} dataProviders={{
+  comment:       commentDataProvider,
+  reaction:      reactionDataProvider,
+  recorder:      recorderDataProvider,
+  notification:  notificationDataProvider,
+  activity:      activityDataProvider,
+  attachment:    attachmentDataProvider,
+  anonymousUser: anonymousUserDataProvider,
+  user:          userDataProvider,
+}}>
 
-// Method 2: Via client API (for non-React or dynamic setup)
-client.setDataProviders(dataProviders);
+// Style 2: Non-React frameworks — imperative setDataProviders()
+await Velt.setDataProviders({
+  comment:       commentDataProvider,
+  reaction:      reactionDataProvider,
+  recorder:      recorderDataProvider,
+  notification:  notificationDataProvider,
+  activity:      activityDataProvider,
+  attachment:    attachmentDataProvider,
+  anonymousUser: anonymousUserDataProvider,
+  user:          userDataProvider,
+});
 
-// Anonymous user resolution (resolve tagged contact emails to userIds at save time)
-client.setAnonymousUserDataProvider({
+// Anonymous-user resolver — also has a standalone setter if you prefer to register it
+// separately. Velt calls it to map @mention emails to userIds BEFORE the comment is persisted.
+Velt.setAnonymousUserDataProvider({
   resolveUserIdsByEmail: async (request) => {
     // request: { organizationId, documentId?, folderId?, emails: string[] }
     const userIdMap = await myBackend.resolveEmails(request.emails);
@@ -591,17 +610,19 @@ const commentDataProvider = {
 { commentAnnotationId: "ann-id", metadata: { documentId, organizationId } }
 ```
 
-**PII control with additionalFields and fieldsToRemove:**
+**Custom field control with `additionalFields` and `fieldsToRemove`:**
 
 ```jsx
 const commentDataProvider = {
   config: {
     // ...endpoint configs above...
-    additionalFields: ['status', 'priority'],      // Extra fields to include
-    fieldsToRemove: ['email', 'phone'],            // PII fields to strip
+    additionalFields: ['status', 'assignedTo', 'priority'],   // copy to your DB, keep in Velt's
+    fieldsToRemove:   ['internalTicketId'],                    // move out of Velt's DB into yours
   }
 };
 ```
+
+See the `provider-retry-timeout` rule for the full `additionalFields` vs `fieldsToRemove` comparison and the list of structural fields that must **never** appear in `fieldsToRemove` (identifiers, metadata, location, status, resolver flags, …).
 
 Reference: https://docs.velt.dev/self-host-data/comments - Endpoint-Based approach
 
@@ -912,6 +933,43 @@ app.post('/api/velt/attachments/save', upload.single('file'), async (req, res) =
 });
 ```
 
+**Two storage scopes — keep them separate:**
+
+```ts
+await Velt.setDataProviders({
+  // Comment attachments — your S3/GCS/Azure bucket A
+  attachment: {
+    async save({ file, name, metadata }) {
+      const url = await commentBucket.put(file, name);
+      return { data: { url }, success: true, statusCode: 200 };
+    },
+    async delete({ attachmentId, metadata }) {
+      await commentBucket.remove(attachmentId);
+      return { success: true, statusCode: 200 };
+    },
+  },
+
+  // Recording metadata → your DB; recording binaries → bucket B (can be the same bucket)
+  recorder: {
+    async get(req)    { /* … */ },
+    async save(req)   { /* … */ },
+    async delete(req) { /* … */ },
+    storage: {
+      async save({ file, name }) {
+        const url = await recordingBucket.put(file, name);
+        return { data: { url }, success: true, statusCode: 200 };
+      },
+      async delete({ attachmentId }) {
+        await recordingBucket.remove(attachmentId);
+        return { success: true, statusCode: 200 };
+      },
+    },
+  },
+});
+```
+
+When `recorder.storage` is set, Velt uploads the entire recording to your bucket once (after the recording stops and the annotation is saved), patches the returned `url` onto the annotation, and skips its own server-side encoding/transcription post-processing — you own those files end to end. Deletes for both scopes receive the minimized metadata `{ apiKey, documentId, organizationId, folderId? }` plus the `attachmentId`.
+
 **Delete handler metadata contract (v5.0.2-beta.11+):**
 
 ```tsx
@@ -929,7 +987,7 @@ const deleteAttachmentFromDB = async (request: AttachmentDeleteRequest) => {
 };
 ```
 
-Reference: https://docs.velt.dev/self-host-data/attachments - Endpoint-Based, Function-Based
+Reference: https://docs.velt.dev/self-host-data/attachments - Endpoint-Based, Function-Based; https://docs.velt.dev/self-host-data/overview - "Attachment & recording storage"
 
 ---
 
@@ -1147,8 +1205,8 @@ interface DataProviderConfig {
   getRetryConfig?: RetryConfig;      // Retry for get operations
   saveRetryConfig?: RetryConfig;     // Retry for save operations
   deleteRetryConfig?: RetryConfig;   // Retry for delete operations
-  additionalFields?: string[];       // Extra fields to include
-  fieldsToRemove?: string[];         // PII fields to strip
+  additionalFields?: string[];       // Custom fields to COPY into your DB (kept in Velt's)
+  fieldsToRemove?: string[];         // Custom fields to MOVE into your DB (deleted from Velt's)
 }
 
 interface RetryConfig {
@@ -1157,7 +1215,30 @@ interface RetryConfig {
 }
 ```
 
-Reference: https://docs.velt.dev/self-host-data/comments - Configuration Options; https://docs.velt.dev/self-host-data/attachments - Configuration Options
+**Key details:**
+
+```jsx
+const commentDataProvider = {
+  get: fetchComments,
+  save: saveComments,
+  delete: deleteComments,
+  config: {
+    additionalFields: ['teamName'],                // copy: stays in Velt's DB AND sent to you
+    fieldsToRemove:   ['internalTicketId'],         // move: deleted from Velt's DB, lives only in yours
+  },
+};
+```
+
+| Aspect | `fieldsToRemove` | `additionalFields` |
+|---|---|---|
+| Effect on Velt's DB | Removed | Kept |
+| Sent to your backend | Yes (moved) | Yes (copied) |
+| Merged back on read | Yes (restored from you) | No (already in Velt's DB) |
+| Falsy values (`0`, `""`, `false`) | Copied only if truthy | Preserved |
+| Processing order | First | Second |
+| If a field is in **both** lists | `fieldsToRemove` wins (removed first) | — |
+
+Reference: https://docs.velt.dev/self-host-data/overview - "Excluding & extending fields"; https://docs.velt.dev/self-host-data/comments - "Configuration Options"
 
 ---
 
@@ -2478,7 +2559,7 @@ const fetchComments = async (request) => {
 
 **Correct (centralized data provider monitoring):**
 
-```jsx
+```javascript
 import { useVeltClient } from '@veltdev/react';
 
 function DataProviderMonitor() {
@@ -2488,9 +2569,11 @@ function DataProviderMonitor() {
     if (!client) return;
 
     const subscription = client.on('dataProvider').subscribe((event) => {
+      // `moduleName` identifies which module triggered the resolver call —
+      // use it to trace which provider/operation any given event belongs to.
       console.log('Data Provider Event:', {
         type: event.type,           // 'get', 'save', 'delete'
-        provider: event.moduleName, // 'comment', 'attachment', etc.
+        moduleName: event.moduleName, // 'comment', 'attachment', 'recorder', 'notification', 'activity', 'anonymousUser', 'user'
         status: event.status,       // Success or failure details
         data: event.data            // Request/response data
       });
@@ -2507,9 +2590,18 @@ function DataProviderMonitor() {
   <DataProviderMonitor />
   <YourApp />
 </VeltProvider>
+const subscription = Velt.on('dataProvider').subscribe((event) => {
+  console.log('Data Provider Event:', event);
+  console.log('Module Name:', event.moduleName);
+});
+
+// Unsubscribe when done
+subscription?.unsubscribe();
 ```
 
-Reference: https://docs.velt.dev/self-host-data/comments - Debugging, Email Notifications
+For non-React frameworks the subscription shape is identical — use the global `Velt` instance:
+
+Reference: https://docs.velt.dev/self-host-data/overview - "Debugging"; https://docs.velt.dev/self-host-data/comments - Debugging, Email Notifications
 
 ---
 

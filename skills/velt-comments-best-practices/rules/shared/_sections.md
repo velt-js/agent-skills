@@ -127,6 +127,7 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 
 **Rules:**
 - `events-comment-lifecycle` - Pin clicks, add events with addContext, custom button clicks, autocomplete search
+- `events-agent-suggestion-lifecycle` - Subscribe to `suggestionAccepted` / `suggestionRejected` on the comment element to handle reviewer accept/reject of agent findings (with optional `rejectReason`)
 
 ---
 

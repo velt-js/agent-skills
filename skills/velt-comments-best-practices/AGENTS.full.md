@@ -1,6 +1,6 @@
 # Velt Comments Best Practices
 
-**Version 1.1.3**  
+**Version 1.1.4**  
 Velt  
 January 2026
 
