@@ -155,6 +155,45 @@ See the [Add Notifications API (v2)](https://docs.velt.dev/api-reference/rest-ap
 - Pair with the REST API `POST /v2/notifications/add` with `isNotificationResolverUsed: true` to create custom notifications that use the resolver
 - Velt servers never see headline templates, body text, or `notificationSourceData` when the resolver is configured — they remain on your infrastructure
 
+### Notification strip rules
+
+The notification provider is unusual: **read-only enrichment**. There is no write-side strip and no `save`. Knowing that there is no save handler is the whole rule — code that "syncs" PII back through this provider is misconfigured.
+
+- **No write-side strip / no `save`.** For custom notifications the `PartialNotification` PII is never sent to Velt at all. The PII lives in your backend the moment your REST writer creates it, and is fetched on read via `get`. On read, the SDK merges your response into both the `notification` and its raw form, setting `isNotificationResolverUsed = true`.
+- **The only write-side reduction is `actionUser → { userId }`** — and that happens only when the `user` provider is active.
+- **Client-computed fields** (`isUnread`, `forYou`, the rendered `displayHeadlineMessage`) are recomputed on the client from `notificationViews` / `notifyUsers*` / the templates and stored in **neither DB**.
+- **Resolution order is notification → user → comment.** Notification PII fills userIds that the user resolver then enriches.
+- **Delete payload is minimal.** Velt calls your provider with `{ notificationId, organizationId }`.
+- **`notifyUsers` / `notifyUsersByUserId` are keyed by hashes,** not raw emails / userIds. The hash keys are kept on Velt's side; the raw identifiers are not.
+
+**Incorrect (implementing a `save` handler that never fires — silent dead code):**
+
+```tsx
+const notificationDataProvider: NotificationDataProvider = {
+  get: async (req) => ({ data: await db.getNotifications(req), success: true, statusCode: 200 }),
+  // BUG: NotificationDataProvider has no save member. This function is never called by the SDK.
+  // Wire your REST writer to write PII to your own DB directly instead.
+  save: async (req) => ({ data: undefined, success: true, statusCode: 200 }),
+  delete: async (req) => ({ data: undefined, success: true, statusCode: 200 }),
+};
+```
+
+**Correct (only `get` and `delete` — your REST writer populates your own DB out-of-band before the recipient ever fetches):**
+
+```tsx
+const notificationDataProvider: NotificationDataProvider = {
+  get: async (request) => {
+    const partials = await db.getNotifications(request); // your DB is the source of truth for PII
+    return { data: partials, success: true, statusCode: 200 };
+  },
+  delete: async (request) => {
+    await db.deleteNotification(request.notificationId);
+    return { data: undefined, success: true, statusCode: 200 };
+  },
+  // No save — by design.
+};
+```
+
 **Verification:**
 - [ ] Only used for custom notifications (notificationSource === 'custom')
 - [ ] get returns `Record<string, PartialNotification>` with full PII (headline, body, source data) hydrated from your DB
@@ -162,5 +201,7 @@ See the [Add Notifications API (v2)](https://docs.velt.dev/api-reference/rest-ap
 - [ ] Provider set before identify()
 - [ ] Customer DB stores the full notification record (templates + source data); Velt stores only routing identifiers, source flag, resolver flag, actionUser, and notifyUsers
 - [ ] REST writes that should hit the resolver set **both** `isNotificationResolverUsed: true` and `notificationSource: 'custom'` (the source field is what actually routes — the boolean alone is not enough)
+- [ ] No `save` handler is wired (the interface has none); PII is written to your DB by your REST writer, not by the SDK
+- [ ] Client-side `isUnread` / `forYou` / rendered `displayHeadlineMessage` are not persisted to either DB
 
-**Source Pointer:** https://docs.velt.dev/self-host-data/notifications ("Sample Data")
+**Source Pointer:** https://docs.velt.dev/self-host-data/notifications ("Sample Data"); https://docs.velt.dev/self-host-data/field-inventory - "Notification strip rules"

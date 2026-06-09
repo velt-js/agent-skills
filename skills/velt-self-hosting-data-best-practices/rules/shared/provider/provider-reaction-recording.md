@@ -166,10 +166,47 @@ export const reactionDataProvider = {
 - In-app notification content for reactions is auto-generated from the self-hosted reaction data in the frontend
 - Backend CRUD operations use the same upsert pattern as comments (see backend-database-patterns rule)
 
-**Verification:**
+### Reaction strip rules (what crosses each side)
+
+The reaction strip is intentionally narrow — only the emoji-code `icon` is withheld from Velt. Custom-icon variants and the per-element reaction array stay structured on Velt's side. The common mistake is to also strip `iconUrl` / `iconEmoji` — those are kept and the UI relies on them surviving the round-trip.
+
+- **Never sent to Velt:** `icon` only — the emoji-code string. Stripped on the frontend and written to your DB; merged back on read. When stripped, the SDK sets `isReactionResolverUsed = true` on the Velt-side record.
+- **Kept and sent to Velt verbatim:** `iconUrl` (custom reaction icon URL) and `iconEmoji` (custom reaction emoji character). Only the emoji-code `icon` is withheld — these custom variants are part of the structural record.
+- **`from` is copied-not-moved** — both your DB and Velt's DB receive `from`. The per-element `reactions[].from` is reduced to `{ userId }` (when the `user` provider is active) **only inside Velt's DB** — it is not part of the `Partial` payload.
+- **`position`'s value is never sent to Velt** — written as `null` on every write to Velt's DB regardless of self-hosting. This is independent of the reaction resolver.
+- **Unchanged save short-circuits.** A deep-compare against the cache decides whether to strip at all. If nothing changed, the icon is not re-processed and `isReactionResolverUsed` is not set — your `save` handler is not called either.
+
+**Incorrect (treating `iconUrl` as PII and writing it to your DB instead of Velt's):**
+
+```jsx
+// BUG: iconUrl is structural — it stays on Velt's side. Mirroring it on your end is fine but you must not depend on it being stripped.
+const saveReaction = async (request) => {
+  const { iconUrl, iconEmoji, icon, ...rest } = request.reactionAnnotation;
+  await db.upsert({ icon, iconUrl, iconEmoji }); // assumes Velt won't see iconUrl — wrong
+  return { success: true, statusCode: 200 };
+};
+```
+
+**Correct (only `icon` is the relocated field; everything else is sent to Velt verbatim):**
+
+```jsx
+const saveReaction = async (request) => {
+  // request.reactionAnnotation is keyed by annotationId; each value carries only what was stripped:
+  // { annotationId, metadata, icon, from? }
+  for (const [annotationId, partial] of Object.entries(request.reactionAnnotation)) {
+    await db.upsertReactionIcon(annotationId, { icon: partial.icon, from: partial.from });
+  }
+  return { success: true, statusCode: 200 };
+};
+```
+
+### Reaction provider verification
+
 - [ ] Both providers return `{ data, success, statusCode }` format
 - [ ] Get returns data keyed by annotationId
 - [ ] All three operations implemented for each provider
 - [ ] Backend uses same upsert pattern as comments
+- [ ] `save` handler treats `icon` as the only relocated field; does not strip `iconUrl` / `iconEmoji`
+- [ ] `position` is written as `null` to Velt regardless of self-hosting (do not try to round-trip its value through the resolver)
 
-**Source Pointer:** https://docs.velt.dev/self-host-data/reactions; https://docs.velt.dev/self-host-data/recordings
+**Source Pointer:** https://docs.velt.dev/self-host-data/reactions; https://docs.velt.dev/self-host-data/recordings; https://docs.velt.dev/self-host-data/field-inventory - "Reaction strip rules"

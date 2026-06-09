@@ -122,11 +122,62 @@ Entity snapshots (`entityData`, `entityTargetData`), display message templates a
 - The `metadata` block contains both Velt-internal IDs (`documentId`, `organizationId`) and your client-facing IDs (`clientDocumentId`, `clientOrganizationId`) — both shapes live on Velt
 - Use a longer `resolveTimeout` (30–60s) than for comments since activity feeds can fan out across many records
 
+### Activity strip rules
+
+Activity is append-only (no `delete`) and the strip is multi-feature: a single `ActivityRecord` can carry comment PII *and* reaction/recorder PII *and* custom-template PII at once. The rules differ by `featureType` and depend on which sibling resolvers are wired.
+
+- **`displayMessage` is always recomputed on the client** from the template + values — stored in **neither DB**. Do not persist a rendered string; the template + data are the source of truth.
+- **User reduction** (`actionUser`, users in `changes`, users in `displayMessageTemplateData`) happens **only when the `user` provider is active**. Without the user provider these stay as full `User` objects on Velt.
+- **`changes['commentText']` is never sent to Velt** (→ your DB) **only** when the **activity** resolver is active. If only the *comment* resolver is active (and not the activity resolver), `commentText` is preserved on Velt — this is deliberate, to avoid unrestorable loss of audit text.
+- **Reaction / recorder `entityData` PII reaches your DB only when both** the activity resolver **and** the matching feature resolver are active. With activity alone, those entity snapshots stay on Velt; with the feature resolver alone, they flow through its own store.
+- **Comment `entityData` / `entityTargetData` PII is handled by the comment resolver's own store**, not duplicated here.
+- **`fieldsToRemove` applies to `featureType === 'custom'` only.** Built-in feature types (`comment`, `reaction`, `recorder`, `crdt`) ignore it — you cannot use `fieldsToRemove` to peel extra fields off a built-in activity record.
+- **Append-only: no `delete`.** `ActivityAnnotationDataProvider` has no delete member by design.
+
+**Incorrect (assuming `fieldsToRemove` strips a field on every activity, including built-in ones):**
+
+```tsx
+const activityDataProvider: ActivityAnnotationDataProvider = {
+  get: async (req) => ({ data: await db.getActivity(req), success: true, statusCode: 200 }),
+  save: async (req) => ({ data: undefined, success: true, statusCode: 200 }),
+  config: {
+    // BUG: This only applies to featureType === 'custom'. A 'comment' activity carrying internalTicketId
+    // will still write internalTicketId to Velt.
+    fieldsToRemove: ['internalTicketId'],
+  },
+};
+```
+
+**Correct (treat `fieldsToRemove` as a custom-only knob; rely on per-feature resolvers for built-in entity PII):**
+
+```tsx
+const activityDataProvider: ActivityAnnotationDataProvider = {
+  get: async (req) => {
+    // Your DB returns: { id, metadata?, changes?, entityData?, entityTargetData?, displayMessageTemplateData?, [customFields] }
+    const partials = await db.getActivity(req);
+    return { data: partials, success: true, statusCode: 200 };
+  },
+  save: async (req) => {
+    // req.activity[id] only contains keys that were stripped — fields not in the partial are still on Velt.
+    await db.upsertActivityPII(req.activity);
+    return { data: undefined, success: true, statusCode: 200 };
+  },
+  config: {
+    resolveTimeout: 60000,
+    // Applies only when featureType === 'custom'. Comment/recorder/reaction activities are handled
+    // by their feature resolvers, not by fieldsToRemove.
+    fieldsToRemove: ['customSensitiveField'],
+  },
+};
+```
+
 **Verification:**
 - [ ] `get` returns `Record<string, PartialActivityRecord>` with `entityData`, `entityTargetData`, and display templates hydrated from your DB
 - [ ] `save` persists stripped fields to your DB and returns `ResolverResponse<undefined>`
 - [ ] Provider set before `identify()` is called
 - [ ] Customer DB stores entity snapshots, display templates, template data, and any `fieldsToRemove` fields; Velt stores only minimal identifiers, action metadata, resolver flag, and `targetEntityId`
 - [ ] UI gates a loading skeleton on `isActivityResolverUsed === true`
+- [ ] `fieldsToRemove` is treated as `featureType === 'custom'`-only; built-in feature types do not strip extra fields through it
+- [ ] `displayMessage` is never persisted — only the template and template data are stored
 
-**Source Pointer:** https://docs.velt.dev/self-host-data/activity ("Sample Data")
+**Source Pointer:** https://docs.velt.dev/self-host-data/activity ("Sample Data"); https://docs.velt.dev/self-host-data/field-inventory - "Activity strip rules"

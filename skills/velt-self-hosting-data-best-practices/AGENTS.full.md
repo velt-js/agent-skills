@@ -1,6 +1,6 @@
 # Velt Self Hosting Data Best Practices
 
-**Version 1.0.4**  
+**Version 1.0.5**  
 Velt  
 March 2026
 
@@ -746,7 +746,30 @@ export const commentDataProvider = {
 };
 ```
 
-Reference: https://docs.velt.dev/self-host-data/comments - Function-Based approach
+**Incorrect (assuming `save` fires on every annotation change — leaks status events into your audit log):**
+
+```tsx
+const saveCommentsToDB = async (request: CommentSaveRequest): Promise<DataProviderResponse> => {
+  // BUG: status flips and assignee changes never call save — this audit log will be sparse and misleading
+  await auditLog.append({ action: 'comment_change', payload: request });
+  await db.upsertComments(request.commentAnnotation);
+  return { success: true, statusCode: 200 };
+};
+```
+
+**Correct (treat `save` as PII-only; key off `request.event` and let pure structural changes flow through Velt untouched):**
+
+```tsx
+const saveCommentsToDB = async (request: CommentSaveRequest & { event?: string }): Promise<DataProviderResponse> => {
+  // request.event is one of: comment_annotation.add | comment.add | comment.update | comment.delete (or undefined for drafts)
+  // It is the SDK's signal that PII changed — that's the only reason your handler is being called.
+  await db.upsertComments(request.commentAnnotation);
+  // If you need a status/priority/assignment audit log, subscribe to the SDK event stream instead — it doesn't flow through here.
+  return { success: true, statusCode: 200 };
+};
+```
+
+Reference: https://docs.velt.dev/self-host-data/comments - Function-Based approach; https://docs.velt.dev/self-host-data/field-inventory - "Comment strip rules"
 
 ---
 
@@ -972,7 +995,7 @@ When `recorder.storage` is set, Velt uploads the entire recording to your bucket
 
 **Delete handler metadata contract (v5.0.2-beta.11+):**
 
-```tsx
+```typescript
 // BEFORE v5.0.2-beta.11: metadata may have included internal Velt fields
 const deleteAttachmentFromDB = async (request: AttachmentDeleteRequest) => {
   // Do NOT rely on internal fields in request.metadata
@@ -985,9 +1008,59 @@ const deleteAttachmentFromDB = async (request: AttachmentDeleteRequest) => {
   await db.deleteAttachment(attachmentId);
   return { success: true, statusCode: 200 };
 };
+interface SaveAttachmentResolverRequest {
+  file: File;                                            // raw binary; multipart `file` part in URL mode, provider.save arg in function mode
+  attachment: {
+    attachmentId: number;                                // required (random 6-digit id, also at metadata.attachmentId)
+    name?: string;                                       // original file name (optional)
+    mimeType?: string;                                   // MIME type (optional)
+  };
+  metadata: AttachmentResolverMetadata;
+  event?: ResolverActions;                               // e.g. ATTACHMENT_ADD ("attachment.add") on save
+}
+
+interface AttachmentResolverMetadata {
+  organizationId: string | null;                         // org scope
+  documentId: string | null;                             // document scope
+  folderId?: string | null;                              // folder scope; on delete only when truthy
+  attachmentId: number | null;                           // mirror of top-level attachmentId
+  commentAnnotationId: string | null;                    // owning comment annotation; dropped on delete
+  apiKey: string | null;                                 // Velt public API key
+}
+
+// Required return shape
+interface SaveAttachmentResolverData { url: string; }   // persisted back onto Attachment.url
 ```
 
-Reference: https://docs.velt.dev/self-host-data/attachments - Endpoint-Based, Function-Based; https://docs.velt.dev/self-host-data/overview - "Attachment & recording storage"
+The attachment provider sits **outside** the `Partial<X>` strip model used by every other provider. There is no `get` and no `Partial<Attachment>` — attachments are binary files. When Velt hands a save call to your storage provider, the payload is a fixed shape:
+The JSON `request` body in URL (endpoint) mode is exactly `{ attachment: { attachmentId, name, mimeType }, metadata, event }` — the `File` is destructured out and sent as a separate multipart binary part to your storage, **never to Velt**. On delete, Velt sends `{ attachmentId, metadata: { apiKey, documentId, organizationId, folderId? }, event }` where `event` is `ATTACHMENT_DELETE` (`"attachment.delete"`).
+What persists on Velt's side after a successful save (everything except the binary bytes): `attachmentId` (PK), `name`, `bucketPath`, `size`, `type`, `url` (the URL **your** storage returned), `thumbnail`, `thumbnailWithPlayIconUrl`, `metadata` (arbitrary), `mimeType`, `previewImages`, and the `isAttachmentResolverUsed` flag. The `url` is the only field that comes from your `save` response; the rest are structural.
+
+**Incorrect (assuming `request.attachment` is a full `Attachment` object — only three sub-fields are guaranteed):**
+
+```tsx
+const saveAttachment = async (request: SaveAttachmentResolverRequest) => {
+  // BUG: `bucketPath`, `size`, `thumbnail`, `previewImages` are not in `request.attachment`.
+  // Velt computes those on its side from the `{ url }` you return plus the binary it just handed you.
+  const { attachmentId, name, mimeType, bucketPath, size } = request.attachment as any;
+  const url = await storage.put(request.file, { bucketPath }); // `bucketPath` is undefined
+  return { data: { url }, success: true, statusCode: 200 };
+};
+```
+
+**Correct (only `attachmentId` / `name` / `mimeType` are in the request; choose your own bucket path):**
+
+```tsx
+const saveAttachment = async (request: SaveAttachmentResolverRequest) => {
+  const { attachmentId, name = 'untitled', mimeType } = request.attachment;
+  const { organizationId, documentId, folderId } = request.metadata;
+  const key = `attachments/${organizationId}/${documentId}/${attachmentId}-${name}`;
+  const url = await storage.put(request.file, key, { contentType: mimeType });
+  return { data: { url }, success: true, statusCode: 200 };
+};
+```
+
+Reference: https://docs.velt.dev/self-host-data/attachments - Endpoint-Based, Function-Based; https://docs.velt.dev/self-host-data/overview - "Attachment & recording storage"; https://docs.velt.dev/self-host-data/field-inventory - "Attachments"
 
 ---
 
@@ -1146,7 +1219,38 @@ export const reactionDataProvider = {
 // Delete: { annotationId, metadata: { documentId, organizationId } }
 ```
 
-Reference: https://docs.velt.dev/self-host-data/reactions; https://docs.velt.dev/self-host-data/recordings
+**Incorrect (treating `iconUrl` as PII and writing it to your DB instead of Velt's):**
+
+```jsx
+// BUG: iconUrl is structural — it stays on Velt's side. Mirroring it on your end is fine but you must not depend on it being stripped.
+const saveReaction = async (request) => {
+  const { iconUrl, iconEmoji, icon, ...rest } = request.reactionAnnotation;
+  await db.upsert({ icon, iconUrl, iconEmoji }); // assumes Velt won't see iconUrl — wrong
+  return { success: true, statusCode: 200 };
+};
+```
+
+**Correct (only `icon` is the relocated field; everything else is sent to Velt verbatim):**
+
+```jsx
+const saveReaction = async (request) => {
+  // request.reactionAnnotation is keyed by annotationId; each value carries only what was stripped:
+  // { annotationId, metadata, icon, from? }
+  for (const [annotationId, partial] of Object.entries(request.reactionAnnotation)) {
+    await db.upsertReactionIcon(annotationId, { icon: partial.icon, from: partial.from });
+  }
+  return { success: true, statusCode: 200 };
+};
+```
+
+- [ ] Both providers return `{ data, success, statusCode }` format
+- [ ] Get returns data keyed by annotationId
+- [ ] All three operations implemented for each provider
+- [ ] Backend uses same upsert pattern as comments
+- [ ] `save` handler treats `icon` as the only relocated field; does not strip `iconUrl` / `iconEmoji`
+- [ ] `position` is written as `null` to Velt regardless of self-hosting (do not try to round-trip its value through the resolver)
+
+Reference: https://docs.velt.dev/self-host-data/reactions; https://docs.velt.dev/self-host-data/recordings; https://docs.velt.dev/self-host-data/field-inventory - "Reaction strip rules"
 
 ---
 
@@ -1436,7 +1540,44 @@ const activityDataProvider: ActivityAnnotationDataProvider = {
 
 Entity snapshots (`entityData`, `entityTargetData`), display message templates and their data, and any fields listed in `config.fieldsToRemove` are NOT stored on Velt — they live exclusively on your database and are merged back via `get` at render time.
 
-Reference: https://docs.velt.dev/self-host-data/activity ("Sample Data")
+**Incorrect (assuming `fieldsToRemove` strips a field on every activity, including built-in ones):**
+
+```tsx
+const activityDataProvider: ActivityAnnotationDataProvider = {
+  get: async (req) => ({ data: await db.getActivity(req), success: true, statusCode: 200 }),
+  save: async (req) => ({ data: undefined, success: true, statusCode: 200 }),
+  config: {
+    // BUG: This only applies to featureType === 'custom'. A 'comment' activity carrying internalTicketId
+    // will still write internalTicketId to Velt.
+    fieldsToRemove: ['internalTicketId'],
+  },
+};
+```
+
+**Correct (treat `fieldsToRemove` as a custom-only knob; rely on per-feature resolvers for built-in entity PII):**
+
+```tsx
+const activityDataProvider: ActivityAnnotationDataProvider = {
+  get: async (req) => {
+    // Your DB returns: { id, metadata?, changes?, entityData?, entityTargetData?, displayMessageTemplateData?, [customFields] }
+    const partials = await db.getActivity(req);
+    return { data: partials, success: true, statusCode: 200 };
+  },
+  save: async (req) => {
+    // req.activity[id] only contains keys that were stripped — fields not in the partial are still on Velt.
+    await db.upsertActivityPII(req.activity);
+    return { data: undefined, success: true, statusCode: 200 };
+  },
+  config: {
+    resolveTimeout: 60000,
+    // Applies only when featureType === 'custom'. Comment/recorder/reaction activities are handled
+    // by their feature resolvers, not by fieldsToRemove.
+    fieldsToRemove: ['customSensitiveField'],
+  },
+};
+```
+
+Reference: https://docs.velt.dev/self-host-data/activity ("Sample Data"); https://docs.velt.dev/self-host-data/field-inventory - "Activity strip rules"
 
 ---
 
@@ -1565,7 +1706,35 @@ Headline/body templates, template data, and `notificationSourceData` are NOT sto
 
 See the [Add Notifications API (v2)](https://docs.velt.dev/api-reference/rest-apis/v2/notifications/add-notifications) for the full parameter reference.
 
-Reference: https://docs.velt.dev/self-host-data/notifications ("Sample Data")
+**Incorrect (implementing a `save` handler that never fires — silent dead code):**
+
+```tsx
+const notificationDataProvider: NotificationDataProvider = {
+  get: async (req) => ({ data: await db.getNotifications(req), success: true, statusCode: 200 }),
+  // BUG: NotificationDataProvider has no save member. This function is never called by the SDK.
+  // Wire your REST writer to write PII to your own DB directly instead.
+  save: async (req) => ({ data: undefined, success: true, statusCode: 200 }),
+  delete: async (req) => ({ data: undefined, success: true, statusCode: 200 }),
+};
+```
+
+**Correct (only `get` and `delete` — your REST writer populates your own DB out-of-band before the recipient ever fetches):**
+
+```tsx
+const notificationDataProvider: NotificationDataProvider = {
+  get: async (request) => {
+    const partials = await db.getNotifications(request); // your DB is the source of truth for PII
+    return { data: partials, success: true, statusCode: 200 };
+  },
+  delete: async (request) => {
+    await db.deleteNotification(request.notificationId);
+    return { data: undefined, success: true, statusCode: 200 };
+  },
+  // No save — by design.
+};
+```
+
+Reference: https://docs.velt.dev/self-host-data/notifications ("Sample Data"); https://docs.velt.dev/self-host-data/field-inventory - "Notification strip rules"
 
 ---
 
@@ -1682,7 +1851,37 @@ const recorderStorage: AttachmentDataProvider = {
 }}>
 ```
 
-Reference: https://docs.velt.dev/self-host-data/recordings
+**Incorrect (treating `attachments` as fully redirected to your DB and assuming Velt has no record of the binaries):**
+
+```tsx
+const saveRecorder = async (request) => {
+  // BUG: Velt still tracks { attachmentId, name, bucketPath } stubs for storage cleanup.
+  // If your DB is the only source of truth for attachment IDs, you risk orphaning bucket objects
+  // because Velt expects bucketPath to round-trip through the stub.
+  for (const partial of Object.values(request.recorderAnnotations)) {
+    await db.saveAttachments(partial.attachments); // assumes Velt has nothing — wrong
+  }
+  return { success: true, statusCode: 200 };
+};
+```
+
+**Correct (your DB stores the PII-bearing fields; Velt keeps stubs for cleanup; both halves are needed):**
+
+```tsx
+const saveRecorder = async (request) => {
+  for (const [annotationId, partial] of Object.entries(request.recorderAnnotations)) {
+    // partial.transcription          → entire object, your DB only
+    // partial.from                   → full User object (PII)
+    // partial.attachments[]          → full attachment objects including url
+    // partial.chunkUrls              → full map
+    // partial.recordingEditVersions  → per-version PII (only versions with ≥1 PII field present)
+    await db.upsertRecorderPII(annotationId, partial);
+  }
+  return { data: undefined, success: true, statusCode: 200 };
+};
+```
+
+Reference: https://docs.velt.dev/self-host-data/recordings; https://docs.velt.dev/self-host-data/field-inventory - "Recorder strip rules"
 
 ---
 
@@ -1969,7 +2168,7 @@ Complete type definitions for all data provider interfaces, configuration types,
 
 ### VeltDataProvider (top-level)
 
-Reference: https://docs.velt.dev/api-reference/sdk/models/data-models - Self-Hosting Types
+Reference: https://docs.velt.dev/api-reference/sdk/models/data-models - Self-Hosting Types; https://docs.velt.dev/self-host-data/field-inventory - "Complete Field Inventory"
 
 ---
 
@@ -2617,3 +2816,4 @@ Reference: https://docs.velt.dev/self-host-data/overview - "Debugging"; https://
 - https://console.velt.dev
 - https://docs.velt.dev/self-host-data/activity
 - https://docs.velt.dev/self-host-data/notifications
+- https://docs.velt.dev/self-host-data/field-inventory

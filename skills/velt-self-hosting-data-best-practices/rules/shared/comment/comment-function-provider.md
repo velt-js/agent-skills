@@ -134,10 +134,45 @@ export const commentDataProvider = {
 - The `config` object with retry/timeout settings can coexist with function callbacks
 - The get function must return data keyed by annotationId: `{ "ann-1": { annotationId: "ann-1", comments: {...} } }`
 
+### When `save` actually fires (strip rules)
+
+The frontend strip is what makes `PartialCommentAnnotation` smaller than `CommentAnnotation` — and the same logic decides whether `save` is called at all. Get these gating conditions wrong and `save` either never runs (PII silently lost) or runs on every non-PII change (your DB churns on status / priority flips).
+
+- **Stripped on the frontend (never sent to Velt):** per-comment `commentText` and `commentHtml`; per-comment `attachments[].name` and `attachments[].url` (only when the `attachment` resolver is active); `targetTextRange.text`; and any keys listed in `config.fieldsToRemove`. Per-comment strips set `isCommentResolverUsed = true` on the comment; attachment strips set `isAttachmentResolverUsed = true`.
+- **Copied-not-moved** (sent to both your DB and Velt's DB): `from`, `assignedTo`, `resolvedByUserId`.
+- **`save` is gated by `ResolverActions`.** It fires only when the PII actually changed **and** the action maps to one of `COMMENT_ANNOTATION_ADD` / `COMMENT_ADD` / `COMMENT_UPDATE` / `COMMENT_DELETE` (or a draft). Pure status, priority, or assignment changes do **not** call `save`.
+- **Truthy-gating.** Empty strings (`commentText: ""`, `commentHtml: ""`) are **not** sent to your provider and are **not** withheld from Velt either — they fall through to Velt as the empty string. The exception is `config.additionalFields`, which uses `!== undefined`, so `0`, `""`, and `false` are copied to both sides.
+- **Delete payload is minimal.** A delete sends only `{ apiKey, documentId, organizationId, folderId? }` plus the `commentAnnotationId` — no PII to strip.
+
+**Incorrect (assuming `save` fires on every annotation change — leaks status events into your audit log):**
+
+```tsx
+const saveCommentsToDB = async (request: CommentSaveRequest): Promise<DataProviderResponse> => {
+  // BUG: status flips and assignee changes never call save — this audit log will be sparse and misleading
+  await auditLog.append({ action: 'comment_change', payload: request });
+  await db.upsertComments(request.commentAnnotation);
+  return { success: true, statusCode: 200 };
+};
+```
+
+**Correct (treat `save` as PII-only; key off `request.event` and let pure structural changes flow through Velt untouched):**
+
+```tsx
+const saveCommentsToDB = async (request: CommentSaveRequest & { event?: string }): Promise<DataProviderResponse> => {
+  // request.event is one of: comment_annotation.add | comment.add | comment.update | comment.delete (or undefined for drafts)
+  // It is the SDK's signal that PII changed — that's the only reason your handler is being called.
+  await db.upsertComments(request.commentAnnotation);
+  // If you need a status/priority/assignment audit log, subscribe to the SDK event stream instead — it doesn't flow through here.
+  return { success: true, statusCode: 200 };
+};
+```
+
 **Verification:**
 - [ ] All three functions implemented (get, save, delete)
 - [ ] Each returns `{ data, success, statusCode }`
 - [ ] Error cases return `success: false` with appropriate statusCode
 - [ ] Get returns data keyed by annotationId
+- [ ] `save` handler treats `request.event` as a `ResolverActions` value — does not assume it fires on status / priority / assignment changes
+- [ ] Backend tolerates the truthy-gating contract: missing `commentText` / `commentHtml` means "no PII change for that comment", not "comment was cleared"
 
-**Source Pointer:** https://docs.velt.dev/self-host-data/comments - Function-Based approach
+**Source Pointer:** https://docs.velt.dev/self-host-data/comments - Function-Based approach; https://docs.velt.dev/self-host-data/field-inventory - "Comment strip rules"

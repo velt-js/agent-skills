@@ -2,12 +2,12 @@
 title: REST API — Agent Comment Annotations (Create, Read, Filter)
 impact: HIGH
 impactDescription: Let AI agents leave comments via REST API with the agent block, and read them back with agent-specific filters
-tags: agent, agentSource, agentId, executionId, agentName, agent-comments, rest, api, suggestion, external, velt, built-in, custom, agentSuggestions, agentComments, agentType
+tags: agent, agentSource, agentId, executionId, agentName, agent-comments, rest, api, suggestion, external, velt, custom, agentSuggestions, agentComments, reason, severity, suggestedFix, findingType, confidence
 ---
 
 ## REST API — Agent Comment Annotations (Create, Read, Filter)
 
-Agent comments let AI agents participate in collaboration by leaving findings via the Add Comment Annotations REST API. The server stamps `sourceType: "agent"` on the annotation and renders it with Accept/Reject buttons in the Velt UI. Any agent that can make an HTTP request can do this — a built-in Velt agent, a custom agent registered in the Console, or an external agent running in your own framework.
+Agent comments let AI agents participate in collaboration by leaving findings via the Add Comment Annotations REST API. The server stamps `sourceType: "agent"` on the annotation and renders it with Accept/Reject buttons in the Velt UI. Any agent that can make an HTTP request can do this — a custom agent registered in the Velt Console, or an external agent running in your own framework.
 
 ### Creating agent annotations
 
@@ -18,7 +18,7 @@ Attach an `agent` object to `commentData[0]` (the root comment). Set the annotat
 | Field | Required | Description |
 |-------|----------|-------------|
 | `agentSource` | Yes | Origin of the agent: `"velt"` or `"external"` |
-| `agentId` | Required for `velt`, optional for `external` | A built-in agent (e.g. `spell-check`) or custom agent ID. Opaque (never validated) for `external` agents. |
+| `agentId` | Required for `velt`, optional for `external` | A custom agent ID verified server-side. Opaque (never validated) for `external` agents. |
 | `agentName` | Required for `external` | Display name for the agent. For `velt` agents, the name is resolved server-side. |
 | `executionId` | No | Execution / run ID for this agent invocation. Used to query all findings from a single run. |
 | `url` | No | Page URL associated with the finding. |
@@ -116,6 +116,48 @@ response = requests.post(
 
 The server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
 
+### The `reason` object
+
+`reason` carries the finding's details. Three fields are required; the remaining ten are optional. Any extra custom fields beyond this list are preserved by the server.
+
+| Field | Required | Type | Description |
+|-------|----------|------|-------------|
+| `title` | Yes | string | Short finding title — a quick label for the issue (e.g. `"Low color contrast"`). |
+| `description` | Yes | string | Fuller explanation of what the agent found. |
+| `severity` | Yes | string | One of `critical`, `high`, `medium`, `low`, `info`. |
+| `findingId` | No | string | Your own unique ID for the finding, useful for dedup / tracking. |
+| `findingType` | No | string | What kind of target the finding is on. One of `text`, `pin`, `page`. |
+| `issueType` | No | string | Custom classification you define for your own taxonomy (e.g. `"accessibility"`). |
+| `confidence` | No | number | How confident the agent is. Integer 0–100. |
+| `suggestion` | No | string | Suggested change in plain text — **human-readable prose** (e.g. `"Darken the button background to at least #1A1A1A."`). |
+| `suggestedFix` | No | string | **The concrete literal replacement value** to apply (e.g. for a spelling correction, just `"Welcome"` — the corrected word itself, not a sentence about it). |
+| `htmlSnippet` | No | string | The relevant chunk of HTML where the issue lives. |
+| `htmlSelector` | No | string | CSS / HTML selector pointing to the finding's location. |
+| `source` | No | string | Where the triggering rule came from. One of `instructions`, `knowledge`. |
+| `knowledgeSection` | No | string | Which knowledge section fired (pairs with `source: "knowledge"`). |
+
+**Do not conflate `suggestion` and `suggestedFix`.** `suggestion` is prose meant for a human reviewer to read in the comment; `suggestedFix` is the literal replacement value your code would apply on Accept. For a spelling fix, `suggestion` might read `"Did you mean 'Welcome'?"` while `suggestedFix` is just `"Welcome"`.
+
+**Correct (fully-populated `reason`):**
+
+```json
+"reason": {
+  "title": "Low color contrast",
+  "description": "Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.",
+  "severity": "high",
+  "findingId": "finding_a11y_0427",
+  "findingType": "pin",
+  "issueType": "accessibility",
+  "confidence": 92,
+  "suggestion": "Darken the button background to at least #1A1A1A.",
+  "suggestedFix": "#1A1A1A",
+  "htmlSnippet": "<button class='cta'>Buy now</button>",
+  "htmlSelector": ".cta-primary > button",
+  "source": "knowledge",
+  "knowledgeSection": "brand-guidelines/accessibility"
+}
+```
+
 ### Reading agent annotations back
 
 Use the Get Comment Annotations API with agent-specific filters. Only one agent filter may be supplied per request.
@@ -124,7 +166,6 @@ Use the Get Comment Annotations API with agent-specific filters. Only one agent 
 |--------|-------------|
 | `agentId` | Annotations created by a specific agent. |
 | `executionId` | Annotations from a specific agent run. |
-| `agentType` | `"built-in"`, `"custom"`, or `"external"`. |
 | `agentSource` | `"velt"` or `"external"`. |
 | `agentSuggestions` | When `true`, returns only fresh (unaccepted) agent suggestions. |
 | `agentComments` | When `true`, returns all agent annotations regardless of status. |
@@ -268,11 +309,15 @@ The full 21-component hierarchy and all props are documented in `ui-agent-sugges
 
 **Verification:**
 - [ ] `agent` block is on `commentData[0]` (the root comment), not on the annotation wrapper
-- [ ] `agentSource` is set — `"external"` for your own agents, `"velt"` for built-in/custom agents
+- [ ] `agentSource` is set — `"external"` for your own agents, `"velt"` for custom agents registered in the Velt Console
 - [ ] `agentName` is provided when `agentSource` is `"external"` (server cannot resolve it)
 - [ ] Annotation `type` is `"suggestion"` so Accept/Reject buttons render
-- [ ] `reason` object is provided with at least a `title` and `description`
-- [ ] Only one agent filter is used per Get request (`agentId`, `executionId`, `agentType`, `agentSource`, `agentSuggestions`, or `agentComments`)
+- [ ] `reason` object is provided with all three required fields (`title`, `description`, `severity`)
+- [ ] `severity` is one of `critical`, `high`, `medium`, `low`, `info`
+- [ ] `suggestion` is human-readable prose; `suggestedFix` is the literal replacement value (not conflated)
+- [ ] `findingType`, if set, is one of `text`, `pin`, `page`
+- [ ] `source`, if set, is `instructions` or `knowledge` (and `knowledgeSection` is set when `source` is `knowledge`)
+- [ ] Only one agent filter is used per Get request (`agentId`, `executionId`, `agentSource`, `agentSuggestions`, or `agentComments`)
 - [ ] Client-side `suggestionAccepted`/`suggestionRejected` handlers apply changes to your data (the SDK only persists the status)
 
 **Source Pointer:** https://docs.velt.dev/ai/agent-comments

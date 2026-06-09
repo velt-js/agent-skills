@@ -2,7 +2,7 @@
 title: REST API — Comment Annotation CRUD
 impact: HIGH
 impactDescription: Server-side comment annotation management via REST
-tags: rest, api, commentannotations, add, get, update, delete, count, server, agent, agentSource, agentId, executionId, agentName, agentSuggestions, agentComments, agentType, suggestion, suggestionAccepted, suggestionRejected
+tags: rest, api, commentannotations, add, get, update, delete, count, server, agent, agentSource, agentId, executionId, agentName, agentSuggestions, agentComments, suggestion, suggestionAccepted, suggestionRejected
 ---
 
 ## REST API — Comment Annotation CRUD
@@ -119,7 +119,6 @@ Use these filters to query agent-created annotations. Only one agent filter per 
 |--------|-------------|
 | `agentId` | Annotations created by a specific agent. |
 | `executionId` | Annotations from a specific agent run. |
-| `agentType` | `"built-in"`, `"custom"`, or `"external"`. |
 | `agentSource` | `"velt"` or `"external"`. |
 | `agentSuggestions` | When `true`, returns only fresh (unaccepted) agent suggestions. |
 | `agentComments` | When `true`, returns all agent annotations regardless of status. |
