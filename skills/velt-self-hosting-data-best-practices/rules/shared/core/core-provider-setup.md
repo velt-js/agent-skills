@@ -57,16 +57,20 @@ function App() {
 
 **IMPORTANT:** Use the existing `VeltInitializeDocument` component from the setup skill for document identity. Do NOT create a custom `DocumentSetup` component — the existing one handles the `setDocuments` lifecycle correctly and avoids infinite render loops. The document shape is `{ id: string, metadata: { documentName: string } }` — NOT `{ documentId, documentName }`.
 
-**Available provider keys:**
+**Available provider keys (full [`VeltDataProvider`](/api-reference/sdk/models/data-models#veltdataprovider) shape):**
 
 | Key | Data Type | Methods |
 |-----|-----------|---------|
 | `comment` | Comment content | get, save, delete |
-| `attachment` | File attachments | save, delete |
 | `reaction` | Emoji reactions | get, save, delete |
-| `recording` | Recording annotations | get, save, delete |
-| `user` | User PII (name, email, photo) | get only |
+| `recorder` | Recording annotations (+ optional `storage` for files) | get, save, delete |
+| `notification` | Custom notification PII | get, delete (no save) |
 | `activity` | Activity log records | get, save |
+| `attachment` | Comment file attachments | save, delete (no get) |
+| `anonymousUser` | Email → userId resolution for @mentions | resolveUserIdsByEmail |
+| `user` | User PII (name, email, photo) | get only |
+
+Every key is optional — pass only the providers you want to self-host. Unregistered features stay fully Velt-hosted.
 
 **ActivityAnnotationDataProvider shape:**
 
@@ -95,17 +99,36 @@ const dataProviders = {
 };
 ```
 
-**SDK methods:**
+**Two registration styles (pick one — both accept the same `VeltDataProvider` object):**
 
 ```tsx
-// Method 1: Via VeltProvider prop (recommended for React)
-<VeltProvider apiKey={KEY} authProvider={auth} dataProviders={dataProviders}>
+// Style 1: React — VeltProvider `dataProviders` prop (canonical for React/Next.js)
+<VeltProvider apiKey={KEY} authProvider={auth} dataProviders={{
+  comment:       commentDataProvider,
+  reaction:      reactionDataProvider,
+  recorder:      recorderDataProvider,
+  notification:  notificationDataProvider,
+  activity:      activityDataProvider,
+  attachment:    attachmentDataProvider,
+  anonymousUser: anonymousUserDataProvider,
+  user:          userDataProvider,
+}}>
 
-// Method 2: Via client API (for non-React or dynamic setup)
-client.setDataProviders(dataProviders);
+// Style 2: Non-React frameworks — imperative setDataProviders()
+await Velt.setDataProviders({
+  comment:       commentDataProvider,
+  reaction:      reactionDataProvider,
+  recorder:      recorderDataProvider,
+  notification:  notificationDataProvider,
+  activity:      activityDataProvider,
+  attachment:    attachmentDataProvider,
+  anonymousUser: anonymousUserDataProvider,
+  user:          userDataProvider,
+});
 
-// Anonymous user resolution (resolve tagged contact emails to userIds at save time)
-client.setAnonymousUserDataProvider({
+// Anonymous-user resolver — also has a standalone setter if you prefer to register it
+// separately. Velt calls it to map @mention emails to userIds BEFORE the comment is persisted.
+Velt.setAnonymousUserDataProvider({
   resolveUserIdsByEmail: async (request) => {
     // request: { organizationId, documentId?, folderId?, emails: string[] }
     const userIdMap = await myBackend.resolveEmails(request.emails);
@@ -121,8 +144,8 @@ client.setAnonymousUserDataProvider({
 - Self-hosting only works with `setDocuments` (plural), **not** `setDocument` (singular)
 - Each provider key is optional — only configure the data types you want to self-host
 - Define providers as module-level constants or `useMemo` to avoid unnecessary re-renders
-- `setDataProviders()` can be called programmatically as an alternative to the VeltProvider prop
-- `setAnonymousUserDataProvider()` is separate from the main dataProviders — it resolves tagged contact emails to userIds
+- `setDataProviders()` is the imperative counterpart to the `dataProviders` prop — use it from non-React frameworks (or any time you need to wire providers dynamically); both accept the same `VeltDataProvider` shape
+- `setAnonymousUserDataProvider()` is a standalone setter for the `anonymousUser` provider — equivalent to registering it inside `setDataProviders({ anonymousUser })`; use whichever fits your code layout
 
 ### Complete VeltProvider Wiring for Self-Hosting
 

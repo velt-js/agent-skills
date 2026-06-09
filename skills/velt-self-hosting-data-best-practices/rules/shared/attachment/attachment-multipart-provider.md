@@ -194,6 +194,50 @@ app.post('/api/velt/attachments/save', upload.single('file'), async (req, res) =
 | Get operation | Not supported | Supported |
 | Save response | Must include `{ url }` | Can be empty |
 
+**Two storage scopes — keep them separate:**
+
+`AttachmentDataProvider` is used in two distinct positions on the `VeltDataProvider` object, and they route to independent destinations. Wire each scope you need; do not consolidate them.
+
+| Scope | Configured via | Used for |
+|---|---|---|
+| Comment attachments | `dataProviders.attachment` | Files attached to comments |
+| Recording files | `dataProviders.recorder.storage` | Video/audio recording binaries |
+
+```ts
+await Velt.setDataProviders({
+  // Comment attachments — your S3/GCS/Azure bucket A
+  attachment: {
+    async save({ file, name, metadata }) {
+      const url = await commentBucket.put(file, name);
+      return { data: { url }, success: true, statusCode: 200 };
+    },
+    async delete({ attachmentId, metadata }) {
+      await commentBucket.remove(attachmentId);
+      return { success: true, statusCode: 200 };
+    },
+  },
+
+  // Recording metadata → your DB; recording binaries → bucket B (can be the same bucket)
+  recorder: {
+    async get(req)    { /* … */ },
+    async save(req)   { /* … */ },
+    async delete(req) { /* … */ },
+    storage: {
+      async save({ file, name }) {
+        const url = await recordingBucket.put(file, name);
+        return { data: { url }, success: true, statusCode: 200 };
+      },
+      async delete({ attachmentId }) {
+        await recordingBucket.remove(attachmentId);
+        return { success: true, statusCode: 200 };
+      },
+    },
+  },
+});
+```
+
+When `recorder.storage` is set, Velt uploads the entire recording to your bucket once (after the recording stops and the annotation is saved), patches the returned `url` onto the annotation, and skips its own server-side encoding/transcription post-processing — you own those files end to end. Deletes for both scopes receive the minimized metadata `{ apiKey, documentId, organizationId, folderId? }` plus the `attachmentId`.
+
 **Key details:**
 - Do **NOT** set `Content-Type` header for save requests — the browser sets it automatically with the correct multipart boundary
 - The save response **must** include `{ data: { url: string } }` — the URL where the attachment can be accessed
@@ -227,5 +271,6 @@ const deleteAttachmentFromDB = async (request: AttachmentDeleteRequest) => {
 - [ ] Delete uses standard JSON format
 - [ ] Timeout is longer than for other providers (file upload latency)
 - [ ] Delete handler reads `attachmentId` from the top-level request field, not from `metadata`
+- [ ] Comment attachments wired on `dataProviders.attachment`; recording files wired on `dataProviders.recorder.storage` — separate scopes, never collapsed
 
-**Source Pointer:** https://docs.velt.dev/self-host-data/attachments - Endpoint-Based, Function-Based
+**Source Pointer:** https://docs.velt.dev/self-host-data/attachments - Endpoint-Based, Function-Based; https://docs.velt.dev/self-host-data/overview - "Attachment & recording storage"

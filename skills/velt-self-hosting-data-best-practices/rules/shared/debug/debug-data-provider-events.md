@@ -33,9 +33,11 @@ function DataProviderMonitor() {
     if (!client) return;
 
     const subscription = client.on('dataProvider').subscribe((event) => {
+      // `moduleName` identifies which module triggered the resolver call —
+      // use it to trace which provider/operation any given event belongs to.
       console.log('Data Provider Event:', {
         type: event.type,           // 'get', 'save', 'delete'
-        provider: event.moduleName, // 'comment', 'attachment', etc.
+        moduleName: event.moduleName, // 'comment', 'attachment', 'recorder', 'notification', 'activity', 'anonymousUser', 'user'
         status: event.status,       // Success or failure details
         data: event.data            // Request/response data
       });
@@ -52,6 +54,18 @@ function DataProviderMonitor() {
   <DataProviderMonitor />
   <YourApp />
 </VeltProvider>
+```
+
+For non-React frameworks the subscription shape is identical — use the global `Velt` instance:
+
+```javascript
+const subscription = Velt.on('dataProvider').subscribe((event) => {
+  console.log('Data Provider Event:', event);
+  console.log('Module Name:', event.moduleName);
+});
+
+// Unsubscribe when done
+subscription?.unsubscribe();
 ```
 
 **Common issues revealed by monitoring:**
@@ -72,11 +86,14 @@ When self-hosting comment data, SendGrid email notifications are not available. 
 3. Query your database for the actual comment content
 4. Assemble and send emails via your own email provider
 
+For deeper inspection beyond log output, use the [Velt Chrome DevTools extension](https://chromewebstore.google.com/detail/velt-devtools/nfldoicbagllmegffdapcnohakpamlnl) — it surfaces the same provider events plus internal SDK state.
+
 **Verification:**
 - [ ] `dataProvider` subscription active during development
+- [ ] Events log `event.moduleName` (so you can tell which provider triggered each call)
 - [ ] Events show successful roundtrips for all operations
 - [ ] No timeout or format errors in the logs
 - [ ] Subscription cleaned up on unmount
 - [ ] Webhook-based email notifications set up if needed
 
-**Source Pointer:** https://docs.velt.dev/self-host-data/comments - Debugging, Email Notifications
+**Source Pointer:** https://docs.velt.dev/self-host-data/overview - "Debugging"; https://docs.velt.dev/self-host-data/comments - Debugging, Email Notifications

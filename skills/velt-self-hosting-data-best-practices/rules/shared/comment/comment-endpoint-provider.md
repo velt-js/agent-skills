@@ -73,17 +73,21 @@ The SDK automatically sends POST requests with these bodies:
 { commentAnnotationId: "ann-id", metadata: { documentId, organizationId } }
 ```
 
-**PII control with additionalFields and fieldsToRemove:**
+**Custom field control with `additionalFields` and `fieldsToRemove`:**
+
+Both options apply to **your own custom fields** that you attach to an annotation — not to Velt's built-in PII (which is stripped automatically).
 
 ```jsx
 const commentDataProvider = {
   config: {
     // ...endpoint configs above...
-    additionalFields: ['status', 'priority'],      // Extra fields to include
-    fieldsToRemove: ['email', 'phone'],            // PII fields to strip
+    additionalFields: ['status', 'assignedTo', 'priority'],   // copy to your DB, keep in Velt's
+    fieldsToRemove:   ['internalTicketId'],                    // move out of Velt's DB into yours
   }
 };
 ```
+
+See the `provider-retry-timeout` rule for the full `additionalFields` vs `fieldsToRemove` comparison and the list of structural fields that must **never** appear in `fieldsToRemove` (identifiers, metadata, location, status, resolver flags, …).
 
 **Key details:**
 - SDK handles all HTTP request/response serialization automatically
