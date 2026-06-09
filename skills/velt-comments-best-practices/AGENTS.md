@@ -1,55 +1,13 @@
 # Velt Comments Best Practices
-|v1.5.0|Velt|June 2026
+|v1.1.5|Velt|January 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
 |root: ./rules
-
-## Agent Comments Quick Reference
-
-When creating agent comment annotations via REST API, these fields are required:
-
-```
-POST /v2/commentannotations/add
-data: {
-  organizationId: "...",
-  documentId: "...",
-  commentAnnotations: [{
-    type: "suggestion",                    // REQUIRED — renders Accept/Reject buttons
-    commentData: [{
-      commentText: "Finding text",
-      from: { userId: "agent-id" },
-      agent: {                             // REQUIRED — on commentData[0], not annotation root
-        agentSource: "external",           // "external" for non-Velt agents
-        agentName: "My Agent",             // REQUIRED for external agents
-        agentId: "my-agent",
-        executionId: "run_123",
-        reason: {                          // REQUIRED — finding details
-          title: "Issue title",
-          description: "Details",
-          severity: "high",
-        },
-      },
-    }],
-  }],
-}
-```
-
-Reading agent annotations: use `executionId` or `agentSuggestions: true` filter on `POST /v2/commentannotations/get`.
-
-Client events for accept/reject (NOT commentSaved — use these dedicated events):
-```
-const accepted = useCommentEventCallback('suggestionAccepted');  // from @veltdev/react
-const rejected = useCommentEventCallback('suggestionRejected');
-```
-
-Full details in `shared/rest/rest-agent-comments-api.md` and `shared/events/events-comment-lifecycle.md`.
 
 ## 1. Core Setup — CRITICAL
 |react/core:{core-authentication.md,core-document-setup.md}
 |shared/core:{core-provider-setup.md}
 
 ## 2. REST API — HIGH
-|shared/rest:{rest-agent-comments-api.md,rest-comment-annotations-api.md,rest-comments-api.md}
-
 ## 3. Comment Modes — HIGH
 |react/mode:{mode-canvas.md,mode-chart-chartjs.md,mode-chart-custom.md,mode-chart-nivo.md,mode-chart-highcharts.md,mode-ace.md,mode-codemirror-comments.md,mode-lexical.md,mode-plate.md,mode-quill.md,mode-slatejs.md,mode-tiptap.md}
 |shared/mode:{mode-lottie-player.md,mode-video-player-custom.md,mode-freestyle.md,mode-inline-comments.md,mode-page.md,mode-popover.md,mode-video-player-prebuilt.md,mode-stream.md,mode-text.md}
@@ -81,7 +39,10 @@ Full details in `shared/rest/rest-agent-comments-api.md` and `shared/events/even
 |shared/config:{config-moderation.md,config-navigation.md,config-component-props.md,config-mentions-contacts.md,config-attachments.md,config-status-priority.md,config-reactions.md,config-text-formatting.md,config-sidebar-management.md,config-dom-controls.md,config-ui-behavior.md,config-sidebar-access-modes.md}
 
 ## 12. Events — MEDIUM
-|shared/events:{events-comment-lifecycle.md}
+|shared/events:{events-comment-lifecycle.md,rest-agent-comments-api.md,rest-agent-comments-api.md,rest-comment-annotations-api.md,rest-comment-annotations-api.md,rest-comments-api.md,rest-comments-api.md}
+
+## 12. REST API — HIGH
+|shared/rest:{events-comment-lifecycle.md,rest-agent-comments-api.md,rest-agent-comments-api.md,rest-comment-annotations-api.md,rest-comment-annotations-api.md,rest-comments-api.md,rest-comments-api.md}
 
 ## 13. Wireframe Variables — MEDIUM
 |shared/wireframe-variables:{wireframe-variables-autocomplete.md,wireframe-variables-comment-bubble.md,wireframe-variables-comment-dialog.md,wireframe-variables-comment-sidebar-button.md,wireframe-variables-comment-sidebar.md,wireframe-variables-comment-tool.md,wireframe-variables-inline-comments-section.md,wireframe-variables-multithread-comments.md,wireframe-variables-text-comment.md}

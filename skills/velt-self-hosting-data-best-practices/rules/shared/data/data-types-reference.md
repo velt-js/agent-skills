@@ -244,10 +244,265 @@ enum ReactionResolverModuleName { SET_DOCUMENTS = 'setDocuments', GET_REACTION_A
 enum RecorderResolverModuleName { GET_RECORDER_ANNOTATIONS = 'getRecorderAnnotations' }
 ```
 
+### Per-Feature Field Inventory (`Partial<X>` PII payloads)
+
+Each provider's `save` handler receives a `Partial<X>` shape — the SDK strips PII on the frontend before any write reaches Velt and hands only this payload to your DB. The note vocabulary used below: **kept** (sent to Velt verbatim), **reduced** (user → `{ userId }` before any write to Velt), **never sent to Velt** (stripped on the frontend before any request — value goes only to your DB or is recomputed on the client), **copied-not-moved** (sent to both), **@deprecated** (kept for back-compat; do not rely on it).
+
+#### `PartialCommentAnnotation` (your DB)
+
+```typescript
+interface PartialCommentAnnotation {
+  annotationId: string;                                  // join key; also in Velt's DB
+  metadata?: BaseMetadata;                               // getClientMetadata(data.metadata ?? {})
+  comments: Record<string | number, PartialComment>;    // re-keyed array → map; required (defaults to {})
+  from?: PartialUser;                                    // { userId }; copied-not-moved
+  assignedTo?: PartialUser;                              // { userId }; copied-not-moved
+  targetTextRange?: { text: string };                    // only the .text sub-field is withheld from Velt
+  resolvedByUserId?: string | null;                      // copied-not-moved
+  // plus any keys listed in config.fieldsToRemove (truthy-gated) and config.additionalFields (!== undefined)
+}
+
+interface PartialComment {
+  commentId: string | number;                            // always sent
+  commentHtml?: string;                                  // PII — never sent to Velt (only-if-truthy)
+  commentText?: string;                                  // PII — never sent to Velt (only-if-truthy)
+  attachments?: Record<number, PartialAttachment>;       // only when the attachment resolver is also active
+  from?: PartialUser;                                    // only if truthy
+  to?: PartialUser[];                                    // @mentioned users
+  taggedUserContacts?: { userId: string; contact?: { userId: string }; text?: string }[];
+}
+```
+
+#### `PartialReactionAnnotation` (your DB)
+
+```typescript
+interface PartialReactionAnnotation {
+  annotationId: string;                                  // join key
+  metadata?: BaseMetadata;                               // getClientMetadata(annotation.metadata ?? {})
+  icon: string;                                          // the only field never sent to Velt
+  from?: PartialUser;                                    // { userId }; copied-not-moved
+}
+```
+
+`iconUrl` and `iconEmoji` (custom reaction icon variants) are **kept** — they are sent to Velt verbatim. Only the emoji-code `icon` is withheld.
+
+#### `PartialRecorderAnnotation` (your DB)
+
+```typescript
+interface PartialRecorderAnnotation {
+  annotationId: string;                                  // join key
+  metadata?: BaseMetadata;                               // getClientMetadata(data.metadata)
+  from?: User;                                           // full user object (PII); deep-cloned
+  transcription?: Transcription;                         // entire object → your DB, never sent to Velt
+  attachment?: Attachment | null;                        // @deprecated; value written as null on Velt's side
+  attachments?: Attachment[];                            // full list incl. URLs — Velt keeps only stubs { attachmentId, name, bucketPath }
+  chunkUrls?: Record<number, string>;                    // full map → your DB; Velt's side written as {}
+  recordingEditVersions?: Record<number, PartialRecorderAnnotationEditVersion>;
+  isUrlAvailable?: boolean;                              // copied-not-moved
+  // plus config.additionalFields
+}
+
+interface Transcription {
+  from: User;                                            // required
+  lastUpdated?: number;
+  srtBucketPath?: string; srtUrl?: string;
+  vttBucketPath?: string; vttUrl?: string;
+  transcriptedText?: string;                             // PII
+  transcriptionLatency?: number;
+}
+```
+
+`bucketPath` inside `attachments[]` is deliberately **kept** in Velt's stub form so Velt can clean up storage; `url` and the other PII fields are stripped.
+
+#### `PartialNotification` (your DB — custom notifications only)
+
+```typescript
+interface PartialNotification {
+  notificationId: string;                                // join key; the only non-PII field
+  displayHeadlineMessageTemplate?: string;               // PII; your DB only
+  displayHeadlineMessageTemplateData?: {
+    actionUser?: User;
+    recipientUser?: User;
+    actionMessage?: string;
+    [key: string]: any;
+  };
+  displayBodyMessage?: string;                           // PII; your DB only
+  displayBodyMessageTemplate?: string;                   // PII; your DB only
+  displayBodyMessageTemplateData?: { [key: string]: any };
+  notificationSourceData?: any;                          // your custom source payload
+  [key: string]: any;                                    // any extra custom fields merged verbatim on read
+}
+```
+
+This is **read-only enrichment** — there is no write-side strip and no `save`. The PII is never written to Velt at all; it lives in your backend and is fetched on read.
+
+#### `PartialActivityRecord` (your DB — append-only)
+
+```typescript
+interface PartialActivityRecord {
+  id: string;                                            // correlation key (same as ActivityRecord.id)
+  metadata?: BaseMetadata;                               // getClientMetadata subset
+  changes?: ActivityChanges;                             // for comment activities: { commentText: { from, to } } only
+  entityData?: unknown;                                  // PartialReaction… / PartialRecorder… — only when matching feature resolver active
+  entityTargetData?: unknown;                            // sub-entity PII snapshot (e.g. comment fields)
+  displayMessageTemplateData?: Record<string, unknown>;  // custom-activity template values
+  [key: string]: any;                                    // fieldsToRemove custom fields (featureType === 'custom' only)
+}
+```
+
+`displayMessage` is **always recomputed on the client** from the template + values — stored in neither DB.
+
+#### Attachment upload payload (handed to your storage provider)
+
+```typescript
+interface SaveAttachmentResolverRequest {
+  file: File;                                            // raw binary — sent only to your storage, never to Velt
+  attachment: {
+    attachmentId: number;                                // required
+    name?: string;
+    mimeType?: string;
+  };
+  metadata: AttachmentResolverMetadata;                  // routing context
+  event?: ResolverActions;                               // e.g. ATTACHMENT_ADD / ATTACHMENT_DELETE
+}
+
+interface AttachmentResolverMetadata {
+  organizationId: string | null;
+  documentId: string | null;
+  folderId?: string | null;                              // optional + nullable
+  attachmentId: number | null;
+  commentAnnotationId: string | null;                    // dropped on delete
+  apiKey: string | null;
+}
+
+// Required return shape
+interface SaveAttachmentResolverData { url: string; }
+```
+
+There is no `Partial<X>` strip and no `get` for attachments — they are binary files. The `file` is destructured out and sent as binary to your storage; the JSON request body is exactly `{ attachment: { attachmentId, name, mimeType }, metadata, event }`. Velt receives the returned `url` plus the structural fields on the `Attachment` record (`bucketPath`, `size`, `type`, `thumbnail`, etc.).
+
+### Shared building blocks
+
+These nested types are referenced from every feature payload above.
+
+#### `BaseMetadata`
+
+```typescript
+interface BaseMetadata {
+  apiKey?: string;
+  documentId?: string;                                   // Velt-internal hashed id (auto-derived)
+  clientDocumentId?: string;                             // raw id you passed; dropped from the client-facing copy
+  organizationId?: string;                               // Velt-internal hashed id
+  clientOrganizationId?: string;                         // raw id you passed; dropped from the client-facing copy
+  folderId?: string;                                     // auto-derived from veltFolderId
+  veltFolderId?: string;                                 // Velt-internal; not in the client-facing copy
+  documentMetadata?: DocumentMetadata;
+  sdkVersion?: string | null;
+}
+```
+
+`getClientMetadata` transform (used for every payload sent to your DB): `clientDocumentId → documentId`, `clientOrganizationId → organizationId`; `veltFolderId` / `parentVeltFolderId` / `pageInfo` dropped; `folderId` included only when truthy.
+
+#### `User` / `PartialUser`
+
+```typescript
+type PartialUser = { userId: string };                   // the "reduced" shape — what Velt sees
+```
+
+The full `User` object (name / email / avatar / `photoUrl`) is **never sent to Velt** when the `user` provider is active; only `{ userId }` is written.
+
+#### `Location` and `Version`
+
+```typescript
+interface Location {
+  id?: string;
+  locationName?: string;
+  version?: { id: string; name: string };
+  [key: string]: any;                                    // arbitrary custom keys — kept
+}
+```
+
+#### `TargetElement`
+
+```typescript
+interface TargetElement {
+  xpath?: string;
+  fXpath?: string;                                       // full XPath
+  cfXpath?: string;                                      // full XPath with class names
+  topPercentage?: number;                                // default 0
+  leftPercentage?: number;                               // default 0
+  anchor?: AnchorRecord | null;
+  targetText?: string;                                   // IS sent to Velt — the readable anchor text
+}
+```
+
+Notable: `TargetElement.targetText` **IS** sent to Velt verbatim. The similarly named `targetTextRange.text` is **NOT** — see `TargetTextRange` below.
+
+#### `TargetTextRange`
+
+```typescript
+interface TargetTextRange {
+  commonAncestorContainer?: string;
+  commonAncestorContainerFXpath?: string;
+  commonAncestorContainerCFXpath?: string;
+  commonAncestorContainerAnchor?: AnchorRecord;
+  text?: string;                                         // never sent to Velt for comments (→ your DB) — only sub-field withheld
+  occurrence?: number;                                   // default 1
+}
+```
+
+#### `CursorPosition`
+
+```typescript
+interface CursorPosition {
+  top: number;                                           // default 0
+  left: number;                                          // default 0
+  parentScaleX?: number;                                 // transform handling
+  parentScaleY?: number;
+  transformContext?: any;
+}
+```
+
+#### `PageInfo`
+
+```typescript
+interface PageInfo {
+  url?: string;
+  path?: string;
+  queryParams?: string;
+  baseUrl?: string;
+  title?: string;
+  arrowUrl?: string; areaUrl?: string; commentUrl?: string; tagUrl?: string; recorderUrl?: string;
+  screenWidth?: number;
+  deviceInfo?: IDeviceInfo;
+}
+```
+
+#### `CommentAnnotationViews`
+
+```typescript
+interface CommentAnnotationViews {
+  views: Record<string, { timestamp: number }>;          // per-userId annotation view timestamps
+  comments: Record<string | number, {
+    views: Record<string, { timestamp: number }>;        // per-userId per-comment view timestamps
+  }>;
+  metadata?: BaseMetadata;
+}
+```
+
+### Resolver flags (set in Velt's DB; never sent from your side)
+
+The SDK sets these on the Velt-side record whenever PII was withheld for the corresponding feature. They are signals to clients that the resolver enrichment must run before the record is fully renderable.
+
+`isCommentResolverUsed` · `isReactionResolverUsed` · `isRecorderResolverUsed` · `isNotificationResolverUsed` · `isActivityResolverUsed` · `isAttachmentResolverUsed`
+
 **Verification:**
 - [ ] All provider interfaces match the VeltDataProvider shape
 - [ ] ResolverResponse always has `success: boolean` and `statusCode: number`
 - [ ] Request types match the operation (get/save/delete)
 - [ ] Partial types include only the PII fields stored on your infrastructure
+- [ ] `BaseMetadata` payloads sent to your DB go through `getClientMetadata` (raw `clientDocumentId` → `documentId`)
+- [ ] `TargetElement.targetText` is kept (sent to Velt); `targetTextRange.text` is stripped to your DB only
+- [ ] Recorder attachment stubs preserve `bucketPath` for Velt-side storage cleanup; `url` is never sent to Velt
 
-**Source Pointer:** https://docs.velt.dev/api-reference/sdk/models/data-models - Self-Hosting Types
+**Source Pointer:** https://docs.velt.dev/api-reference/sdk/models/data-models - Self-Hosting Types; https://docs.velt.dev/self-host-data/field-inventory - "Complete Field Inventory"

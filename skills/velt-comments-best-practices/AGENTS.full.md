@@ -1,6 +1,6 @@
 # Velt Comments Best Practices
 
-**Version 1.1.4**  
+**Version 1.1.5**  
 Velt  
 January 2026
 
@@ -26,9 +26,6 @@ Comprehensive Velt Comments implementation guide covering comment modes, setup p
    - 1.3 [Initialize VeltProvider with API Key](#13-initialize-veltprovider-with-api-key)
 
 2. [REST API](#2-rest-api) — **HIGH**
-   - 2.1 [REST API — Agent Comment Annotations (Create, Read, Filter)](#21-rest-api-agent-comment-annotations-create-read-filter)
-   - 2.2 [REST API — Comment Annotation CRUD](#22-rest-api-comment-annotation-crud)
-   - 2.3 [REST API — Individual Comment CRUD Within Annotations](#23-rest-api-individual-comment-crud-within-annotations)
 
 3. [Comment Modes](#3-comment-modes) — **HIGH**
    - 3.1 [Add Comments to Canvas/Drawing Applications](#31-add-comments-to-canvasdrawing-applications)
@@ -121,6 +118,21 @@ Comprehensive Velt Comments implementation guide covering comment modes, setup p
 
 12. [Events](#12-events) — **MEDIUM**
    - 12.1 [Comment Lifecycle Events — Pin Clicks, Add Events, Button Clicks](#121-comment-lifecycle-events-pin-clicks-add-events-button-clicks)
+   - 12.2 [REST API — Agent Comment Annotations (Create, Read, Filter)](#122-rest-api-agent-comment-annotations-create-read-filter)
+   - 12.3 [REST API — Agent Comment Annotations (Create, Read, Filter)](#123-rest-api-agent-comment-annotations-create-read-filter)
+   - 12.4 [REST API — Comment Annotation CRUD](#124-rest-api-comment-annotation-crud)
+   - 12.5 [REST API — Comment Annotation CRUD](#125-rest-api-comment-annotation-crud)
+   - 12.6 [REST API — Individual Comment CRUD Within Annotations](#126-rest-api-individual-comment-crud-within-annotations)
+   - 12.7 [REST API — Individual Comment CRUD Within Annotations](#127-rest-api-individual-comment-crud-within-annotations)
+
+12. [REST API](#12-rest-api) — **HIGH**
+   - 12.1 [Comment Lifecycle Events — Pin Clicks, Add Events, Button Clicks](#121-comment-lifecycle-events-pin-clicks-add-events-button-clicks)
+   - 12.2 [REST API — Agent Comment Annotations (Create, Read, Filter)](#122-rest-api-agent-comment-annotations-create-read-filter)
+   - 12.3 [REST API — Agent Comment Annotations (Create, Read, Filter)](#123-rest-api-agent-comment-annotations-create-read-filter)
+   - 12.4 [REST API — Comment Annotation CRUD](#124-rest-api-comment-annotation-crud)
+   - 12.5 [REST API — Comment Annotation CRUD](#125-rest-api-comment-annotation-crud)
+   - 12.6 [REST API — Individual Comment CRUD Within Annotations](#126-rest-api-individual-comment-crud-within-annotations)
+   - 12.7 [REST API — Individual Comment CRUD Within Annotations](#127-rest-api-individual-comment-crud-within-annotations)
 
 13. [Wireframe Variables](#13-wireframe-variables) — **MEDIUM**
    - 13.1 [Bind Autocomplete Wireframe Slots Using Template Variables](#131-bind-autocomplete-wireframe-slots-using-template-variables)
@@ -385,553 +397,7 @@ export default function App() {
 
 Server-side comment management via REST API, including agent comment annotations.
 
-### 2.1 REST API — Agent Comment Annotations (Create, Read, Filter)
-
-**Impact: HIGH (Let AI agents leave comments via REST API with the agent block, and read them back with agent-specific filters)**
-
-Agent comments let AI agents participate in collaboration by leaving findings via the Add Comment Annotations REST API. The server stamps `sourceType: "agent"` on the annotation and renders it with Accept/Reject buttons in the Velt UI. Any agent that can make an HTTP request can do this — a built-in Velt agent, a custom agent registered in the Console, or an external agent running in your own framework.
-
-### Creating agent annotations
-
-Attach an `agent` object to `commentData[0]` (the root comment). Set the annotation `type` to `"suggestion"` so the finding renders as a reviewable agent suggestion rather than a regular comment.
-
-**Correct (external agent leaving a finding via REST):**
-
-```javascript
-// POST https://api.velt.dev/v2/commentannotations/add
-const response = await fetch('https://api.velt.dev/v2/commentannotations/add', {
-  method: 'POST',
-  headers: {
-    'x-velt-api-key': process.env.VELT_API_KEY,
-    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'acme-corp',
-      documentId: 'design-mockup-v2',
-      commentAnnotations: [
-        {
-          type: 'suggestion',
-          commentData: [
-            {
-              commentText: 'This button has insufficient color contrast.',
-              from: { userId: 'a11y-bot' },
-              agent: {
-                agentSource: 'external',
-                agentName: 'Accessibility Bot',
-                agentId: 'a11y-bot',
-                executionId: 'run_8f21',
-                url: 'https://example.com/design-mockup-v2',
-                reason: {
-                  title: 'Low color contrast',
-                  description: 'Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.',
-                  severity: 'high',
-                  findingType: 'pin',
-                },
-              },
-            },
-          ],
-        },
-      ],
-    },
-  }),
-});
-```
-
-**Correct (Python — external agent):**
-
-```python
-import os
-import requests
-
-response = requests.post(
-    "https://api.velt.dev/v2/commentannotations/add",
-    headers={
-        "x-velt-api-key": os.environ["VELT_API_KEY"],
-        "x-velt-auth-token": os.environ["VELT_AUTH_TOKEN"],
-        "Content-Type": "application/json",
-    },
-    json={
-        "data": {
-            "organizationId": "acme-corp",
-            "documentId": "design-mockup-v2",
-            "commentAnnotations": [
-                {
-                    "type": "suggestion",
-                    "commentData": [
-                        {
-                            "commentText": "This button has insufficient color contrast.",
-                            "from": {"userId": "a11y-bot"},
-                            "agent": {
-                                "agentSource": "external",
-                                "agentName": "Accessibility Bot",
-                                "agentId": "a11y-bot",
-                                "executionId": "run_8f21",
-                                "url": "https://example.com/design-mockup-v2",
-                                "reason": {
-                                    "title": "Low color contrast",
-                                    "description": "Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.",
-                                    "severity": "high",
-                                    "findingType": "pin",
-                                },
-                            },
-                        }
-                    ],
-                }
-            ],
-        }
-    },
-)
-```
-
-The server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
-Use the Get Comment Annotations API with agent-specific filters. Only one agent filter may be supplied per request.
-| Filter | Description |
-|--------|-------------|
-| `agentId` | Annotations created by a specific agent. |
-| `executionId` | Annotations from a specific agent run. |
-| `agentType` | `"built-in"`, `"custom"`, or `"external"`. |
-| `agentSource` | `"velt"` or `"external"`. |
-| `agentSuggestions` | When `true`, returns only fresh (unaccepted) agent suggestions. |
-| `agentComments` | When `true`, returns all agent annotations regardless of status. |
-
-**Correct (fetch all findings from a specific agent run):**
-
-```javascript
-// POST https://api.velt.dev/v2/commentannotations/get
-const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
-  method: 'POST',
-  headers: {
-    'x-velt-api-key': process.env.VELT_API_KEY,
-    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'acme-corp',
-      documentId: 'design-mockup-v2',
-      executionId: 'run_8f21',
-    },
-  }),
-});
-```
-
-Agent annotations in the response carry `type: "suggestion"` and `sourceType: "agent"` at the annotation root, an annotation-root `agent` block (`CommentAnnotationAgent`), and an `agent` block on each agent-authored comment (`comments[].agent`).
-
-**Correct (fetch only pending agent suggestions):**
-
-```javascript
-const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
-  method: 'POST',
-  headers: {
-    'x-velt-api-key': process.env.VELT_API_KEY,
-    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
-    'Content-Type': 'application/json',
-  },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'acme-corp',
-      documentId: 'design-mockup-v2',
-      agentSuggestions: true,
-    },
-  }),
-});
-```
-
-**Correct (fetch all annotations from external agents):**
-
-```javascript
-const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
-  method: 'POST',
-  headers: { /* same headers */ },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'acme-corp',
-      documentId: 'design-mockup-v2',
-      agentSource: 'external',
-    },
-  }),
-});
-```
-
-The Get Comment Annotations API requires the **advanced queries** option to be enabled in the Velt Console and the v4+ series of the Velt SDK.
-Agent findings render with Accept and Reject buttons. Subscribe to `suggestionAccepted` and `suggestionRejected` on the comment element to apply the change to your own data or trigger follow-up logic. The SDK records the outcome and persists the suggestion status — applying the actual change is your code's responsibility.
-
-**Correct (React — subscribe to agent suggestion events):**
-
-```tsx
-import { useCommentEventCallback } from '@veltdev/react';
-import { useEffect } from 'react';
-
-export function AgentSuggestionListener() {
-  const accepted = useCommentEventCallback('suggestionAccepted');
-  const rejected = useCommentEventCallback('suggestionRejected');
-
-  useEffect(() => {
-    if (!accepted) return;
-    // accepted.commentAnnotation contains the full agent finding
-    console.log('Suggestion accepted', accepted.commentAnnotation);
-  }, [accepted]);
-
-  useEffect(() => {
-    if (!rejected) return;
-    // rejected.rejectReason contains the reviewer's reason (if provided)
-    console.log('Suggestion rejected', rejected.rejectReason);
-  }, [rejected]);
-
-  return null;
-}
-```
-
-**Correct (Other Frameworks — Angular, Vue, Vanilla JS):**
-
-```tsx
-const commentElement = Velt.getCommentElement();
-
-commentElement.on('suggestionAccepted').subscribe(({ commentAnnotation }) => {
-  console.log('Suggestion accepted', commentAnnotation);
-});
-
-commentElement.on('suggestionRejected').subscribe(({ commentAnnotation, rejectReason }) => {
-  console.log('Suggestion rejected', rejectReason);
-});
-import {
-  VeltCommentDialogContextWrapper,
-  VeltCommentDialogAgentSuggestionBody,
-  VeltCommentDialogAgentSuggestionActions,
-  VeltCommentDialogAgentSuggestionActionsActionAccept,
-  VeltCommentDialogAgentSuggestionActionsActionReject,
-  VeltCommentDialogAgentSuggestionBanner,
-} from '@veltdev/react';
-
-function AgentFindingCard({ annotationId }: { annotationId: string }) {
-  return (
-    <VeltCommentDialogContextWrapper annotationId={annotationId}>
-      <VeltCommentDialogAgentSuggestionBody />
-      <VeltCommentDialogAgentSuggestionActions>
-        <VeltCommentDialogAgentSuggestionActionsActionAccept />
-        <VeltCommentDialogAgentSuggestionActionsActionReject />
-      </VeltCommentDialogAgentSuggestionActions>
-      <VeltCommentDialogAgentSuggestionBanner />
-    </VeltCommentDialogContextWrapper>
-  );
-}
-```
-
-Annotations created with `sourceType: "agent"` render with an agent-identity header (agent name + avatar from the `agent` block) instead of the standard human-author header. Because the annotation `type` is `"suggestion"`, the comment dialog shows Accept and Reject buttons.
-To build a custom agent suggestion UI, use the standalone `VeltCommentDialogAgentSuggestion*` primitives (not the wireframe pattern). Wrap them in a `VeltCommentDialogContextWrapper` with `annotationId`:
-The full 21-component hierarchy and all props are documented in `ui-agent-suggestion-primitives`.
-
-References:
-- https://docs.velt.dev/ai/agent-comments
-- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations
-- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-v2
-
----
-
-### 2.2 REST API — Comment Annotation CRUD
-
-**Impact: HIGH (Server-side comment annotation management via REST)**
-
-Use Velt's REST APIs to manage comment annotations from your backend. All endpoints require `x-velt-api-key` and `x-velt-auth-token` headers.
-
-> **Agent annotations?** If the task involves AI agents, agent comments, agent suggestions, agentSource, executionId, or accept/reject — the agent block goes on `commentData[0]` with `type: "suggestion"`, `agentName` (required for external), and a `reason` object. See `rest-agent-comments-api.md` for the full reference and code examples. Use `suggestionAccepted`/`suggestionRejected` events on the client to handle reviewer decisions.
-
-**Add Annotations:**
-
-```javascript
-// POST https://api.velt.dev/v2/commentannotations/add
-const response = await fetch('https://api.velt.dev/v2/commentannotations/add', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'x-velt-api-key': process.env.VELT_API_KEY,
-    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
-  },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'org-1',
-      documentId: 'doc-1',
-      commentAnnotations: [{
-        commentData: [{
-          commentText: 'This needs review',
-          commentHtml: '<p>This needs review</p>',
-          from: { userId: 'user-1' },
-        }],
-      }],
-    },
-  }),
-});
-```
-
-**Add Agent Annotations (AI agent findings with Accept/Reject buttons):**
-
-```javascript
-// POST https://api.velt.dev/v2/commentannotations/add
-const response = await fetch('https://api.velt.dev/v2/commentannotations/add', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'x-velt-api-key': process.env.VELT_API_KEY,
-    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
-  },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'acme-corp',
-      documentId: 'design-mockup-v2',
-      commentAnnotations: [{
-        type: 'suggestion',
-        commentData: [{
-          commentText: 'This button has insufficient color contrast.',
-          from: { userId: 'a11y-bot' },
-          agent: {
-            agentSource: 'external',
-            agentName: 'Accessibility Bot',
-            agentId: 'a11y-bot',
-            executionId: 'run_8f21',
-            reason: {
-              title: 'Low color contrast',
-              description: 'Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.',
-              severity: 'high',
-              findingType: 'pin',
-            },
-          },
-        }],
-      }],
-    },
-  }),
-});
-```
-
-**Get Annotations (with filters):**
-
-```javascript
-// POST https://api.velt.dev/v2/commentannotations/get
-const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'x-velt-api-key': process.env.VELT_API_KEY,
-    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
-  },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'org-1',
-      documentId: 'doc-1',           // Optional
-      locationIds: [1, 2],           // Optional
-      annotationIds: ['ann-1'],      // Optional
-      userIds: ['user-1'],           // Optional
-      statusIds: ['open'],           // Optional
-      folderId: 'folder-1',         // Optional
-      updatedAfter: 1700000000000,   // Optional: timestamp ms
-      createdBefore: 1700100000000,  // Optional: timestamp ms
-      pageSize: 50,                  // Default: 1000
-      pageToken: 'next-token',      // For pagination
-    },
-  }),
-});
-// Response: { result: { status, data: CommentAnnotation[], pageToken } }
-```
-
-**Get Agent Annotations (agent-specific filters):**
-
-```javascript
-// Get all findings from a specific agent run
-const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'x-velt-api-key': process.env.VELT_API_KEY,
-    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
-  },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'acme-corp',
-      documentId: 'design-mockup-v2',
-      executionId: 'run_8f21',
-    },
-  }),
-});
-
-// Get only pending (unaccepted) agent suggestions
-const pending = await fetch('https://api.velt.dev/v2/commentannotations/get', {
-  method: 'POST',
-  headers: { /* same headers */ },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'acme-corp',
-      documentId: 'design-mockup-v2',
-      agentSuggestions: true,
-    },
-  }),
-});
-```
-
-**Update Annotations:**
-
-```javascript
-// POST https://api.velt.dev/v2/commentannotations/update
-const response = await fetch('https://api.velt.dev/v2/commentannotations/update', {
-  method: 'POST',
-  headers: { /* same headers */ },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'org-1',
-      documentId: 'doc-1',
-      annotations: [{
-        annotationId: 'ann-123',
-        status: { id: 'resolved', name: 'Resolved', type: 'terminal' },
-        priority: { id: 'low', name: 'Low' },
-      }],
-    },
-  }),
-});
-```
-
-**Delete Annotations:**
-
-```javascript
-// POST https://api.velt.dev/v2/commentannotations/delete
-const response = await fetch('https://api.velt.dev/v2/commentannotations/delete', {
-  method: 'POST',
-  headers: { /* same headers */ },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'org-1',
-      documentId: 'doc-1',
-      annotationIds: ['ann-123', 'ann-456'],
-    },
-  }),
-});
-```
-
-**Get Counts (total + unread):**
-
-```javascript
-// POST https://api.velt.dev/v2/commentannotations/count/get
-const response = await fetch('https://api.velt.dev/v2/commentannotations/count/get', {
-  method: 'POST',
-  headers: { /* same headers */ },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'org-1',
-      documentId: 'doc-1',
-    },
-  }),
-});
-// Response: { result: { data: { total: number, unread: number } } }
-```
-
-Reference: https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/
-
----
-
-### 2.3 REST API — Individual Comment CRUD Within Annotations
-
-**Impact: HIGH (Server-side individual comment management via REST)**
-
-Manage individual comments within annotation threads from your backend. All endpoints require `x-velt-api-key` and `x-velt-auth-token` headers.
-
-**Add Comments to Annotation:**
-
-```javascript
-// POST https://api.velt.dev/v2/commentannotations/comments/add
-const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/add', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'x-velt-api-key': process.env.VELT_API_KEY,
-    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
-  },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'org-1',
-      documentId: 'doc-1',
-      annotationId: 'ann-123',
-      commentData: [{
-        commentText: 'Looks good to me',
-        commentHtml: '<p>Looks good to me</p>',
-        from: { userId: 'user-1' },
-        context: { reviewType: 'approval' },
-        taggedUserContacts: [],
-        attachments: [{
-          attachmentId: 'att-1',
-          name: 'screenshot.png',
-          url: 'https://example.com/screenshot.png',
-          mimeType: 'image/png',
-          size: 102400,
-        }],
-      }],
-    },
-  }),
-});
-```
-
-**Get Comments:**
-
-```javascript
-// POST https://api.velt.dev/v2/commentannotations/comments/get
-const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/get', {
-  method: 'POST',
-  headers: { /* same headers */ },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'org-1',
-      documentId: 'doc-1',
-      annotationId: 'ann-123',
-      userIds: ['user-1'],       // Required
-      commentIds: [1, 2, 3],     // Optional: specific comment IDs
-    },
-  }),
-});
-// Response includes: commentHtml, commentText, status, reactionAnnotations[]
-```
-
-**Update Comments:**
-
-```javascript
-// POST https://api.velt.dev/v2/commentannotations/comments/update
-const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/update', {
-  method: 'POST',
-  headers: { /* same headers */ },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'org-1',
-      documentId: 'doc-1',
-      annotationId: 'ann-123',
-      commentIds: [1],
-      updatedData: {
-        commentText: 'Updated review text',
-        commentHtml: '<p>Updated review text</p>',
-        context: { reviewType: 'revision' },
-      },
-    },
-  }),
-});
-```
-
-**Delete Comments:**
-
-```javascript
-// POST https://api.velt.dev/v2/commentannotations/comments/delete
-const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/delete', {
-  method: 'POST',
-  headers: { /* same headers */ },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'org-1',
-      documentId: 'doc-1',
-      annotationId: 'ann-123',
-      commentIds: [1, 2],  // Optional — if omitted, deletes all comments in annotation
-    },
-  }),
-});
-```
-
-Reference: https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/
-
----
+*No rules defined yet. See rules/_template.md for creating new rules.*
 
 ## 3. Comment Modes
 
@@ -8058,6 +7524,2494 @@ subscription.unsubscribe();
 References:
 - https://docs.velt.dev/async-collaboration/comments/customize-behavior - Events
 - https://docs.velt.dev/api-reference/sdk/models/data-models#addcommentdraftevent
+
+---
+
+### 12.2 REST API — Agent Comment Annotations (Create, Read, Filter)
+
+**Impact: HIGH (Let AI agents leave comments via REST API with the agent block, and read them back with agent-specific filters)**
+
+Agent comments let AI agents participate in collaboration by leaving findings via the Add Comment Annotations REST API. The server stamps `sourceType: "agent"` on the annotation and renders it with Accept/Reject buttons in the Velt UI. Any agent that can make an HTTP request can do this — a custom agent registered in the Velt Console, or an external agent running in your own framework.
+
+### Creating agent annotations
+
+Attach an `agent` object to `commentData[0]` (the root comment). Set the annotation `type` to `"suggestion"` so the finding renders as a reviewable agent suggestion rather than a regular comment.
+
+**Correct (external agent leaving a finding via REST):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/add
+const response = await fetch('https://api.velt.dev/v2/commentannotations/add', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      commentAnnotations: [
+        {
+          type: 'suggestion',
+          commentData: [
+            {
+              commentText: 'This button has insufficient color contrast.',
+              from: { userId: 'a11y-bot' },
+              agent: {
+                agentSource: 'external',
+                agentName: 'Accessibility Bot',
+                agentId: 'a11y-bot',
+                executionId: 'run_8f21',
+                url: 'https://example.com/design-mockup-v2',
+                reason: {
+                  title: 'Low color contrast',
+                  description: 'Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.',
+                  severity: 'high',
+                  findingType: 'pin',
+                },
+              },
+            },
+          ],
+        },
+      ],
+    },
+  }),
+});
+```
+
+**Correct (Python — external agent):**
+
+```python
+import os
+import requests
+
+response = requests.post(
+    "https://api.velt.dev/v2/commentannotations/add",
+    headers={
+        "x-velt-api-key": os.environ["VELT_API_KEY"],
+        "x-velt-auth-token": os.environ["VELT_AUTH_TOKEN"],
+        "Content-Type": "application/json",
+    },
+    json={
+        "data": {
+            "organizationId": "acme-corp",
+            "documentId": "design-mockup-v2",
+            "commentAnnotations": [
+                {
+                    "type": "suggestion",
+                    "commentData": [
+                        {
+                            "commentText": "This button has insufficient color contrast.",
+                            "from": {"userId": "a11y-bot"},
+                            "agent": {
+                                "agentSource": "external",
+                                "agentName": "Accessibility Bot",
+                                "agentId": "a11y-bot",
+                                "executionId": "run_8f21",
+                                "url": "https://example.com/design-mockup-v2",
+                                "reason": {
+                                    "title": "Low color contrast",
+                                    "description": "Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.",
+                                    "severity": "high",
+                                    "findingType": "pin",
+                                },
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
+    },
+)
+```
+
+The server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
+`reason` carries the finding's details. Three fields are required; the remaining ten are optional. Any extra custom fields beyond this list are preserved by the server.
+| Field | Required | Type | Description |
+|-------|----------|------|-------------|
+| `title` | Yes | string | Short finding title — a quick label for the issue (e.g. `"Low color contrast"`). |
+| `description` | Yes | string | Fuller explanation of what the agent found. |
+| `severity` | Yes | string | One of `critical`, `high`, `medium`, `low`, `info`. |
+| `findingId` | No | string | Your own unique ID for the finding, useful for dedup / tracking. |
+| `findingType` | No | string | What kind of target the finding is on. One of `text`, `pin`, `page`. |
+| `issueType` | No | string | Custom classification you define for your own taxonomy (e.g. `"accessibility"`). |
+| `confidence` | No | number | How confident the agent is. Integer 0–100. |
+| `suggestion` | No | string | Suggested change in plain text — **human-readable prose** (e.g. `"Darken the button background to at least #1A1A1A."`). |
+| `suggestedFix` | No | string | **The concrete literal replacement value** to apply (e.g. for a spelling correction, just `"Welcome"` — the corrected word itself, not a sentence about it). |
+| `htmlSnippet` | No | string | The relevant chunk of HTML where the issue lives. |
+| `htmlSelector` | No | string | CSS / HTML selector pointing to the finding's location. |
+| `source` | No | string | Where the triggering rule came from. One of `instructions`, `knowledge`. |
+| `knowledgeSection` | No | string | Which knowledge section fired (pairs with `source: "knowledge"`). |
+**Do not conflate `suggestion` and `suggestedFix`.** `suggestion` is prose meant for a human reviewer to read in the comment; `suggestedFix` is the literal replacement value your code would apply on Accept. For a spelling fix, `suggestion` might read `"Did you mean 'Welcome'?"` while `suggestedFix` is just `"Welcome"`.
+
+**Correct (fully-populated `reason`):**
+
+```json
+"reason": {
+  "title": "Low color contrast",
+  "description": "Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.",
+  "severity": "high",
+  "findingId": "finding_a11y_0427",
+  "findingType": "pin",
+  "issueType": "accessibility",
+  "confidence": 92,
+  "suggestion": "Darken the button background to at least #1A1A1A.",
+  "suggestedFix": "#1A1A1A",
+  "htmlSnippet": "<button class='cta'>Buy now</button>",
+  "htmlSelector": ".cta-primary > button",
+  "source": "knowledge",
+  "knowledgeSection": "brand-guidelines/accessibility"
+}
+```
+
+Use the Get Comment Annotations API with agent-specific filters. Only one agent filter may be supplied per request.
+| Filter | Description |
+|--------|-------------|
+| `agentId` | Annotations created by a specific agent. |
+| `executionId` | Annotations from a specific agent run. |
+| `agentSource` | `"velt"` or `"external"`. |
+| `agentSuggestions` | When `true`, returns only fresh (unaccepted) agent suggestions. |
+| `agentComments` | When `true`, returns all agent annotations regardless of status. |
+
+**Correct (fetch all findings from a specific agent run):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/get
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      executionId: 'run_8f21',
+    },
+  }),
+});
+```
+
+Agent annotations in the response carry `type: "suggestion"` and `sourceType: "agent"` at the annotation root, an annotation-root `agent` block (`CommentAnnotationAgent`), and an `agent` block on each agent-authored comment (`comments[].agent`).
+
+**Correct (fetch only pending agent suggestions):**
+
+```javascript
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentSuggestions: true,
+    },
+  }),
+});
+```
+
+**Correct (fetch all annotations from external agents):**
+
+```javascript
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentSource: 'external',
+    },
+  }),
+});
+```
+
+The Get Comment Annotations API requires the **advanced queries** option to be enabled in the Velt Console and the v4+ series of the Velt SDK.
+Agent findings render with Accept and Reject buttons. Subscribe to `suggestionAccepted` and `suggestionRejected` on the comment element to apply the change to your own data or trigger follow-up logic. The SDK records the outcome and persists the suggestion status — applying the actual change is your code's responsibility.
+
+**Correct (React — subscribe to agent suggestion events):**
+
+```tsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+export function AgentSuggestionListener() {
+  const accepted = useCommentEventCallback('suggestionAccepted');
+  const rejected = useCommentEventCallback('suggestionRejected');
+
+  useEffect(() => {
+    if (!accepted) return;
+    // accepted.commentAnnotation contains the full agent finding
+    console.log('Suggestion accepted', accepted.commentAnnotation);
+  }, [accepted]);
+
+  useEffect(() => {
+    if (!rejected) return;
+    // rejected.rejectReason contains the reviewer's reason (if provided)
+    console.log('Suggestion rejected', rejected.rejectReason);
+  }, [rejected]);
+
+  return null;
+}
+```
+
+**Correct (Other Frameworks — Angular, Vue, Vanilla JS):**
+
+```tsx
+const commentElement = Velt.getCommentElement();
+
+commentElement.on('suggestionAccepted').subscribe(({ commentAnnotation }) => {
+  console.log('Suggestion accepted', commentAnnotation);
+});
+
+commentElement.on('suggestionRejected').subscribe(({ commentAnnotation, rejectReason }) => {
+  console.log('Suggestion rejected', rejectReason);
+});
+import {
+  VeltCommentDialogContextWrapper,
+  VeltCommentDialogAgentSuggestionBody,
+  VeltCommentDialogAgentSuggestionActions,
+  VeltCommentDialogAgentSuggestionActionsActionAccept,
+  VeltCommentDialogAgentSuggestionActionsActionReject,
+  VeltCommentDialogAgentSuggestionBanner,
+} from '@veltdev/react';
+
+function AgentFindingCard({ annotationId }: { annotationId: string }) {
+  return (
+    <VeltCommentDialogContextWrapper annotationId={annotationId}>
+      <VeltCommentDialogAgentSuggestionBody />
+      <VeltCommentDialogAgentSuggestionActions>
+        <VeltCommentDialogAgentSuggestionActionsActionAccept />
+        <VeltCommentDialogAgentSuggestionActionsActionReject />
+      </VeltCommentDialogAgentSuggestionActions>
+      <VeltCommentDialogAgentSuggestionBanner />
+    </VeltCommentDialogContextWrapper>
+  );
+}
+```
+
+Annotations created with `sourceType: "agent"` render with an agent-identity header (agent name + avatar from the `agent` block) instead of the standard human-author header. Because the annotation `type` is `"suggestion"`, the comment dialog shows Accept and Reject buttons.
+To build a custom agent suggestion UI, use the standalone `VeltCommentDialogAgentSuggestion*` primitives (not the wireframe pattern). Wrap them in a `VeltCommentDialogContextWrapper` with `annotationId`:
+The full 21-component hierarchy and all props are documented in `ui-agent-suggestion-primitives`.
+
+References:
+- https://docs.velt.dev/ai/agent-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-v2
+
+---
+
+### 12.3 REST API — Agent Comment Annotations (Create, Read, Filter)
+
+**Impact: HIGH (Let AI agents leave comments via REST API with the agent block, and read them back with agent-specific filters)**
+
+Agent comments let AI agents participate in collaboration by leaving findings via the Add Comment Annotations REST API. The server stamps `sourceType: "agent"` on the annotation and renders it with Accept/Reject buttons in the Velt UI. Any agent that can make an HTTP request can do this — a custom agent registered in the Velt Console, or an external agent running in your own framework.
+
+### Creating agent annotations
+
+Attach an `agent` object to `commentData[0]` (the root comment). Set the annotation `type` to `"suggestion"` so the finding renders as a reviewable agent suggestion rather than a regular comment.
+
+**Correct (external agent leaving a finding via REST):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/add
+const response = await fetch('https://api.velt.dev/v2/commentannotations/add', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      commentAnnotations: [
+        {
+          type: 'suggestion',
+          commentData: [
+            {
+              commentText: 'This button has insufficient color contrast.',
+              from: { userId: 'a11y-bot' },
+              agent: {
+                agentSource: 'external',
+                agentName: 'Accessibility Bot',
+                agentId: 'a11y-bot',
+                executionId: 'run_8f21',
+                url: 'https://example.com/design-mockup-v2',
+                reason: {
+                  title: 'Low color contrast',
+                  description: 'Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.',
+                  severity: 'high',
+                  findingType: 'pin',
+                },
+              },
+            },
+          ],
+        },
+      ],
+    },
+  }),
+});
+```
+
+**Correct (Python — external agent):**
+
+```python
+import os
+import requests
+
+response = requests.post(
+    "https://api.velt.dev/v2/commentannotations/add",
+    headers={
+        "x-velt-api-key": os.environ["VELT_API_KEY"],
+        "x-velt-auth-token": os.environ["VELT_AUTH_TOKEN"],
+        "Content-Type": "application/json",
+    },
+    json={
+        "data": {
+            "organizationId": "acme-corp",
+            "documentId": "design-mockup-v2",
+            "commentAnnotations": [
+                {
+                    "type": "suggestion",
+                    "commentData": [
+                        {
+                            "commentText": "This button has insufficient color contrast.",
+                            "from": {"userId": "a11y-bot"},
+                            "agent": {
+                                "agentSource": "external",
+                                "agentName": "Accessibility Bot",
+                                "agentId": "a11y-bot",
+                                "executionId": "run_8f21",
+                                "url": "https://example.com/design-mockup-v2",
+                                "reason": {
+                                    "title": "Low color contrast",
+                                    "description": "Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.",
+                                    "severity": "high",
+                                    "findingType": "pin",
+                                },
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
+    },
+)
+```
+
+The server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
+`reason` carries the finding's details. Three fields are required; the remaining ten are optional. Any extra custom fields beyond this list are preserved by the server.
+| Field | Required | Type | Description |
+|-------|----------|------|-------------|
+| `title` | Yes | string | Short finding title — a quick label for the issue (e.g. `"Low color contrast"`). |
+| `description` | Yes | string | Fuller explanation of what the agent found. |
+| `severity` | Yes | string | One of `critical`, `high`, `medium`, `low`, `info`. |
+| `findingId` | No | string | Your own unique ID for the finding, useful for dedup / tracking. |
+| `findingType` | No | string | What kind of target the finding is on. One of `text`, `pin`, `page`. |
+| `issueType` | No | string | Custom classification you define for your own taxonomy (e.g. `"accessibility"`). |
+| `confidence` | No | number | How confident the agent is. Integer 0–100. |
+| `suggestion` | No | string | Suggested change in plain text — **human-readable prose** (e.g. `"Darken the button background to at least #1A1A1A."`). |
+| `suggestedFix` | No | string | **The concrete literal replacement value** to apply (e.g. for a spelling correction, just `"Welcome"` — the corrected word itself, not a sentence about it). |
+| `htmlSnippet` | No | string | The relevant chunk of HTML where the issue lives. |
+| `htmlSelector` | No | string | CSS / HTML selector pointing to the finding's location. |
+| `source` | No | string | Where the triggering rule came from. One of `instructions`, `knowledge`. |
+| `knowledgeSection` | No | string | Which knowledge section fired (pairs with `source: "knowledge"`). |
+**Do not conflate `suggestion` and `suggestedFix`.** `suggestion` is prose meant for a human reviewer to read in the comment; `suggestedFix` is the literal replacement value your code would apply on Accept. For a spelling fix, `suggestion` might read `"Did you mean 'Welcome'?"` while `suggestedFix` is just `"Welcome"`.
+
+**Correct (fully-populated `reason`):**
+
+```json
+"reason": {
+  "title": "Low color contrast",
+  "description": "Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.",
+  "severity": "high",
+  "findingId": "finding_a11y_0427",
+  "findingType": "pin",
+  "issueType": "accessibility",
+  "confidence": 92,
+  "suggestion": "Darken the button background to at least #1A1A1A.",
+  "suggestedFix": "#1A1A1A",
+  "htmlSnippet": "<button class='cta'>Buy now</button>",
+  "htmlSelector": ".cta-primary > button",
+  "source": "knowledge",
+  "knowledgeSection": "brand-guidelines/accessibility"
+}
+```
+
+Use the Get Comment Annotations API with agent-specific filters. Only one agent filter may be supplied per request.
+| Filter | Description |
+|--------|-------------|
+| `agentId` | Annotations created by a specific agent. |
+| `executionId` | Annotations from a specific agent run. |
+| `agentSource` | `"velt"` or `"external"`. |
+| `agentSuggestions` | When `true`, returns only fresh (unaccepted) agent suggestions. |
+| `agentComments` | When `true`, returns all agent annotations regardless of status. |
+
+**Correct (fetch all findings from a specific agent run):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/get
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      executionId: 'run_8f21',
+    },
+  }),
+});
+```
+
+Agent annotations in the response carry `type: "suggestion"` and `sourceType: "agent"` at the annotation root, an annotation-root `agent` block (`CommentAnnotationAgent`), and an `agent` block on each agent-authored comment (`comments[].agent`).
+
+**Correct (fetch only pending agent suggestions):**
+
+```javascript
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentSuggestions: true,
+    },
+  }),
+});
+```
+
+**Correct (fetch all annotations from external agents):**
+
+```javascript
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentSource: 'external',
+    },
+  }),
+});
+```
+
+The Get Comment Annotations API requires the **advanced queries** option to be enabled in the Velt Console and the v4+ series of the Velt SDK.
+Agent findings render with Accept and Reject buttons. Subscribe to `suggestionAccepted` and `suggestionRejected` on the comment element to apply the change to your own data or trigger follow-up logic. The SDK records the outcome and persists the suggestion status — applying the actual change is your code's responsibility.
+
+**Correct (React — subscribe to agent suggestion events):**
+
+```tsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+export function AgentSuggestionListener() {
+  const accepted = useCommentEventCallback('suggestionAccepted');
+  const rejected = useCommentEventCallback('suggestionRejected');
+
+  useEffect(() => {
+    if (!accepted) return;
+    // accepted.commentAnnotation contains the full agent finding
+    console.log('Suggestion accepted', accepted.commentAnnotation);
+  }, [accepted]);
+
+  useEffect(() => {
+    if (!rejected) return;
+    // rejected.rejectReason contains the reviewer's reason (if provided)
+    console.log('Suggestion rejected', rejected.rejectReason);
+  }, [rejected]);
+
+  return null;
+}
+```
+
+**Correct (Other Frameworks — Angular, Vue, Vanilla JS):**
+
+```tsx
+const commentElement = Velt.getCommentElement();
+
+commentElement.on('suggestionAccepted').subscribe(({ commentAnnotation }) => {
+  console.log('Suggestion accepted', commentAnnotation);
+});
+
+commentElement.on('suggestionRejected').subscribe(({ commentAnnotation, rejectReason }) => {
+  console.log('Suggestion rejected', rejectReason);
+});
+import {
+  VeltCommentDialogContextWrapper,
+  VeltCommentDialogAgentSuggestionBody,
+  VeltCommentDialogAgentSuggestionActions,
+  VeltCommentDialogAgentSuggestionActionsActionAccept,
+  VeltCommentDialogAgentSuggestionActionsActionReject,
+  VeltCommentDialogAgentSuggestionBanner,
+} from '@veltdev/react';
+
+function AgentFindingCard({ annotationId }: { annotationId: string }) {
+  return (
+    <VeltCommentDialogContextWrapper annotationId={annotationId}>
+      <VeltCommentDialogAgentSuggestionBody />
+      <VeltCommentDialogAgentSuggestionActions>
+        <VeltCommentDialogAgentSuggestionActionsActionAccept />
+        <VeltCommentDialogAgentSuggestionActionsActionReject />
+      </VeltCommentDialogAgentSuggestionActions>
+      <VeltCommentDialogAgentSuggestionBanner />
+    </VeltCommentDialogContextWrapper>
+  );
+}
+```
+
+Annotations created with `sourceType: "agent"` render with an agent-identity header (agent name + avatar from the `agent` block) instead of the standard human-author header. Because the annotation `type` is `"suggestion"`, the comment dialog shows Accept and Reject buttons.
+To build a custom agent suggestion UI, use the standalone `VeltCommentDialogAgentSuggestion*` primitives (not the wireframe pattern). Wrap them in a `VeltCommentDialogContextWrapper` with `annotationId`:
+The full 21-component hierarchy and all props are documented in `ui-agent-suggestion-primitives`.
+
+References:
+- https://docs.velt.dev/ai/agent-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-v2
+
+---
+
+### 12.4 REST API — Comment Annotation CRUD
+
+**Impact: HIGH (Server-side comment annotation management via REST)**
+
+Use Velt's REST APIs to manage comment annotations from your backend. All endpoints require `x-velt-api-key` and `x-velt-auth-token` headers.
+
+> **Agent annotations?** If the task involves AI agents, agent comments, agent suggestions, agentSource, executionId, or accept/reject — the agent block goes on `commentData[0]` with `type: "suggestion"`, `agentName` (required for external), and a `reason` object. See `rest-agent-comments-api.md` for the full reference and code examples. Use `suggestionAccepted`/`suggestionRejected` events on the client to handle reviewer decisions.
+
+**Add Annotations:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/add
+const response = await fetch('https://api.velt.dev/v2/commentannotations/add', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      commentAnnotations: [{
+        commentData: [{
+          commentText: 'This needs review',
+          commentHtml: '<p>This needs review</p>',
+          from: { userId: 'user-1' },
+        }],
+      }],
+    },
+  }),
+});
+```
+
+**Add Agent Annotations (AI agent findings with Accept/Reject buttons):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/add
+const response = await fetch('https://api.velt.dev/v2/commentannotations/add', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      commentAnnotations: [{
+        type: 'suggestion',
+        commentData: [{
+          commentText: 'This button has insufficient color contrast.',
+          from: { userId: 'a11y-bot' },
+          agent: {
+            agentSource: 'external',
+            agentName: 'Accessibility Bot',
+            agentId: 'a11y-bot',
+            executionId: 'run_8f21',
+            reason: {
+              title: 'Low color contrast',
+              description: 'Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.',
+              severity: 'high',
+              findingType: 'pin',
+            },
+          },
+        }],
+      }],
+    },
+  }),
+});
+```
+
+**Get Annotations (with filters):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/get
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',           // Optional
+      locationIds: [1, 2],           // Optional
+      annotationIds: ['ann-1'],      // Optional
+      userIds: ['user-1'],           // Optional
+      statusIds: ['open'],           // Optional
+      folderId: 'folder-1',         // Optional
+      updatedAfter: 1700000000000,   // Optional: timestamp ms
+      createdBefore: 1700100000000,  // Optional: timestamp ms
+      pageSize: 50,                  // Default: 1000
+      pageToken: 'next-token',      // For pagination
+    },
+  }),
+});
+// Response: { result: { status, data: CommentAnnotation[], pageToken } }
+```
+
+**Get Agent Annotations (agent-specific filters):**
+
+```javascript
+// Get all findings from a specific agent run
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      executionId: 'run_8f21',
+    },
+  }),
+});
+
+// Get only pending (unaccepted) agent suggestions
+const pending = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentSuggestions: true,
+    },
+  }),
+});
+```
+
+**Update Annotations:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/update
+const response = await fetch('https://api.velt.dev/v2/commentannotations/update', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotations: [{
+        annotationId: 'ann-123',
+        status: { id: 'resolved', name: 'Resolved', type: 'terminal' },
+        priority: { id: 'low', name: 'Low' },
+      }],
+    },
+  }),
+});
+```
+
+**Delete Annotations:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/delete
+const response = await fetch('https://api.velt.dev/v2/commentannotations/delete', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationIds: ['ann-123', 'ann-456'],
+    },
+  }),
+});
+```
+
+**Get Counts (total + unread):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/count/get
+const response = await fetch('https://api.velt.dev/v2/commentannotations/count/get', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+    },
+  }),
+});
+// Response: { result: { data: { total: number, unread: number } } }
+```
+
+Reference: https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/
+
+---
+
+### 12.5 REST API — Comment Annotation CRUD
+
+**Impact: HIGH (Server-side comment annotation management via REST)**
+
+Use Velt's REST APIs to manage comment annotations from your backend. All endpoints require `x-velt-api-key` and `x-velt-auth-token` headers.
+
+> **Agent annotations?** If the task involves AI agents, agent comments, agent suggestions, agentSource, executionId, or accept/reject — the agent block goes on `commentData[0]` with `type: "suggestion"`, `agentName` (required for external), and a `reason` object. See `rest-agent-comments-api.md` for the full reference and code examples. Use `suggestionAccepted`/`suggestionRejected` events on the client to handle reviewer decisions.
+
+**Add Annotations:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/add
+const response = await fetch('https://api.velt.dev/v2/commentannotations/add', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      commentAnnotations: [{
+        commentData: [{
+          commentText: 'This needs review',
+          commentHtml: '<p>This needs review</p>',
+          from: { userId: 'user-1' },
+        }],
+      }],
+    },
+  }),
+});
+```
+
+**Add Agent Annotations (AI agent findings with Accept/Reject buttons):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/add
+const response = await fetch('https://api.velt.dev/v2/commentannotations/add', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      commentAnnotations: [{
+        type: 'suggestion',
+        commentData: [{
+          commentText: 'This button has insufficient color contrast.',
+          from: { userId: 'a11y-bot' },
+          agent: {
+            agentSource: 'external',
+            agentName: 'Accessibility Bot',
+            agentId: 'a11y-bot',
+            executionId: 'run_8f21',
+            reason: {
+              title: 'Low color contrast',
+              description: 'Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.',
+              severity: 'high',
+              findingType: 'pin',
+            },
+          },
+        }],
+      }],
+    },
+  }),
+});
+```
+
+**Get Annotations (with filters):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/get
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',           // Optional
+      locationIds: [1, 2],           // Optional
+      annotationIds: ['ann-1'],      // Optional
+      userIds: ['user-1'],           // Optional
+      statusIds: ['open'],           // Optional
+      folderId: 'folder-1',         // Optional
+      updatedAfter: 1700000000000,   // Optional: timestamp ms
+      createdBefore: 1700100000000,  // Optional: timestamp ms
+      pageSize: 50,                  // Default: 1000
+      pageToken: 'next-token',      // For pagination
+    },
+  }),
+});
+// Response: { result: { status, data: CommentAnnotation[], pageToken } }
+```
+
+**Get Agent Annotations (agent-specific filters):**
+
+```javascript
+// Get all findings from a specific agent run
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      executionId: 'run_8f21',
+    },
+  }),
+});
+
+// Get only pending (unaccepted) agent suggestions
+const pending = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentSuggestions: true,
+    },
+  }),
+});
+```
+
+**Update Annotations:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/update
+const response = await fetch('https://api.velt.dev/v2/commentannotations/update', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotations: [{
+        annotationId: 'ann-123',
+        status: { id: 'resolved', name: 'Resolved', type: 'terminal' },
+        priority: { id: 'low', name: 'Low' },
+      }],
+    },
+  }),
+});
+```
+
+**Delete Annotations:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/delete
+const response = await fetch('https://api.velt.dev/v2/commentannotations/delete', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationIds: ['ann-123', 'ann-456'],
+    },
+  }),
+});
+```
+
+**Get Counts (total + unread):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/count/get
+const response = await fetch('https://api.velt.dev/v2/commentannotations/count/get', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+    },
+  }),
+});
+// Response: { result: { data: { total: number, unread: number } } }
+```
+
+Reference: https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/
+
+---
+
+### 12.6 REST API — Individual Comment CRUD Within Annotations
+
+**Impact: HIGH (Server-side individual comment management via REST)**
+
+Manage individual comments within annotation threads from your backend. All endpoints require `x-velt-api-key` and `x-velt-auth-token` headers.
+
+**Add Comments to Annotation:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/comments/add
+const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/add', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationId: 'ann-123',
+      commentData: [{
+        commentText: 'Looks good to me',
+        commentHtml: '<p>Looks good to me</p>',
+        from: { userId: 'user-1' },
+        context: { reviewType: 'approval' },
+        taggedUserContacts: [],
+        attachments: [{
+          attachmentId: 'att-1',
+          name: 'screenshot.png',
+          url: 'https://example.com/screenshot.png',
+          mimeType: 'image/png',
+          size: 102400,
+        }],
+      }],
+    },
+  }),
+});
+```
+
+**Get Comments:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/comments/get
+const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/get', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationId: 'ann-123',
+      userIds: ['user-1'],       // Required
+      commentIds: [1, 2, 3],     // Optional: specific comment IDs
+    },
+  }),
+});
+// Response includes: commentHtml, commentText, status, reactionAnnotations[]
+```
+
+**Update Comments:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/comments/update
+const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/update', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationId: 'ann-123',
+      commentIds: [1],
+      updatedData: {
+        commentText: 'Updated review text',
+        commentHtml: '<p>Updated review text</p>',
+        context: { reviewType: 'revision' },
+      },
+    },
+  }),
+});
+```
+
+**Delete Comments:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/comments/delete
+const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/delete', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationId: 'ann-123',
+      commentIds: [1, 2],  // Optional — if omitted, deletes all comments in annotation
+    },
+  }),
+});
+```
+
+Reference: https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/
+
+---
+
+### 12.7 REST API — Individual Comment CRUD Within Annotations
+
+**Impact: HIGH (Server-side individual comment management via REST)**
+
+Manage individual comments within annotation threads from your backend. All endpoints require `x-velt-api-key` and `x-velt-auth-token` headers.
+
+**Add Comments to Annotation:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/comments/add
+const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/add', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationId: 'ann-123',
+      commentData: [{
+        commentText: 'Looks good to me',
+        commentHtml: '<p>Looks good to me</p>',
+        from: { userId: 'user-1' },
+        context: { reviewType: 'approval' },
+        taggedUserContacts: [],
+        attachments: [{
+          attachmentId: 'att-1',
+          name: 'screenshot.png',
+          url: 'https://example.com/screenshot.png',
+          mimeType: 'image/png',
+          size: 102400,
+        }],
+      }],
+    },
+  }),
+});
+```
+
+**Get Comments:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/comments/get
+const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/get', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationId: 'ann-123',
+      userIds: ['user-1'],       // Required
+      commentIds: [1, 2, 3],     // Optional: specific comment IDs
+    },
+  }),
+});
+// Response includes: commentHtml, commentText, status, reactionAnnotations[]
+```
+
+**Update Comments:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/comments/update
+const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/update', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationId: 'ann-123',
+      commentIds: [1],
+      updatedData: {
+        commentText: 'Updated review text',
+        commentHtml: '<p>Updated review text</p>',
+        context: { reviewType: 'revision' },
+      },
+    },
+  }),
+});
+```
+
+**Delete Comments:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/comments/delete
+const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/delete', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationId: 'ann-123',
+      commentIds: [1, 2],  // Optional — if omitted, deletes all comments in annotation
+    },
+  }),
+});
+```
+
+Reference: https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/
+
+---
+
+## 12. REST API
+
+**Impact: HIGH**
+
+Server-side comment management via REST API.
+
+### 12.1 Comment Lifecycle Events — Pin Clicks, Add Events, Button Clicks
+
+**Impact: MEDIUM (Subscribe to comment lifecycle events for custom workflows)**
+
+Subscribe to comment lifecycle events for custom navigation, context injection, and workflow triggers.
+
+> **For agent suggestion accept/reject:** Use `useCommentEventCallback('suggestionAccepted')` and `useCommentEventCallback('suggestionRejected')` — these are the correct events, not `commentSaved` with status checks.
+
+**Agent suggestion accept/reject events (for AI agent findings):**
+
+```tsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+export function AgentSuggestionListener() {
+  const accepted = useCommentEventCallback('suggestionAccepted');
+  const rejected = useCommentEventCallback('suggestionRejected');
+
+  useEffect(() => {
+    if (!accepted) return;
+    console.log('Suggestion accepted', accepted.commentAnnotation);
+  }, [accepted]);
+
+  useEffect(() => {
+    if (!rejected) return;
+    console.log('Suggestion rejected', rejected.rejectReason);
+  }, [rejected]);
+
+  return null;
+}
+```
+
+**Events via on() method:**
+
+```tsx
+const commentElement = client.getCommentElement();
+
+// Pin clicked — navigate to comment or show custom UI
+commentElement.on('commentPinClicked').subscribe((event) => {
+  // event: { annotationId, location, targetElement, ... }
+  console.log('Pin clicked:', event.annotationId);
+  router.push(`/doc/${event.documentId}#${event.annotationId}`);
+});
+
+// Custom button clicked (from wireframe custom buttons)
+commentElement.on('veltButtonClick').subscribe((event) => {
+  // event: { buttonId, annotationId, ... }
+  console.log('Custom button:', event.buttonId);
+});
+
+// Autocomplete search (for custom contact search)
+commentElement.on('autocompleteSearch').subscribe((query) => {
+  console.log('Searching for:', query);
+});
+```
+
+**onCommentAdd event with addContext():**
+
+```tsx
+// React hook
+import { useCommentEventCallback } from '@veltdev/react';
+
+function CommentHandler() {
+  const onCommentAdd = useCommentEventCallback('onCommentAdd');
+
+  useEffect(() => {
+    if (!onCommentAdd) return;
+    // Inject custom context BEFORE the comment is saved
+    onCommentAdd.addContext({
+      pageSection: 'header',
+      projectId: 'proj-123',
+      timestamp: Date.now(),
+    });
+  }, [onCommentAdd]);
+
+  return null;
+}
+
+// Or via API
+commentElement.on('onCommentAdd').subscribe((event) => {
+  event.addContext({ key: 'value' });
+});
+```
+
+**React hooks for events:**
+
+```tsx
+import { useCommentEventCallback, useVeltEventCallback } from '@veltdev/react';
+
+// Comment-specific events
+const pinClicked = useCommentEventCallback('commentPinClicked');
+const commentSaved = useCommentEventCallback('commentSaved');
+const visibilityClicked = useCommentEventCallback('visibilityOptionClicked');
+
+// Generic Velt UI events
+const veltEvent = useVeltEventCallback('veltButtonClick');
+```
+
+**Correct (React — subscribe to abandoned draft):**
+
+```jsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function DraftHandler() {
+  const draftEvent = useCommentEventCallback('addCommentDraft');
+
+  useEffect(() => {
+    if (!draftEvent) return;
+    // draftEvent.comment.commentText — unsaved text
+    // draftEvent.comment.commentHtml — unsaved HTML
+    // draftEvent.annotationId — parent thread ID
+    // draftEvent.commentAnnotation — full parent thread object
+    console.log('User abandoned reply:', draftEvent.comment.commentText);
+    console.log('Annotation:', draftEvent.annotationId);
+  }, [draftEvent]);
+
+  return null;
+}
+```
+
+**Correct (Other frameworks — subscribe to abandoned draft):**
+
+```typescript
+const commentElement = client.getCommentElement();
+const subscription = commentElement.on('addCommentDraft').subscribe((event) => {
+  // event: AddCommentDraftEvent
+  // event.annotationId, event.commentAnnotation, event.comment, event.metadata
+  console.log('User abandoned reply:', event.comment.commentText);
+  console.log('Annotation:', event.annotationId);
+});
+
+// Clean up on teardown
+subscription.unsubscribe();
+```
+
+References:
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior - Events
+- https://docs.velt.dev/api-reference/sdk/models/data-models#addcommentdraftevent
+
+---
+
+### 12.2 REST API — Agent Comment Annotations (Create, Read, Filter)
+
+**Impact: HIGH (Let AI agents leave comments via REST API with the agent block, and read them back with agent-specific filters)**
+
+Agent comments let AI agents participate in collaboration by leaving findings via the Add Comment Annotations REST API. The server stamps `sourceType: "agent"` on the annotation and renders it with Accept/Reject buttons in the Velt UI. Any agent that can make an HTTP request can do this — a custom agent registered in the Velt Console, or an external agent running in your own framework.
+
+### Creating agent annotations
+
+Attach an `agent` object to `commentData[0]` (the root comment). Set the annotation `type` to `"suggestion"` so the finding renders as a reviewable agent suggestion rather than a regular comment.
+
+**Correct (external agent leaving a finding via REST):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/add
+const response = await fetch('https://api.velt.dev/v2/commentannotations/add', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      commentAnnotations: [
+        {
+          type: 'suggestion',
+          commentData: [
+            {
+              commentText: 'This button has insufficient color contrast.',
+              from: { userId: 'a11y-bot' },
+              agent: {
+                agentSource: 'external',
+                agentName: 'Accessibility Bot',
+                agentId: 'a11y-bot',
+                executionId: 'run_8f21',
+                url: 'https://example.com/design-mockup-v2',
+                reason: {
+                  title: 'Low color contrast',
+                  description: 'Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.',
+                  severity: 'high',
+                  findingType: 'pin',
+                },
+              },
+            },
+          ],
+        },
+      ],
+    },
+  }),
+});
+```
+
+**Correct (Python — external agent):**
+
+```python
+import os
+import requests
+
+response = requests.post(
+    "https://api.velt.dev/v2/commentannotations/add",
+    headers={
+        "x-velt-api-key": os.environ["VELT_API_KEY"],
+        "x-velt-auth-token": os.environ["VELT_AUTH_TOKEN"],
+        "Content-Type": "application/json",
+    },
+    json={
+        "data": {
+            "organizationId": "acme-corp",
+            "documentId": "design-mockup-v2",
+            "commentAnnotations": [
+                {
+                    "type": "suggestion",
+                    "commentData": [
+                        {
+                            "commentText": "This button has insufficient color contrast.",
+                            "from": {"userId": "a11y-bot"},
+                            "agent": {
+                                "agentSource": "external",
+                                "agentName": "Accessibility Bot",
+                                "agentId": "a11y-bot",
+                                "executionId": "run_8f21",
+                                "url": "https://example.com/design-mockup-v2",
+                                "reason": {
+                                    "title": "Low color contrast",
+                                    "description": "Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.",
+                                    "severity": "high",
+                                    "findingType": "pin",
+                                },
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
+    },
+)
+```
+
+The server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
+`reason` carries the finding's details. Three fields are required; the remaining ten are optional. Any extra custom fields beyond this list are preserved by the server.
+| Field | Required | Type | Description |
+|-------|----------|------|-------------|
+| `title` | Yes | string | Short finding title — a quick label for the issue (e.g. `"Low color contrast"`). |
+| `description` | Yes | string | Fuller explanation of what the agent found. |
+| `severity` | Yes | string | One of `critical`, `high`, `medium`, `low`, `info`. |
+| `findingId` | No | string | Your own unique ID for the finding, useful for dedup / tracking. |
+| `findingType` | No | string | What kind of target the finding is on. One of `text`, `pin`, `page`. |
+| `issueType` | No | string | Custom classification you define for your own taxonomy (e.g. `"accessibility"`). |
+| `confidence` | No | number | How confident the agent is. Integer 0–100. |
+| `suggestion` | No | string | Suggested change in plain text — **human-readable prose** (e.g. `"Darken the button background to at least #1A1A1A."`). |
+| `suggestedFix` | No | string | **The concrete literal replacement value** to apply (e.g. for a spelling correction, just `"Welcome"` — the corrected word itself, not a sentence about it). |
+| `htmlSnippet` | No | string | The relevant chunk of HTML where the issue lives. |
+| `htmlSelector` | No | string | CSS / HTML selector pointing to the finding's location. |
+| `source` | No | string | Where the triggering rule came from. One of `instructions`, `knowledge`. |
+| `knowledgeSection` | No | string | Which knowledge section fired (pairs with `source: "knowledge"`). |
+**Do not conflate `suggestion` and `suggestedFix`.** `suggestion` is prose meant for a human reviewer to read in the comment; `suggestedFix` is the literal replacement value your code would apply on Accept. For a spelling fix, `suggestion` might read `"Did you mean 'Welcome'?"` while `suggestedFix` is just `"Welcome"`.
+
+**Correct (fully-populated `reason`):**
+
+```json
+"reason": {
+  "title": "Low color contrast",
+  "description": "Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.",
+  "severity": "high",
+  "findingId": "finding_a11y_0427",
+  "findingType": "pin",
+  "issueType": "accessibility",
+  "confidence": 92,
+  "suggestion": "Darken the button background to at least #1A1A1A.",
+  "suggestedFix": "#1A1A1A",
+  "htmlSnippet": "<button class='cta'>Buy now</button>",
+  "htmlSelector": ".cta-primary > button",
+  "source": "knowledge",
+  "knowledgeSection": "brand-guidelines/accessibility"
+}
+```
+
+Use the Get Comment Annotations API with agent-specific filters. Only one agent filter may be supplied per request.
+| Filter | Description |
+|--------|-------------|
+| `agentId` | Annotations created by a specific agent. |
+| `executionId` | Annotations from a specific agent run. |
+| `agentSource` | `"velt"` or `"external"`. |
+| `agentSuggestions` | When `true`, returns only fresh (unaccepted) agent suggestions. |
+| `agentComments` | When `true`, returns all agent annotations regardless of status. |
+
+**Correct (fetch all findings from a specific agent run):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/get
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      executionId: 'run_8f21',
+    },
+  }),
+});
+```
+
+Agent annotations in the response carry `type: "suggestion"` and `sourceType: "agent"` at the annotation root, an annotation-root `agent` block (`CommentAnnotationAgent`), and an `agent` block on each agent-authored comment (`comments[].agent`).
+
+**Correct (fetch only pending agent suggestions):**
+
+```javascript
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentSuggestions: true,
+    },
+  }),
+});
+```
+
+**Correct (fetch all annotations from external agents):**
+
+```javascript
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentSource: 'external',
+    },
+  }),
+});
+```
+
+The Get Comment Annotations API requires the **advanced queries** option to be enabled in the Velt Console and the v4+ series of the Velt SDK.
+Agent findings render with Accept and Reject buttons. Subscribe to `suggestionAccepted` and `suggestionRejected` on the comment element to apply the change to your own data or trigger follow-up logic. The SDK records the outcome and persists the suggestion status — applying the actual change is your code's responsibility.
+
+**Correct (React — subscribe to agent suggestion events):**
+
+```tsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+export function AgentSuggestionListener() {
+  const accepted = useCommentEventCallback('suggestionAccepted');
+  const rejected = useCommentEventCallback('suggestionRejected');
+
+  useEffect(() => {
+    if (!accepted) return;
+    // accepted.commentAnnotation contains the full agent finding
+    console.log('Suggestion accepted', accepted.commentAnnotation);
+  }, [accepted]);
+
+  useEffect(() => {
+    if (!rejected) return;
+    // rejected.rejectReason contains the reviewer's reason (if provided)
+    console.log('Suggestion rejected', rejected.rejectReason);
+  }, [rejected]);
+
+  return null;
+}
+```
+
+**Correct (Other Frameworks — Angular, Vue, Vanilla JS):**
+
+```tsx
+const commentElement = Velt.getCommentElement();
+
+commentElement.on('suggestionAccepted').subscribe(({ commentAnnotation }) => {
+  console.log('Suggestion accepted', commentAnnotation);
+});
+
+commentElement.on('suggestionRejected').subscribe(({ commentAnnotation, rejectReason }) => {
+  console.log('Suggestion rejected', rejectReason);
+});
+import {
+  VeltCommentDialogContextWrapper,
+  VeltCommentDialogAgentSuggestionBody,
+  VeltCommentDialogAgentSuggestionActions,
+  VeltCommentDialogAgentSuggestionActionsActionAccept,
+  VeltCommentDialogAgentSuggestionActionsActionReject,
+  VeltCommentDialogAgentSuggestionBanner,
+} from '@veltdev/react';
+
+function AgentFindingCard({ annotationId }: { annotationId: string }) {
+  return (
+    <VeltCommentDialogContextWrapper annotationId={annotationId}>
+      <VeltCommentDialogAgentSuggestionBody />
+      <VeltCommentDialogAgentSuggestionActions>
+        <VeltCommentDialogAgentSuggestionActionsActionAccept />
+        <VeltCommentDialogAgentSuggestionActionsActionReject />
+      </VeltCommentDialogAgentSuggestionActions>
+      <VeltCommentDialogAgentSuggestionBanner />
+    </VeltCommentDialogContextWrapper>
+  );
+}
+```
+
+Annotations created with `sourceType: "agent"` render with an agent-identity header (agent name + avatar from the `agent` block) instead of the standard human-author header. Because the annotation `type` is `"suggestion"`, the comment dialog shows Accept and Reject buttons.
+To build a custom agent suggestion UI, use the standalone `VeltCommentDialogAgentSuggestion*` primitives (not the wireframe pattern). Wrap them in a `VeltCommentDialogContextWrapper` with `annotationId`:
+The full 21-component hierarchy and all props are documented in `ui-agent-suggestion-primitives`.
+
+References:
+- https://docs.velt.dev/ai/agent-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-v2
+
+---
+
+### 12.3 REST API — Agent Comment Annotations (Create, Read, Filter)
+
+**Impact: HIGH (Let AI agents leave comments via REST API with the agent block, and read them back with agent-specific filters)**
+
+Agent comments let AI agents participate in collaboration by leaving findings via the Add Comment Annotations REST API. The server stamps `sourceType: "agent"` on the annotation and renders it with Accept/Reject buttons in the Velt UI. Any agent that can make an HTTP request can do this — a custom agent registered in the Velt Console, or an external agent running in your own framework.
+
+### Creating agent annotations
+
+Attach an `agent` object to `commentData[0]` (the root comment). Set the annotation `type` to `"suggestion"` so the finding renders as a reviewable agent suggestion rather than a regular comment.
+
+**Correct (external agent leaving a finding via REST):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/add
+const response = await fetch('https://api.velt.dev/v2/commentannotations/add', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      commentAnnotations: [
+        {
+          type: 'suggestion',
+          commentData: [
+            {
+              commentText: 'This button has insufficient color contrast.',
+              from: { userId: 'a11y-bot' },
+              agent: {
+                agentSource: 'external',
+                agentName: 'Accessibility Bot',
+                agentId: 'a11y-bot',
+                executionId: 'run_8f21',
+                url: 'https://example.com/design-mockup-v2',
+                reason: {
+                  title: 'Low color contrast',
+                  description: 'Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.',
+                  severity: 'high',
+                  findingType: 'pin',
+                },
+              },
+            },
+          ],
+        },
+      ],
+    },
+  }),
+});
+```
+
+**Correct (Python — external agent):**
+
+```python
+import os
+import requests
+
+response = requests.post(
+    "https://api.velt.dev/v2/commentannotations/add",
+    headers={
+        "x-velt-api-key": os.environ["VELT_API_KEY"],
+        "x-velt-auth-token": os.environ["VELT_AUTH_TOKEN"],
+        "Content-Type": "application/json",
+    },
+    json={
+        "data": {
+            "organizationId": "acme-corp",
+            "documentId": "design-mockup-v2",
+            "commentAnnotations": [
+                {
+                    "type": "suggestion",
+                    "commentData": [
+                        {
+                            "commentText": "This button has insufficient color contrast.",
+                            "from": {"userId": "a11y-bot"},
+                            "agent": {
+                                "agentSource": "external",
+                                "agentName": "Accessibility Bot",
+                                "agentId": "a11y-bot",
+                                "executionId": "run_8f21",
+                                "url": "https://example.com/design-mockup-v2",
+                                "reason": {
+                                    "title": "Low color contrast",
+                                    "description": "Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.",
+                                    "severity": "high",
+                                    "findingType": "pin",
+                                },
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
+    },
+)
+```
+
+The server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
+`reason` carries the finding's details. Three fields are required; the remaining ten are optional. Any extra custom fields beyond this list are preserved by the server.
+| Field | Required | Type | Description |
+|-------|----------|------|-------------|
+| `title` | Yes | string | Short finding title — a quick label for the issue (e.g. `"Low color contrast"`). |
+| `description` | Yes | string | Fuller explanation of what the agent found. |
+| `severity` | Yes | string | One of `critical`, `high`, `medium`, `low`, `info`. |
+| `findingId` | No | string | Your own unique ID for the finding, useful for dedup / tracking. |
+| `findingType` | No | string | What kind of target the finding is on. One of `text`, `pin`, `page`. |
+| `issueType` | No | string | Custom classification you define for your own taxonomy (e.g. `"accessibility"`). |
+| `confidence` | No | number | How confident the agent is. Integer 0–100. |
+| `suggestion` | No | string | Suggested change in plain text — **human-readable prose** (e.g. `"Darken the button background to at least #1A1A1A."`). |
+| `suggestedFix` | No | string | **The concrete literal replacement value** to apply (e.g. for a spelling correction, just `"Welcome"` — the corrected word itself, not a sentence about it). |
+| `htmlSnippet` | No | string | The relevant chunk of HTML where the issue lives. |
+| `htmlSelector` | No | string | CSS / HTML selector pointing to the finding's location. |
+| `source` | No | string | Where the triggering rule came from. One of `instructions`, `knowledge`. |
+| `knowledgeSection` | No | string | Which knowledge section fired (pairs with `source: "knowledge"`). |
+**Do not conflate `suggestion` and `suggestedFix`.** `suggestion` is prose meant for a human reviewer to read in the comment; `suggestedFix` is the literal replacement value your code would apply on Accept. For a spelling fix, `suggestion` might read `"Did you mean 'Welcome'?"` while `suggestedFix` is just `"Welcome"`.
+
+**Correct (fully-populated `reason`):**
+
+```json
+"reason": {
+  "title": "Low color contrast",
+  "description": "Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.",
+  "severity": "high",
+  "findingId": "finding_a11y_0427",
+  "findingType": "pin",
+  "issueType": "accessibility",
+  "confidence": 92,
+  "suggestion": "Darken the button background to at least #1A1A1A.",
+  "suggestedFix": "#1A1A1A",
+  "htmlSnippet": "<button class='cta'>Buy now</button>",
+  "htmlSelector": ".cta-primary > button",
+  "source": "knowledge",
+  "knowledgeSection": "brand-guidelines/accessibility"
+}
+```
+
+Use the Get Comment Annotations API with agent-specific filters. Only one agent filter may be supplied per request.
+| Filter | Description |
+|--------|-------------|
+| `agentId` | Annotations created by a specific agent. |
+| `executionId` | Annotations from a specific agent run. |
+| `agentSource` | `"velt"` or `"external"`. |
+| `agentSuggestions` | When `true`, returns only fresh (unaccepted) agent suggestions. |
+| `agentComments` | When `true`, returns all agent annotations regardless of status. |
+
+**Correct (fetch all findings from a specific agent run):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/get
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      executionId: 'run_8f21',
+    },
+  }),
+});
+```
+
+Agent annotations in the response carry `type: "suggestion"` and `sourceType: "agent"` at the annotation root, an annotation-root `agent` block (`CommentAnnotationAgent`), and an `agent` block on each agent-authored comment (`comments[].agent`).
+
+**Correct (fetch only pending agent suggestions):**
+
+```javascript
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentSuggestions: true,
+    },
+  }),
+});
+```
+
+**Correct (fetch all annotations from external agents):**
+
+```javascript
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentSource: 'external',
+    },
+  }),
+});
+```
+
+The Get Comment Annotations API requires the **advanced queries** option to be enabled in the Velt Console and the v4+ series of the Velt SDK.
+Agent findings render with Accept and Reject buttons. Subscribe to `suggestionAccepted` and `suggestionRejected` on the comment element to apply the change to your own data or trigger follow-up logic. The SDK records the outcome and persists the suggestion status — applying the actual change is your code's responsibility.
+
+**Correct (React — subscribe to agent suggestion events):**
+
+```tsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+export function AgentSuggestionListener() {
+  const accepted = useCommentEventCallback('suggestionAccepted');
+  const rejected = useCommentEventCallback('suggestionRejected');
+
+  useEffect(() => {
+    if (!accepted) return;
+    // accepted.commentAnnotation contains the full agent finding
+    console.log('Suggestion accepted', accepted.commentAnnotation);
+  }, [accepted]);
+
+  useEffect(() => {
+    if (!rejected) return;
+    // rejected.rejectReason contains the reviewer's reason (if provided)
+    console.log('Suggestion rejected', rejected.rejectReason);
+  }, [rejected]);
+
+  return null;
+}
+```
+
+**Correct (Other Frameworks — Angular, Vue, Vanilla JS):**
+
+```tsx
+const commentElement = Velt.getCommentElement();
+
+commentElement.on('suggestionAccepted').subscribe(({ commentAnnotation }) => {
+  console.log('Suggestion accepted', commentAnnotation);
+});
+
+commentElement.on('suggestionRejected').subscribe(({ commentAnnotation, rejectReason }) => {
+  console.log('Suggestion rejected', rejectReason);
+});
+import {
+  VeltCommentDialogContextWrapper,
+  VeltCommentDialogAgentSuggestionBody,
+  VeltCommentDialogAgentSuggestionActions,
+  VeltCommentDialogAgentSuggestionActionsActionAccept,
+  VeltCommentDialogAgentSuggestionActionsActionReject,
+  VeltCommentDialogAgentSuggestionBanner,
+} from '@veltdev/react';
+
+function AgentFindingCard({ annotationId }: { annotationId: string }) {
+  return (
+    <VeltCommentDialogContextWrapper annotationId={annotationId}>
+      <VeltCommentDialogAgentSuggestionBody />
+      <VeltCommentDialogAgentSuggestionActions>
+        <VeltCommentDialogAgentSuggestionActionsActionAccept />
+        <VeltCommentDialogAgentSuggestionActionsActionReject />
+      </VeltCommentDialogAgentSuggestionActions>
+      <VeltCommentDialogAgentSuggestionBanner />
+    </VeltCommentDialogContextWrapper>
+  );
+}
+```
+
+Annotations created with `sourceType: "agent"` render with an agent-identity header (agent name + avatar from the `agent` block) instead of the standard human-author header. Because the annotation `type` is `"suggestion"`, the comment dialog shows Accept and Reject buttons.
+To build a custom agent suggestion UI, use the standalone `VeltCommentDialogAgentSuggestion*` primitives (not the wireframe pattern). Wrap them in a `VeltCommentDialogContextWrapper` with `annotationId`:
+The full 21-component hierarchy and all props are documented in `ui-agent-suggestion-primitives`.
+
+References:
+- https://docs.velt.dev/ai/agent-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-v2
+
+---
+
+### 12.4 REST API — Comment Annotation CRUD
+
+**Impact: HIGH (Server-side comment annotation management via REST)**
+
+Use Velt's REST APIs to manage comment annotations from your backend. All endpoints require `x-velt-api-key` and `x-velt-auth-token` headers.
+
+> **Agent annotations?** If the task involves AI agents, agent comments, agent suggestions, agentSource, executionId, or accept/reject — the agent block goes on `commentData[0]` with `type: "suggestion"`, `agentName` (required for external), and a `reason` object. See `rest-agent-comments-api.md` for the full reference and code examples. Use `suggestionAccepted`/`suggestionRejected` events on the client to handle reviewer decisions.
+
+**Add Annotations:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/add
+const response = await fetch('https://api.velt.dev/v2/commentannotations/add', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      commentAnnotations: [{
+        commentData: [{
+          commentText: 'This needs review',
+          commentHtml: '<p>This needs review</p>',
+          from: { userId: 'user-1' },
+        }],
+      }],
+    },
+  }),
+});
+```
+
+**Add Agent Annotations (AI agent findings with Accept/Reject buttons):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/add
+const response = await fetch('https://api.velt.dev/v2/commentannotations/add', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      commentAnnotations: [{
+        type: 'suggestion',
+        commentData: [{
+          commentText: 'This button has insufficient color contrast.',
+          from: { userId: 'a11y-bot' },
+          agent: {
+            agentSource: 'external',
+            agentName: 'Accessibility Bot',
+            agentId: 'a11y-bot',
+            executionId: 'run_8f21',
+            reason: {
+              title: 'Low color contrast',
+              description: 'Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.',
+              severity: 'high',
+              findingType: 'pin',
+            },
+          },
+        }],
+      }],
+    },
+  }),
+});
+```
+
+**Get Annotations (with filters):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/get
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',           // Optional
+      locationIds: [1, 2],           // Optional
+      annotationIds: ['ann-1'],      // Optional
+      userIds: ['user-1'],           // Optional
+      statusIds: ['open'],           // Optional
+      folderId: 'folder-1',         // Optional
+      updatedAfter: 1700000000000,   // Optional: timestamp ms
+      createdBefore: 1700100000000,  // Optional: timestamp ms
+      pageSize: 50,                  // Default: 1000
+      pageToken: 'next-token',      // For pagination
+    },
+  }),
+});
+// Response: { result: { status, data: CommentAnnotation[], pageToken } }
+```
+
+**Get Agent Annotations (agent-specific filters):**
+
+```javascript
+// Get all findings from a specific agent run
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      executionId: 'run_8f21',
+    },
+  }),
+});
+
+// Get only pending (unaccepted) agent suggestions
+const pending = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentSuggestions: true,
+    },
+  }),
+});
+```
+
+**Update Annotations:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/update
+const response = await fetch('https://api.velt.dev/v2/commentannotations/update', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotations: [{
+        annotationId: 'ann-123',
+        status: { id: 'resolved', name: 'Resolved', type: 'terminal' },
+        priority: { id: 'low', name: 'Low' },
+      }],
+    },
+  }),
+});
+```
+
+**Delete Annotations:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/delete
+const response = await fetch('https://api.velt.dev/v2/commentannotations/delete', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationIds: ['ann-123', 'ann-456'],
+    },
+  }),
+});
+```
+
+**Get Counts (total + unread):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/count/get
+const response = await fetch('https://api.velt.dev/v2/commentannotations/count/get', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+    },
+  }),
+});
+// Response: { result: { data: { total: number, unread: number } } }
+```
+
+Reference: https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/
+
+---
+
+### 12.5 REST API — Comment Annotation CRUD
+
+**Impact: HIGH (Server-side comment annotation management via REST)**
+
+Use Velt's REST APIs to manage comment annotations from your backend. All endpoints require `x-velt-api-key` and `x-velt-auth-token` headers.
+
+> **Agent annotations?** If the task involves AI agents, agent comments, agent suggestions, agentSource, executionId, or accept/reject — the agent block goes on `commentData[0]` with `type: "suggestion"`, `agentName` (required for external), and a `reason` object. See `rest-agent-comments-api.md` for the full reference and code examples. Use `suggestionAccepted`/`suggestionRejected` events on the client to handle reviewer decisions.
+
+**Add Annotations:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/add
+const response = await fetch('https://api.velt.dev/v2/commentannotations/add', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      commentAnnotations: [{
+        commentData: [{
+          commentText: 'This needs review',
+          commentHtml: '<p>This needs review</p>',
+          from: { userId: 'user-1' },
+        }],
+      }],
+    },
+  }),
+});
+```
+
+**Add Agent Annotations (AI agent findings with Accept/Reject buttons):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/add
+const response = await fetch('https://api.velt.dev/v2/commentannotations/add', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      commentAnnotations: [{
+        type: 'suggestion',
+        commentData: [{
+          commentText: 'This button has insufficient color contrast.',
+          from: { userId: 'a11y-bot' },
+          agent: {
+            agentSource: 'external',
+            agentName: 'Accessibility Bot',
+            agentId: 'a11y-bot',
+            executionId: 'run_8f21',
+            reason: {
+              title: 'Low color contrast',
+              description: 'Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.',
+              severity: 'high',
+              findingType: 'pin',
+            },
+          },
+        }],
+      }],
+    },
+  }),
+});
+```
+
+**Get Annotations (with filters):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/get
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',           // Optional
+      locationIds: [1, 2],           // Optional
+      annotationIds: ['ann-1'],      // Optional
+      userIds: ['user-1'],           // Optional
+      statusIds: ['open'],           // Optional
+      folderId: 'folder-1',         // Optional
+      updatedAfter: 1700000000000,   // Optional: timestamp ms
+      createdBefore: 1700100000000,  // Optional: timestamp ms
+      pageSize: 50,                  // Default: 1000
+      pageToken: 'next-token',      // For pagination
+    },
+  }),
+});
+// Response: { result: { status, data: CommentAnnotation[], pageToken } }
+```
+
+**Get Agent Annotations (agent-specific filters):**
+
+```javascript
+// Get all findings from a specific agent run
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      executionId: 'run_8f21',
+    },
+  }),
+});
+
+// Get only pending (unaccepted) agent suggestions
+const pending = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentSuggestions: true,
+    },
+  }),
+});
+```
+
+**Update Annotations:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/update
+const response = await fetch('https://api.velt.dev/v2/commentannotations/update', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotations: [{
+        annotationId: 'ann-123',
+        status: { id: 'resolved', name: 'Resolved', type: 'terminal' },
+        priority: { id: 'low', name: 'Low' },
+      }],
+    },
+  }),
+});
+```
+
+**Delete Annotations:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/delete
+const response = await fetch('https://api.velt.dev/v2/commentannotations/delete', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationIds: ['ann-123', 'ann-456'],
+    },
+  }),
+});
+```
+
+**Get Counts (total + unread):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/count/get
+const response = await fetch('https://api.velt.dev/v2/commentannotations/count/get', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+    },
+  }),
+});
+// Response: { result: { data: { total: number, unread: number } } }
+```
+
+Reference: https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/
+
+---
+
+### 12.6 REST API — Individual Comment CRUD Within Annotations
+
+**Impact: HIGH (Server-side individual comment management via REST)**
+
+Manage individual comments within annotation threads from your backend. All endpoints require `x-velt-api-key` and `x-velt-auth-token` headers.
+
+**Add Comments to Annotation:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/comments/add
+const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/add', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationId: 'ann-123',
+      commentData: [{
+        commentText: 'Looks good to me',
+        commentHtml: '<p>Looks good to me</p>',
+        from: { userId: 'user-1' },
+        context: { reviewType: 'approval' },
+        taggedUserContacts: [],
+        attachments: [{
+          attachmentId: 'att-1',
+          name: 'screenshot.png',
+          url: 'https://example.com/screenshot.png',
+          mimeType: 'image/png',
+          size: 102400,
+        }],
+      }],
+    },
+  }),
+});
+```
+
+**Get Comments:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/comments/get
+const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/get', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationId: 'ann-123',
+      userIds: ['user-1'],       // Required
+      commentIds: [1, 2, 3],     // Optional: specific comment IDs
+    },
+  }),
+});
+// Response includes: commentHtml, commentText, status, reactionAnnotations[]
+```
+
+**Update Comments:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/comments/update
+const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/update', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationId: 'ann-123',
+      commentIds: [1],
+      updatedData: {
+        commentText: 'Updated review text',
+        commentHtml: '<p>Updated review text</p>',
+        context: { reviewType: 'revision' },
+      },
+    },
+  }),
+});
+```
+
+**Delete Comments:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/comments/delete
+const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/delete', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationId: 'ann-123',
+      commentIds: [1, 2],  // Optional — if omitted, deletes all comments in annotation
+    },
+  }),
+});
+```
+
+Reference: https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/
+
+---
+
+### 12.7 REST API — Individual Comment CRUD Within Annotations
+
+**Impact: HIGH (Server-side individual comment management via REST)**
+
+Manage individual comments within annotation threads from your backend. All endpoints require `x-velt-api-key` and `x-velt-auth-token` headers.
+
+**Add Comments to Annotation:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/comments/add
+const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/add', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationId: 'ann-123',
+      commentData: [{
+        commentText: 'Looks good to me',
+        commentHtml: '<p>Looks good to me</p>',
+        from: { userId: 'user-1' },
+        context: { reviewType: 'approval' },
+        taggedUserContacts: [],
+        attachments: [{
+          attachmentId: 'att-1',
+          name: 'screenshot.png',
+          url: 'https://example.com/screenshot.png',
+          mimeType: 'image/png',
+          size: 102400,
+        }],
+      }],
+    },
+  }),
+});
+```
+
+**Get Comments:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/comments/get
+const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/get', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationId: 'ann-123',
+      userIds: ['user-1'],       // Required
+      commentIds: [1, 2, 3],     // Optional: specific comment IDs
+    },
+  }),
+});
+// Response includes: commentHtml, commentText, status, reactionAnnotations[]
+```
+
+**Update Comments:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/comments/update
+const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/update', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationId: 'ann-123',
+      commentIds: [1],
+      updatedData: {
+        commentText: 'Updated review text',
+        commentHtml: '<p>Updated review text</p>',
+        context: { reviewType: 'revision' },
+      },
+    },
+  }),
+});
+```
+
+**Delete Comments:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/comments/delete
+const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/delete', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationId: 'ann-123',
+      commentIds: [1, 2],  // Optional — if omitted, deletes all comments in annotation
+    },
+  }),
+});
+```
+
+Reference: https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/
 
 ---
 
