@@ -25,101 +25,102 @@ Comprehensive Velt Comments implementation guide covering comment modes, setup p
    - 1.2 [Initialize Document Context for Comments](#12-initialize-document-context-for-comments)
    - 1.3 [Initialize VeltProvider with API Key](#13-initialize-veltprovider-with-api-key)
 
-2. [Comment Modes](#2-comment-modes) — **HIGH**
-   - 2.1 [Add Comments to Canvas/Drawing Applications](#21-add-comments-to-canvasdrawing-applications)
-   - 2.2 [Add Comments to ChartJS Charts](#22-add-comments-to-chartjs-charts)
-   - 2.3 [Add Comments to Custom Charts with Manual Positioning](#23-add-comments-to-custom-charts-with-manual-positioning)
-   - 2.4 [Add Comments to Nivo Charts](#24-add-comments-to-nivo-charts)
-   - 2.5 [Add Data Point Comments to Highcharts](#25-add-data-point-comments-to-highcharts)
-   - 2.6 [Integrate Comments with Ace Editor](#26-integrate-comments-with-ace-editor)
-   - 2.7 [Integrate Comments with CodeMirror Editor](#27-integrate-comments-with-codemirror-editor)
-   - 2.8 [Integrate Comments with Lexical Editor](#28-integrate-comments-with-lexical-editor)
-   - 2.9 [Integrate Comments with Plate Editor](#29-integrate-comments-with-plate-editor)
-   - 2.10 [Integrate Comments with Quill Editor](#210-integrate-comments-with-quill-editor)
-   - 2.11 [Integrate Comments with SlateJS Editor](#211-integrate-comments-with-slatejs-editor)
-   - 2.12 [Integrate Comments with TipTap Editor](#212-integrate-comments-with-tiptap-editor)
-   - 2.13 [Add Frame-by-Frame Comments to Lottie Animations](#213-add-frame-by-frame-comments-to-lottie-animations)
-   - 2.14 [Integrate Comments with Custom Video Player](#214-integrate-comments-with-custom-video-player)
-   - 2.15 [Use Freestyle Mode for Pin-Anywhere Comments](#215-use-freestyle-mode-for-pin-anywhere-comments)
-   - 2.16 [Use Inline Comments for Traditional Thread Style](#216-use-inline-comments-for-traditional-thread-style)
-   - 2.17 [Use Page Mode for Page-Level Comments](#217-use-page-mode-for-page-level-comments)
-   - 2.18 [Use Popover Mode for Table Cell Comments](#218-use-popover-mode-for-table-cell-comments)
-   - 2.19 [Use Prebuilt Video Player for Quick Setup](#219-use-prebuilt-video-player-for-quick-setup)
-   - 2.20 [Use Stream Mode for Google Docs-Style Comments](#220-use-stream-mode-for-google-docs-style-comments)
-   - 2.21 [Use Text Mode for Text Highlight Comments](#221-use-text-mode-for-text-highlight-comments)
+2. [REST API](#2-rest-api) — **HIGH**
+   - 2.1 [REST API — Agent Comment Annotations (Create, Read, Filter)](#21-rest-api-agent-comment-annotations-create-read-filter)
+   - 2.2 [REST API — Comment Annotation CRUD](#22-rest-api-comment-annotation-crud)
+   - 2.3 [REST API — Individual Comment CRUD Within Annotations](#23-rest-api-individual-comment-crud-within-annotations)
 
-3. [Standalone Components](#3-standalone-components) — **MEDIUM-HIGH**
-   - 3.1 [Use Comment Pin for Manual Position Control](#31-use-comment-pin-for-manual-position-control)
-   - 3.2 [Use Comment Composer for Custom Comment Input](#32-use-comment-composer-for-custom-comment-input)
-   - 3.3 [Use Comment Thread to Render Existing Comments](#33-use-comment-thread-to-render-existing-comments)
+3. [Comment Modes](#3-comment-modes) — **HIGH**
+   - 3.1 [Add Comments to Canvas/Drawing Applications](#31-add-comments-to-canvasdrawing-applications)
+   - 3.2 [Add Comments to ChartJS Charts](#32-add-comments-to-chartjs-charts)
+   - 3.3 [Add Comments to Custom Charts with Manual Positioning](#33-add-comments-to-custom-charts-with-manual-positioning)
+   - 3.4 [Add Comments to Nivo Charts](#34-add-comments-to-nivo-charts)
+   - 3.5 [Add Data Point Comments to Highcharts](#35-add-data-point-comments-to-highcharts)
+   - 3.6 [Integrate Comments with Ace Editor](#36-integrate-comments-with-ace-editor)
+   - 3.7 [Integrate Comments with CodeMirror Editor](#37-integrate-comments-with-codemirror-editor)
+   - 3.8 [Integrate Comments with Lexical Editor](#38-integrate-comments-with-lexical-editor)
+   - 3.9 [Integrate Comments with Plate Editor](#39-integrate-comments-with-plate-editor)
+   - 3.10 [Integrate Comments with Quill Editor](#310-integrate-comments-with-quill-editor)
+   - 3.11 [Integrate Comments with SlateJS Editor](#311-integrate-comments-with-slatejs-editor)
+   - 3.12 [Integrate Comments with TipTap Editor](#312-integrate-comments-with-tiptap-editor)
+   - 3.13 [Add Frame-by-Frame Comments to Lottie Animations](#313-add-frame-by-frame-comments-to-lottie-animations)
+   - 3.14 [Integrate Comments with Custom Video Player](#314-integrate-comments-with-custom-video-player)
+   - 3.15 [Use Freestyle Mode for Pin-Anywhere Comments](#315-use-freestyle-mode-for-pin-anywhere-comments)
+   - 3.16 [Use Inline Comments for Traditional Thread Style](#316-use-inline-comments-for-traditional-thread-style)
+   - 3.17 [Use Page Mode for Page-Level Comments](#317-use-page-mode-for-page-level-comments)
+   - 3.18 [Use Popover Mode for Table Cell Comments](#318-use-popover-mode-for-table-cell-comments)
+   - 3.19 [Use Prebuilt Video Player for Quick Setup](#319-use-prebuilt-video-player-for-quick-setup)
+   - 3.20 [Use Stream Mode for Google Docs-Style Comments](#320-use-stream-mode-for-google-docs-style-comments)
+   - 3.21 [Use Text Mode for Text Highlight Comments](#321-use-text-mode-for-text-highlight-comments)
 
-4. [Comment Surfaces](#4-comment-surfaces) — **MEDIUM-HIGH**
-   - 4.1 [Comments Sidebar Setup, Modes, and Configuration](#41-comments-sidebar-setup-modes-and-configuration)
-   - 4.2 [Use Comments Sidebar for Comment Navigation](#42-use-comments-sidebar-for-comment-navigation)
-   - 4.3 [Use Sidebar Button to Toggle Comments Panel](#43-use-sidebar-button-to-toggle-comments-panel)
-   - 4.4 [Use VeltCommentsSidebarV2 for Primitive-Architecture Sidebar Customization](#44-use-veltcommentssidebarv2-for-primitive-architecture-sidebar-customization)
+4. [Standalone Components](#4-standalone-components) — **MEDIUM-HIGH**
+   - 4.1 [Use Comment Pin for Manual Position Control](#41-use-comment-pin-for-manual-position-control)
+   - 4.2 [Use Comment Composer for Custom Comment Input](#42-use-comment-composer-for-custom-comment-input)
+   - 4.3 [Use Comment Thread to Render Existing Comments](#43-use-comment-thread-to-render-existing-comments)
 
-5. [UI Customization](#5-ui-customization) — **MEDIUM**
-   - 5.1 [Customize Comment Bubble Display](#51-customize-comment-bubble-display)
-   - 5.2 [Customize Comment Dialog Appearance](#52-customize-comment-dialog-appearance)
-   - 5.3 [Set defaultCondition on V2 Primitive Sub-Components to Control Default Rendering](#53-set-defaultcondition-on-v2-primitive-sub-components-to-control-default-rendering)
-   - 5.4 [Use Standalone Autocomplete Primitives for Custom Autocomplete UIs](#54-use-standalone-autocomplete-primitives-for-custom-autocomplete-uis)
-   - 5.5 [Use VeltCommentDialogAgentSuggestion Primitives for Custom AI Suggestion UIs](#55-use-veltcommentdialogagentsuggestion-primitives-for-custom-ai-suggestion-uis)
-   - 5.6 [Use Wireframe Components for Custom UI](#56-use-wireframe-components-for-custom-ui)
+5. [Comment Surfaces](#5-comment-surfaces) — **MEDIUM-HIGH**
+   - 5.1 [Comments Sidebar Setup, Modes, and Configuration](#51-comments-sidebar-setup-modes-and-configuration)
+   - 5.2 [Use Comments Sidebar for Comment Navigation](#52-use-comments-sidebar-for-comment-navigation)
+   - 5.3 [Use Sidebar Button to Toggle Comments Panel](#53-use-sidebar-button-to-toggle-comments-panel)
+   - 5.4 [Use VeltCommentsSidebarV2 for Primitive-Architecture Sidebar Customization](#54-use-veltcommentssidebarv2-for-primitive-architecture-sidebar-customization)
 
-6. [Data Model](#6-data-model) — **MEDIUM**
-   - 6.1 [Filter and Group Comments](#61-filter-and-group-comments)
-   - 6.2 [Work with Comment Annotations Data](#62-work-with-comment-annotations-data)
-   - 6.3 [Add Custom Metadata to Comments with Context](#63-add-custom-metadata-to-comments-with-context)
-   - 6.4 [Comments Data Type Reference — Core Models](#64-comments-data-type-reference-core-models)
-   - 6.5 [Individual Comment CRUD — Add, Update, Delete, Get Comments Within Threads](#65-individual-comment-crud-add-update-delete-get-comments-within-threads)
-   - 6.6 [Mark Comments as Read or Unread](#66-mark-comments-as-read-or-unread)
-   - 6.7 [Programmatic Annotation CRUD — Create, Query, Delete Threads](#67-programmatic-annotation-crud-create-query-delete-threads)
-   - 6.8 [Programmatic Composer Control — Submit, Clear, Read State](#68-programmatic-composer-control-submit-clear-read-state)
-   - 6.9 [Use agentFields on CommentRequestQuery to Filter Annotation Count by Agent](#69-use-agentfields-on-commentrequestquery-to-filter-annotation-count-by-agent)
-   - 6.10 [Use CommentActivityActionTypes for Type-Safe Comment Activity Filtering](#610-use-commentactivityactiontypes-for-type-safe-comment-activity-filtering)
-   - 6.11 [Use Config-Based URL Endpoints Instead of Placeholder Callbacks in CommentAnnotationDataProvider](#611-use-config-based-url-endpoints-instead-of-placeholder-callbacks-in-commentannotationdataprovider)
-   - 6.12 [Use triggerActivities to Create Activity Records via REST API](#612-use-triggeractivities-to-create-activity-records-via-rest-api)
+6. [UI Customization](#6-ui-customization) — **MEDIUM**
+   - 6.1 [Customize Comment Bubble Display](#61-customize-comment-bubble-display)
+   - 6.2 [Customize Comment Dialog Appearance](#62-customize-comment-dialog-appearance)
+   - 6.3 [Set defaultCondition on V2 Primitive Sub-Components to Control Default Rendering](#63-set-defaultcondition-on-v2-primitive-sub-components-to-control-default-rendering)
+   - 6.4 [Use Standalone Autocomplete Primitives for Custom Autocomplete UIs](#64-use-standalone-autocomplete-primitives-for-custom-autocomplete-uis)
+   - 6.5 [Use VeltCommentDialogAgentSuggestion Primitives for Custom AI Suggestion UIs](#65-use-veltcommentdialogagentsuggestion-primitives-for-custom-ai-suggestion-uis)
+   - 6.6 [Use Wireframe Components for Custom UI](#66-use-wireframe-components-for-custom-ui)
 
-7. [Debugging & Testing](#7-debugging-testing) — **LOW-MEDIUM**
-   - 7.1 [Troubleshoot Common Velt Integration Issues](#71-troubleshoot-common-velt-integration-issues)
-   - 7.2 [Verify Velt Comments Integration](#72-verify-velt-comments-integration)
+7. [Data Model](#7-data-model) — **MEDIUM**
+   - 7.1 [Filter and Group Comments](#71-filter-and-group-comments)
+   - 7.2 [Work with Comment Annotations Data](#72-work-with-comment-annotations-data)
+   - 7.3 [Add Custom Metadata to Comments with Context](#73-add-custom-metadata-to-comments-with-context)
+   - 7.4 [Comments Data Type Reference — Core Models](#74-comments-data-type-reference-core-models)
+   - 7.5 [Individual Comment CRUD — Add, Update, Delete, Get Comments Within Threads](#75-individual-comment-crud-add-update-delete-get-comments-within-threads)
+   - 7.6 [Mark Comments as Read or Unread](#76-mark-comments-as-read-or-unread)
+   - 7.7 [Programmatic Annotation CRUD — Create, Query, Delete Threads](#77-programmatic-annotation-crud-create-query-delete-threads)
+   - 7.8 [Programmatic Composer Control — Submit, Clear, Read State](#78-programmatic-composer-control-submit-clear-read-state)
+   - 7.9 [Use agentFields on CommentRequestQuery to Filter Annotation Count by Agent](#79-use-agentfields-on-commentrequestquery-to-filter-annotation-count-by-agent)
+   - 7.10 [Use CommentActivityActionTypes for Type-Safe Comment Activity Filtering](#710-use-commentactivityactiontypes-for-type-safe-comment-activity-filtering)
+   - 7.11 [Use Config-Based URL Endpoints Instead of Placeholder Callbacks in CommentAnnotationDataProvider](#711-use-config-based-url-endpoints-instead-of-placeholder-callbacks-in-commentannotationdataprovider)
+   - 7.12 [Use triggerActivities to Create Activity Records via REST API](#712-use-triggeractivities-to-create-activity-records-via-rest-api)
 
-8. [Moderation & Permissions](#8-moderation-permissions) — **LOW**
-   - 8.1 [Control Comment Visibility with Private Mode and Per-Annotation Updates](#81-control-comment-visibility-with-private-mode-and-per-annotation-updates)
-   - 8.2 [Moderation & Permissions](#82-moderation-permissions)
-   - 8.3 [Prefer Past-Tense Event Aliases commentToolClicked and sidebarButtonClicked in New Code](#83-prefer-past-tense-event-aliases-commenttoolclicked-and-sidebarbuttonclicked-in-new-code)
-   - 8.4 [Register an Anonymous User Data Provider to Resolve Tagged Contact Emails to User IDs](#84-register-an-anonymous-user-data-provider-to-resolve-tagged-contact-emails-to-user-ids)
-   - 8.5 [Show a Visibility Banner in the Comment Composer for Multi-Level Visibility Selection](#85-show-a-visibility-banner-in-the-comment-composer-for-multi-level-visibility-selection)
-   - 8.6 [Use CommentDialogActionService.isSubmitInFlight() to Guard Against Duplicate Submits](#86-use-commentdialogactionserviceissubmitinflight-to-guard-against-duplicate-submits)
-   - 8.7 [Use commentSaveTriggered for Immediate UI Feedback Before Async Save Completes](#87-use-commentsavetriggered-for-immediate-ui-feedback-before-async-save-completes)
-   - 8.8 [Use isAnnotationPrivate() for Unified Visibility Routing](#88-use-isannotationprivate-for-unified-visibility-routing)
-   - 8.9 [Use the commentSaved Event for Reliable Post-Persist Side-Effects](#89-use-the-commentsaved-event-for-reliable-post-persist-side-effects)
+8. [Debugging & Testing](#8-debugging-testing) — **LOW-MEDIUM**
+   - 8.1 [Troubleshoot Common Velt Integration Issues](#81-troubleshoot-common-velt-integration-issues)
+   - 8.2 [Verify Velt Comments Integration](#82-verify-velt-comments-integration)
 
-9. [Attachments & Reactions](#9-attachments-reactions) — **MEDIUM**
-   - 9.1 [Attachments & Reactions](#91-attachments-reactions)
-   - 9.2 [Control Attachment Download Behavior and Intercept Clicks](#92-control-attachment-download-behavior-and-intercept-clicks)
+9. [Moderation & Permissions](#9-moderation-permissions) — **LOW**
+   - 9.1 [Control Comment Visibility with Private Mode and Per-Annotation Updates](#91-control-comment-visibility-with-private-mode-and-per-annotation-updates)
+   - 9.2 [Moderation & Permissions](#92-moderation-permissions)
+   - 9.3 [Prefer Past-Tense Event Aliases commentToolClicked and sidebarButtonClicked in New Code](#93-prefer-past-tense-event-aliases-commenttoolclicked-and-sidebarbuttonclicked-in-new-code)
+   - 9.4 [Register an Anonymous User Data Provider to Resolve Tagged Contact Emails to User IDs](#94-register-an-anonymous-user-data-provider-to-resolve-tagged-contact-emails-to-user-ids)
+   - 9.5 [Show a Visibility Banner in the Comment Composer for Multi-Level Visibility Selection](#95-show-a-visibility-banner-in-the-comment-composer-for-multi-level-visibility-selection)
+   - 9.6 [Use CommentDialogActionService.isSubmitInFlight() to Guard Against Duplicate Submits](#96-use-commentdialogactionserviceissubmitinflight-to-guard-against-duplicate-submits)
+   - 9.7 [Use commentSaveTriggered for Immediate UI Feedback Before Async Save Completes](#97-use-commentsavetriggered-for-immediate-ui-feedback-before-async-save-completes)
+   - 9.8 [Use isAnnotationPrivate() for Unified Visibility Routing](#98-use-isannotationprivate-for-unified-visibility-routing)
+   - 9.9 [Use the commentSaved Event for Reliable Post-Persist Side-Effects](#99-use-the-commentsaved-event-for-reliable-post-persist-side-effects)
 
-10. [Configuration](#10-configuration) — **MEDIUM**
-   - 10.1 [Comment Moderation — Approve, Accept, Reject Workflows](#101-comment-moderation-approve-accept-reject-workflows)
-   - 10.2 [Comment Navigation and Deep Linking](#102-comment-navigation-and-deep-linking)
-   - 10.3 [Component Props API — VeltComments, VeltCommentDialog, VeltCommentsSidebar, VeltInlineCommentsSection](#103-component-props-api-veltcomments-veltcommentdialog-veltcommentssidebar-veltinlinecommentssection)
-   - 10.4 [Configure @Mentions, Contacts, and User Assignment](#104-configure-mentions-contacts-and-user-assignment)
-   - 10.5 [Configure Comment Attachments and File Uploads](#105-configure-comment-attachments-and-file-uploads)
-   - 10.6 [Configure Comment Status and Priority Levels](#106-configure-comment-status-and-priority-levels)
-   - 10.7 [Configure Emoji Reactions on Comments](#107-configure-emoji-reactions-on-comments)
-   - 10.8 [Configure Rich Text Formatting in Comment Composer](#108-configure-rich-text-formatting-in-comment-composer)
-   - 10.9 [Programmatic Sidebar Data, Filtering, and Configuration](#109-programmatic-sidebar-data-filtering-and-configuration)
-   - 10.10 [Restrict Comment Placement to Specific DOM Elements](#1010-restrict-comment-placement-to-specific-dom-elements)
-   - 10.11 [UI/UX Toggle Methods — Comment Display, Interaction, and Behavior](#1011-uiux-toggle-methods-comment-display-interaction-and-behavior)
-   - 10.12 [Use accessModes in Sidebar Filters for Privacy-Based Filtering](#1012-use-accessmodes-in-sidebar-filters-for-privacy-based-filtering)
+10. [Attachments & Reactions](#10-attachments-reactions) — **MEDIUM**
+   - 10.1 [Attachments & Reactions](#101-attachments-reactions)
+   - 10.2 [Control Attachment Download Behavior and Intercept Clicks](#102-control-attachment-download-behavior-and-intercept-clicks)
 
-11. [Events](#11-events) — **MEDIUM**
-   - 11.1 [Comment Lifecycle Events — Pin Clicks, Add Events, Button Clicks](#111-comment-lifecycle-events-pin-clicks-add-events-button-clicks)
+11. [Configuration](#11-configuration) — **MEDIUM**
+   - 11.1 [Comment Moderation — Approve, Accept, Reject Workflows](#111-comment-moderation-approve-accept-reject-workflows)
+   - 11.2 [Comment Navigation and Deep Linking](#112-comment-navigation-and-deep-linking)
+   - 11.3 [Component Props API — VeltComments, VeltCommentDialog, VeltCommentsSidebar, VeltInlineCommentsSection](#113-component-props-api-veltcomments-veltcommentdialog-veltcommentssidebar-veltinlinecommentssection)
+   - 11.4 [Configure @Mentions, Contacts, and User Assignment](#114-configure-mentions-contacts-and-user-assignment)
+   - 11.5 [Configure Comment Attachments and File Uploads](#115-configure-comment-attachments-and-file-uploads)
+   - 11.6 [Configure Comment Status and Priority Levels](#116-configure-comment-status-and-priority-levels)
+   - 11.7 [Configure Emoji Reactions on Comments](#117-configure-emoji-reactions-on-comments)
+   - 11.8 [Configure Rich Text Formatting in Comment Composer](#118-configure-rich-text-formatting-in-comment-composer)
+   - 11.9 [Programmatic Sidebar Data, Filtering, and Configuration](#119-programmatic-sidebar-data-filtering-and-configuration)
+   - 11.10 [Restrict Comment Placement to Specific DOM Elements](#1110-restrict-comment-placement-to-specific-dom-elements)
+   - 11.11 [UI/UX Toggle Methods — Comment Display, Interaction, and Behavior](#1111-uiux-toggle-methods-comment-display-interaction-and-behavior)
+   - 11.12 [Use accessModes in Sidebar Filters for Privacy-Based Filtering](#1112-use-accessmodes-in-sidebar-filters-for-privacy-based-filtering)
 
-12. [REST API](#12-rest-api) — **HIGH**
-   - 12.1 [REST API — Comment Annotation CRUD](#121-rest-api-comment-annotation-crud)
-   - 12.2 [REST API — Individual Comment CRUD Within Annotations](#122-rest-api-individual-comment-crud-within-annotations)
+12. [Events](#12-events) — **MEDIUM**
+   - 12.1 [Comment Lifecycle Events — Pin Clicks, Add Events, Button Clicks](#121-comment-lifecycle-events-pin-clicks-add-events-button-clicks)
 
 13. [Wireframe Variables](#13-wireframe-variables) — **MEDIUM**
    - 13.1 [Bind Autocomplete Wireframe Slots Using Template Variables](#131-bind-autocomplete-wireframe-slots-using-template-variables)
@@ -378,13 +379,567 @@ export default function App() {
 
 ---
 
-## 2. Comment Modes
+## 2. REST API
+
+**Impact: HIGH**
+
+Server-side comment management via REST API, including agent comment annotations.
+
+### 2.1 REST API — Agent Comment Annotations (Create, Read, Filter)
+
+**Impact: HIGH (Let AI agents leave comments via REST API with the agent block, and read them back with agent-specific filters)**
+
+Agent comments let AI agents participate in collaboration by leaving findings via the Add Comment Annotations REST API. The server stamps `sourceType: "agent"` on the annotation and renders it with Accept/Reject buttons in the Velt UI. Any agent that can make an HTTP request can do this — a built-in Velt agent, a custom agent registered in the Console, or an external agent running in your own framework.
+
+### Creating agent annotations
+
+Attach an `agent` object to `commentData[0]` (the root comment). Set the annotation `type` to `"suggestion"` so the finding renders as a reviewable agent suggestion rather than a regular comment.
+
+**Correct (external agent leaving a finding via REST):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/add
+const response = await fetch('https://api.velt.dev/v2/commentannotations/add', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      commentAnnotations: [
+        {
+          type: 'suggestion',
+          commentData: [
+            {
+              commentText: 'This button has insufficient color contrast.',
+              from: { userId: 'a11y-bot' },
+              agent: {
+                agentSource: 'external',
+                agentName: 'Accessibility Bot',
+                agentId: 'a11y-bot',
+                executionId: 'run_8f21',
+                url: 'https://example.com/design-mockup-v2',
+                reason: {
+                  title: 'Low color contrast',
+                  description: 'Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.',
+                  severity: 'high',
+                  findingType: 'pin',
+                },
+              },
+            },
+          ],
+        },
+      ],
+    },
+  }),
+});
+```
+
+**Correct (Python — external agent):**
+
+```python
+import os
+import requests
+
+response = requests.post(
+    "https://api.velt.dev/v2/commentannotations/add",
+    headers={
+        "x-velt-api-key": os.environ["VELT_API_KEY"],
+        "x-velt-auth-token": os.environ["VELT_AUTH_TOKEN"],
+        "Content-Type": "application/json",
+    },
+    json={
+        "data": {
+            "organizationId": "acme-corp",
+            "documentId": "design-mockup-v2",
+            "commentAnnotations": [
+                {
+                    "type": "suggestion",
+                    "commentData": [
+                        {
+                            "commentText": "This button has insufficient color contrast.",
+                            "from": {"userId": "a11y-bot"},
+                            "agent": {
+                                "agentSource": "external",
+                                "agentName": "Accessibility Bot",
+                                "agentId": "a11y-bot",
+                                "executionId": "run_8f21",
+                                "url": "https://example.com/design-mockup-v2",
+                                "reason": {
+                                    "title": "Low color contrast",
+                                    "description": "Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.",
+                                    "severity": "high",
+                                    "findingType": "pin",
+                                },
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
+    },
+)
+```
+
+The server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
+Use the Get Comment Annotations API with agent-specific filters. Only one agent filter may be supplied per request.
+| Filter | Description |
+|--------|-------------|
+| `agentId` | Annotations created by a specific agent. |
+| `executionId` | Annotations from a specific agent run. |
+| `agentType` | `"built-in"`, `"custom"`, or `"external"`. |
+| `agentSource` | `"velt"` or `"external"`. |
+| `agentSuggestions` | When `true`, returns only fresh (unaccepted) agent suggestions. |
+| `agentComments` | When `true`, returns all agent annotations regardless of status. |
+
+**Correct (fetch all findings from a specific agent run):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/get
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      executionId: 'run_8f21',
+    },
+  }),
+});
+```
+
+Agent annotations in the response carry `type: "suggestion"` and `sourceType: "agent"` at the annotation root, an annotation-root `agent` block (`CommentAnnotationAgent`), and an `agent` block on each agent-authored comment (`comments[].agent`).
+
+**Correct (fetch only pending agent suggestions):**
+
+```javascript
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentSuggestions: true,
+    },
+  }),
+});
+```
+
+**Correct (fetch all annotations from external agents):**
+
+```javascript
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentSource: 'external',
+    },
+  }),
+});
+```
+
+The Get Comment Annotations API requires the **advanced queries** option to be enabled in the Velt Console and the v4+ series of the Velt SDK.
+Agent findings render with Accept and Reject buttons. Subscribe to `suggestionAccepted` and `suggestionRejected` on the comment element to apply the change to your own data or trigger follow-up logic. The SDK records the outcome and persists the suggestion status — applying the actual change is your code's responsibility.
+
+**Correct (React — subscribe to agent suggestion events):**
+
+```tsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+export function AgentSuggestionListener() {
+  const accepted = useCommentEventCallback('suggestionAccepted');
+  const rejected = useCommentEventCallback('suggestionRejected');
+
+  useEffect(() => {
+    if (!accepted) return;
+    // accepted.commentAnnotation contains the full agent finding
+    console.log('Suggestion accepted', accepted.commentAnnotation);
+  }, [accepted]);
+
+  useEffect(() => {
+    if (!rejected) return;
+    // rejected.rejectReason contains the reviewer's reason (if provided)
+    console.log('Suggestion rejected', rejected.rejectReason);
+  }, [rejected]);
+
+  return null;
+}
+```
+
+**Correct (Other Frameworks — Angular, Vue, Vanilla JS):**
+
+```tsx
+const commentElement = Velt.getCommentElement();
+
+commentElement.on('suggestionAccepted').subscribe(({ commentAnnotation }) => {
+  console.log('Suggestion accepted', commentAnnotation);
+});
+
+commentElement.on('suggestionRejected').subscribe(({ commentAnnotation, rejectReason }) => {
+  console.log('Suggestion rejected', rejectReason);
+});
+import {
+  VeltCommentDialogContextWrapper,
+  VeltCommentDialogAgentSuggestionBody,
+  VeltCommentDialogAgentSuggestionActions,
+  VeltCommentDialogAgentSuggestionActionsActionAccept,
+  VeltCommentDialogAgentSuggestionActionsActionReject,
+  VeltCommentDialogAgentSuggestionBanner,
+} from '@veltdev/react';
+
+function AgentFindingCard({ annotationId }: { annotationId: string }) {
+  return (
+    <VeltCommentDialogContextWrapper annotationId={annotationId}>
+      <VeltCommentDialogAgentSuggestionBody />
+      <VeltCommentDialogAgentSuggestionActions>
+        <VeltCommentDialogAgentSuggestionActionsActionAccept />
+        <VeltCommentDialogAgentSuggestionActionsActionReject />
+      </VeltCommentDialogAgentSuggestionActions>
+      <VeltCommentDialogAgentSuggestionBanner />
+    </VeltCommentDialogContextWrapper>
+  );
+}
+```
+
+Annotations created with `sourceType: "agent"` render with an agent-identity header (agent name + avatar from the `agent` block) instead of the standard human-author header. Because the annotation `type` is `"suggestion"`, the comment dialog shows Accept and Reject buttons.
+To build a custom agent suggestion UI, use the standalone `VeltCommentDialogAgentSuggestion*` primitives (not the wireframe pattern). Wrap them in a `VeltCommentDialogContextWrapper` with `annotationId`:
+The full 21-component hierarchy and all props are documented in `ui-agent-suggestion-primitives`.
+
+References:
+- https://docs.velt.dev/ai/agent-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-v2
+
+---
+
+### 2.2 REST API — Comment Annotation CRUD
+
+**Impact: HIGH (Server-side comment annotation management via REST)**
+
+Use Velt's REST APIs to manage comment annotations from your backend. All endpoints require `x-velt-api-key` and `x-velt-auth-token` headers.
+
+> **Agent annotations?** If the task involves AI agents, agent comments, agent suggestions, agentSource, executionId, or accept/reject — the agent block goes on `commentData[0]` with `type: "suggestion"`, `agentName` (required for external), and a `reason` object. See `rest-agent-comments-api.md` for the full reference and code examples. Use `suggestionAccepted`/`suggestionRejected` events on the client to handle reviewer decisions.
+
+**Add Annotations:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/add
+const response = await fetch('https://api.velt.dev/v2/commentannotations/add', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      commentAnnotations: [{
+        commentData: [{
+          commentText: 'This needs review',
+          commentHtml: '<p>This needs review</p>',
+          from: { userId: 'user-1' },
+        }],
+      }],
+    },
+  }),
+});
+```
+
+**Add Agent Annotations (AI agent findings with Accept/Reject buttons):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/add
+const response = await fetch('https://api.velt.dev/v2/commentannotations/add', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      commentAnnotations: [{
+        type: 'suggestion',
+        commentData: [{
+          commentText: 'This button has insufficient color contrast.',
+          from: { userId: 'a11y-bot' },
+          agent: {
+            agentSource: 'external',
+            agentName: 'Accessibility Bot',
+            agentId: 'a11y-bot',
+            executionId: 'run_8f21',
+            reason: {
+              title: 'Low color contrast',
+              description: 'Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.',
+              severity: 'high',
+              findingType: 'pin',
+            },
+          },
+        }],
+      }],
+    },
+  }),
+});
+```
+
+**Get Annotations (with filters):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/get
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',           // Optional
+      locationIds: [1, 2],           // Optional
+      annotationIds: ['ann-1'],      // Optional
+      userIds: ['user-1'],           // Optional
+      statusIds: ['open'],           // Optional
+      folderId: 'folder-1',         // Optional
+      updatedAfter: 1700000000000,   // Optional: timestamp ms
+      createdBefore: 1700100000000,  // Optional: timestamp ms
+      pageSize: 50,                  // Default: 1000
+      pageToken: 'next-token',      // For pagination
+    },
+  }),
+});
+// Response: { result: { status, data: CommentAnnotation[], pageToken } }
+```
+
+**Get Agent Annotations (agent-specific filters):**
+
+```javascript
+// Get all findings from a specific agent run
+const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      executionId: 'run_8f21',
+    },
+  }),
+});
+
+// Get only pending (unaccepted) agent suggestions
+const pending = await fetch('https://api.velt.dev/v2/commentannotations/get', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentSuggestions: true,
+    },
+  }),
+});
+```
+
+**Update Annotations:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/update
+const response = await fetch('https://api.velt.dev/v2/commentannotations/update', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotations: [{
+        annotationId: 'ann-123',
+        status: { id: 'resolved', name: 'Resolved', type: 'terminal' },
+        priority: { id: 'low', name: 'Low' },
+      }],
+    },
+  }),
+});
+```
+
+**Delete Annotations:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/delete
+const response = await fetch('https://api.velt.dev/v2/commentannotations/delete', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationIds: ['ann-123', 'ann-456'],
+    },
+  }),
+});
+```
+
+**Get Counts (total + unread):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/count/get
+const response = await fetch('https://api.velt.dev/v2/commentannotations/count/get', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+    },
+  }),
+});
+// Response: { result: { data: { total: number, unread: number } } }
+```
+
+Reference: https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/
+
+---
+
+### 2.3 REST API — Individual Comment CRUD Within Annotations
+
+**Impact: HIGH (Server-side individual comment management via REST)**
+
+Manage individual comments within annotation threads from your backend. All endpoints require `x-velt-api-key` and `x-velt-auth-token` headers.
+
+**Add Comments to Annotation:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/comments/add
+const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/add', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationId: 'ann-123',
+      commentData: [{
+        commentText: 'Looks good to me',
+        commentHtml: '<p>Looks good to me</p>',
+        from: { userId: 'user-1' },
+        context: { reviewType: 'approval' },
+        taggedUserContacts: [],
+        attachments: [{
+          attachmentId: 'att-1',
+          name: 'screenshot.png',
+          url: 'https://example.com/screenshot.png',
+          mimeType: 'image/png',
+          size: 102400,
+        }],
+      }],
+    },
+  }),
+});
+```
+
+**Get Comments:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/comments/get
+const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/get', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationId: 'ann-123',
+      userIds: ['user-1'],       // Required
+      commentIds: [1, 2, 3],     // Optional: specific comment IDs
+    },
+  }),
+});
+// Response includes: commentHtml, commentText, status, reactionAnnotations[]
+```
+
+**Update Comments:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/comments/update
+const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/update', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationId: 'ann-123',
+      commentIds: [1],
+      updatedData: {
+        commentText: 'Updated review text',
+        commentHtml: '<p>Updated review text</p>',
+        context: { reviewType: 'revision' },
+      },
+    },
+  }),
+});
+```
+
+**Delete Comments:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/comments/delete
+const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/delete', {
+  method: 'POST',
+  headers: { /* same headers */ },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-1',
+      documentId: 'doc-1',
+      annotationId: 'ann-123',
+      commentIds: [1, 2],  // Optional — if omitted, deletes all comments in annotation
+    },
+  }),
+});
+```
+
+Reference: https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/
+
+---
+
+## 3. Comment Modes
 
 **Impact: HIGH**
 
 Different comment presentation and interaction modes for various use cases. Includes Freestyle, Popover, Stream, Text, Page, Inline, rich text editor integrations (TipTap, SlateJS, Lexical, Plate, Quill, CodeMirror, Ace), media player comments, and chart comments.
 
-### 2.1 Add Comments to Canvas/Drawing Applications
+### 3.1 Add Comments to Canvas/Drawing Applications
 
 **Impact: HIGH (Manual comment positioning for HTML5 canvas and drawing apps)**
 
@@ -543,7 +1098,7 @@ style={{
 
 ---
 
-### 2.2 Add Comments to ChartJS Charts
+### 3.2 Add Comments to ChartJS Charts
 
 **Impact: HIGH (Data point comments for Chart.js using manual positioning pattern)**
 
@@ -707,7 +1262,7 @@ y: chart.scales.y.getPixelForValue(yValue)
 
 ---
 
-### 2.3 Add Comments to Custom Charts with Manual Positioning
+### 3.3 Add Comments to Custom Charts with Manual Positioning
 
 **Impact: HIGH (Manual comment pin positioning for any charting library)**
 
@@ -888,7 +1443,7 @@ const filtered = commentAnnotations?.filter(c => c.context?.chartId === chartId)
 
 ---
 
-### 2.4 Add Comments to Nivo Charts
+### 3.4 Add Comments to Nivo Charts
 
 **Impact: HIGH (Data point comments for Nivo charts using manual positioning pattern)**
 
@@ -1014,7 +1569,7 @@ const context = {
 
 ---
 
-### 2.5 Add Data Point Comments to Highcharts
+### 3.5 Add Data Point Comments to Highcharts
 
 **Impact: HIGH (Comments on chart data points using VeltHighChartComments)**
 
@@ -1107,7 +1662,7 @@ const chartComponentRef = useRef(null);
 
 ---
 
-### 2.6 Integrate Comments with Ace Editor
+### 3.6 Integrate Comments with Ace Editor
 
 **Impact: MEDIUM (Text comments in Ace code editor with highlight marks)**
 
@@ -1229,7 +1784,7 @@ velt-comment-text {
 
 ---
 
-### 2.7 Integrate Comments with CodeMirror Editor
+### 3.7 Integrate Comments with CodeMirror Editor
 
 **Impact: MEDIUM (Text comments in CodeMirror code editor with highlight decorations)**
 
@@ -1372,7 +1927,7 @@ velt-comment-text {
 
 ---
 
-### 2.8 Integrate Comments with Lexical Editor
+### 3.8 Integrate Comments with Lexical Editor
 
 **Impact: HIGH (Text comments in Lexical rich text editor with CommentNode)**
 
@@ -1466,7 +2021,7 @@ velt-comment-text[comment-available="true"] {
 
 ---
 
-### 2.9 Integrate Comments with Plate Editor
+### 3.9 Integrate Comments with Plate Editor
 
 **Impact: MEDIUM (Text comments in Plate.js rich text editor with highlight marks)**
 
@@ -1580,7 +2135,7 @@ velt-comment-text {
 
 ---
 
-### 2.10 Integrate Comments with Quill Editor
+### 3.10 Integrate Comments with Quill Editor
 
 **Impact: MEDIUM (Text comments in Quill rich text editor with highlight marks)**
 
@@ -1712,7 +2267,7 @@ velt-comment-text {
 
 ---
 
-### 2.11 Integrate Comments with SlateJS Editor
+### 3.11 Integrate Comments with SlateJS Editor
 
 **Impact: HIGH (Text comments in SlateJS rich text editor with custom elements)**
 
@@ -1807,7 +2362,7 @@ velt-comment-text[comment-available="true"] {
 
 ---
 
-### 2.12 Integrate Comments with TipTap Editor
+### 3.12 Integrate Comments with TipTap Editor
 
 **Impact: HIGH (Text comments in TipTap rich text editor with highlight marks)**
 
@@ -1930,7 +2485,7 @@ velt-comment-text[comment-available="true"] {
 
 ---
 
-### 2.13 Add Frame-by-Frame Comments to Lottie Animations
+### 3.13 Add Frame-by-Frame Comments to Lottie Animations
 
 **Impact: HIGH (Comments synced to specific frames in Lottie animations)**
 
@@ -2087,7 +2642,7 @@ commentElement.allowedElementIds(['lottiePlayerContainer']);
 
 ---
 
-### 2.14 Integrate Comments with Custom Video Player
+### 3.14 Integrate Comments with Custom Video Player
 
 **Impact: HIGH (Add comments to any video player with timeline and sidebar)**
 
@@ -2231,7 +2786,7 @@ const onCommentClick = async (event) => {
 
 ---
 
-### 2.15 Use Freestyle Mode for Pin-Anywhere Comments
+### 3.15 Use Freestyle Mode for Pin-Anywhere Comments
 
 **Impact: HIGH (Default mode - enables clicking anywhere to pin comments)**
 
@@ -2308,7 +2863,7 @@ export default function App() {
 
 ---
 
-### 2.16 Use Inline Comments for Traditional Thread Style
+### 3.16 Use Inline Comments for Traditional Thread Style
 
 **Impact: HIGH (Traditional comment threads bound to container elements)**
 
@@ -2458,7 +3013,7 @@ export default function App() {
 
 ---
 
-### 2.17 Use Page Mode for Page-Level Comments
+### 3.17 Use Page Mode for Page-Level Comments
 
 **Impact: HIGH (Comments at page level via sidebar, not attached to elements)**
 
@@ -2560,7 +3115,7 @@ function PageModeControls() {
 
 ---
 
-### 2.18 Use Popover Mode for Table Cell Comments
+### 3.18 Use Popover Mode for Table Cell Comments
 
 **Impact: HIGH (Google Sheets-style comments attached to specific elements)**
 
@@ -2658,7 +3213,7 @@ export default function App() {
 
 ---
 
-### 2.19 Use Prebuilt Video Player for Quick Setup
+### 3.19 Use Prebuilt Video Player for Quick Setup
 
 **Impact: HIGH (Velt-provided video player with built-in commenting)**
 
@@ -2703,7 +3258,7 @@ export default function App() {
 
 ---
 
-### 2.20 Use Stream Mode for Google Docs-Style Comments
+### 3.20 Use Stream Mode for Google Docs-Style Comments
 
 **Impact: HIGH (Comments appear in a side column synchronized with scroll position)**
 
@@ -2759,7 +3314,7 @@ export default function App() {
 
 ---
 
-### 2.21 Use Text Mode for Text Highlight Comments
+### 3.21 Use Text Mode for Text Highlight Comments
 
 **Impact: HIGH (Comments attached to selected text, like Google Docs highlighting)**
 
@@ -2819,13 +3374,13 @@ export default function App() {
 
 ---
 
-## 3. Standalone Components
+## 4. Standalone Components
 
 **Impact: MEDIUM-HIGH**
 
 Individual comment components for building custom implementations. Includes Comment Pin, Comment Thread, and Comment Composer for DIY comment interfaces.
 
-### 3.1 Use Comment Pin for Manual Position Control
+### 4.1 Use Comment Pin for Manual Position Control
 
 **Impact: MEDIUM-HIGH (Full control over comment pin placement in complex UIs)**
 
@@ -2965,7 +3520,7 @@ export default function ManualPinExample() {
 
 ---
 
-### 3.2 Use Comment Composer for Custom Comment Input
+### 4.2 Use Comment Composer for Custom Comment Input
 
 **Impact: MEDIUM-HIGH (Add comment input anywhere in your application)**
 
@@ -3127,7 +3682,7 @@ function ComposerControls() {
 
 ---
 
-### 3.3 Use Comment Thread to Render Existing Comments
+### 4.3 Use Comment Thread to Render Existing Comments
 
 **Impact: MEDIUM-HIGH (Render comment threads in custom locations like kanban boards)**
 
@@ -3251,13 +3806,13 @@ export default function KanbanBoard() {
 
 ---
 
-## 4. Comment Surfaces
+## 5. Comment Surfaces
 
 **Impact: MEDIUM-HIGH**
 
 Navigation and display surfaces for comments. Includes the Comments Sidebar, the V2 primitive-architecture sidebar, and related toggle components.
 
-### 4.1 Comments Sidebar Setup, Modes, and Configuration
+### 5.1 Comments Sidebar Setup, Modes, and Configuration
 
 **Impact: MEDIUM-HIGH (Sidebar is the primary surface for viewing, filtering, and navigating all comments — incorrect setup leads to missing sidebar or broken navigation)**
 
@@ -3370,7 +3925,7 @@ V2 replaces the per-category filter panel with a unified `FilterDropdown`. For V
 
 ---
 
-### 4.2 Use Comments Sidebar for Comment Navigation
+### 5.2 Use Comments Sidebar for Comment Navigation
 
 **Impact: MEDIUM-HIGH (Central panel for viewing, filtering, and navigating all comments)**
 
@@ -3475,7 +4030,7 @@ export default function App() {
 
 ---
 
-### 4.3 Use Sidebar Button to Toggle Comments Panel
+### 5.3 Use Sidebar Button to Toggle Comments Panel
 
 **Impact: MEDIUM-HIGH (User control for showing/hiding comments sidebar)**
 
@@ -3554,7 +4109,7 @@ export default function App() {
 
 ---
 
-### 4.4 Use VeltCommentsSidebarV2 for Primitive-Architecture Sidebar Customization
+### 5.4 Use VeltCommentsSidebarV2 for Primitive-Architecture Sidebar Customization
 
 **Impact: MEDIUM-HIGH (Full composability of every sidebar UI section via 27+ independently importable primitives, enabling precise customization without forking the entire component)**
 
@@ -3615,13 +4170,13 @@ export default function App() {
 
 ---
 
-## 5. UI Customization
+## 6. UI Customization
 
 **Impact: MEDIUM**
 
 Visual customization patterns for comment components. Includes dialog customization, bubble styling, wireframe component usage, and standalone autocomplete primitives.
 
-### 5.1 Customize Comment Bubble Display
+### 6.1 Customize Comment Bubble Display
 
 **Impact: MEDIUM (Configure comment count bubbles and indicators)**
 
@@ -3708,7 +4263,7 @@ import {
 
 ---
 
-### 5.2 Customize Comment Dialog Appearance
+### 6.2 Customize Comment Dialog Appearance
 
 **Impact: MEDIUM (Match comment dialogs to your application design system)**
 
@@ -3775,7 +4330,7 @@ velt-comment-dialog {
 
 ---
 
-### 5.3 Set defaultCondition on V2 Primitive Sub-Components to Control Default Rendering
+### 6.3 Set defaultCondition on V2 Primitive Sub-Components to Control Default Rendering
 
 **Impact: MEDIUM (Prevents the SDK's default show/hide logic from conflicting with custom wireframe compositions in V2 primitive component families)**
 
@@ -3833,7 +4388,7 @@ import { VeltWireframe } from '@veltdev/react';
 
 ---
 
-### 5.4 Use Standalone Autocomplete Primitives for Custom Autocomplete UIs
+### 6.4 Use Standalone Autocomplete Primitives for Custom Autocomplete UIs
 
 **Impact: MEDIUM (Build fully custom autocomplete UIs without requiring the full VeltAutocomplete panel, using independently importable primitive components)**
 
@@ -3955,7 +4510,7 @@ import { VeltWireframe, VeltAutocompleteEmptyWireframe } from '@veltdev/react';
 
 ---
 
-### 5.5 Use VeltCommentDialogAgentSuggestion Primitives for Custom AI Suggestion UIs
+### 6.5 Use VeltCommentDialogAgentSuggestion Primitives for Custom AI Suggestion UIs
 
 **Impact: MEDIUM (Agent suggestion primitives enable fully custom accept/reject UIs for AI-generated suggestions within comment dialogs)**
 
@@ -4044,7 +4599,7 @@ VeltCommentDialogAgentSuggestionActions          — accept/reject button group
 
 ---
 
-### 5.6 Use Wireframe Components for Custom UI
+### 6.6 Use Wireframe Components for Custom UI
 
 **Impact: MEDIUM (Build fully custom comment UIs with wireframe building blocks)**
 
@@ -4253,13 +4808,13 @@ function CustomSidebar() {
 
 ---
 
-## 6. Data Model
+## 7. Data Model
 
 **Impact: MEDIUM**
 
 Patterns for working with comment data structures. Includes CRUD operations, metadata, annotations, composer control, read status, and data type reference.
 
-### 6.1 Filter and Group Comments
+### 7.1 Filter and Group Comments
 
 **Impact: MEDIUM (Organize comments by context, location, or custom criteria)**
 
@@ -4353,7 +4908,7 @@ Object.entries(groupedBySection).map(([section, comments]) => (
 
 ---
 
-### 6.2 Work with Comment Annotations Data
+### 7.2 Work with Comment Annotations Data
 
 **Impact: MEDIUM (Retrieve and manipulate comment annotation objects)**
 
@@ -4468,7 +5023,7 @@ commentElement.getCommentAnnotationsCount({
 
 ---
 
-### 6.3 Add Custom Metadata to Comments with Context
+### 7.3 Add Custom Metadata to Comments with Context
 
 **Impact: MEDIUM (Attach custom data for filtering, grouping, and processing)**
 
@@ -4575,7 +5130,7 @@ commentElement.setContextProvider(() => ({
 
 ---
 
-### 6.4 Comments Data Type Reference — Core Models
+### 7.4 Comments Data Type Reference — Core Models
 
 **Impact: MEDIUM (Type definitions for comment annotations, comments, status, priority, attachments)**
 
@@ -4753,7 +5308,7 @@ Reference: https://docs.velt.dev/api-reference/sdk/models/data-models - Comments
 
 ---
 
-### 6.5 Individual Comment CRUD — Add, Update, Delete, Get Comments Within Threads
+### 7.5 Individual Comment CRUD — Add, Update, Delete, Get Comments Within Threads
 
 **Impact: HIGH (Required for programmatic comment management within annotation threads)**
 
@@ -4822,7 +5377,7 @@ Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior
 
 ---
 
-### 6.6 Mark Comments as Read or Unread
+### 7.6 Mark Comments as Read or Unread
 
 **Impact: HIGH (Control read/unread state for notification badges and filtering)**
 
@@ -4848,7 +5403,7 @@ Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior
 
 ---
 
-### 6.7 Programmatic Annotation CRUD — Create, Query, Delete Threads
+### 7.7 Programmatic Annotation CRUD — Create, Query, Delete Threads
 
 **Impact: HIGH (Required for programmatic comment thread management)**
 
@@ -4956,7 +5511,7 @@ Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior
 
 ---
 
-### 6.8 Programmatic Composer Control — Submit, Clear, Read State
+### 7.8 Programmatic Composer Control — Submit, Clear, Read State
 
 **Impact: HIGH (Control the comment composer programmatically)**
 
@@ -5009,9 +5564,11 @@ Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior
 
 ---
 
-### 6.9 Use agentFields on CommentRequestQuery to Filter Annotation Count by Agent
+### 7.9 Use agentFields on CommentRequestQuery to Filter Annotation Count by Agent
 
 **Impact: MEDIUM (Enables precise comment count queries scoped to agent-tagged annotations, avoiding full-collection scans)**
+
+> **This rule is about QUERYING annotation counts on the frontend**, not about CREATING annotations. To create agent annotations via REST API, see `rest-agent-comments-api.md` — the creation API uses `agentName`, `reason`, `type: "suggestion"`, and `executionId` on `commentData[0].agent`. Do not confuse `agentFields` (a query-side filter) with the creation-side `agent` block fields.
 
 `CommentRequestQuery.agentFields` filters `getCommentAnnotationCount()` to only annotations where `agent.agentFields` contains any of the provided values. This is useful when a document has a mix of human and agent-authored annotations and you want a count scoped to a specific agent. Due to a Firestore `array-contains` limitation, when `agentFields` is set the unread count query is skipped and the unread count is treated as equal to the total count.
 
@@ -5072,7 +5629,7 @@ const subscription = commentElement.getCommentAnnotationCount({
 
 ---
 
-### 6.10 Use CommentActivityActionTypes for Type-Safe Comment Activity Filtering
+### 7.10 Use CommentActivityActionTypes for Type-Safe Comment Activity Filtering
 
 **Impact: MEDIUM (Eliminates raw-string action type errors when filtering comment activities)**
 
@@ -5166,7 +5723,7 @@ type CommentActivityActionType =
 
 ---
 
-### 6.11 Use Config-Based URL Endpoints Instead of Placeholder Callbacks in CommentAnnotationDataProvider
+### 7.11 Use Config-Based URL Endpoints Instead of Placeholder Callbacks in CommentAnnotationDataProvider
 
 **Impact: MEDIUM (Eliminates boilerplate callback stubs when using URL-based data provider endpoints, reducing integration errors)**
 
@@ -5240,7 +5797,7 @@ function DataProviderSetupCallbackBased() {
 
 ---
 
-### 6.12 Use triggerActivities to Create Activity Records via REST API
+### 7.12 Use triggerActivities to Create Activity Records via REST API
 
 **Impact: MEDIUM (Ensures comment additions via REST API are reflected in the activity feed when workspace-level activity tracking is enabled)**
 
@@ -5289,13 +5846,13 @@ Note: `triggerActivities` creates activity records; `triggerNotification` sends 
 
 ---
 
-## 7. Debugging & Testing
+## 8. Debugging & Testing
 
 **Impact: LOW-MEDIUM**
 
 Troubleshooting patterns and verification checklists for Velt integrations.
 
-### 7.1 Troubleshoot Common Velt Integration Issues
+### 8.1 Troubleshoot Common Velt Integration Issues
 
 **Impact: LOW-MEDIUM (Quick fixes for common setup and runtime problems)**
 
@@ -5437,7 +5994,7 @@ commentElement.getAllCommentAnnotations().subscribe(console.log);
 
 ---
 
-### 7.2 Verify Velt Comments Integration
+### 8.2 Verify Velt Comments Integration
 
 **Impact: LOW-MEDIUM (Checklist to confirm correct setup and functionality)**
 
@@ -5474,13 +6031,13 @@ testVeltSetup();
 
 ---
 
-## 8. Moderation & Permissions
+## 9. Moderation & Permissions
 
 **Impact: LOW**
 
 Access control and moderation features for comments. Includes comment visibility control (private mode), per-annotation visibility updates, and post-persist event handling.
 
-### 8.1 Control Comment Visibility with Private Mode and Per-Annotation Updates
+### 9.1 Control Comment Visibility with Private Mode and Per-Annotation Updates
 
 **Impact: LOW (Prevent unintended comment exposure by restricting visibility globally or per annotation to organization members or specific users)**
 
@@ -5716,7 +6273,7 @@ commentElement.enablePrivateMode({ type: 'organizationPrivate' });              
 
 ---
 
-### 8.2 Moderation & Permissions
+### 9.2 Moderation & Permissions
 
 **Impact: LOW (Access control and moderation features for comments)**
 
@@ -5764,7 +6321,7 @@ For detailed moderation and permissions setup, consult:
 
 ---
 
-### 8.3 Prefer Past-Tense Event Aliases commentToolClicked and sidebarButtonClicked in New Code
+### 9.3 Prefer Past-Tense Event Aliases commentToolClicked and sidebarButtonClicked in New Code
 
 **Impact: LOW (Write consistent event subscriptions using the canonical past-tense naming convention that aligns with all other Velt events — both old and new names fire simultaneously so migration is non-breaking)**
 
@@ -5837,7 +6394,7 @@ sub2.unsubscribe();
 
 ---
 
-### 8.4 Register an Anonymous User Data Provider to Resolve Tagged Contact Emails to User IDs
+### 9.4 Register an Anonymous User Data Provider to Resolve Tagged Contact Emails to User IDs
 
 **Impact: LOW (Enables Velt to automatically map email addresses to userIds at comment save time, so anonymous contacts tagged in comments are correctly associated with their accounts)**
 
@@ -5972,7 +6529,7 @@ interface ResolverResponse<T> {
 
 ---
 
-### 8.5 Show a Visibility Banner in the Comment Composer for Multi-Level Visibility Selection
+### 9.5 Show a Visibility Banner in the Comment Composer for Multi-Level Visibility Selection
 
 **Impact: LOW (Let users choose from four visibility levels before submitting a comment, and react to that choice via the visibilityOptionClicked event)**
 
@@ -6110,7 +6667,7 @@ interface VisibilityOptionClickedEvent {
 
 ---
 
-### 8.6 Use CommentDialogActionService.isSubmitInFlight() to Guard Against Duplicate Submits
+### 9.6 Use CommentDialogActionService.isSubmitInFlight() to Guard Against Duplicate Submits
 
 **Impact: LOW-MEDIUM (Without in-flight tracking, custom submit actions in sidebar custom-actions hosts can trigger duplicate comment saves or spurious draft events)**
 
@@ -6153,7 +6710,7 @@ function handleAutoSave(dialogInstanceId) {
 
 ---
 
-### 8.7 Use commentSaveTriggered for Immediate UI Feedback Before Async Save Completes
+### 9.7 Use commentSaveTriggered for Immediate UI Feedback Before Async Save Completes
 
 **Impact: LOW (Show spinners or disable UI the moment the user clicks save — before the database write — without reacting too late with the post-persist commentSaved event)**
 
@@ -6229,7 +6786,7 @@ interface CommentSaveTriggeredEvent {
 
 ---
 
-### 8.8 Use isAnnotationPrivate() for Unified Visibility Routing
+### 9.8 Use isAnnotationPrivate() for Unified Visibility Routing
 
 **Impact: MEDIUM (Without the shared isAnnotationPrivate() utility, privacy checks miss annotations using the new visibilityConfig field and only detect legacy iam.accessMode)**
 
@@ -6308,9 +6865,11 @@ await addComment({
 
 ---
 
-### 8.9 Use the commentSaved Event for Reliable Post-Persist Side-Effects
+### 9.9 Use the commentSaved Event for Reliable Post-Persist Side-Effects
 
 **Impact: LOW (Trigger webhooks, analytics, or external sync only after database write confirmation — not prematurely on optimistic UI updates)**
+
+> **For agent suggestion accept/reject**: Do NOT use `commentSaved` with status checks. Instead use the dedicated `suggestionAccepted` and `suggestionRejected` events via `useCommentEventCallback('suggestionAccepted')` / `useCommentEventCallback('suggestionRejected')`. See `rest-agent-comments-api.md` and `events-comment-lifecycle.md`.
 
 The `commentSaved` event fires after a comment annotation is successfully written to the database. Use this event — not optimistic UI callbacks — as the trigger for side-effects such as webhooks, audit logging, or syncing external systems.
 
@@ -6381,13 +6940,13 @@ interface CommentSavedEvent {
 
 ---
 
-## 9. Attachments & Reactions
+## 10. Attachments & Reactions
 
 **Impact: MEDIUM**
 
 File attachment control and emoji reaction features. Includes attachment download behavior, click interception events, and CSS state classes for attachment loading and edit-mode states.
 
-### 9.1 Attachments & Reactions
+### 10.1 Attachments & Reactions
 
 **Impact: MEDIUM (File attachment control and emoji reaction features)**
 
@@ -6422,7 +6981,7 @@ If you need reaction functionality outside of video players, or file attachments
 
 ---
 
-### 9.2 Control Attachment Download Behavior and Intercept Clicks
+### 10.2 Control Attachment Download Behavior and Intercept Clicks
 
 **Impact: MEDIUM (Prevent automatic downloads and intercept attachment clicks for custom viewers, analytics, or access control)**
 
@@ -6535,13 +7094,13 @@ interface AttachmentDownloadClickedEvent {
 
 ---
 
-## 10. Configuration
+## 11. Configuration
 
 **Impact: MEDIUM**
 
 Advanced configuration methods for comment features — mentions/contacts, status/priority, reactions, attachments, text formatting, navigation/deep linking, DOM controls, sidebar management, UI behavior toggles, and moderation.
 
-### 10.1 Comment Moderation — Approve, Accept, Reject Workflows
+### 11.1 Comment Moderation — Approve, Accept, Reject Workflows
 
 **Impact: LOW (Moderation workflows for comment review and approval)**
 
@@ -6577,7 +7136,7 @@ Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior
 
 ---
 
-### 10.2 Comment Navigation and Deep Linking
+### 11.2 Comment Navigation and Deep Linking
 
 **Impact: MEDIUM (Navigate to comments programmatically and generate shareable links)**
 
@@ -6617,7 +7176,7 @@ Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior
 
 ---
 
-### 10.3 Component Props API — VeltComments, VeltCommentDialog, VeltCommentsSidebar, VeltInlineCommentsSection
+### 11.3 Component Props API — VeltComments, VeltCommentDialog, VeltCommentsSidebar, VeltInlineCommentsSection
 
 **Impact: MEDIUM (Enables typed prop-level customization (placeholder overrides, assignment mode, focus behavior) without imperative API calls)**
 
@@ -6677,7 +7236,7 @@ import {
 
 ---
 
-### 10.4 Configure @Mentions, Contacts, and User Assignment
+### 11.4 Configure @Mentions, Contacts, and User Assignment
 
 **Impact: MEDIUM (Control @mention behavior, contact lists, and comment assignment)**
 
@@ -6740,7 +7299,7 @@ Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior
 
 ---
 
-### 10.5 Configure Comment Attachments and File Uploads
+### 11.5 Configure Comment Attachments and File Uploads
 
 **Impact: MEDIUM (Enable file attachments, screenshots, and manage uploaded files)**
 
@@ -6799,7 +7358,7 @@ Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior
 
 ---
 
-### 10.6 Configure Comment Status and Priority Levels
+### 11.6 Configure Comment Status and Priority Levels
 
 **Impact: MEDIUM (Enable and customize comment status tracking and priority levels)**
 
@@ -6870,7 +7429,7 @@ Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior
 
 ---
 
-### 10.7 Configure Emoji Reactions on Comments
+### 11.7 Configure Emoji Reactions on Comments
 
 **Impact: MEDIUM (Enable and customize emoji reactions for comment feedback)**
 
@@ -6920,7 +7479,7 @@ Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior
 
 ---
 
-### 10.8 Configure Rich Text Formatting in Comment Composer
+### 11.8 Configure Rich Text Formatting in Comment Composer
 
 **Impact: LOW (Control which text formatting options are available in the comment composer)**
 
@@ -6952,7 +7511,7 @@ Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior
 
 ---
 
-### 10.9 Programmatic Sidebar Data, Filtering, and Configuration
+### 11.9 Programmatic Sidebar Data, Filtering, and Configuration
 
 **Impact: MEDIUM (Control sidebar content, filters, and behavior programmatically)**
 
@@ -7021,7 +7580,7 @@ Reference: https://docs.velt.dev/async-collaboration/comments-sidebar/customize-
 
 ---
 
-### 10.10 Restrict Comment Placement to Specific DOM Elements
+### 11.10 Restrict Comment Placement to Specific DOM Elements
 
 **Impact: LOW (Control where users can place comments on the page)**
 
@@ -7068,7 +7627,7 @@ Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior
 
 ---
 
-### 10.11 UI/UX Toggle Methods — Comment Display, Interaction, and Behavior
+### 11.11 UI/UX Toggle Methods — Comment Display, Interaction, and Behavior
 
 **Impact: LOW (Fine-tune comment UI appearance and interaction behavior)**
 
@@ -7301,7 +7860,7 @@ Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior
 
 ---
 
-### 10.12 Use accessModes in Sidebar Filters for Privacy-Based Filtering
+### 11.12 Use accessModes in Sidebar Filters for Privacy-Based Filtering
 
 **Impact: MEDIUM (Without accessModes, sidebar cannot distinguish public from private comments — custom privacy filters will not work)**
 
@@ -7354,17 +7913,43 @@ commentElement.setCommentSidebarFilters(filters);
 
 ---
 
-## 11. Events
+## 12. Events
 
 **Impact: MEDIUM**
 
 Comment lifecycle event subscriptions for custom workflows.
 
-### 11.1 Comment Lifecycle Events — Pin Clicks, Add Events, Button Clicks
+### 12.1 Comment Lifecycle Events — Pin Clicks, Add Events, Button Clicks
 
 **Impact: MEDIUM (Subscribe to comment lifecycle events for custom workflows)**
 
 Subscribe to comment lifecycle events for custom navigation, context injection, and workflow triggers.
+
+> **For agent suggestion accept/reject:** Use `useCommentEventCallback('suggestionAccepted')` and `useCommentEventCallback('suggestionRejected')` — these are the correct events, not `commentSaved` with status checks.
+
+**Agent suggestion accept/reject events (for AI agent findings):**
+
+```tsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+export function AgentSuggestionListener() {
+  const accepted = useCommentEventCallback('suggestionAccepted');
+  const rejected = useCommentEventCallback('suggestionRejected');
+
+  useEffect(() => {
+    if (!accepted) return;
+    console.log('Suggestion accepted', accepted.commentAnnotation);
+  }, [accepted]);
+
+  useEffect(() => {
+    if (!rejected) return;
+    console.log('Suggestion rejected', rejected.rejectReason);
+  }, [rejected]);
+
+  return null;
+}
+```
 
 **Events via on() method:**
 
@@ -7473,247 +8058,6 @@ subscription.unsubscribe();
 References:
 - https://docs.velt.dev/async-collaboration/comments/customize-behavior - Events
 - https://docs.velt.dev/api-reference/sdk/models/data-models#addcommentdraftevent
-
----
-
-## 12. REST API
-
-**Impact: HIGH**
-
-Server-side comment management via REST API.
-
-### 12.1 REST API — Comment Annotation CRUD
-
-**Impact: HIGH (Server-side comment annotation management via REST)**
-
-Use Velt's REST APIs to manage comment annotations from your backend. All endpoints require `x-velt-api-key` and `x-velt-auth-token` headers.
-
-**Add Annotations:**
-
-```javascript
-// POST https://api.velt.dev/v2/commentannotations/add
-const response = await fetch('https://api.velt.dev/v2/commentannotations/add', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'x-velt-api-key': process.env.VELT_API_KEY,
-    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
-  },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'org-1',
-      documentId: 'doc-1',
-      location: { id: 1, locationName: 'Page 1' },
-      targetElement: { elementId: 'element-1', targetText: 'Selected text' },
-      commentData: [{
-        commentText: 'This needs review',
-        commentHtml: '<p>This needs review</p>',
-        from: { userId: 'user-1' },
-        taggedUserContacts: [{ text: '@bob', userId: 'user-2', contact: { userId: 'user-2', name: 'Bob', email: 'bob@example.com' } }],
-      }],
-      status: { id: 'open', name: 'Open', type: 'default' },
-      priority: { id: 'high', name: 'High' },
-      context: { projectId: 'proj-1', section: 'header' },
-      triggerNotification: true,
-      triggerActivities: true,
-      verifyUserPermissions: false,
-    },
-  }),
-});
-```
-
-**Get Annotations (with filters):**
-
-```javascript
-// POST https://api.velt.dev/v2/commentannotations/get
-const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'x-velt-api-key': process.env.VELT_API_KEY,
-    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
-  },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'org-1',
-      documentId: 'doc-1',           // Optional
-      locationIds: [1, 2],           // Optional
-      annotationIds: ['ann-1'],      // Optional
-      userIds: ['user-1'],           // Optional
-      statusIds: ['open'],           // Optional
-      folderId: 'folder-1',         // Optional
-      updatedAfter: 1700000000000,   // Optional: timestamp ms
-      createdBefore: 1700100000000,  // Optional: timestamp ms
-      pageSize: 50,                  // Default: 1000
-      pageToken: 'next-token',      // For pagination
-    },
-  }),
-});
-// Response: { result: { status, data: CommentAnnotation[], pageToken } }
-```
-
-**Update Annotations:**
-
-```javascript
-// POST https://api.velt.dev/v2/commentannotations/update
-const response = await fetch('https://api.velt.dev/v2/commentannotations/update', {
-  method: 'POST',
-  headers: { /* same headers */ },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'org-1',
-      documentId: 'doc-1',
-      annotations: [{
-        annotationId: 'ann-123',
-        status: { id: 'resolved', name: 'Resolved', type: 'terminal' },
-        priority: { id: 'low', name: 'Low' },
-      }],
-    },
-  }),
-});
-```
-
-**Delete Annotations:**
-
-```javascript
-// POST https://api.velt.dev/v2/commentannotations/delete
-const response = await fetch('https://api.velt.dev/v2/commentannotations/delete', {
-  method: 'POST',
-  headers: { /* same headers */ },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'org-1',
-      documentId: 'doc-1',
-      annotationIds: ['ann-123', 'ann-456'],
-    },
-  }),
-});
-```
-
-**Get Counts (total + unread):**
-
-```javascript
-// POST https://api.velt.dev/v2/commentannotations/count/get
-const response = await fetch('https://api.velt.dev/v2/commentannotations/count/get', {
-  method: 'POST',
-  headers: { /* same headers */ },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'org-1',
-      documentId: 'doc-1',
-    },
-  }),
-});
-// Response: { result: { data: { total: number, unread: number } } }
-```
-
-Reference: https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/
-
----
-
-### 12.2 REST API — Individual Comment CRUD Within Annotations
-
-**Impact: HIGH (Server-side individual comment management via REST)**
-
-Manage individual comments within annotation threads from your backend. All endpoints require `x-velt-api-key` and `x-velt-auth-token` headers.
-
-**Add Comments to Annotation:**
-
-```javascript
-// POST https://api.velt.dev/v2/commentannotations/comments/add
-const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/add', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'x-velt-api-key': process.env.VELT_API_KEY,
-    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
-  },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'org-1',
-      documentId: 'doc-1',
-      annotationId: 'ann-123',
-      commentData: [{
-        commentText: 'Looks good to me',
-        commentHtml: '<p>Looks good to me</p>',
-        from: { userId: 'user-1' },
-        context: { reviewType: 'approval' },
-        taggedUserContacts: [],
-        attachments: [{
-          attachmentId: 'att-1',
-          name: 'screenshot.png',
-          url: 'https://example.com/screenshot.png',
-          mimeType: 'image/png',
-          size: 102400,
-        }],
-      }],
-    },
-  }),
-});
-```
-
-**Get Comments:**
-
-```javascript
-// POST https://api.velt.dev/v2/commentannotations/comments/get
-const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/get', {
-  method: 'POST',
-  headers: { /* same headers */ },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'org-1',
-      documentId: 'doc-1',
-      annotationId: 'ann-123',
-      userIds: ['user-1'],       // Required
-      commentIds: [1, 2, 3],     // Optional: specific comment IDs
-    },
-  }),
-});
-// Response includes: commentHtml, commentText, status, reactionAnnotations[]
-```
-
-**Update Comments:**
-
-```javascript
-// POST https://api.velt.dev/v2/commentannotations/comments/update
-const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/update', {
-  method: 'POST',
-  headers: { /* same headers */ },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'org-1',
-      documentId: 'doc-1',
-      annotationId: 'ann-123',
-      commentIds: [1],
-      updatedData: {
-        commentText: 'Updated review text',
-        commentHtml: '<p>Updated review text</p>',
-        context: { reviewType: 'revision' },
-      },
-    },
-  }),
-});
-```
-
-**Delete Comments:**
-
-```javascript
-// POST https://api.velt.dev/v2/commentannotations/comments/delete
-const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/delete', {
-  method: 'POST',
-  headers: { /* same headers */ },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'org-1',
-      documentId: 'doc-1',
-      annotationId: 'ann-123',
-      commentIds: [1, 2],  // Optional — if omitted, deletes all comments in annotation
-    },
-  }),
-});
-```
-
-Reference: https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/
 
 ---
 

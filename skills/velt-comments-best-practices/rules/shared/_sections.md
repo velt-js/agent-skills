@@ -12,21 +12,33 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 
 ---
 
-## 2. Comment Modes (mode)
+## 2. REST API (rest)
+
+**Impact:** HIGH
+**Description:** Server-side comment management via REST API, including agent comment annotations.
+
+**Rules:**
+- `rest-agent-comments-api` - Agent comment annotations — create with `agent` block (agentSource/agentId/executionId/agentName/reason), read with agent-specific filters (agentId, executionId, agentType, agentSource, agentSuggestions, agentComments), handle suggestionAccepted/suggestionRejected events, `sourceType: "agent"` UI rendering
+- `rest-comment-annotations-api` - Annotation CRUD (add, get, update, delete, count)
+- `rest-comments-api` - Individual comment CRUD within annotations (add, get, update, delete)
+
+---
+
+## 3. Comment Modes (mode)
 
 **Impact:** HIGH
 **Description:** Different comment presentation and interaction modes for various use cases. Includes Freestyle, Popover, Stream, Text, Page, Inline, rich text editor integrations (TipTap, SlateJS, Lexical, Plate, Quill, CodeMirror, Ace), media player comments, and chart comments.
 
 ---
 
-## 3. Standalone Components (standalone)
+## 4. Standalone Components (standalone)
 
 **Impact:** MEDIUM-HIGH
 **Description:** Individual comment components for building custom implementations. Includes Comment Pin, Comment Thread, and Comment Composer for DIY comment interfaces.
 
 ---
 
-## 4. Comment Surfaces (surface)
+## 5. Comment Surfaces (surface)
 
 **Impact:** MEDIUM-HIGH
 **Description:** Navigation and display surfaces for comments. Includes the Comments Sidebar, the V2 primitive-architecture sidebar, and related toggle components.
@@ -38,7 +50,7 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 
 ---
 
-## 5. UI Customization (ui)
+## 6. UI Customization (ui)
 
 **Impact:** MEDIUM
 **Description:** Visual customization patterns for comment components. Includes dialog customization, bubble styling, wireframe component usage, and standalone autocomplete primitives.
@@ -52,7 +64,7 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 
 ---
 
-## 6. Data Model (data)
+## 7. Data Model (data)
 
 **Impact:** MEDIUM
 **Description:** Patterns for working with comment data structures. Includes CRUD operations, metadata, annotations, composer control, read status, and data type reference.
@@ -71,14 +83,14 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 
 ---
 
-## 7. Debugging & Testing (debug)
+## 8. Debugging & Testing (debug)
 
 **Impact:** LOW-MEDIUM
 **Description:** Troubleshooting patterns and verification checklists for Velt integrations.
 
 ---
 
-## 8. Moderation & Permissions (permissions)
+## 9. Moderation & Permissions (permissions)
 
 **Impact:** LOW
 **Description:** Access control and moderation features for comments. Includes comment visibility control (private mode), per-annotation visibility updates, and post-persist event handling.
@@ -93,14 +105,14 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 
 ---
 
-## 9. Attachments & Reactions (attach)
+## 10. Attachments & Reactions (attach)
 
 **Impact:** MEDIUM
 **Description:** File attachment control and emoji reaction features. Includes attachment download behavior, click interception events, and CSS state classes for attachment loading and edit-mode states.
 
 ---
 
-## 10. Configuration (config)
+## 11. Configuration (config)
 
 **Impact:** MEDIUM
 **Description:** Advanced configuration methods for comment features — mentions/contacts, status/priority, reactions, attachments, text formatting, navigation/deep linking, DOM controls, sidebar management, UI behavior toggles, and moderation.
@@ -120,7 +132,7 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 
 ---
 
-## 11. Events (events)
+## 12. Events (events)
 
 **Impact:** MEDIUM
 **Description:** Comment lifecycle event subscriptions for custom workflows.

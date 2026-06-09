@@ -1,15 +1,15 @@
 ---
 name: velt-comments-best-practices
-description: Velt Comments implementation patterns and best practices for React, Next.js, and web applications. Use when adding collaborative commenting features, comment modes (Freestyle, Popover, Stream, Text, Page), rich text editor comments (TipTap, SlateJS, Lexical), media player comments, chart comments, comments sidebar setup and customization (embed mode, floating mode, focused thread, V2 sidebar), sidebar filtering with accessModes for privacy, isAnnotationPrivate() visibility routing, CommentDialogActionService.isSubmitInFlight() for duplicate-submit guards, VeltCommentDialogAgentSuggestion primitives for AI suggestion accept/reject UIs, or binding Comment Bubble / Comment Dialog / Comment Tool wireframe slots via template variables (velt-data, velt-if, velt-class).
+description: Velt Comments implementation patterns and best practices for React, Next.js, and web applications. Use when adding collaborative commenting features, comment modes (Freestyle, Popover, Stream, Text, Page), rich text editor comments (TipTap, SlateJS, Lexical), media player comments, chart comments, comments sidebar setup and customization (embed mode, floating mode, focused thread, V2 sidebar), sidebar filtering with accessModes for privacy, isAnnotationPrivate() visibility routing, CommentDialogActionService.isSubmitInFlight() for duplicate-submit guards, VeltCommentDialogAgentSuggestion primitives for AI suggestion accept/reject UIs, agent comment annotations via REST API (agent block with agentSource/agentId/executionId, agent-specific GET filters, suggestionAccepted/suggestionRejected client events, sourceType "agent" UI rendering), or binding Comment Bubble / Comment Dialog / Comment Tool wireframe slots via template variables (velt-data, velt-if, velt-class).
 license: MIT
 metadata:
   author: velt
-  version: "1.3.0"
+  version: "1.4.0"
 ---
 
 # Velt Comments Best Practices
 
-Comprehensive implementation guide for Velt's collaborative comments feature in React and Next.js applications. Contains 85 rules across 13 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's collaborative comments feature in React and Next.js applications. Contains 87 rules across 13 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
@@ -142,6 +142,47 @@ Reference these guidelines when:
 - `wireframe-variables-text-comment` - Bind the Text Comment toolbar wireframes (`{selectedWordsCount}` / `{selectedCharactersCount}` / `{position.*}`, capability flags `isUserAllowed` / `enableTextComments` / `rewriterEnabled`, five conflict-name explicit paths)
 - `wireframe-variables-comment-sidebar-button` - Bind the Comment Sidebar Button wireframe via flat-config (`globalConfig.featureState.sidebarVisible`, `componentConfig.data.unreadCount` / `annotations.length`, `componentConfig.uiState.commentCountType` / `floatingMode`)
 - `wireframe-variables-comment-sidebar` - Bind the ~80-tag Comment Sidebar wireframe family — hybrid access (mapped `focusedAnnotation` / `appliedFiltersCount` / `unreadCommentAnnotationCount` alongside flat `componentConfig.skeletonLoading` / `noCommentsFound*` / `virtualScrollData` / `filterConfig.*`), loop-scope (`focusedAnnotation`, `filter`, `item`, `group`, `tag`), nested Comment Dialog scope in list / focused-thread / page-mode composer
+
+## Agent Comments — Critical API Reference
+
+When the task involves AI agents creating comments or handling agent suggestion accept/reject, use these exact patterns:
+
+**Creating agent annotations** — `POST /v2/commentannotations/add`:
+```javascript
+data: {
+  organizationId: "...",
+  documentId: "...",
+  commentAnnotations: [{
+    type: "suggestion",                    // REQUIRED for Accept/Reject buttons
+    commentData: [{
+      commentText: "Finding text",
+      from: { userId: "agent-id" },
+      agent: {                             // On commentData[0], NOT annotation root
+        agentSource: "external",           // "external" for non-Velt agents
+        agentName: "My Agent",             // REQUIRED for external agents
+        agentId: "my-agent",
+        executionId: "run_123",
+        reason: {                          // REQUIRED — finding details
+          title: "Issue title",
+          description: "Details",
+          severity: "high",
+        },
+      },
+    }],
+  }],
+}
+```
+
+**Reading agent annotations** — `POST /v2/commentannotations/get`:
+- Use `executionId` filter for a specific run
+- Use `agentSuggestions: true` for only pending (unaccepted) suggestions
+
+**Handling accept/reject on the client** — use dedicated events, NOT `commentSaved`:
+```tsx
+import { useCommentEventCallback } from '@veltdev/react';
+const accepted = useCommentEventCallback('suggestionAccepted');
+const rejected = useCommentEventCallback('suggestionRejected');
+```
 
 ## How to Use
 

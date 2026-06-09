@@ -2,12 +2,40 @@
 title: Comment Lifecycle Events — Pin Clicks, Add Events, Button Clicks
 impact: MEDIUM
 impactDescription: Subscribe to comment lifecycle events for custom workflows
-tags: commentPinClicked, onCommentAdd, veltButtonClick, useVeltEventCallback, on, autocompleteSearch, events
+tags: commentPinClicked, onCommentAdd, veltButtonClick, useVeltEventCallback, on, autocompleteSearch, suggestionAccepted, suggestionRejected, events
 ---
 
-## Comment Lifecycle Events — Pin Clicks, Add Events, Button Clicks
+## Comment Lifecycle Events — Pin Clicks, Add Events, Button Clicks, Agent Suggestion Accept/Reject
 
 Subscribe to comment lifecycle events for custom navigation, context injection, and workflow triggers.
+
+> **For agent suggestion accept/reject:** Use `useCommentEventCallback('suggestionAccepted')` and `useCommentEventCallback('suggestionRejected')` — these are the correct events, not `commentSaved` with status checks.
+
+**Agent suggestion accept/reject events (for AI agent findings):**
+
+Agent findings (annotations with `sourceType: "agent"` and `type: "suggestion"`) render with Accept and Reject buttons. Use `suggestionAccepted` and `suggestionRejected` to handle the reviewer's decision. The SDK persists the status — applying the actual change is your code's responsibility.
+
+```tsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+export function AgentSuggestionListener() {
+  const accepted = useCommentEventCallback('suggestionAccepted');
+  const rejected = useCommentEventCallback('suggestionRejected');
+
+  useEffect(() => {
+    if (!accepted) return;
+    console.log('Suggestion accepted', accepted.commentAnnotation);
+  }, [accepted]);
+
+  useEffect(() => {
+    if (!rejected) return;
+    console.log('Suggestion rejected', rejected.rejectReason);
+  }, [rejected]);
+
+  return null;
+}
+```
 
 **Events via on() method:**
 
@@ -133,6 +161,7 @@ subscription.unsubscribe();
 - `commentPinClicked` fires when a pin on the page is clicked
 - `veltButtonClick` fires for custom buttons added via wireframes
 - `addCommentDraft` fires only when the thread already has at least one committed comment — enum value `ADD_COMMENT_DRAFT`
+- `suggestionAccepted` / `suggestionRejected` fire when a reviewer clicks Accept or Reject on an agent suggestion — the payload includes `commentAnnotation` (the full finding); rejected also includes `rejectReason`
 - All subscriptions must be cleaned up on unmount
 - `useCommentEventCallback` returns the event object directly (no subscription needed)
 

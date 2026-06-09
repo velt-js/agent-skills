@@ -7,6 +7,8 @@ tags: commentSaved, event, webhook, persistence, CommentSavedEvent, useCommentEv
 
 ## Use the commentSaved Event for Reliable Post-Persist Side-Effects
 
+> **For agent suggestion accept/reject**: Do NOT use `commentSaved` with status checks. Instead use the dedicated `suggestionAccepted` and `suggestionRejected` events via `useCommentEventCallback('suggestionAccepted')` / `useCommentEventCallback('suggestionRejected')`. See `rest-agent-comments-api.md` and `events-comment-lifecycle.md`.
+
 The `commentSaved` event fires after a comment annotation is successfully written to the database. Use this event — not optimistic UI callbacks — as the trigger for side-effects such as webhooks, audit logging, or syncing external systems.
 
 **Incorrect (triggering side-effects on optimistic callbacks — may fire before persistence):**

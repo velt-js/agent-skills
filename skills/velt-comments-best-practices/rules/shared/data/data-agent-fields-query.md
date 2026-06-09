@@ -7,6 +7,8 @@ tags: agent-fields, comment-request-query, getCommentAnnotationCount, agent, fil
 
 ## Use agentFields on CommentRequestQuery to Filter Annotation Count by Agent
 
+> **This rule is about QUERYING annotation counts on the frontend**, not about CREATING annotations. To create agent annotations via REST API, see `rest-agent-comments-api.md` — the creation API uses `agentName`, `reason`, `type: "suggestion"`, and `executionId` on `commentData[0].agent`. Do not confuse `agentFields` (a query-side filter) with the creation-side `agent` block fields.
+
 `CommentRequestQuery.agentFields` filters `getCommentAnnotationCount()` to only annotations where `agent.agentFields` contains any of the provided values. This is useful when a document has a mix of human and agent-authored annotations and you want a count scoped to a specific agent. Due to a Firestore `array-contains` limitation, when `agentFields` is set the unread count query is skipped and the unread count is treated as equal to the total count.
 
 **Incorrect (querying all annotation counts without agent scoping):**
