@@ -1,6 +1,6 @@
 # Velt Comments Best Practices
 
-**Version 1.1.3**  
+**Version 1.1.4**  
 Velt  
 January 2026
 
@@ -7470,9 +7470,57 @@ const subscription = commentElement.on('addCommentDraft').subscribe((event) => {
 subscription.unsubscribe();
 ```
 
+**Correct (React — subscribe to accept/reject):**
+
+```jsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function AgentSuggestionHandler() {
+  const accepted = useCommentEventCallback('suggestionAccepted');
+  const rejected = useCommentEventCallback('suggestionRejected');
+
+  useEffect(() => {
+    if (!accepted) return;
+    // accepted.commentAnnotation — the agent finding being accepted
+    applyAgentFix(accepted.commentAnnotation);
+  }, [accepted]);
+
+  useEffect(() => {
+    if (!rejected) return;
+    // rejected.commentAnnotation — the agent finding being rejected
+    // rejected.rejectReason — optional reviewer-supplied reason
+    logRejection(rejected.commentAnnotation, rejected.rejectReason);
+  }, [rejected]);
+
+  return null;
+}
+```
+
+**Correct (Other frameworks — subscribe to accept/reject):**
+
+```typescript
+const commentElement = client.getCommentElement();
+
+const acceptedSub = commentElement.on('suggestionAccepted').subscribe(({ commentAnnotation }) => {
+  // commentAnnotation contains the agent finding
+});
+
+const rejectedSub = commentElement.on('suggestionRejected').subscribe(({ commentAnnotation, rejectReason }) => {
+  // rejectReason is optional
+});
+
+// Clean up on teardown
+acceptedSub.unsubscribe();
+rejectedSub.unsubscribe();
+```
+
 References:
 - https://docs.velt.dev/async-collaboration/comments/customize-behavior - Events
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior - "Agent Comments"
 - https://docs.velt.dev/api-reference/sdk/models/data-models#addcommentdraftevent
+- https://docs.velt.dev/api-reference/sdk/models/data-models#suggestionacceptevent
+- https://docs.velt.dev/api-reference/sdk/models/data-models#suggestionrejectevent
 
 ---
 
@@ -7607,7 +7655,69 @@ const response = await fetch('https://api.velt.dev/v2/commentannotations/count/g
 // Response: { result: { data: { total: number, unread: number } } }
 ```
 
-Reference: https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/
+**Agent annotations (AI agent findings — type: "suggestion"):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/add — agent finding
+const response = await fetch('https://api.velt.dev/v2/commentannotations/add', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      commentAnnotations: [{
+        type: 'suggestion',                       // required for accept/reject UI
+        commentData: [{
+          commentText: 'This button has insufficient color contrast.',
+          from: { userId: 'a11y-bot' },
+          agent: {                                // attached to commentData[0] only
+            agentSource: 'external',              // 'velt' | 'external'
+            agentId: 'a11y-bot',
+            agentName: 'Accessibility Bot',
+            executionId: 'run-2026-06-09-001',    // optional: groups one agent run
+            url: 'https://agent.example.com/runs/001', // optional: deep link back
+            reason: {
+              title: 'Low color contrast',
+              description: 'Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.',
+              severity: 'high',
+              findingType: 'pin',
+            },
+          },
+        }],
+      }],
+    },
+  }),
+});
+```
+
+**Filtering agent annotations on Get:**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/get — agent-scoped filters
+body: JSON.stringify({
+  data: {
+    organizationId: 'acme-corp',
+    documentId: 'design-mockup-v2',
+    agentId: 'a11y-bot',                  // single agent
+    executionId: 'run-2026-06-09-001',    // one agent run
+    agentSource: 'external',              // 'velt' | 'external'
+    agentSuggestions: true,               // only type: 'suggestion' findings
+    agentComments: true,                  // any annotation with an agent block
+  },
+}),
+```
+
+`agentSuggestions` and `agentComments` are mutually informative — `agentSuggestions: true` is a strict subset of `agentComments: true`. Use `agentSuggestions` when you only want accept/reject-capable findings.
+
+References:
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior - "Agent Comments"
+- https://docs.velt.dev/ai/agent-comments
 
 ---
 
@@ -8864,3 +8974,4 @@ Override either with `defaultCondition={false}` (React) / `default-condition="fa
 - https://docs.velt.dev/ui-customization/features/async/comments/autocomplete-wireframe-variables
 - https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar-button/wireframe-variables
 - https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-wireframe-variables
+- https://docs.velt.dev/ai/agent-comments

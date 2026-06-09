@@ -2,7 +2,7 @@
 title: Comment Lifecycle Events — Pin Clicks, Add Events, Button Clicks
 impact: MEDIUM
 impactDescription: Subscribe to comment lifecycle events for custom workflows
-tags: commentPinClicked, onCommentAdd, veltButtonClick, useVeltEventCallback, on, autocompleteSearch, events
+tags: commentPinClicked, onCommentAdd, veltButtonClick, useVeltEventCallback, on, autocompleteSearch, suggestionAccepted, suggestionRejected, events
 ---
 
 ## Comment Lifecycle Events — Pin Clicks, Add Events, Button Clicks
@@ -128,11 +128,64 @@ subscription.unsubscribe();
 | `comment` | `Comment` | Yes | Snapshot of unsaved composer content (reply mode: pending text/HTML/attachments/recordings; edit mode: original fields merged with unsaved edits, `commentId` preserved) |
 | `metadata` | `VeltEventMetadata` | Yes | Event metadata |
 
+**suggestionAccepted / suggestionRejected events (agent finding accept/reject):**
+
+Agent comments (created via the REST API with an `agent` block and `type: "suggestion"`) render with **Accept** and **Reject** buttons on the comment dialog. The reviewer's choice is emitted on the comment element as `suggestionAccepted` or `suggestionRejected`. Use these to apply the finding to your own data or trigger follow-up logic. The reject payload includes an optional `rejectReason`; both payloads carry the full `commentAnnotation` for the agent finding.
+
+Pair these with `addCommentDraft` only if you also need to capture abandoned reviewer replies — accept/reject is a distinct outcome from a draft and fires through this channel, not through the draft channel.
+
+**Correct (React — subscribe to accept/reject):**
+
+```jsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function AgentSuggestionHandler() {
+  const accepted = useCommentEventCallback('suggestionAccepted');
+  const rejected = useCommentEventCallback('suggestionRejected');
+
+  useEffect(() => {
+    if (!accepted) return;
+    // accepted.commentAnnotation — the agent finding being accepted
+    applyAgentFix(accepted.commentAnnotation);
+  }, [accepted]);
+
+  useEffect(() => {
+    if (!rejected) return;
+    // rejected.commentAnnotation — the agent finding being rejected
+    // rejected.rejectReason — optional reviewer-supplied reason
+    logRejection(rejected.commentAnnotation, rejected.rejectReason);
+  }, [rejected]);
+
+  return null;
+}
+```
+
+**Correct (Other frameworks — subscribe to accept/reject):**
+
+```typescript
+const commentElement = client.getCommentElement();
+
+const acceptedSub = commentElement.on('suggestionAccepted').subscribe(({ commentAnnotation }) => {
+  // commentAnnotation contains the agent finding
+});
+
+const rejectedSub = commentElement.on('suggestionRejected').subscribe(({ commentAnnotation, rejectReason }) => {
+  // rejectReason is optional
+});
+
+// Clean up on teardown
+acceptedSub.unsubscribe();
+rejectedSub.unsubscribe();
+```
+
 **Key details:**
 - `onCommentAdd` fires BEFORE the comment is persisted — use `addContext()` to inject metadata
 - `commentPinClicked` fires when a pin on the page is clicked
 - `veltButtonClick` fires for custom buttons added via wireframes
 - `addCommentDraft` fires only when the thread already has at least one committed comment — enum value `ADD_COMMENT_DRAFT`
+- `suggestionAccepted` / `suggestionRejected` fire only for annotations created with `type: "suggestion"` and an `agent` block — see [[rest-comment-annotations-api]] for the request shape
+- `suggestionRejected.rejectReason` is optional — handlers must tolerate it being absent
 - All subscriptions must be cleaned up on unmount
 - `useCommentEventCallback` returns the event object directly (no subscription needed)
 
@@ -141,6 +194,11 @@ subscription.unsubscribe();
 - [ ] addContext() called synchronously in onCommentAdd handler
 - [ ] Event names match exactly (case-sensitive)
 - [ ] addCommentDraft handler checks that the thread has existing comments before acting (brand-new pins do not fire this event)
+- [ ] `suggestionRejected` handler treats `rejectReason` as optional
+- [ ] Accept/reject handlers act on `commentAnnotation`, not on the comment element instance
 
 **Source Pointer:** https://docs.velt.dev/async-collaboration/comments/customize-behavior - Events
+**Source Pointer:** https://docs.velt.dev/async-collaboration/comments/customize-behavior - "Agent Comments"
 **Source Pointer:** https://docs.velt.dev/api-reference/sdk/models/data-models#addcommentdraftevent
+**Source Pointer:** https://docs.velt.dev/api-reference/sdk/models/data-models#suggestionacceptevent
+**Source Pointer:** https://docs.velt.dev/api-reference/sdk/models/data-models#suggestionrejectevent
