@@ -1,6 +1,6 @@
 # Velt Rest Apis Best Practices
 
-**Version 1.0.2**  
+**Version 1.0.3**  
 Velt  
 May 2026
 
@@ -51,9 +51,14 @@ Foundational requirements for every server-side Velt integration. Covers JWT tok
 
 **Impact: CRITICAL (Missing authentication headers cause 401 errors on every API call)**
 
-Every Velt REST API v2 call requires two authentication headers. Without both, the request will be rejected.
+Every Velt REST API v2 call requires two authentication headers. Without both, the request will be rejected. The header *pair* depends on the endpoint's scope — api-key-level vs. workspace-level. Sending the wrong pair fails with a 401, even if both headers are present.
 
-**Incorrect (missing auth token header):**
+**API-key-level endpoints (most of the v2 surface — `/organizations/*`, `/users/*`, `/comments/*`, `/notifications/*`, `/workspace/add-domain`, `/workspace/emailconfig-update`, etc.):**
+
+- `x-velt-api-key` — Your API key from the Velt console
+- `x-velt-auth-token` — Auth token from Velt console (Configuration > Auth Token), or retrieved via `POST https://api.velt.dev/v2/workspace/authtokens-get`
+
+**Incorrect (api-key-level endpoint, missing auth token header):**
 
 ```bash
 curl -X POST https://api.velt.dev/v2/organizations/get \
@@ -62,7 +67,7 @@ curl -X POST https://api.velt.dev/v2/organizations/get \
   -d '{"data": {"organizationId": "org_123"}}'
 ```
 
-**Correct (curl with both headers):**
+**Correct (api-key-level endpoint, curl with both headers):**
 
 ```bash
 curl -X POST https://api.velt.dev/v2/organizations/get \
@@ -70,6 +75,26 @@ curl -X POST https://api.velt.dev/v2/organizations/get \
   -H 'x-velt-api-key: your_api_key' \
   -H 'x-velt-auth-token: your_auth_token' \
   -d '{"data": {"organizationId": "org_123"}}'
+```
+
+**Incorrect (workspace-level endpoint called with the api-key-level pair):**
+
+```bash
+curl -X POST https://api.velt.dev/v2/workspace/get \
+  -H 'Content-Type: application/json' \
+  -H 'x-velt-api-key: your_api_key' \
+  -H 'x-velt-auth-token: your_auth_token' \
+  -d '{"data": {}}'
+```
+
+**Correct (workspace-level endpoint with workspace-id + workspace-auth-token):**
+
+```bash
+curl -X POST https://api.velt.dev/v2/workspace/get \
+  -H 'Content-Type: application/json' \
+  -H 'x-velt-workspace-id: workspace_abc123' \
+  -H 'x-velt-workspace-auth-token: your_workspace_auth_token' \
+  -d '{"data": {}}'
 ```
 
 **Incorrect (using GET method):**
@@ -103,8 +128,6 @@ const response = await fetch('https://api.velt.dev/v2/organizations/get', {
 
 const result = await response.json();
 ```
-
-Reference: `https://docs.velt.dev/api-reference/rest-apis/overview` (## REST API > ### Authentication)
 
 ---
 
@@ -1244,3 +1267,4 @@ Reference: `https://docs.velt.dev/api-reference/rest-api/overview` (## REST API 
 - https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/get-comments
 - https://console.velt.dev
 - https://docs.velt.dev/api-reference/rest-apis/v2/notifications/add-notifications
+- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/create
