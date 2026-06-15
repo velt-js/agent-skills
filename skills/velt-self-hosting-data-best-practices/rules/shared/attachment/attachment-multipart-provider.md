@@ -295,16 +295,16 @@ interface SaveAttachmentResolverData { url: string; }   // persisted back onto A
 
 The JSON `request` body in URL (endpoint) mode is exactly `{ attachment: { attachmentId, name, mimeType }, metadata, event }` — the `File` is destructured out and sent as a separate multipart binary part to your storage, **never to Velt**. On delete, Velt sends `{ attachmentId, metadata: { apiKey, documentId, organizationId, folderId? }, event }` where `event` is `ATTACHMENT_DELETE` (`"attachment.delete"`).
 
-What persists on Velt's side after a successful save (everything except the binary bytes): `attachmentId` (PK), `name`, `bucketPath`, `size`, `type`, `url` (the URL **your** storage returned), `thumbnail`, `thumbnailWithPlayIconUrl`, `metadata` (arbitrary), `mimeType`, `previewImages`, and the `isAttachmentResolverUsed` flag. The `url` is the only field that comes from your `save` response; the rest are structural.
+What persists on Velt's side after a successful save (everything except the binary bytes): `attachmentId` (PK), `name`, `size`, `type`, `url` (the URL **your** storage returned), `thumbnail`, `thumbnailWithPlayIconUrl`, `metadata` (arbitrary), `mimeType`, `previewImages`, and the `isAttachmentResolverUsed` flag. The `url` is the only field that comes from your `save` response; the rest are structural.
 
 **Incorrect (assuming `request.attachment` is a full `Attachment` object — only three sub-fields are guaranteed):**
 
 ```tsx
 const saveAttachment = async (request: SaveAttachmentResolverRequest) => {
-  // BUG: `bucketPath`, `size`, `thumbnail`, `previewImages` are not in `request.attachment`.
+  // BUG: `size`, `thumbnail`, `previewImages` are not in `request.attachment`.
   // Velt computes those on its side from the `{ url }` you return plus the binary it just handed you.
-  const { attachmentId, name, mimeType, bucketPath, size } = request.attachment as any;
-  const url = await storage.put(request.file, { bucketPath }); // `bucketPath` is undefined
+  const { attachmentId, name, mimeType, size, thumbnail } = request.attachment as any;
+  const url = await storage.put(request.file, { size }); // `size` is undefined
   return { data: { url }, success: true, statusCode: 200 };
 };
 ```
@@ -329,7 +329,7 @@ const saveAttachment = async (request: SaveAttachmentResolverRequest) => {
 - [ ] Timeout is longer than for other providers (file upload latency)
 - [ ] Delete handler reads `attachmentId` from the top-level request field, not from `metadata`
 - [ ] Comment attachments wired on `dataProviders.attachment`; recording files wired on `dataProviders.recorder.storage` — separate scopes, never collapsed
-- [ ] Save handler only reads `attachmentId`, `name`, `mimeType` from `request.attachment` — does not assume `bucketPath` / `size` / `thumbnail` etc. are present (Velt populates those from the returned `url` and the binary)
+- [ ] Save handler only reads `attachmentId`, `name`, `mimeType` from `request.attachment` — does not assume `size` / `thumbnail` / `previewImages` etc. are present (Velt populates those from the returned `url` and the binary)
 - [ ] `event` is treated as one of `ResolverActions` (`ATTACHMENT_ADD` / `ATTACHMENT_DELETE`); handlers gate side effects on it rather than HTTP method alone
 
 **Source Pointer:** https://docs.velt.dev/self-host-data/attachments - Endpoint-Based, Function-Based; https://docs.velt.dev/self-host-data/overview - "Attachment & recording storage"; https://docs.velt.dev/self-host-data/field-inventory - "Attachments"

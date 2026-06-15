@@ -279,12 +279,12 @@ interface PartialComment {
 interface PartialReactionAnnotation {
   annotationId: string;                                  // join key
   metadata?: BaseMetadata;                               // getClientMetadata(annotation.metadata ?? {})
-  icon: string;                                          // the only field never sent to Velt
+  icon: string;                                          // the only relocated field — never sent to Velt
   from?: PartialUser;                                    // { userId }; copied-not-moved
 }
 ```
 
-`iconUrl` and `iconEmoji` (custom reaction icon variants) are **kept** — they are sent to Velt verbatim. Only the emoji-code `icon` is withheld.
+`icon` is the only field withheld from Velt; the strip operates on the emoji-code `icon` only. Per-element `Reaction` entries on the Velt-side `reactions[]` carry their own `variant` field — they are kept verbatim and are not part of the `Partial` payload.
 
 #### `PartialRecorderAnnotation` (your DB)
 
@@ -295,8 +295,7 @@ interface PartialRecorderAnnotation {
   from?: User;                                           // full user object (PII); deep-cloned
   transcription?: Transcription;                         // entire object → your DB, never sent to Velt
   attachment?: Attachment | null;                        // @deprecated; value written as null on Velt's side
-  attachments?: Attachment[];                            // full list incl. URLs — Velt keeps only stubs { attachmentId, name, bucketPath }
-  chunkUrls?: Record<number, string>;                    // full map → your DB; Velt's side written as {}
+  attachments?: Attachment[];                            // full list incl. URLs — Velt keeps only stubs { attachmentId, name }
   recordingEditVersions?: Record<number, PartialRecorderAnnotationEditVersion>;
   isUrlAvailable?: boolean;                              // copied-not-moved
   // plus config.additionalFields
@@ -312,7 +311,7 @@ interface Transcription {
 }
 ```
 
-`bucketPath` inside `attachments[]` is deliberately **kept** in Velt's stub form so Velt can clean up storage; `url` and the other PII fields are stripped.
+Velt keeps each `attachments[]` entry as a stub `{ attachmentId, name }`; `url` and the other PII fields are stripped.
 
 #### `PartialNotification` (your DB — custom notifications only)
 
@@ -379,7 +378,7 @@ interface AttachmentResolverMetadata {
 interface SaveAttachmentResolverData { url: string; }
 ```
 
-There is no `Partial<X>` strip and no `get` for attachments — they are binary files. The `file` is destructured out and sent as binary to your storage; the JSON request body is exactly `{ attachment: { attachmentId, name, mimeType }, metadata, event }`. Velt receives the returned `url` plus the structural fields on the `Attachment` record (`bucketPath`, `size`, `type`, `thumbnail`, etc.).
+There is no `Partial<X>` strip and no `get` for attachments — they are binary files. The `file` is destructured out and sent as binary to your storage; the JSON request body is exactly `{ attachment: { attachmentId, name, mimeType }, metadata, event }`. Velt receives the returned `url` plus the structural fields on the `Attachment` record (`size`, `type`, `thumbnail`, etc.).
 
 ### Shared building blocks
 
@@ -503,6 +502,6 @@ The SDK sets these on the Velt-side record whenever PII was withheld for the cor
 - [ ] Partial types include only the PII fields stored on your infrastructure
 - [ ] `BaseMetadata` payloads sent to your DB go through `getClientMetadata` (raw `clientDocumentId` → `documentId`)
 - [ ] `TargetElement.targetText` is kept (sent to Velt); `targetTextRange.text` is stripped to your DB only
-- [ ] Recorder attachment stubs preserve `bucketPath` for Velt-side storage cleanup; `url` is never sent to Velt
+- [ ] Recorder attachment stubs are reduced to `{ attachmentId, name }`; `url` is never sent to Velt
 
 **Source Pointer:** https://docs.velt.dev/api-reference/sdk/models/data-models - Self-Hosting Types; https://docs.velt.dev/self-host-data/field-inventory - "Complete Field Inventory"

@@ -164,7 +164,7 @@ The notification provider is unusual: **read-only enrichment**. There is no writ
 - **Client-computed fields** (`isUnread`, `forYou`, the rendered `displayHeadlineMessage`) are recomputed on the client from `notificationViews` / `notifyUsers*` / the templates and stored in **neither DB**.
 - **Resolution order is notification → user → comment.** Notification PII fills userIds that the user resolver then enriches.
 - **Delete payload is minimal.** Velt calls your provider with `{ notificationId, organizationId }`.
-- **`notifyUsers` / `notifyUsersByUserId` are keyed by hashes,** not raw emails / userIds. The hash keys are kept on Velt's side; the raw identifiers are not.
+- **`notifyUsers` / `notifyUsersByUserId` are keyed by hashes,** not raw emails / userIds. On Velt's DB `notifyUsers` is a map `{ [emailHash]: boolean }` and `notifyUsersByUserId` is a map `{ [userIdHash]: boolean }` — not the array-of-`{ userId, email }` shape you POST when *writing* a notification. The hash keys are kept on Velt's side; the raw identifiers are not.
 
 **Incorrect (implementing a `save` handler that never fires — silent dead code):**
 

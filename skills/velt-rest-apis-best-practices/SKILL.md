@@ -41,6 +41,7 @@ Reference these guidelines when:
 - `rest-documents-orgs` — Document, organization, folder management
 - `rest-notifications` — Notification add/get/update/delete + config
 - `rest-activities-crdt` — Activity logs + CRDT data endpoints
+- `rest-advanced-webhooks` — Manage advanced webhooks: config enable + endpoint CRUD + signing-secret retrieval
 - `rest-approval-engine` — pointer (Approval Engine is now its own skill: see `velt-approval-engine-best-practices`)
 
 ### Webhooks (MEDIUM)

@@ -1,6 +1,6 @@
 # Velt Self Hosting Data Best Practices
 
-**Version 1.0.5**  
+**Version 1.0.8**  
 Velt  
 March 2026
 
@@ -1034,16 +1034,16 @@ interface SaveAttachmentResolverData { url: string; }   // persisted back onto A
 
 The attachment provider sits **outside** the `Partial<X>` strip model used by every other provider. There is no `get` and no `Partial<Attachment>` — attachments are binary files. When Velt hands a save call to your storage provider, the payload is a fixed shape:
 The JSON `request` body in URL (endpoint) mode is exactly `{ attachment: { attachmentId, name, mimeType }, metadata, event }` — the `File` is destructured out and sent as a separate multipart binary part to your storage, **never to Velt**. On delete, Velt sends `{ attachmentId, metadata: { apiKey, documentId, organizationId, folderId? }, event }` where `event` is `ATTACHMENT_DELETE` (`"attachment.delete"`).
-What persists on Velt's side after a successful save (everything except the binary bytes): `attachmentId` (PK), `name`, `bucketPath`, `size`, `type`, `url` (the URL **your** storage returned), `thumbnail`, `thumbnailWithPlayIconUrl`, `metadata` (arbitrary), `mimeType`, `previewImages`, and the `isAttachmentResolverUsed` flag. The `url` is the only field that comes from your `save` response; the rest are structural.
+What persists on Velt's side after a successful save (everything except the binary bytes): `attachmentId` (PK), `name`, `size`, `type`, `url` (the URL **your** storage returned), `thumbnail`, `thumbnailWithPlayIconUrl`, `metadata` (arbitrary), `mimeType`, `previewImages`, and the `isAttachmentResolverUsed` flag. The `url` is the only field that comes from your `save` response; the rest are structural.
 
 **Incorrect (assuming `request.attachment` is a full `Attachment` object — only three sub-fields are guaranteed):**
 
 ```tsx
 const saveAttachment = async (request: SaveAttachmentResolverRequest) => {
-  // BUG: `bucketPath`, `size`, `thumbnail`, `previewImages` are not in `request.attachment`.
+  // BUG: `size`, `thumbnail`, `previewImages` are not in `request.attachment`.
   // Velt computes those on its side from the `{ url }` you return plus the binary it just handed you.
-  const { attachmentId, name, mimeType, bucketPath, size } = request.attachment as any;
-  const url = await storage.put(request.file, { bucketPath }); // `bucketPath` is undefined
+  const { attachmentId, name, mimeType, size, thumbnail } = request.attachment as any;
+  const url = await storage.put(request.file, { size }); // `size` is undefined
   return { data: { url }, success: true, statusCode: 200 };
 };
 ```
@@ -1855,9 +1855,9 @@ const recorderStorage: AttachmentDataProvider = {
 
 ```tsx
 const saveRecorder = async (request) => {
-  // BUG: Velt still tracks { attachmentId, name, bucketPath } stubs for storage cleanup.
+  // BUG: Velt still tracks { attachmentId, name } stubs for each attachment.
   // If your DB is the only source of truth for attachment IDs, you risk orphaning bucket objects
-  // because Velt expects bucketPath to round-trip through the stub.
+  // because Velt no longer retains a storage path back to your bucket.
   for (const partial of Object.values(request.recorderAnnotations)) {
     await db.saveAttachments(partial.attachments); // assumes Velt has nothing — wrong
   }
@@ -1865,7 +1865,7 @@ const saveRecorder = async (request) => {
 };
 ```
 
-**Correct (your DB stores the PII-bearing fields; Velt keeps stubs for cleanup; both halves are needed):**
+**Correct (your DB stores the PII-bearing fields; Velt keeps `{ attachmentId, name }` stubs; both halves are needed):**
 
 ```tsx
 const saveRecorder = async (request) => {
@@ -1873,7 +1873,6 @@ const saveRecorder = async (request) => {
     // partial.transcription          → entire object, your DB only
     // partial.from                   → full User object (PII)
     // partial.attachments[]          → full attachment objects including url
-    // partial.chunkUrls              → full map
     // partial.recordingEditVersions  → per-version PII (only versions with ≥1 PII field present)
     await db.upsertRecorderPII(annotationId, partial);
   }
