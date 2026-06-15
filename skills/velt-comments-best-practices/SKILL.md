@@ -1,6 +1,6 @@
 ---
 name: velt-comments-best-practices
-description: Velt Comments implementation patterns and best practices for React, Next.js, and web applications. Use when adding collaborative commenting features, comment modes (Freestyle, Popover, Stream, Text, Page), rich text editor comments (TipTap, SlateJS, Lexical), media player comments, chart comments, comments sidebar setup and customization (embed mode, floating mode, focused thread, V2 sidebar), sidebar filtering with accessModes for privacy, isAnnotationPrivate() visibility routing, CommentDialogActionService.isSubmitInFlight() for duplicate-submit guards, VeltCommentDialogAgentSuggestion primitives for AI suggestion accept/reject UIs, agent comment annotations via REST API (agent block with agentSource/agentId/executionId, agent-specific GET filters, suggestionAccepted/suggestionRejected client events, sourceType "agent" UI rendering), or binding Comment Bubble / Comment Dialog / Comment Tool wireframe slots via template variables (velt-data, velt-if, velt-class).
+description: Velt Comments implementation patterns and best practices for React, Next.js, and web applications. Use when adding collaborative commenting features, comment modes (Freestyle, Popover, Stream, Text, Page), rich text editor comments (TipTap, SlateJS, Lexical), Apryse WebViewer (PDF/docx) comments, media player comments, chart comments, comments sidebar setup and customization (embed mode, floating mode, focused thread, V2 sidebar), sidebar filtering with accessModes for privacy, isAnnotationPrivate() visibility routing, CommentDialogActionService.isSubmitInFlight() for duplicate-submit guards, VeltCommentDialogAgentSuggestion primitives for AI suggestion accept/reject UIs, agent comment annotations via REST API (agent block with agentSource/agentId/executionId, agent-specific GET filters, suggestionAccepted/suggestionRejected client events, sourceType "agent" UI rendering), or binding Comment Bubble / Comment Dialog / Comment Tool wireframe slots via template variables (velt-data, velt-if, velt-class).
 license: MIT
 metadata:
   author: velt
@@ -17,6 +17,7 @@ Reference these guidelines when:
 - Adding collaborative commenting to a React/Next.js application
 - Implementing any Velt comment mode (Freestyle, Popover, Stream, Text, Page, Inline)
 - Integrating comments with rich text editors (TipTap, SlateJS, Lexical)
+- Integrating comments with the Apryse WebViewer for PDF/docx documents
 - Adding comments to media players (Video, Lottie animations)
 - Adding comments to charts (Highcharts, ChartJS, Nivo)
 - Building custom comment interfaces with standalone components
@@ -63,6 +64,7 @@ Reference these guidelines when:
 - `mode-chart-chartjs` - ChartJS data point comments
 - `mode-chart-nivo` - Nivo charts data point comments
 - `mode-chart-custom` - Custom chart integration
+- `mode-apryse` - Apryse WebViewer (PDF/docx) integration via `@veltdev/apryse-velt-comments` — `ApryseVeltComments.configure(...).attach(instance)`, `addComment({ instance })`, `renderComments({ instance, commentAnnotations })`, durable `TextEditorConfig` anchors (`text` + `occurrence` + `pageNumber`)
 
 ### 3. Standalone Components (MEDIUM-HIGH)
 

@@ -1,6 +1,6 @@
 # Velt Comments Best Practices
 
-**Version 1.1.5**  
+**Version 1.1.6**  
 Velt  
 January 2026
 
@@ -11162,3 +11162,4 @@ Override either with `defaultCondition={false}` (React) / `default-condition="fa
 - https://docs.velt.dev/ui-customization/features/async/comments/autocomplete-wireframe-variables
 - https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar-button/wireframe-variables
 - https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-wireframe-variables
+- https://docs.velt.dev/async-collaboration/comments/setup/apryse
