@@ -132,7 +132,7 @@ The recorder splits along a few axes simultaneously — transcript, attachment b
 
 - **`transcription`** — the entire object is **never sent to Velt** when the recorder resolver is active (→ your DB). It is present in Velt's DB **only** when no recorder resolver is set.
 - **`attachment`** (deprecated single) — the value is **never sent to Velt** (written as `null` there). The full object goes to your DB.
-- **`attachments[]`** — Velt's DB keeps **stubs only**: `{ attachmentId, name, bucketPath }`. `url` and the binary-pointing fields are stripped. `bucketPath` is deliberately preserved so Velt can perform server-side storage cleanup.
+- **`attachments[]`** — Velt's DB keeps **stubs only**: `{ attachmentId, name }`. `url` and the binary-pointing fields are stripped (Velt no longer retains `bucketPath`).
 - **`from`** — **reduced** to `{ userId }` in Velt's DB; the full user object (name / email / `photoUrl`) goes to your DB only.
 - **`recordingEditVersions`** — per-version PII is stripped the same way (`from` → `{ userId }`, `attachment` → `null`, `attachments` → stubs, `transcription` never sent). Non-PII per-version fields (`recordedTime`, `waveformData`, `displayName`, `boundedTrimRanges`, `boundedScaleRanges`) are **kept** in Velt's DB.
 - **Top-level `displayName` / `waveformData` / `recordedTime`** — sent to Velt verbatim; not part of the `Partial` payload to your DB.
@@ -142,9 +142,9 @@ The recorder splits along a few axes simultaneously — transcript, attachment b
 
 ```tsx
 const saveRecorder = async (request) => {
-  // BUG: Velt still tracks { attachmentId, name, bucketPath } stubs for storage cleanup.
+  // BUG: Velt still tracks { attachmentId, name } stubs for each attachment.
   // If your DB is the only source of truth for attachment IDs, you risk orphaning bucket objects
-  // because Velt expects bucketPath to round-trip through the stub.
+  // because Velt no longer retains a storage path back to your bucket.
   for (const partial of Object.values(request.recorderAnnotations)) {
     await db.saveAttachments(partial.attachments); // assumes Velt has nothing — wrong
   }
@@ -152,7 +152,7 @@ const saveRecorder = async (request) => {
 };
 ```
 
-**Correct (your DB stores the PII-bearing fields; Velt keeps stubs for cleanup; both halves are needed):**
+**Correct (your DB stores the PII-bearing fields; Velt keeps `{ attachmentId, name }` stubs; both halves are needed):**
 
 ```tsx
 const saveRecorder = async (request) => {
@@ -174,7 +174,7 @@ const saveRecorder = async (request) => {
 - [ ] Longer resolveTimeout set for media operations (20-30s)
 - [ ] storage provider configured if media files should be stored on your infrastructure
 - [ ] Provider set before identify()
-- [ ] `attachments[]` round-trip preserves Velt-side stubs `{ attachmentId, name, bucketPath }` so Velt can clean up storage
+- [ ] `attachments[]` round-trip preserves Velt-side stubs `{ attachmentId, name }` (Velt no longer stores `bucketPath`)
 - [ ] `recordingEditVersions` per-version PII is treated as optional (versions without PII are absent from the payload)
 
 **Source Pointer:** https://docs.velt.dev/self-host-data/recordings; https://docs.velt.dev/self-host-data/field-inventory - "Recorder strip rules"

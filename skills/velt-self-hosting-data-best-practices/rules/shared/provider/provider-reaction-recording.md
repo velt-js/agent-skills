@@ -175,6 +175,7 @@ The reaction strip is intentionally narrow — only the emoji-code `icon` is wit
 - **`from` is copied-not-moved** — both your DB and Velt's DB receive `from`. The per-element `reactions[].from` is reduced to `{ userId }` (when the `user` provider is active) **only inside Velt's DB** — it is not part of the `Partial` payload.
 - **`position`'s value is never sent to Velt** — written as `null` on every write to Velt's DB regardless of self-hosting. This is independent of the reaction resolver.
 - **Unchanged save short-circuits.** A deep-compare against the cache decides whether to strip at all. If nothing changed, the icon is not re-processed and `isReactionResolverUsed` is not set — your `save` handler is not called either.
+- **No `fieldsToRemove` on the reaction resolver.** The reaction resolver config supports only `additionalFields` (extra `ReactionAnnotation` fields to include in resolver payloads) — there is no `fieldsToRemove`, because the only PII is the emoji-code `icon`, which is stripped automatically.
 
 **Incorrect (treating `iconUrl` as PII and writing it to your DB instead of Velt's):**
 
