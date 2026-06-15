@@ -128,12 +128,11 @@ const recorderStorage: AttachmentDataProvider = {
 
 ### Recorder strip rules
 
-The recorder splits along a few axes simultaneously — transcript, attachment binaries, chunk URLs, and per-version edit history — and the rules differ for each. Important: the recorder **metadata** resolver and the recorder **file** storage (`recorder.storage`) are independent toggles. Recording files stay on Velt unless you also set `recorder.storage`.
+The recorder splits along a few axes simultaneously — transcript, attachment binaries, and per-version edit history — and the rules differ for each. Important: the recorder **metadata** resolver and the recorder **file** storage (`recorder.storage`) are independent toggles. Recording files stay on Velt unless you also set `recorder.storage`.
 
 - **`transcription`** — the entire object is **never sent to Velt** when the recorder resolver is active (→ your DB). It is present in Velt's DB **only** when no recorder resolver is set.
 - **`attachment`** (deprecated single) — the value is **never sent to Velt** (written as `null` there). The full object goes to your DB.
 - **`attachments[]`** — Velt's DB keeps **stubs only**: `{ attachmentId, name, bucketPath }`. `url` and the binary-pointing fields are stripped. `bucketPath` is deliberately preserved so Velt can perform server-side storage cleanup.
-- **`chunkUrls`** — the value is **never sent to Velt** (written as `{}` there); the full chunk-URL map goes to your DB.
 - **`from`** — **reduced** to `{ userId }` in Velt's DB; the full user object (name / email / `photoUrl`) goes to your DB only.
 - **`recordingEditVersions`** — per-version PII is stripped the same way (`from` → `{ userId }`, `attachment` → `null`, `attachments` → stubs, `transcription` never sent). Non-PII per-version fields (`recordedTime`, `waveformData`, `displayName`, `boundedTrimRanges`, `boundedScaleRanges`) are **kept** in Velt's DB.
 - **Top-level `displayName` / `waveformData` / `recordedTime`** — sent to Velt verbatim; not part of the `Partial` payload to your DB.
@@ -161,7 +160,6 @@ const saveRecorder = async (request) => {
     // partial.transcription          → entire object, your DB only
     // partial.from                   → full User object (PII)
     // partial.attachments[]          → full attachment objects including url
-    // partial.chunkUrls              → full map
     // partial.recordingEditVersions  → per-version PII (only versions with ≥1 PII field present)
     await db.upsertRecorderPII(annotationId, partial);
   }

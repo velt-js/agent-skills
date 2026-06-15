@@ -296,7 +296,6 @@ interface PartialRecorderAnnotation {
   transcription?: Transcription;                         // entire object → your DB, never sent to Velt
   attachment?: Attachment | null;                        // @deprecated; value written as null on Velt's side
   attachments?: Attachment[];                            // full list incl. URLs — Velt keeps only stubs { attachmentId, name, bucketPath }
-  chunkUrls?: Record<number, string>;                    // full map → your DB; Velt's side written as {}
   recordingEditVersions?: Record<number, PartialRecorderAnnotationEditVersion>;
   isUrlAvailable?: boolean;                              // copied-not-moved
   // plus config.additionalFields
