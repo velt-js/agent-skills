@@ -2,7 +2,7 @@
 title: Configure Retry Policies and Timeouts Per Data Provider
 impact: MEDIUM
 impactDescription: Prevents cascading failures and handles transient backend errors
-tags: retry, timeout, resolveTimeout, retryCount, retryDelay, config, resilience
+tags: retry, timeout, resolveTimeout, retryCount, retryDelay, revertOnFailure, config, resilience
 ---
 
 ## Configure Retry Policies and Timeouts Per Data Provider
@@ -58,8 +58,11 @@ const commentDataProvider = {
 | Reactions | 5-10s | 2-3 | 1s |
 | Recordings | 10-20s | 3 | 2s |
 | Users | 5-10s | 3 | 1s |
+| Activity | 30-60s | 3 | 2s |
 | Attachments (save) | 20-30s | 3 | 2-3s |
 | Attachments (delete) | 5-10s | 2 | 1s |
+
+Activity feeds can fan out across many records, so prefer the longer end of the timeout range. Activity's `saveRetryConfig` also supports `revertOnFailure: true` to roll back the optimistic cache update when save retries are exhausted — see [[provider-activity]] for the full activity-specific surface.
 
 **Config options available on ALL provider types:**
 
@@ -74,8 +77,10 @@ interface DataProviderConfig {
 }
 
 interface RetryConfig {
-  retryCount: number;                // Max retry attempts
-  retryDelay: number;                // Delay between retries (ms)
+  retryCount?: number;               // Max retry attempts
+  retryDelay?: number;               // Delay between retries (ms)
+  revertOnFailure?: boolean;         // Activity `saveRetryConfig` only — revert the optimistic cache
+                                     // update when the save ultimately fails after all retries
 }
 ```
 

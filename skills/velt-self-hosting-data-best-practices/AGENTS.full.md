@@ -1,6 +1,6 @@
 # Velt Self Hosting Data Best Practices
 
-**Version 1.0.8**  
+**Version 1.0.9**  
 Velt  
 March 2026
 
@@ -1314,8 +1314,10 @@ interface DataProviderConfig {
 }
 
 interface RetryConfig {
-  retryCount: number;                // Max retry attempts
-  retryDelay: number;                // Delay between retries (ms)
+  retryCount?: number;               // Max retry attempts
+  retryDelay?: number;               // Delay between retries (ms)
+  revertOnFailure?: boolean;         // Activity `saveRetryConfig` only — revert the optimistic cache
+                                     // update when the save ultimately fails after all retries
 }
 ```
 
@@ -1455,6 +1457,8 @@ Reference: https://docs.velt.dev/self-host-data/users
 
 The activity data provider handles PII for activity log records — comment text embedded in change history, feature-specific entity snapshots (e.g., PR titles, deployment metadata), and arbitrary custom fields. The SDK strips configured fields before writing to Velt and re-hydrates them on read via your `get` handler.
 
+Both `get` and `save` can be supplied as either a **callback function** (`get` / `save`) **or** a **config endpoint URL** (`getConfig` / `saveConfig`). Each method is valid as long as one of the two forms is set; the modes can be mixed (e.g., function `get` with endpoint `saveConfig`). See [[provider-retry-timeout]] for the retry/timeout knobs shared across all providers.
+
 **ActivityAnnotationDataProvider interface:**
 
 ```typescript
@@ -1478,9 +1482,20 @@ interface SaveActivityResolverRequest {
 
 interface ResolverConfig {
   resolveTimeout?: number;
-  fieldsToRemove?: string[]; // Extra fields to strip beyond defaults
+  getRetryConfig?: RetryConfig;         // Retry behavior for `get`
+  saveRetryConfig?: RetryConfig;        // Retry behavior for `save` (supports `revertOnFailure`)
+  getConfig?: ResolverEndpointConfig;   // Endpoint URL + headers for fetching activity PII
+  saveConfig?: ResolverEndpointConfig;  // Endpoint URL + headers for saving stripped activity PII
+  fieldsToRemove?: string[];            // Extra fields to strip beyond defaults
+}
+
+interface ResolverEndpointConfig {
+  url: string;
+  headers?: Record<string, string>;
 }
 ```
+
+Note: activity is **append-only**, so there is no `delete` / `deleteConfig`.
 
 **Function-based example:**
 
@@ -1512,8 +1527,32 @@ const activityDataProvider: ActivityAnnotationDataProvider = {
 <VeltProvider apiKey={KEY} authProvider={auth} dataProviders={{
   activity: activityDataProvider,
 }}>
+const activityResolverConfig = {
+  getConfig: {
+    url: 'https://your-backend.com/api/velt/activity/get',
+    headers: { 'Authorization': 'Bearer YOUR_TOKEN' }
+  },
+  saveConfig: {
+    url: 'https://your-backend.com/api/velt/activity/save',
+    headers: { 'Authorization': 'Bearer YOUR_TOKEN' }
+  },
+  resolveTimeout: 60000,
+  getRetryConfig: { retryCount: 3, retryDelay: 2000 },
+  saveRetryConfig: { retryCount: 3, retryDelay: 2000, revertOnFailure: true },
+  fieldsToRemove: ['customSensitiveField']
+};
+
+const activityDataProvider = {
+  config: activityResolverConfig
+};
+
+<VeltProvider apiKey={KEY} authProvider={auth} dataProviders={{
+  activity: activityDataProvider,
+}}>
 ```
 
+**Endpoint-based example** (SDK performs the POST for you; pair `getConfig` and/or `saveConfig` with retry/timeout/`fieldsToRemove` on the same `config` object):
+The SDK POSTs the same `GetActivityResolverRequest` / `SaveActivityResolverRequest` bodies the function-based handlers would receive, and expects the same `ResolverResponse` shape back. Do not modify the endpoint URLs — copy them verbatim into your config. `saveRetryConfig.revertOnFailure: true` rolls back the optimistic cache update when the save retries are exhausted.
 **Compatibility:** Currently only compatible with the `setDocuments` method. Providers must be set before `identify()` is called.
 
 **Storage-boundary contract (what persists where):**
@@ -1577,7 +1616,7 @@ const activityDataProvider: ActivityAnnotationDataProvider = {
 };
 ```
 
-Reference: https://docs.velt.dev/self-host-data/activity ("Sample Data"); https://docs.velt.dev/self-host-data/field-inventory - "Activity strip rules"
+Reference: https://docs.velt.dev/self-host-data/activity ("Implementation Approaches", "Endpoint based DataProvider", "Function based DataProvider", "Sample Data"); https://docs.velt.dev/self-host-data/field-inventory - "Activity strip rules"
 
 ---
 
