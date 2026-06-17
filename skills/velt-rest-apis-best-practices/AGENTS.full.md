@@ -1,6 +1,6 @@
 # Velt Rest Apis Best Practices
 
-**Version 1.0.4**  
+**Version 1.0.5**  
 Velt  
 May 2026
 
@@ -1359,3 +1359,25 @@ Reference: `https://docs.velt.dev/api-reference/rest-api/overview` (## REST API 
 - https://docs.velt.dev/api-reference/rest-apis/v2/notifications/add-notifications
 - https://docs.velt.dev/api-reference/rest-apis/v2/workspace/create
 - https://docs.velt.dev/api-reference/rest-apis/v2/workspace/advancedwebhookconfig-update
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/list-agent-executions
+- https://docs.velt.dev/api-reference/rest-apis/v2/memory/alerts/action
+- https://docs.velt.dev/api-reference/rest-apis/v2/memory/alerts/config/get
+- https://docs.velt.dev/api-reference/rest-apis/v2/memory/alerts/config/update
+- https://docs.velt.dev/api-reference/rest-apis/v2/memory/alerts/dismiss
+- https://docs.velt.dev/api-reference/rest-apis/v2/memory/alerts/list
+- https://docs.velt.dev/api-reference/rest-apis/v2/memory/ask
+- https://docs.velt.dev/api-reference/rest-apis/v2/memory/judgments/query
+- https://docs.velt.dev/api-reference/rest-apis/v2/memory/knowledge/delete
+- https://docs.velt.dev/api-reference/rest-apis/v2/memory/knowledge/download
+- https://docs.velt.dev/api-reference/rest-apis/v2/memory/knowledge/ingest-status
+- https://docs.velt.dev/api-reference/rest-apis/v2/memory/knowledge/ingest
+- https://docs.velt.dev/api-reference/rest-apis/v2/memory/knowledge/list
+- https://docs.velt.dev/api-reference/rest-apis/v2/memory/knowledge/rules
+- https://docs.velt.dev/api-reference/rest-apis/v2/memory/knowledge/search
+- https://docs.velt.dev/api-reference/rest-apis/v2/memory/knowledge/update
+- https://docs.velt.dev/api-reference/rest-apis/v2/memory/knowledge/upload-url
+- https://docs.velt.dev/api-reference/rest-apis/v2/memory/patterns/get
+- https://docs.velt.dev/api-reference/rest-apis/v2/memory/profiles/get
+- https://docs.velt.dev/api-reference/rest-apis/v2/memory/search
+- https://docs.velt.dev/api-reference/rest-apis/v2/memory/stats/get
+- https://docs.velt.dev/api-reference/rest-apis/v2/memory/suggest

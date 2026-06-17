@@ -1,6 +1,6 @@
 # Velt Approval Engine Best Practices
 
-**Version 1.0.0**  
+**Version 1.0.1**  
 Velt  
 May 2026
 
@@ -58,6 +58,11 @@ agent      Runs an agent. Non-blocking by default (completes asynchronously with
 
 human      Requires reviewer approval. Drives via /steps/recordReviewerDecision. Parks in
            "waiting" until aggregator resolves.
+
+webhook    Deferred in v1. The `webhook` type passes definition validation (so authors can
+           draft graphs that will rely on it later), but the runtime handler is NOT enabled —
+           a `webhook` node will not run today. Treat it as a forward-compatibility hook,
+           not a runnable surface.
 ```
 
 **Agent node shape:**
@@ -1035,3 +1040,4 @@ The receiver and the reconciler must share the same dedup logic (same `(executio
 - https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/definitions/create-definition
 - https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/executions/dispatch-execution
 - https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/steps/record-reviewer-decision
+- https://docs.velt.dev/ai/approval-engine/overview#inbound-webhook-handler
