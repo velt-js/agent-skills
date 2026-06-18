@@ -68,9 +68,10 @@ Reference these guidelines when:
 - `python-rest-api-backend` — Use sdk.api.* for REST API operations without a database (no MongoDB required)
 - `python-comments` — Comments CRUD via sdk.selfHosting.comments
 - `python-attachments` — Attachment upload and delete via sdk.selfHosting.attachments with S3
-- `python-users-reactions` — Users and reactions management via sdk.selfHosting.users/reactions
+- `python-users-reactions` — Users and reactions management via sdk.selfHosting.users/reactions, PartialReactionAnnotation model, and the v0.1.12 `user` → `from_` rename
 - `python-frameworks` — Django, Flask, and FastAPI integration patterns
 - `python-token` — Generate user auth tokens via sdk.selfHosting.token.getToken for frontend authProvider
+- `python-self-hosting-services` — Import service classes (BaseService, CommentService, ReactionService, AttachmentService, RecorderService, NotificationService, ActivityService, UserService) from velt_py.services.self_hosting; v0.1.12 export-list fix
 - `python-data-models` — Python dataclasses for self-hosting comment annotations (PartialCommentAnnotation, PartialTargetTextRange, UNSET sentinel, BaseMetadata) introduced in v0.1.10
 - `filter-unknown-fields` — Opt in to filter_unknown_fields on add/update methods for commentAnnotations, comments, activities, and updateNotifications
 - `documents-service` — Count documents via sdk.api.documents.getDocumentsCount

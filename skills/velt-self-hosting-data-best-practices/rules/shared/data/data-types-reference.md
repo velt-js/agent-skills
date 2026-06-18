@@ -280,9 +280,11 @@ interface PartialReactionAnnotation {
   annotationId: string;                                  // join key
   metadata?: BaseMetadata;                               // getClientMetadata(annotation.metadata ?? {})
   icon: string;                                          // the only relocated field — never sent to Velt
-  from?: PartialUser;                                    // { userId }; copied-not-moved
+  from?: PartialUser;                                    // { userId } — reaction author; copied-not-moved
 }
 ```
+
+The canonical field names on `PartialReactionAnnotation` are `icon` and `from`. Older docs and flow prose sometimes paraphrased these as "emoji" and "user"; that vocabulary is historical only — the wire payload, the SDK contract, and the Python `PartialReactionAnnotation` dataclass all use `icon` and `from` (`from_` on the Python side, since `from` is a keyword).
 
 `icon` is the only field withheld from Velt; the strip operates on the emoji-code `icon` only. Per-element `Reaction` entries on the Velt-side `reactions[]` carry their own `variant` field — they are kept verbatim and are not part of the `Partial` payload.
 

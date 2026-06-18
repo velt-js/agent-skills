@@ -1,6 +1,6 @@
 # Velt Self Hosting Data Best Practices
 
-**Version 1.0.10**  
+**Version 1.0.11**  
 Velt  
 March 2026
 
@@ -2766,7 +2766,66 @@ from velt_py import (
 )
 ```
 
-Reference: `https://docs.velt.dev/api-reference/sdk/python/users` (## Python SDK > ### Users & Reactions)
+**Verification:**
+
+```python
+from velt_py.models.reaction import PartialReactionAnnotation
+from velt_py.models.user import PartialUser
+
+@dataclass
+class PartialReactionAnnotation:
+    annotationId: str
+    metadata: Optional[BaseMetadata] = None
+    icon: Optional[str] = None
+    from_: Optional[PartialUser] = None             # 'from' on the wire; from_ avoids the Python keyword. Replaces the former 'user' field.
+    extra_fields: Optional[Dict[str, Any]] = None   # Catch-all for customer-configured custom keys.
+```
+
+**Incorrect (v0.1.11-style construction; breaks on v0.1.12):**
+
+```python
+from velt_py.models.reaction import PartialReactionAnnotation
+from velt_py.models.user import PartialUser
+
+# `user=` is no longer a valid constructor kwarg in v0.1.12 — raises TypeError
+ann = PartialReactionAnnotation(
+    annotationId='r-1',
+    icon='+1',
+    user=PartialUser(userId='u-1'),
+)
+ann.to_dict()  # would have emitted {'user': {...}} pre-v0.1.12
+```
+
+**Correct (v0.1.12 — use `from_=`, serializes as `from`):**
+
+```python
+from velt_py.models.reaction import PartialReactionAnnotation
+from velt_py.models.user import PartialUser
+
+ann = PartialReactionAnnotation(
+    annotationId='r-1',
+    icon='+1',
+    from_=PartialUser(userId='u-1'),
+)
+ann.to_dict()['from']  # {'userId': 'u-1'}  — serialized as `from`
+```
+
+**Correct (backward-compatible reads — legacy `user` documents still resolve):**
+
+```python
+# Legacy document stored under the old `user` key still resolves:
+ann = PartialReactionAnnotation.from_dict({
+    'annotationId': 'r-1',
+    'icon': '+1',
+    'user': {'userId': 'u-legacy'},
+})
+ann.from_.userId         # 'u-legacy'
+ann.to_dict()['from']    # {'userId': 'u-legacy'}  (re-serialized as `from`)
+```
+
+References:
+- `https://docs.velt.dev/api-reference/sdk/python/users` (## Python SDK > ### Users & Reactions)
+- `https://docs.velt.dev/backend-sdks/python` (### `PartialReactionAnnotation`)
 
 ---
 
