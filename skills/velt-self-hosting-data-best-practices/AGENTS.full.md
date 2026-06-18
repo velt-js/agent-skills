@@ -1,6 +1,6 @@
 # Velt Self Hosting Data Best Practices
 
-**Version 1.0.9**  
+**Version 1.0.10**  
 Velt  
 March 2026
 
@@ -2855,3 +2855,4 @@ Reference: https://docs.velt.dev/self-host-data/overview - "Debugging"; https://
 - https://docs.velt.dev/self-host-data/activity
 - https://docs.velt.dev/self-host-data/notifications
 - https://docs.velt.dev/self-host-data/field-inventory
+- https://docs.velt.dev/backend-sdks/python

@@ -9,7 +9,7 @@ metadata:
 
 # Velt Self-Hosting Data Best Practices
 
-Comprehensive implementation guide for Velt's self-hosting data feature in React and Next.js applications. Contains 18 rules across 7 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's self-hosting data feature in React and Next.js applications. Contains 26 rules across 7 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
@@ -72,6 +72,14 @@ Reference these guidelines when:
 - `python-frameworks` — Django, Flask, and FastAPI integration patterns
 - `python-token` — Generate user auth tokens via sdk.selfHosting.token.getToken for frontend authProvider
 - `python-data-models` — Python dataclasses for self-hosting comment annotations (PartialCommentAnnotation, PartialTargetTextRange, UNSET sentinel, BaseMetadata) introduced in v0.1.10
+- `filter-unknown-fields` — Opt in to filter_unknown_fields on add/update methods for commentAnnotations, comments, activities, and updateNotifications
+- `documents-service` — Count documents via sdk.api.documents.getDocumentsCount
+- `users-service` — getUsers extra filters plus getUsersCount, getDocUsers, and invitation lifecycle methods on sdk.api.users
+- `crdt-service` — Delete CRDT editor data via sdk.api.crdt.deleteCrdtData (targeted or wholesale)
+- `workspace-service` — Workspace extensions: domain requests, API key copy/update, service configs, advanced (Svix) webhooks, ensureWorkspaceAuthToken, and the v0.1.11 getApiKeyMetadata endpoint clarification
+- `agents-service` — Manage AI agents, versions, executions, prompt tooling, and agent groups via sdk.api.agents
+- `memory-service` — Semantic search, knowledge ingestion, alerts, and operator tools via sdk.api.memory
+- `workflow-service` — Workflow definitions with optimistic concurrency, executions, lifecycle events, and step resolution via sdk.api.workflow
 
 ### 7. Debugging (LOW-MEDIUM)
 
