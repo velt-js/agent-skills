@@ -2,7 +2,7 @@
 title: Comments Data Type Reference — Core Models
 impact: MEDIUM
 impactDescription: Type definitions for comment annotations, comments, status, priority, attachments
-tags: CommentAnnotation, Comment, Status, Priority, Attachment, Location, TargetElement, CommentRequestQuery, AddCommentAnnotationRequest, CommentSidebarData, CommentAnnotationAgent, AgentResult, CommentAnnotationSuggestion, basicAnchorData, commentType, sourceType, types, models
+tags: CommentAnnotation, Comment, ReactionAnnotation, Status, Priority, Attachment, Location, TargetElement, CommentRequestQuery, AddCommentAnnotationRequest, CommentSidebarData, CommentAnnotationAgent, AgentResult, CommentAnnotationSuggestion, basicAnchorData, commentType, sourceType, involvedUserIds, mentionedUserIds, metadata, types, models
 ---
 
 ## Comments Data Type Reference — Core Models
@@ -40,6 +40,8 @@ interface CommentAnnotation {
     topPercentage: number;             // Defaults to 0 when not set
     leftPercentage: number;            // Defaults to 0 when not set
   };
+  involvedUserIds?: string[];          // All user IDs involved in the annotation (subscribed + unsubscribed). Read-only, server-derived
+  mentionedUserIds?: string[];         // User IDs @mentioned across the annotation's comments. Read-only, server-derived
 }
 ```
 
@@ -59,6 +61,9 @@ interface Comment {
   lastUpdated?: number;                // Last update timestamp
   isEdited?: boolean;                  // Whether comment was edited
   type?: string;                       // Comment type
+  sourceType?: string;                 // Origin of the comment; 'agent' indicates AI-agent-authored. Read-only
+  agent?: AgentData;                   // AI agent identity + output for an agent-authored comment. Read-only. See data-agent-fields-query.md
+  metadata?: any;                      // Customer-supplied metadata bag, persisted as-is when provided
 }
 ```
 
@@ -125,6 +130,24 @@ interface TargetElement {
 }
 ```
 
+**ReactionAnnotation (placed emoji reaction):**
+
+```typescript
+interface ReactionAnnotation {
+  annotationId?: string;               // Reaction-annotation ID
+  documentId?: string;
+  organizationId?: string;
+  location?: Location;
+  targetElement?: TargetElement;
+  reactions?: Reaction[];
+  createdAt?: any;                     // Auto-generated
+  lastUpdated?: any;                   // Auto-generated
+  metadata?: ReactionMetadata;
+  context?: Context;
+  involvedUserIds?: string[];          // All user IDs involved in the reaction annotation. Read-only, server-derived
+}
+```
+
 **TaggedContact:**
 
 ```typescript
@@ -183,5 +206,8 @@ Suggestion state is mutated by `acceptSuggestion()` / `rejectSuggestion()` API m
 - [ ] Location.id is number, not string
 - [ ] Status.type is one of 'default', 'ongoing', 'terminal'
 - [ ] Agent-authored annotations check `annotation.agent` for identity, not custom fields
+- [ ] `CommentAnnotation.involvedUserIds` / `mentionedUserIds` and `ReactionAnnotation.involvedUserIds` are treated as read-only server-derived fields (never written from the client)
+- [ ] `Comment.sourceType === 'agent'` is the discriminator for the agent-identity header; `Comment.agent` carries the AI payload (`AgentData` — see `data-agent-fields-query.md` for the shape)
+- [ ] `Comment.metadata` is opaque to Velt — application code owns its schema
 
 **Source Pointer:** https://docs.velt.dev/api-reference/sdk/models/data-models - Comments

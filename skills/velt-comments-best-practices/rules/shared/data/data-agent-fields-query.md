@@ -2,7 +2,7 @@
 title: Use agentFields on CommentRequestQuery to Filter Annotation Count by Agent
 impact: MEDIUM
 impactDescription: Enables precise comment count queries scoped to agent-tagged annotations, avoiding full-collection scans
-tags: agent-fields, comment-request-query, getCommentAnnotationCount, agent, filter
+tags: agent-fields, comment-request-query, getCommentAnnotationCount, agent, filter, AgentData
 ---
 
 ## Use agentFields on CommentRequestQuery to Filter Annotation Count by Agent
@@ -74,11 +74,28 @@ const subscription = commentElement.getCommentAnnotationCount({
 
 **Behavioral Note:** The unread count query uses a Firestore `array-contains` constraint that cannot be combined with the filter used for unread counting. When `agentFields` is set, Velt skips the separate unread count query and returns `unreadCount === totalCount`. If your UI distinguishes read from unread, do not rely on `unreadCount` when `agentFields` is active.
 
+**AgentData (set on `Comment.agent`):**
+
+The AI-agent identity + output payload attached to an agent-authored `Comment` (set on `Comment.agent` when `Comment.sourceType === 'agent'`). Read-only from the SDK; populated when the annotation is created via the REST API `agent` block. The `agentFields` array on this payload is the field that `CommentRequestQuery.agentFields` filters against.
+
+```typescript
+interface AgentData {
+  agentName?: string;            // Agent identifier. Always retained for agent-field querying.
+  name?: string;                 // Agent display name.
+  avatar?: string;               // Agent avatar URL.
+  result?: { title?: string };   // Structured agent output; `title` renders in the agent suggestion card.
+  agentFields?: string[];        // Agent field tags used by CommentRequestQuery.agentFields.
+}
+```
+
+The annotation-level `CommentAnnotationAgent` (see `data-types-reference.md`) is a sibling shape used on `CommentAnnotation.agent`; `AgentData` is its comment-level counterpart on `Comment.agent`. Both surface `agentFields` for the same query-side filter.
+
 **Verification Checklist:**
 - [ ] `agentFields` values match the strings stored in `agent.agentFields` on the target annotations
 - [ ] UI does not display a meaningful unread badge when `agentFields` is set (unread equals total)
 - [ ] Subscription is cleaned up on component unmount
 - [ ] `organizationId` is always provided alongside `agentFields`
+- [ ] When reading `Comment.agent`, use the `AgentData` shape (`agentName`, `name`, `avatar`, `result.title`, `agentFields`); do not mutate it from the client
 
 **Source Pointers:**
 - https://docs.velt.dev/api-reference/sdk/models/data-models#commentrequestquery - CommentRequestQuery model

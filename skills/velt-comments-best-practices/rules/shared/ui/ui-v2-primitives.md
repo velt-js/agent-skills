@@ -2,14 +2,12 @@
 title: Set defaultCondition on V2 Primitive Sub-Components to Control Default Rendering
 impact: MEDIUM
 impactDescription: Prevents the SDK's default show/hide logic from conflicting with custom wireframe compositions in V2 primitive component families
-tags: v2-primitives, defaultCondition, wireframe, comment-pin, comment-bubble, text-comment, inline-comments-section, multi-thread-comment-dialog, sidebar-button, comments-sidebar-v2, VeltCommentSidebarV2, VeltMultiThreadCommentDialog, VeltInlineCommentsSectionFilterDropdownContentApplyButton, customization, ui
+tags: v2-primitives, defaultCondition, wireframe, comment-pin, comment-bubble, text-comment, inline-comments-section, multi-thread-comment-dialog, sidebar-button, comments-sidebar-v2, VeltCommentSidebarV2, VeltMultiThreadCommentDialog, VeltInlineCommentsSectionFilterDropdownContentApplyButton, search, filter-button, filter-container, fullscreen-button, customization, ui
 ---
 
 ## Set defaultCondition on V2 Primitive Sub-Components to Control Default Rendering
 
-Seven comment component families use the V2 primitive architecture: Comment Pin (6 primitives), Comment Bubble (3, HTML-only), Text Comment (7), Inline Comments Section (24), Multi-Thread Comment Dialog (25), Sidebar Button (3), and Comments Sidebar V2 (27). Every primitive in these families accepts a `defaultCondition` / `default-condition` prop. When a wireframe replaces a section of the UI, set `defaultCondition={false}` to bypass the SDK's built-in default show/hide logic and prevent double-rendering or unintended visibility toggles.
-
-<!-- TODO (v5.0.2-beta.11): Verify the exact primitive component names within each family (e.g., the individual identifiers for the 6 Comment Pin primitives). Release note confirms primitive counts per family and the `defaultCondition` prop name, but does not enumerate individual primitive names. -->
+Seven comment component families use the V2 primitive architecture: Comment Pin (6 primitives), Comment Bubble (3, HTML-only), Text Comment (7), Inline Comments Section (24), Multi-Thread Comment Dialog (25), Sidebar Button (3), and Comments Sidebar V2 (56+ — expanded with the new Search / FilterButton / FilterContainer / FullscreenButton families this release). Every primitive in these families accepts a `defaultCondition` / `default-condition` prop. When a wireframe replaces a section of the UI, set `defaultCondition={false}` to bypass the SDK's built-in default show/hide logic and prevent double-rendering or unintended visibility toggles.
 
 **Incorrect (omitting defaultCondition when overriding a primitive section):**
 
@@ -48,17 +46,17 @@ import { VeltWireframe } from '@veltdev/react';
 </velt-wireframe>
 ```
 
-**V2-Migrated Component Families (v5.0.2-beta.11+):**
+**V2-Migrated Component Families:**
 
 | Family | Primitive Count | Notes |
 |--------|----------------|-------|
 | Comment Pin | 6 | React + HTML |
 | Comment Bubble | 3 | HTML-only primitives |
 | Text Comment | 7 | React + HTML |
-| Inline Comments Section | 24 | React + HTML (was 23; ApplyButton promoted to React in v5.0.2-beta.11) |
-| Multi-Thread Comment Dialog | 25 | React + HTML (was 24; `VeltMultiThreadCommentDialog` root added in v5.0.2-beta.11) |
+| Inline Comments Section | 24 | React + HTML (ApplyButton promoted to React in v5.0.2-beta.11) |
+| Multi-Thread Comment Dialog | 25 | React + HTML (`VeltMultiThreadCommentDialog` root added in v5.0.2-beta.11) |
 | Sidebar Button | 3 | React + HTML |
-| Comments Sidebar V2 | 27 | React + HTML; React identifiers renamed `VeltCommentsSidebarV2*` → `VeltCommentSidebarV2*` (HTML elements unchanged) in v5.0.2-beta.11 |
+| Comments Sidebar V2 | 56+ | React + HTML; standalone HTML sub-primitive tags use the singular `velt-comment-sidebar-*-v2` form (root stays plural `velt-comments-sidebar-v2`); React identifiers are also singular `VeltCommentSidebarV2*` |
 | Comment Dialog Composer — Attachment Downloads | 2 | React + HTML; edit-mode only |
 
 **Attachment Download Primitives (edit-mode composer):**
@@ -82,11 +80,11 @@ Both accept an `annotationId` prop (required, `string`) providing the attachment
 <velt-comment-dialog-composer-attachments-other-download annotation-id="abc123"></velt-comment-dialog-composer-attachments-other-download>
 ```
 
-**Comments Sidebar V2 Rename (v5.0.2-beta.11+):**
+### Comments Sidebar V2 — naming convention
 
-All 26 V2 sidebar child primitives have been renamed from `VeltCommentsSidebarV2*` (plural "Comments") to `VeltCommentSidebarV2*` (singular "Comment") on the React side. The root component `VeltCommentsSidebarV2` and every underlying HTML custom element (`velt-comments-sidebar-*-v2`) are unchanged.
+> **Note:** The root container `VeltCommentsSidebarV2` / `<velt-comments-sidebar-v2>` is plural. **Every** standalone sub-primitive — React identifier *and* HTML custom-element tag — uses the singular form `VeltCommentSidebarV2*` / `<velt-comment-sidebar-*-v2>`. The HTML tag rename (plural → singular for sub-primitives) is the current release; React identifiers were already singular.
 
-**Incorrect (old plural React identifiers):**
+**Incorrect (old plural HTML / React identifiers):**
 
 ```jsx
 <VeltCommentsSidebarV2>
@@ -98,7 +96,18 @@ All 26 V2 sidebar child primitives have been renamed from `VeltCommentsSidebarV2
 </VeltCommentsSidebarV2>
 ```
 
-**Correct (singular `VeltCommentSidebarV2*` for child primitives; root stays plural):**
+```html
+<!-- Old plural HTML sub-primitive tags — no longer valid -->
+<velt-comments-sidebar-v2>
+  <velt-comments-sidebar-skeleton-v2></velt-comments-sidebar-skeleton-v2>
+  <velt-comments-sidebar-panel-v2>
+    <velt-comments-sidebar-header-v2></velt-comments-sidebar-header-v2>
+    <velt-comments-sidebar-list-v2></velt-comments-sidebar-list-v2>
+  </velt-comments-sidebar-panel-v2>
+</velt-comments-sidebar-v2>
+```
+
+**Correct (singular sub-primitive names for React *and* HTML; root stays plural):**
 
 ```jsx
 <VeltCommentsSidebarV2>
@@ -106,13 +115,14 @@ All 26 V2 sidebar child primitives have been renamed from `VeltCommentsSidebarV2
   <VeltCommentSidebarV2Panel>
     <VeltCommentSidebarV2Header>
       <VeltCommentSidebarV2CloseButton />
-      <VeltCommentSidebarV2MinimalActionsDropdown>
-        <VeltCommentSidebarV2MinimalActionsDropdownTrigger />
-        <VeltCommentSidebarV2MinimalActionsDropdownContent>
-          <VeltCommentSidebarV2MinimalActionsDropdownContentMarkAllRead />
-          <VeltCommentSidebarV2MinimalActionsDropdownContentMarkAllResolved />
-        </VeltCommentSidebarV2MinimalActionsDropdownContent>
-      </VeltCommentSidebarV2MinimalActionsDropdown>
+      <VeltCommentSidebarV2FullscreenButton />
+      <VeltCommentSidebarV2Search>
+        <VeltCommentSidebarV2SearchIcon />
+        <VeltCommentSidebarV2SearchInput />
+      </VeltCommentSidebarV2Search>
+      <VeltCommentSidebarV2FilterButton>
+        <VeltCommentSidebarV2FilterButtonAppliedIcon />
+      </VeltCommentSidebarV2FilterButton>
       <VeltCommentSidebarV2FilterDropdown />
     </VeltCommentSidebarV2Header>
     <VeltCommentSidebarV2List />
@@ -128,19 +138,56 @@ All 26 V2 sidebar child primitives have been renamed from `VeltCommentsSidebarV2
 </VeltCommentsSidebarV2>
 ```
 
-| Old React Identifier | New React Identifier | HTML Element (unchanged) |
-|----------------------|----------------------|--------------------------|
-| `VeltCommentsSidebarV2Skeleton` | `VeltCommentSidebarV2Skeleton` | `velt-comments-sidebar-skeleton-v2` |
-| `VeltCommentsSidebarV2Panel` | `VeltCommentSidebarV2Panel` | `velt-comments-sidebar-panel-v2` |
-| `VeltCommentsSidebarV2Header` | `VeltCommentSidebarV2Header` | `velt-comments-sidebar-header-v2` |
-| `VeltCommentsSidebarV2CloseButton` | `VeltCommentSidebarV2CloseButton` | `velt-comments-sidebar-close-button-v2` |
-| `VeltCommentsSidebarV2MinimalActionsDropdown*` (5 variants) | `VeltCommentSidebarV2MinimalActionsDropdown*` | `velt-comments-sidebar-minimal-actions-dropdown-*-v2` |
-| `VeltCommentsSidebarV2FilterDropdown*` (9 variants) | `VeltCommentSidebarV2FilterDropdown*` | `velt-comments-sidebar-filter-dropdown-*-v2` |
-| `VeltCommentsSidebarV2List` / `*ListItem` | `VeltCommentSidebarV2List` / `*ListItem` | `velt-comments-sidebar-list-v2` / `velt-comments-sidebar-list-item-v2` |
-| `VeltCommentsSidebarV2EmptyPlaceholder` | `VeltCommentSidebarV2EmptyPlaceholder` | `velt-comments-sidebar-empty-placeholder-v2` |
-| `VeltCommentsSidebarV2ResetFilterButton` | `VeltCommentSidebarV2ResetFilterButton` | `velt-comments-sidebar-reset-filter-button-v2` |
-| `VeltCommentsSidebarV2PageModeComposer` | `VeltCommentSidebarV2PageModeComposer` | `velt-comments-sidebar-page-mode-composer-v2` |
-| `VeltCommentsSidebarV2FocusedThread*` (3 variants) | `VeltCommentSidebarV2FocusedThread*` | `velt-comments-sidebar-focused-thread-*-v2` |
+```html
+<velt-comments-sidebar-v2>
+  <velt-comment-sidebar-skeleton-v2></velt-comment-sidebar-skeleton-v2>
+  <velt-comment-sidebar-panel-v2>
+    <velt-comment-sidebar-header-v2>
+      <velt-comment-sidebar-close-button-v2></velt-comment-sidebar-close-button-v2>
+      <velt-comment-sidebar-fullscreen-button-v2></velt-comment-sidebar-fullscreen-button-v2>
+      <velt-comment-sidebar-search-v2>
+        <velt-comment-sidebar-search-v2-icon></velt-comment-sidebar-search-v2-icon>
+        <velt-comment-sidebar-search-v2-input></velt-comment-sidebar-search-v2-input>
+      </velt-comment-sidebar-search-v2>
+      <velt-comment-sidebar-filter-button-v2>
+        <velt-comment-sidebar-filter-button-v2-applied-icon></velt-comment-sidebar-filter-button-v2-applied-icon>
+      </velt-comment-sidebar-filter-button-v2>
+      <velt-comment-sidebar-filter-dropdown-v2></velt-comment-sidebar-filter-dropdown-v2>
+    </velt-comment-sidebar-header-v2>
+    <velt-comment-sidebar-list-v2></velt-comment-sidebar-list-v2>
+  </velt-comment-sidebar-panel-v2>
+</velt-comments-sidebar-v2>
+```
+
+| Identifier family (React + HTML) | Identifier | HTML element |
+|----------------------------------|-----------|--------------|
+| Skeleton | `VeltCommentSidebarV2Skeleton` | `velt-comment-sidebar-skeleton-v2` |
+| Panel | `VeltCommentSidebarV2Panel` | `velt-comment-sidebar-panel-v2` |
+| Header | `VeltCommentSidebarV2Header` | `velt-comment-sidebar-header-v2` |
+| CloseButton | `VeltCommentSidebarV2CloseButton` | `velt-comment-sidebar-close-button-v2` |
+| FullscreenButton (new) | `VeltCommentSidebarV2FullscreenButton` | `velt-comment-sidebar-fullscreen-button-v2` |
+| Search (new) | `VeltCommentSidebarV2Search` (+ `Icon`, `Input`) | `velt-comment-sidebar-search-v2` (+ `-icon`, `-input`) |
+| FilterButton (new) | `VeltCommentSidebarV2FilterButton` (+ `AppliedIcon`) | `velt-comment-sidebar-filter-button-v2` (+ `-applied-icon`) |
+| FilterDropdown (+ subtree, incl. new `Content.List.Item.Count` and `Content.List.Category.Label` leaves) | `VeltCommentSidebarV2FilterDropdown*` | `velt-comment-sidebar-filter-dropdown-*-v2` |
+| FilterContainer (new — Main Filter bottom-sheet subtree) | `VeltCommentSidebarV2FilterContainer*` | `velt-comment-sidebar-filter-container-*-v2` |
+| List / ListItem | `VeltCommentSidebarV2List` / `*ListItem` | `velt-comment-sidebar-list-v2` / `velt-comment-sidebar-list-item-v2` |
+| EmptyPlaceholder | `VeltCommentSidebarV2EmptyPlaceholder` | `velt-comment-sidebar-empty-placeholder-v2` |
+| ResetFilterButton | `VeltCommentSidebarV2ResetFilterButton` | `velt-comment-sidebar-reset-filter-button-v2` |
+| PageModeComposer | `VeltCommentSidebarV2PageModeComposer` | `velt-comment-sidebar-page-mode-composer-v2` |
+| FocusedThread (+ subtree) | `VeltCommentSidebarV2FocusedThread*` | `velt-comment-sidebar-focused-thread-*-v2` |
+
+> **Breaking change (Comment Sidebar V2 — current release):** `VeltCommentSidebarV2MinimalActionsDropdown` (and the `Trigger` / `Content` / `MarkAllRead` / `MarkAllResolved` children) plus the corresponding `velt-comments-sidebar-minimal-actions-dropdown-v2` HTML family have been **removed**. The bulk actions are now exposed by the combined `actions` filter-dropdown, configured via the `minimalFilters` input on `VeltCommentsSidebarV2`. Replace any `MinimalActionsDropdown` usage with a `FilterDropdown` configured as `{ type: 'actions', sorts: [...], actions: [...] }` — see `surface/surface-sidebar-v2.md`.
+
+### New V2 primitive families (current release)
+
+- **Search** — header search container holding the icon + input leaves (`VeltCommentSidebarV2Search`, `*SearchIcon`, `*SearchInput`).
+- **FilterButton** — header button that opens the Main Filter container; child `*FilterButtonAppliedIcon` surfaces the active-filter indicator.
+- **FullscreenButton** — header leaf that emits `onFullscreenClick` when clicked.
+- **FilterContainer** — root container for the Main Filter bottom-sheet / menu, holding:
+  - `Title`, `GroupBy`, `ResetButton`, `ApplyButton`, `CloseButton` leaves.
+  - `SectionList` → `Section` → `SectionLabel` (leaf) and `SectionField` → `SectionControl` (+ `SectionControlChevron`, `SectionControlValue`, `SectionControlChipList` → `SectionControlChip`, `SectionControlSearch`) and `SectionOptionList` → `SectionOption` (+ `SectionOptionCheckbox`, `SectionOptionName`, `SectionOptionCount`).
+
+The `Search`, `FilterButton`, `FilterContainer`, and `FullscreenButton` families replace the customization surface previously occupied by `MinimalActionsDropdown`. Use the `actions` dropdown type on `minimalFilters` for bulk mark-all-read / mark-all-resolved — these primitive families are the new shape for that surface.
 
 **`VeltInlineCommentsSectionFilterDropdownContentApplyButton` — React promotion (v5.0.2-beta.11+):**
 
@@ -197,12 +244,14 @@ A new root component for the multi-thread comment dialog family, with a matching
 - [ ] Primitive components are wrapped inside a `<VeltWireframe>` block (React) or `<velt-wireframe style="display:none;">` wrapper (HTML)
 - [ ] HTML attributes use kebab-case: `default-condition="false"`
 - [ ] Only primitives from the V2-migrated families are targeted (Comment Pin, Comment Bubble, Text Comment, Inline Comments Section, Multi-Thread Comment Dialog, Sidebar Button, Comments Sidebar V2)
-- [ ] V2 sidebar child primitives use the singular `VeltCommentSidebarV2*` names (not the old plural `VeltCommentsSidebarV2*`); the root component stays `VeltCommentsSidebarV2`
+- [ ] V2 sidebar sub-primitives use the singular `VeltCommentSidebarV2*` React identifiers **and** singular `velt-comment-sidebar-*-v2` HTML tags; the root component stays `VeltCommentsSidebarV2` / `velt-comments-sidebar-v2`
+- [ ] Any `MinimalActionsDropdown` usage is migrated to a `FilterDropdown` configured via `minimalFilters: [{ type: 'actions', sorts: [...], actions: [...] }]`
+- [ ] New families (`Search`, `FilterButton`, `FilterContainer`, `FullscreenButton`) are composed inside `Header` for the modern V2 sidebar header layout
 - [ ] Multi-thread primitives used standalone pass `multiThreadAnnotationId` to bind real annotation data without the parent `VeltMultiThreadCommentDialog` root
 
 **Source Pointers:**
 - https://docs.velt.dev/ui-customization/overview - Wireframe and primitive architecture overview
 - https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog-structure - Comment dialog primitives reference
-- https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-v2-primitives - V2 sidebar primitive rename
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-v2-primitives - V2 sidebar primitive catalog (56+ primitives, singular HTML tag rename, MinimalActionsDropdown removal)
 - https://docs.velt.dev/ui-customization/features/async/comments/inline-comments-section/primitives - Inline Comments Section primitives (incl. ApplyButton React promotion)
 - https://docs.velt.dev/ui-customization/features/async/comments/multithread-comments/primitives - Multi-Thread Comment Dialog primitives (incl. new root)

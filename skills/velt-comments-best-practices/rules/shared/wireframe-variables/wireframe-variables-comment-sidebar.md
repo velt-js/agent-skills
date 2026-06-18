@@ -280,6 +280,56 @@ The full tag set runs to ~80 wireframe tags. The structural tree lives in `ui/ui
 | `<velt-comments-sidebar-reset-filter-button-wireframe>` | Reset-filters button (used in empty placeholder). Gate with `{appliedFiltersCount} > 0`. |
 | `<velt-comment-sidebar-action-button-wireframe>` / `<velt-comment-sidebar-reset-filter-button-wireframe>` | Generic action / reset primitives used in placeholders. |
 
+### V2 wireframe slots — Search, FilterButton, FilterContainer, FullscreenButton, ListGroupHeader
+
+The V2 sidebar wireframe family (`VeltCommentsSidebarV2Wireframe.*` / `<velt-comments-sidebar-*-v2-wireframe>`) introduces five new bindable slot subtrees on top of the V1 surface above. Each leaf wireframe exposes its own per-slot variables — **bind dynamic data on the leaf, not its container** (signals only update live when bound to the leaf signal).
+
+**Header — Search / FilterButton / FullscreenButton:**
+
+| Wireframe tag | Exposed variables / `shouldShow` | Notes |
+|---|---|---|
+| `<velt-comments-sidebar-search-v2-wireframe>` (+ `-icon-`, `-input-` leaves) | `placeholder`, `searchable` | Header search row. Bind `placeholder` on `-input-` to customize the search placeholder live. |
+| `<velt-comments-sidebar-filter-button-v2-wireframe>` (+ `-applied-icon-` leaf) | `isFilterActive`, `appliedCount` | Opens the Main Filter container. Drive the badge with `appliedCount`; gate the `-applied-icon-` leaf with `velt-if="{isFilterActive}"`. |
+| `<velt-comments-sidebar-fullscreen-button-v2-wireframe>` | — | Header fullscreen toggle; emits the `onFullscreenClick` event upstream. |
+
+**FilterContainer (Main Filter bottom-sheet/menu subtree):**
+
+The `FilterContainer` wireframe is the new bottom-sheet/menu surface — distinct from the existing `FilterDropdown` header dropdown. Available variables across these leaves: `value`, `label`, `count`, `mode`, `selected`, `group`, `groupingEnabled`, `groupByOptions`, `chips`, `searchable`, `placeholder`, `isFilterActive`, `appliedCount`.
+
+| Wireframe tag | Exposed variables / `shouldShow` | Notes |
+|---|---|---|
+| `<velt-comments-sidebar-filter-container-v2-wireframe>` | `isFilterActive`, `appliedCount` | Root container — holds title, group-by, section list, reset/apply/close. |
+| `<velt-comments-sidebar-filter-container-v2-title-wireframe>` | `label` | Panel title. |
+| `<velt-comments-sidebar-filter-container-v2-group-by-wireframe>` | `groupByOptions`, `groupingEnabled` | Renders only when grouping is enabled. Bind `groupByOptions` for its option list. |
+| `<velt-comments-sidebar-filter-container-v2-section-list-wireframe>` → `…-section-wireframe>` (loop) | inherits `section` (one per filter section) | Per-section iteration. |
+| `<velt-comments-sidebar-filter-container-v2-section-label-wireframe>` | `label`, `count` | Section header label + count. |
+| `<velt-comments-sidebar-filter-container-v2-section-field-wireframe>` | `searchable`, `mode` | Field container; `searchable` toggles the per-section search box. |
+| `<velt-comments-sidebar-filter-container-v2-section-control-wireframe>` (+ `-chevron-`, `-value-`, `-chip-list-` → `-chip-`, `-search-` leaves) | `value`, `chips`, `searchable`, `placeholder` | Section control row — chips list and inline search. |
+| `<velt-comments-sidebar-filter-container-v2-section-option-list-wireframe>` → `-section-option-wireframe>` (loop) | inherits `option` per row | Per-option iteration. |
+| `<velt-comments-sidebar-filter-container-v2-section-option-checkbox-wireframe>` | `selected` | Per-option checkbox state. Gate with `velt-if="{selected}"` (or the unchecked sibling). |
+| `<velt-comments-sidebar-filter-container-v2-section-option-name-wireframe>` | `label` | Option label. |
+| `<velt-comments-sidebar-filter-container-v2-section-option-count-wireframe>` | `count` | Option facet count. Gate with `velt-if="{componentConfig.filterCount}"` if you want to honor the `filterCount` prop. |
+| `<velt-comments-sidebar-filter-container-v2-reset-button-wireframe>` / `…-apply-button-…` / `…-close-button-…` | `appliedCount`, `isFilterActive` | Footer actions. The reset button is meaningful only when `{appliedCount} > 0`. |
+
+**List groups — ListGroupHeader:**
+
+| Wireframe tag | Exposed variables | Notes |
+|---|---|---|
+| `<velt-comments-sidebar-list-group-header-v2-wireframe>` | injects `group` (one per group when grouping is enabled) | Renders once per group inside `<velt-comments-sidebar-list-v2-wireframe>`. |
+| `<velt-comments-sidebar-list-group-header-v2-label-wireframe>` | `group.label` | Group display label. |
+| `<velt-comments-sidebar-list-group-header-v2-count-wireframe>` | `group.count` | Group annotation count. |
+| `<velt-comments-sidebar-list-group-header-v2-chevron-wireframe>` | inherits `group.isExpanded` | Expand / collapse chevron — drive direction with `velt-class="'collapsed': !{group.isExpanded}"`. |
+| `<velt-comments-sidebar-list-group-header-v2-separator-wireframe>` | — | Inter-group separator. |
+
+**FilterDropdown subtree leaves (new this release):**
+
+| Wireframe tag | Exposed variables |
+|---|---|
+| `<velt-comments-sidebar-filter-dropdown-content-list-item-count-v2-wireframe>` | per-item `count` (new — surfaces per-option facet count alongside the existing indicator + label leaves). |
+| `<velt-comments-sidebar-filter-dropdown-content-list-category-label-v2-wireframe>` | category `label` (new — sibling to the existing `Category.Content` leaf). |
+
+> **Breaking change (V2 — current release):** the `velt-comments-sidebar-minimal-actions-dropdown-v2-wireframe` family (Trigger / Content / MarkAllRead / MarkAllResolved) is removed. Mark-all-read and mark-all-resolved are now exposed by the combined `actions` filter-dropdown configured via the `minimalFilters` input on `VeltCommentsSidebarV2` — bind those rows inside the existing `FilterDropdown` subtree (`<velt-comments-sidebar-filter-dropdown-content-list-item-v2-wireframe>` + `…-item-count-v2-wireframe`).
+
 ### `defaultCondition` and Common Props
 
 | React Prop | HTML Attribute | Type | Default | Behavior |
@@ -317,14 +367,19 @@ The full tag set runs to ~80 wireframe tags. The structural tree lives in `ui/ui
 **Verification:**
 - [ ] Mapped names (`focusedAnnotation`, `appliedFiltersCount`, `filteredCommentAnnotationsCount`, `unreadCommentAnnotationCount`, `selectedMinimalFilterDropdownOption`, `annotation`, `annotations`, `user`, `darkMode`, `variant`) are referenced as bare short names
 - [ ] Every other property uses the full `componentConfig.<name>` path (skeleton / empty / filter / virtual-scroll / mode state)
-- [ ] Loop-scope (`focusedAnnotation` inside focused-thread, `filter` / `item` / `group` / `tag` inside their owning iteration) is used only inside the owning slot
+- [ ] Loop-scope (`focusedAnnotation` inside focused-thread, `filter` / `item` / `group` / `tag` inside their owning iteration, `group` inside `list-group-header-v2`) is used only inside the owning slot
 - [ ] Empty-state copy + reset-filter button branch on `noCommentsFoundForAppliedFilters` (not `noCommentsFound`) when filters are applied
 - [ ] Skeleton vs. list mutual exclusion uses `{componentConfig.skeletonLoading}` to gate the skeleton — the list does not need an explicit `velt-if` (the wireframe handles it)
 - [ ] Nested comment-dialog wireframes (list-item, focused-thread, page-mode composer) use the full Comment Dialog variable surface — see `wireframe-variables-comment-dialog.md`
 - [ ] Tag names are copied verbatim — both `velt-comments-sidebar-…` and `velt-comment-sidebar-…` prefixes are valid depending on the subtree
 - [ ] Minimal-filter row gating compares `selectedMinimalFilterDropdownOption.filter` / `.sort` with `===`, not boolean coercion
+- [ ] V2 FilterContainer leaves bind `value` / `label` / `count` / `selected` / `chips` / `placeholder` on the leaf wireframe (not its container) so signals update live
+- [ ] V2 `FilterButton.AppliedIcon` is gated on `{isFilterActive}` and the badge text is driven by `{appliedCount}`
+- [ ] V2 `ListGroupHeader.Chevron` is class-toggled on `{group.isExpanded}` (not unmounted) so collapse-state is reversible
+- [ ] No references remain to the removed `velt-comments-sidebar-minimal-actions-dropdown-v2-wireframe` family — migrate to the `actions` filter-dropdown configured via `minimalFilters`
 
 **Source Pointers:**
 - https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-wireframe-variables — "Comment Sidebar Wireframe Variables" (full per-slot reference)
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-v2-wireframes — "V2 Sidebar Wireframes" (Search / FilterButton / FilterContainer / FullscreenButton / ListGroupHeader new-slot bindings)
 - https://docs.velt.dev/ui-customization/template-variables — "Template Variables overview"
-- Cross-reference: `ui/ui-wireframes.md` (structural catalog), `surface/surface-sidebar.md` (sidebar surface), `surface/surface-sidebar-v2.md` (V2 primitives), `wireframe-variables-comment-dialog.md` (variables that resolve inside nested dialog tags rendered by the list / focused-thread / page-mode composer), `wireframe-variables-comment-sidebar-button.md` (the button that opens this sidebar)
+- Cross-reference: `ui/ui-wireframes.md` (structural catalog), `surface/surface-sidebar.md` (sidebar surface), `surface/surface-sidebar-v2.md` (V2 primitives + declarative filter model), `wireframe-variables-comment-dialog.md` (variables that resolve inside nested dialog tags rendered by the list / focused-thread / page-mode composer), `wireframe-variables-comment-sidebar-button.md` (the button that opens this sidebar)
