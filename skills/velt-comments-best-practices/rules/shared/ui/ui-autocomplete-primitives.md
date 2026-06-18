@@ -2,7 +2,7 @@
 title: Use Standalone Autocomplete Primitives for Custom Autocomplete UIs
 impact: MEDIUM
 impactDescription: Build fully custom autocomplete UIs without requiring the full VeltAutocomplete panel, using independently importable primitive components
-tags: autocomplete, primitives, VeltAutocompleteOption, VeltAutocompleteChip, VeltAutocompleteEmpty, VeltAutocompleteEmptyWireframe, customization, ui, multiSelect, selectedFirstOrdering, readOnly, inline, contacts
+tags: autocomplete, primitives, VeltAutocompleteOption, VeltAutocompleteChip, VeltAutocompleteEmpty, VeltAutocompleteEmptyWireframe, VeltAutocompletePanel, customization, ui, multiSelect, selectedFirstOrdering, readOnly, inline, contacts, defaultCondition, hideInput, enableOnFocus, position
 ---
 
 ## Use Standalone Autocomplete Primitives for Custom Autocomplete UIs
@@ -154,12 +154,53 @@ These props are added to the parent `<VeltAutocomplete>` / `<velt-autocomplete>`
 
 <!-- TODO (v5.0.2-beta.5): Verify default values for readOnly and inline props on VeltAutocomplete. Release note confirms the prop names and types but does not specify default values. -->
 
+**`VeltAutocompletePanel` — standalone panel (v5.0.2-beta.11+):**
+
+Use `VeltAutocompletePanel` when you need an autocomplete panel that is not tied to a text-input @-mention (e.g. an inline user picker, assignee selector, or standalone contact chooser). It accepts all of the `VeltAutocomplete` panel props plus `type`, `hideInput`, `placeholder`, `enableOnFocus`, `position`, and `defaultCondition`.
+
+```jsx
+// React — inline user picker that always renders
+<VeltAutocompletePanel
+  type="contact"
+  multiSelect={true}
+  selectedFirstOrdering={true}
+  inline={true}
+  defaultCondition={false}
+/>
+```
+
+```html
+<!-- HTML — same shape, kebab-case attrs -->
+<velt-autocomplete-panel
+  type="contact"
+  multi-select="true"
+  selected-first-ordering="true"
+  inline="true"
+  default-condition="false">
+</velt-autocomplete-panel>
+```
+
+| React Prop | HTML Attribute | Type | Default | Description |
+|------------|---------------|------|---------|-------------|
+| `type` | `type` | `'contact' \| 'generic'` | `'contact'` | Type of options the panel renders |
+| `hideInput` | `hide-input` | `boolean` | `false` | Hides the search input |
+| `placeholder` | `placeholder` | `string` | — | Placeholder text for the search input |
+| `multiSelect` | `multi-select` | `boolean` | `false` | Allows selecting multiple contacts |
+| `selectedFirstOrdering` | `selected-first-ordering` | `boolean` | `false` | Shows selected items first in the list |
+| `readOnly` | `read-only` | `boolean` | `false` | Disables user interaction |
+| `inline` | `inline` | `boolean` | `false` | Renders the panel inline |
+| `enableOnFocus` | `enable-on-focus` | `boolean` | `false` | Opens the panel when the input receives focus |
+| `position` | `position` | `'above' \| 'below' \| 'auto' \| string` | `'auto'` | Position of the panel relative to its anchor |
+| `defaultCondition` | `default-condition` | `boolean` | `true` | When `false`, the component always renders regardless of internal state |
+
 **Verification Checklist:**
 - [ ] Primitives imported from `'@veltdev/react'` individually (not from the full panel import path)
 - [ ] `VeltAutocompleteEmptyWireframe` is wrapped inside `<VeltWireframe>` when customizing the empty state
 - [ ] `VeltAutocompleteOptionDescription` uses the `field` prop to specify which user field to display
 - [ ] HTML custom elements use separate opening and closing tags (not self-closing)
+- [ ] When using `VeltAutocompletePanel` standalone, pick `VeltAutocompletePanel` (not `VeltAutocomplete`) for inline pickers that are not tied to a text-input @-mention
 
 **Source Pointers:**
 - https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog-structure - Autocomplete and dialog customization
 - https://docs.velt.dev/api-reference/sdk/models/data-models - User model reference for `userObject` and `contacts` types
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/primitives - VeltAutocompletePanel standalone primitive reference

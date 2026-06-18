@@ -1,6 +1,6 @@
 # Velt Notifications Best Practices
 
-**Version 1.1.0**  
+**Version 1.1.1**  
 Velt  
 January 2026
 
@@ -189,7 +189,22 @@ function ConfigureNotifications() {
 }
 ```
 
-Reference: https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Tab Configuration
+**Primitive-Level Feed Selection (`listType`):**
+
+```html
+import {
+  VeltNotificationsPanelContentList,
+  VeltNotificationsPanelContentLoadMore,
+} from '@veltdev/react';
+
+// Render the "For You" feed in a custom panel
+<VeltNotificationsPanelContentList listType="for-you" />
+<VeltNotificationsPanelContentLoadMore listType="for-you" />
+<velt-notifications-panel-content-list list-type="for-you"></velt-notifications-panel-content-list>
+<velt-notifications-panel-content-load-more list-type="for-you"></velt-notifications-panel-content-load-more>
+```
+
+`listType` is ignored when `notifications` is bound directly to the list primitive.
 
 ---
 
@@ -363,6 +378,22 @@ notificationElement.enableCurrentDocumentOnly();
 // To restore default:
 notificationElement.disableCurrentDocumentOnly();
 ```
+
+**Primitive-Level Document Scoping (`documentId`):**
+
+```html
+import {
+  VeltNotificationsPanelContentList,
+  VeltNotificationsPanelContentLoadMore,
+} from '@veltdev/react';
+
+<VeltNotificationsPanelContentList documentId="doc-123" />
+<VeltNotificationsPanelContentLoadMore documentId="doc-123" />
+<velt-notifications-panel-content-list document-id="doc-123"></velt-notifications-panel-content-list>
+<velt-notifications-panel-content-load-more document-id="doc-123"></velt-notifications-panel-content-load-more>
+```
+
+`documentId` is ignored when `notifications` is bound directly to the list primitive.
 
 ---
 
@@ -2046,3 +2077,4 @@ Reference: https://docs.velt.dev/async-collaboration/notifications/setup - Setup
 - https://console.velt.dev
 - https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel/wireframe-variables
 - https://docs.velt.dev/ui-customization/features/async/notifications/notifications-tool/wireframe-variables
+- https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel/primitives

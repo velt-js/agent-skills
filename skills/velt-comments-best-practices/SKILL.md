@@ -4,7 +4,7 @@ description: Velt Comments implementation patterns and best practices for React,
 license: MIT
 metadata:
   author: velt
-  version: "1.4.0"
+  version: "1.4.1"
 ---
 
 # Velt Comments Best Practices

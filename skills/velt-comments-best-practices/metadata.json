@@ -1,5 +1,5 @@
 {
-  "version": "1.1.6",
+  "version": "1.1.7",
   "organization": "Velt",
   "date": "January 2026",
   "abstract": "Comprehensive Velt Comments implementation guide covering comment modes, setup patterns, UI customization, and best practices. This skill provides evidence-backed patterns for integrating Velt's collaborative comments feature into React, Next.js, and other web applications. Covers Freestyle, Popover, Stream, Text, Page Mode, Inline Comments, rich text editor integrations (TipTap, SlateJS, Lexical), media player comments (Video, Lottie), chart comments (Highcharts, ChartJS, Nivo), and standalone component patterns.",
@@ -18,6 +18,11 @@
     "https://docs.velt.dev/ui-customization/features/async/comments/autocomplete-wireframe-variables",
     "https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar-button/wireframe-variables",
     "https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-wireframe-variables",
-    "https://docs.velt.dev/async-collaboration/comments/setup/apryse"
+    "https://docs.velt.dev/async-collaboration/comments/setup/apryse",
+    "https://docs.velt.dev/api-reference/sdk/models/data-models",
+    "https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/primitives",
+    "https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-v2-primitives",
+    "https://docs.velt.dev/ui-customization/features/async/comments/inline-comments-section/primitives",
+    "https://docs.velt.dev/ui-customization/features/async/comments/multithread-comments/primitives"
   ]
 }
