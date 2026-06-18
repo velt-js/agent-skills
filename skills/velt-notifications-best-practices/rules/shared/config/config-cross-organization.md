@@ -13,7 +13,6 @@ When users belong to multiple organizations, the notification panel's "For You" 
 - This is opt-in — default behavior is unchanged unless explicitly enabled
 - Only the "For You" feed is supported. The `'all'` feed value in `CrossOrganizationConfig.feeds` is silently ignored with a warning
 - The current organization is always excluded from cross-org results (it's already shown by default)
-- Default `maxOrganizations` is `20`
 
 ### React: Enable via Props
 
@@ -24,14 +23,12 @@ The `enableCrossOrganization` prop works on both `VeltNotificationsTool` and `Ve
 <VeltNotificationsTool enableCrossOrganization={true} />
 <VeltNotificationsPanel enableCrossOrganization={true} />
 
-{/* Enable with specific org allowlist and limit */}
+{/* Enable with specific org allowlist */}
 <VeltNotificationsTool enableCrossOrganization={{
     organizationIds: ['org-1', 'org-2'],
-    maxOrganizations: 10,
 }} />
 <VeltNotificationsPanel enableCrossOrganization={{
     organizationIds: ['org-1', 'org-2'],
-    maxOrganizations: 10,
 }} />
 ```
 
@@ -46,7 +43,6 @@ notificationElement.enableCrossOrganization();
 // Enable with config
 notificationElement.enableCrossOrganization({
     organizationIds: ['org-1', 'org-2'],
-    maxOrganizations: 10,
 });
 
 // Disable (preferred pattern)
@@ -72,7 +68,7 @@ const subscription = notificationElement.getCrossOrganizationConfig$().subscribe
 <velt-notifications-panel enable-cross-organization="true"></velt-notifications-panel>
 
 <!-- Enable with config (JSON string) -->
-<velt-notifications-tool enable-cross-organization='{"organizationIds":["org-1","org-2"],"maxOrganizations":10}'>
+<velt-notifications-tool enable-cross-organization='{"organizationIds":["org-1","org-2"]}'>
 </velt-notifications-tool>
 ```
 
@@ -83,7 +79,6 @@ const subscription = notificationElement.getCrossOrganizationConfig$().subscribe
 | `enabled` | `boolean` | `true` | Set to `false` to disable (equivalent to `disableCrossOrganization()`) |
 | `organizationIds` | `string[]` | — | Allowlist; when omitted, all indexed orgs are eligible |
 | `excludeOrganizationIds` | `string[]` | — | Additional orgs to exclude. Current org always excluded |
-| `maxOrganizations` | `number` | `20` | Upper bound on orgs queried |
 | `feeds` | `('forYou' \| 'all')[]` | — | Only `'forYou'` is supported; `'all'` is ignored with a warning |
 
 **Equivalences:** Passing `{ enabled: false }` to `enableCrossOrganization()` is the same as calling `disableCrossOrganization()`. Passing `null` or calling without arguments opts in with all defaults.

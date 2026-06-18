@@ -1,5 +1,5 @@
 # Velt Notifications Best Practices
-|v1.1.1|Velt|January 2026
+|v1.1.2|Velt|January 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
 |root: ./rules
 
