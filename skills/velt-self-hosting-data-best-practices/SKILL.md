@@ -78,8 +78,6 @@ Reference these guidelines when:
 - `users-service` — getUsers extra filters plus getUsersCount, getDocUsers, and invitation lifecycle methods on sdk.api.users
 - `crdt-service` — Delete CRDT editor data via sdk.api.crdt.deleteCrdtData (targeted or wholesale)
 - `workspace-service` — Workspace extensions: domain requests, API key copy/update, service configs, advanced (Svix) webhooks, ensureWorkspaceAuthToken, and the v0.1.11 getApiKeyMetadata endpoint clarification
-- `agents-service` — Manage AI agents, versions, executions, prompt tooling, and agent groups via sdk.api.agents
-- `memory-service` — Semantic search, knowledge ingestion, alerts, and operator tools via sdk.api.memory
 - `workflow-service` — Workflow definitions with optimistic concurrency, executions, lifecycle events, and step resolution via sdk.api.workflow
 
 ### 7. Debugging (LOW-MEDIUM)

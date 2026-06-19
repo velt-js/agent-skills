@@ -1,6 +1,6 @@
 # Velt Node Sdk Best Practices
 
-**Version 0.2.1**  
+**Version 0.2.2**  
 Velt  
 June 2026
 
