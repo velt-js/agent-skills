@@ -53,6 +53,31 @@ Token is separate — it's a synchronous property `sdk.selfHosting.token`, not a
 - Activities has no `deleteActivity` method
 - Self-hosting Users only exposes `getUsers` — use `sdk.api.users.*` for write paths
 - Recorder's loader is `getRecorder` (singular), not `getRecorders`
+- `saveReactions` reactionAnnotation entries: only `annotationId` is required; `icon`, `from`, and `metadata` are all optional. The reacting user goes in `from` (a `PartialUser`) — **renamed from `user` in `@veltdev/node` v1.0.5**, matching the frontend `PartialReactionAnnotation.from`. Pre-v1.0.5 code using `user` is silently dropped.
+
+**Incorrect — pre-v1.0.5 `user` field is silently ignored:**
+
+```ts
+const svc = await sdk.selfHosting.getReactions();
+await svc.saveReactions({
+  metadata: { organizationId: 'org-123', documentId: 'doc-1' },
+  reactionAnnotation: {
+    'reaction-1': { annotationId: 'reaction-1', icon: 'thumbsup', user: { userId: 'u-1' } }, // `user` is not a recognized key on v1.0.5+
+  },
+});
+```
+
+**Correct — use `from`:**
+
+```ts
+const svc = await sdk.selfHosting.getReactions();
+await svc.saveReactions({
+  metadata: { organizationId: 'org-123', documentId: 'doc-1' },
+  reactionAnnotation: {
+    'reaction-1': { annotationId: 'reaction-1', icon: 'thumbsup', from: { userId: 'u-1' }, metadata: {} },
+  },
+});
+```
 
 **Canonical write:**
 
@@ -87,5 +112,6 @@ await svc.deleteComment({
 - [ ] Loader names match the table (plural for most, `getRecorder` is the exception)
 - [ ] `database` was supplied to `VeltSDK.initialize()` — else these methods throw
 - [ ] No `deleteActivity` or self-hosting `saveUsers`/`deleteUsers` — those don't exist
+- [ ] `saveReactions` entries use `from` (not `user`) for the reacting user on `@veltdev/node` v1.0.5+
 
 **Source Pointer:** `backend-sdks/node.mdx` (Self-Hosting Backend opening + all 7 service subsections); `api-reference/sdk/models/data-models.mdx` (Node SDK Types → `VeltSelfHostingResponse`, per-method request types)
