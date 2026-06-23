@@ -2,7 +2,7 @@
 title: Use Comments Sidebar for Comment Navigation
 impact: MEDIUM-HIGH
 impactDescription: Central panel for viewing, filtering, and navigating all comments
-tags: sidebar, veltcommentssidebar, navigation, filter, embed-mode, page-mode, floating-mode, fullscreen, version, virtual-scroll, placeholders
+tags: sidebar, veltcommentssidebar, navigation, filter, embed-mode, page-mode, floating-mode, fullscreen, virtual-scroll, placeholders
 ---
 
 ## Use Comments Sidebar for Comment Navigation
@@ -67,23 +67,17 @@ export default function App() {
 />
 ```
 
-**Opt into V2 from V1 (`version="2"` escape-hatch):**
+**V2 Sidebar Entry:**
 
-`version="2"` on `VeltCommentsSidebar` (or `version="2"` on `<velt-comments-sidebar>`) routes to the V2 implementation without swapping the import. Equivalent to mounting `VeltCommentsSidebarV2` / `<velt-comments-sidebar-v2>` directly; do not mount both simultaneously. Prefer the dedicated V2 tag when V2 is the long-term choice — see `surface/surface-sidebar-v2.md`.
+For the primitive-based V2 sidebar, import `VeltCommentsSidebarV2` directly in React or mount `<velt-comments-sidebar-v2>` in other frameworks. The current V2 setup docs no longer document the V1 component prop opt-in as a setup path.
 
 ```jsx
-// React — V1 component routed to V2 implementation
-<VeltCommentsSidebar version="2" />
+import { VeltCommentsSidebarV2 } from '@veltdev/react';
 
-// Equivalent direct V2 usage:
 <VeltCommentsSidebarV2 />
 ```
 
 ```html
-<!-- HTML / Other Frameworks — V1 element routed to V2 -->
-<velt-comments-sidebar version="2"></velt-comments-sidebar>
-
-<!-- Equivalent direct V2 usage: -->
 <velt-comments-sidebar-v2></velt-comments-sidebar-v2>
 ```
 
@@ -132,7 +126,6 @@ The React TypeScript interface; HTML attributes use the same names in kebab-case
 | `position` | `'right' \| 'left'` | `'right'` | Side of the viewport the sidebar opens from. Narrowed from `string`. |
 | `variant` | string | `'sidebar'` | Layout variant id. |
 | `forceClose` | boolean | `true` | Force-close on outside click, even when opened via API. Does not affect embed mode. (V2 default flipped from `false` → `true`.) |
-| `version` | string | — | `"2"` routes `VeltCommentsSidebar` to the V2 implementation. |
 | `fullScreen` | boolean | `false` | Add a fullscreen toggle button to the header. |
 | `fullExpanded` | boolean | `false` | Render the sidebar fully expanded. |
 | `shadowDom` | boolean | input `false`; shadow-DOM isolation is on by default | Render the sidebar body inside a shadow root for style isolation. Opt out via `shadow-dom="false"` or `disableSidebarShadowDOM()`. |
@@ -193,7 +186,7 @@ The React TypeScript interface; HTML attributes use the same names in kebab-case
 For the V2-only declarative filter / sort surface (`filters`, `miniFilters`, `minimalFilters`, `filterOperator`, `filterPanelLayout`, `filterOptionLayout`, `filterCount`, `filterGhostCommentsInSidebar`, `systemFiltersOperator`, `sortBy`, `sortOrder`, `sortData`, `defaultMinimalFilter`) and the `applyCommentSidebarClientFilters()` API, see `surface/surface-sidebar-v2.md`.
 
 **Verification Checklist:**
-- [ ] `VeltCommentsSidebar` mounted (or `version="2"` set if routing to V2 from a V1 import)
+- [ ] `VeltCommentsSidebar` mounted for V1/sidebar-prop usage, or `VeltCommentsSidebarV2` / `<velt-comments-sidebar-v2>` mounted directly for V2 setup
 - [ ] `VeltSidebarButton` provides toggle
 - [ ] `embedMode` set if using a custom container
 - [ ] `position` is `'right'` or `'left'` (no other strings — the union is narrowed)
@@ -204,5 +197,5 @@ For the V2-only declarative filter / sort surface (`filters`, `miniFilters`, `mi
 **Source Pointers:**
 - https://docs.velt.dev/async-collaboration/comments-sidebar/overview - Overview
 - https://docs.velt.dev/async-collaboration/comments-sidebar/v1/customize-behavior - V1 setup + customize-behavior (`/customize-behavior` paths re-rooted to `/v1/customize-behavior`)
-- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/setup - V2 entry (direct component or `version="2"` opt-in)
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/setup - V2 entry (direct `VeltCommentsSidebarV2` / `<velt-comments-sidebar-v2>` setup)
 - https://docs.velt.dev/api-reference/sdk/models/data-models#veltcommentssidebarprops - `VeltCommentsSidebarProps`

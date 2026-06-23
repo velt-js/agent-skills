@@ -2660,6 +2660,7 @@ result = sdk.api.documents.addDocuments(
 | GDPR | `sdk.api.gdpr` |
 | Workspace | `sdk.api.workspace` |
 | Token | `sdk.api.token` |
+| Workflow | `sdk.api.workflow` |
 
 ---
 

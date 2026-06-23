@@ -34,21 +34,22 @@ Comprehensive Velt Comments implementation guide covering comment modes, setup p
    - 3.4 [Add Comments to Nivo Charts](#34-add-comments-to-nivo-charts)
    - 3.5 [Add Data Point Comments to Highcharts](#35-add-data-point-comments-to-highcharts)
    - 3.6 [Integrate Comments with Ace Editor](#36-integrate-comments-with-ace-editor)
-   - 3.7 [Integrate Comments with CodeMirror Editor](#37-integrate-comments-with-codemirror-editor)
-   - 3.8 [Integrate Comments with Lexical Editor](#38-integrate-comments-with-lexical-editor)
-   - 3.9 [Integrate Comments with Plate Editor](#39-integrate-comments-with-plate-editor)
-   - 3.10 [Integrate Comments with Quill Editor](#310-integrate-comments-with-quill-editor)
-   - 3.11 [Integrate Comments with SlateJS Editor](#311-integrate-comments-with-slatejs-editor)
-   - 3.12 [Integrate Comments with TipTap Editor](#312-integrate-comments-with-tiptap-editor)
-   - 3.13 [Add Frame-by-Frame Comments to Lottie Animations](#313-add-frame-by-frame-comments-to-lottie-animations)
-   - 3.14 [Integrate Comments with Custom Video Player](#314-integrate-comments-with-custom-video-player)
-   - 3.15 [Use Freestyle Mode for Pin-Anywhere Comments](#315-use-freestyle-mode-for-pin-anywhere-comments)
-   - 3.16 [Use Inline Comments for Traditional Thread Style](#316-use-inline-comments-for-traditional-thread-style)
-   - 3.17 [Use Page Mode for Page-Level Comments](#317-use-page-mode-for-page-level-comments)
-   - 3.18 [Use Popover Mode for Table Cell Comments](#318-use-popover-mode-for-table-cell-comments)
-   - 3.19 [Use Prebuilt Video Player for Quick Setup](#319-use-prebuilt-video-player-for-quick-setup)
-   - 3.20 [Use Stream Mode for Google Docs-Style Comments](#320-use-stream-mode-for-google-docs-style-comments)
-   - 3.21 [Use Text Mode for Text Highlight Comments](#321-use-text-mode-for-text-highlight-comments)
+   - 3.7 [Integrate Comments with Apryse WebViewer](#37-integrate-comments-with-apryse-webviewer)
+   - 3.8 [Integrate Comments with CodeMirror Editor](#38-integrate-comments-with-codemirror-editor)
+   - 3.9 [Integrate Comments with Lexical Editor](#39-integrate-comments-with-lexical-editor)
+   - 3.10 [Integrate Comments with Plate Editor](#310-integrate-comments-with-plate-editor)
+   - 3.11 [Integrate Comments with Quill Editor](#311-integrate-comments-with-quill-editor)
+   - 3.12 [Integrate Comments with SlateJS Editor](#312-integrate-comments-with-slatejs-editor)
+   - 3.13 [Integrate Comments with TipTap Editor](#313-integrate-comments-with-tiptap-editor)
+   - 3.14 [Add Frame-by-Frame Comments to Lottie Animations](#314-add-frame-by-frame-comments-to-lottie-animations)
+   - 3.15 [Integrate Comments with Custom Video Player](#315-integrate-comments-with-custom-video-player)
+   - 3.16 [Use Freestyle Mode for Pin-Anywhere Comments](#316-use-freestyle-mode-for-pin-anywhere-comments)
+   - 3.17 [Use Inline Comments for Traditional Thread Style](#317-use-inline-comments-for-traditional-thread-style)
+   - 3.18 [Use Page Mode for Page-Level Comments](#318-use-page-mode-for-page-level-comments)
+   - 3.19 [Use Popover Mode for Table Cell Comments](#319-use-popover-mode-for-table-cell-comments)
+   - 3.20 [Use Prebuilt Video Player for Quick Setup](#320-use-prebuilt-video-player-for-quick-setup)
+   - 3.21 [Use Stream Mode for Google Docs-Style Comments](#321-use-stream-mode-for-google-docs-style-comments)
+   - 3.22 [Use Text Mode for Text Highlight Comments](#322-use-text-mode-for-text-highlight-comments)
 
 4. [Standalone Components](#4-standalone-components) — **MEDIUM-HIGH**
    - 4.1 [Use Comment Pin for Manual Position Control](#41-use-comment-pin-for-manual-position-control)
@@ -1250,7 +1251,124 @@ velt-comment-text {
 
 ---
 
-### 3.7 Integrate Comments with CodeMirror Editor
+### 3.7 Integrate Comments with Apryse WebViewer
+
+**Impact: HIGH (PDF and DOCX text comments in Apryse WebViewer with durable anchors and cleanup)**
+
+Use `@veltdev/apryse-velt-comments` when adding Velt text comments to Apryse WebViewer documents. The integration attaches to one WebViewer instance, renders existing Velt annotations back into Apryse, and stores durable text anchors that survive document edits and viewer/docxEditor mode switches.
+
+**Incorrect (using default text comments without the Apryse extension):**
+
+```jsx
+// Default text mode cannot render selections inside the Apryse canvas.
+<VeltProvider apiKey="API_KEY">
+  <VeltComments textMode={true} />
+  <div ref={viewerRef} />
+</VeltProvider>
+```
+
+**Correct (React / Next.js with the Apryse extension):**
+
+```jsx
+npm install @veltdev/apryse-velt-comments @pdftron/webviewer
+import { VeltProvider, VeltComments } from '@veltdev/react';
+
+<VeltProvider apiKey="API_KEY">
+  <VeltComments textMode={false} />
+</VeltProvider>
+import { useEffect, useRef, useState } from 'react';
+import { useCommentAnnotations } from '@veltdev/react';
+import {
+  ApryseVeltComments,
+  addComment,
+  renderComments,
+} from '@veltdev/apryse-velt-comments';
+
+function ApryseEditor() {
+  const viewerRef = useRef(null);
+  const instanceRef = useRef(null);
+  const extensionRef = useRef(null);
+  const [instance, setInstance] = useState(null);
+  const annotations = useCommentAnnotations();
+
+  useEffect(() => {
+    if (!viewerRef.current || instanceRef.current) return;
+    let cancelled = false;
+
+    import('@pdftron/webviewer').then(({ default: WebViewer }) => {
+      if (cancelled) return;
+      WebViewer(
+        {
+          path: 'lib/webviewer',
+          licenseKey: 'YOUR_APRYSE_LICENSE_KEY',
+          initialDoc: '/your-document.docx',
+          initialMode: 'docxEditor',
+        },
+        viewerRef.current,
+      ).then((webViewerInstance) => {
+        if (cancelled) return;
+        instanceRef.current = webViewerInstance;
+        extensionRef.current = ApryseVeltComments
+          .configure({ editorId: 'contract-viewer' })
+          .attach(webViewerInstance);
+        setInstance(webViewerInstance);
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      extensionRef.current?.detach();
+      extensionRef.current = null;
+      instanceRef.current = null;
+      setInstance(null);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (instance && annotations) {
+      renderComments({ instance, commentAnnotations: annotations });
+    }
+  }, [instance, annotations]);
+
+  return (
+    <>
+      <button
+        onClick={async () => {
+          if (!instance) return;
+          const result = await addComment({ instance });
+          if (!result) {
+            console.warn('Select text in the WebViewer before adding a comment.');
+          }
+        }}
+      >
+        Add Comment
+      </button>
+      <div ref={viewerRef} style={{ width: '100%', height: '100vh' }} />
+    </>
+  );
+}
+```
+
+`@pdftron/webviewer` is a peer dependency. Copy its `public/core` and `public/ui` runtime folders into your app's public assets, then point WebViewer's `path` option at that location.
+**Step 2: Mount Velt comments with default text mode disabled**
+**Step 3: Dynamically create WebViewer and attach the Velt extension**
+
+**Style Apryse highlights:**
+
+```css
+velt-comment-text .velt-apryse-highlight {
+  background-color: rgba(60, 130, 246, 0.30) !important;
+  border-bottom: 2px solid rgba(60, 130, 246, 0.95) !important;
+}
+
+velt-comment-text:hover .velt-apryse-highlight {
+  background-color: rgba(60, 130, 246, 0.50) !important;
+}
+```
+
+---
+
+### 3.8 Integrate Comments with CodeMirror Editor
 
 **Impact: MEDIUM (Text comments in CodeMirror code editor with highlight decorations)**
 
@@ -1393,7 +1511,7 @@ velt-comment-text {
 
 ---
 
-### 3.8 Integrate Comments with Lexical Editor
+### 3.9 Integrate Comments with Lexical Editor
 
 **Impact: HIGH (Text comments in Lexical rich text editor with CommentNode)**
 
@@ -1487,7 +1605,7 @@ velt-comment-text[comment-available="true"] {
 
 ---
 
-### 3.9 Integrate Comments with Plate Editor
+### 3.10 Integrate Comments with Plate Editor
 
 **Impact: MEDIUM (Text comments in Plate.js rich text editor with highlight marks)**
 
@@ -1601,7 +1719,7 @@ velt-comment-text {
 
 ---
 
-### 3.10 Integrate Comments with Quill Editor
+### 3.11 Integrate Comments with Quill Editor
 
 **Impact: MEDIUM (Text comments in Quill rich text editor with highlight marks)**
 
@@ -1733,7 +1851,7 @@ velt-comment-text {
 
 ---
 
-### 3.11 Integrate Comments with SlateJS Editor
+### 3.12 Integrate Comments with SlateJS Editor
 
 **Impact: HIGH (Text comments in SlateJS rich text editor with custom elements)**
 
@@ -1828,7 +1946,7 @@ velt-comment-text[comment-available="true"] {
 
 ---
 
-### 3.12 Integrate Comments with TipTap Editor
+### 3.13 Integrate Comments with TipTap Editor
 
 **Impact: HIGH (Text comments in TipTap rich text editor with highlight marks)**
 
@@ -1951,7 +2069,7 @@ velt-comment-text[comment-available="true"] {
 
 ---
 
-### 3.13 Add Frame-by-Frame Comments to Lottie Animations
+### 3.14 Add Frame-by-Frame Comments to Lottie Animations
 
 **Impact: HIGH (Comments synced to specific frames in Lottie animations)**
 
@@ -2108,7 +2226,7 @@ commentElement.allowedElementIds(['lottiePlayerContainer']);
 
 ---
 
-### 3.14 Integrate Comments with Custom Video Player
+### 3.15 Integrate Comments with Custom Video Player
 
 **Impact: HIGH (Add comments to any video player with timeline and sidebar)**
 
@@ -2252,7 +2370,7 @@ const onCommentClick = async (event) => {
 
 ---
 
-### 3.15 Use Freestyle Mode for Pin-Anywhere Comments
+### 3.16 Use Freestyle Mode for Pin-Anywhere Comments
 
 **Impact: HIGH (Default mode - enables clicking anywhere to pin comments)**
 
@@ -2329,7 +2447,7 @@ export default function App() {
 
 ---
 
-### 3.16 Use Inline Comments for Traditional Thread Style
+### 3.17 Use Inline Comments for Traditional Thread Style
 
 **Impact: HIGH (Traditional comment threads bound to container elements)**
 
@@ -2479,7 +2597,7 @@ export default function App() {
 
 ---
 
-### 3.17 Use Page Mode for Page-Level Comments
+### 3.18 Use Page Mode for Page-Level Comments
 
 **Impact: HIGH (Comments at page level via sidebar, not attached to elements)**
 
@@ -2581,7 +2699,7 @@ function PageModeControls() {
 
 ---
 
-### 3.18 Use Popover Mode for Table Cell Comments
+### 3.19 Use Popover Mode for Table Cell Comments
 
 **Impact: HIGH (Google Sheets-style comments attached to specific elements)**
 
@@ -2679,7 +2797,7 @@ export default function App() {
 
 ---
 
-### 3.19 Use Prebuilt Video Player for Quick Setup
+### 3.20 Use Prebuilt Video Player for Quick Setup
 
 **Impact: HIGH (Velt-provided video player with built-in commenting)**
 
@@ -2724,7 +2842,7 @@ export default function App() {
 
 ---
 
-### 3.20 Use Stream Mode for Google Docs-Style Comments
+### 3.21 Use Stream Mode for Google Docs-Style Comments
 
 **Impact: HIGH (Comments appear in a side column synchronized with scroll position)**
 
@@ -2780,7 +2898,7 @@ export default function App() {
 
 ---
 
-### 3.21 Use Text Mode for Text Highlight Comments
+### 3.22 Use Text Mode for Text Highlight Comments
 
 **Impact: HIGH (Comments attached to selected text, like Google Docs highlighting)**
 
@@ -3383,8 +3501,6 @@ commentElement.toggleCommentSidebar();
 import { VeltCommentsSidebarV2 } from '@veltdev/react';
 
 <VeltCommentsSidebarV2 />
-// or
-<VeltCommentsSidebar version="2" />
 ```
 
 V2 replaces the per-category filter panel with a unified `FilterDropdown`. For V2 wireframe customization, see the Comment Sidebar V2 Structure docs.
@@ -3455,18 +3571,12 @@ export default function App() {
 />
 ```
 
-**Opt into V2 from V1 (`version="2"` escape-hatch):**
+**V2 Sidebar Entry:**
 
 ```html
-// React — V1 component routed to V2 implementation
-<VeltCommentsSidebar version="2" />
+import { VeltCommentsSidebarV2 } from '@veltdev/react';
 
-// Equivalent direct V2 usage:
 <VeltCommentsSidebarV2 />
-<!-- HTML / Other Frameworks — V1 element routed to V2 -->
-<velt-comments-sidebar version="2"></velt-comments-sidebar>
-
-<!-- Equivalent direct V2 usage: -->
 <velt-comments-sidebar-v2></velt-comments-sidebar-v2>
 ```
 
@@ -3641,7 +3751,7 @@ export default function App() {
 ></velt-comments-sidebar-v2>
 ```
 
-`<velt-comments-sidebar-v2>` / `VeltCommentsSidebarV2` is the only entry point documented by the V2 setup page — the legacy `version="2"` opt-in on the V1 component (`<VeltCommentsSidebar version="2" />` / `<velt-comments-sidebar version="2">`) is no longer shown in `async-collaboration/comments-sidebar/v2/setup`. Mount the dedicated V2 tag directly; do not pair it with a V1 tag.
+`<velt-comments-sidebar-v2>` / `VeltCommentsSidebarV2` is the only entry point documented by the V2 setup page. The old V1 component prop opt-in is no longer shown in `async-collaboration/comments-sidebar/v2/setup`. Mount the dedicated V2 tag directly; do not pair it with a V1 tag.
 
 **VeltCommentsSidebarV2 Props (core layout / event surface):**
 

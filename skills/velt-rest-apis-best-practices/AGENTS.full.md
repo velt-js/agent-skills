@@ -29,9 +29,11 @@ Comprehensive guide for integrating Velt's server-side surface: the Velt REST AP
    - 2.2 [Approval Engine REST API — moved to its own skill](#22-approval-engine-rest-api-moved-to-its-own-skill)
    - 2.3 [Comment Annotations and Comments CRUD via REST API](#23-comment-annotations-and-comments-crud-via-rest-api)
    - 2.4 [Document, Organization, and Folder Management via REST API](#24-document-organization-and-folder-management-via-rest-api)
-   - 2.5 [Manage Advanced Webhooks via REST API](#25-manage-advanced-webhooks-via-rest-api)
-   - 2.6 [Notification Management via REST API](#26-notification-management-via-rest-api)
-   - 2.7 [User Management via REST API](#27-user-management-via-rest-api)
+   - 2.5 [List agent executions through the Agents REST API](#25-list-agent-executions-through-the-agents-rest-api)
+   - 2.6 [Manage Advanced Webhooks via REST API](#26-manage-advanced-webhooks-via-rest-api)
+   - 2.7 [Notification Management via REST API](#27-notification-management-via-rest-api)
+   - 2.8 [Use Memory REST APIs for judgments, knowledge, alerts, and suggestions](#28-use-memory-rest-apis-for-judgments-knowledge-alerts-and-suggestions)
+   - 2.9 [User Management via REST API](#29-user-management-via-rest-api)
 
 3. [Webhooks](#3-webhooks) — **MEDIUM**
    - 3.1 [Webhook v1 Setup and Event Handling](#31-webhook-v1-setup-and-event-handling)
@@ -298,7 +300,7 @@ References:
 
 **Impact: HIGH**
 
-CRUD patterns for the Velt REST API v2 surface — comment annotations and comments, notifications and notification config, users (add / get / update / delete plus GDPR data operations), documents / organizations / folders, activity logs / CRDT documents, and the Approval Engine (14 `/v2/workflow/` endpoints covering definitions, executions, and steps). All endpoints are POST and use the `https://api.velt.dev/v2` base URL; endpoint identity is verbatim (path and version prefix matter). Includes request and response shape guidance, including the GET response envelope (annotation-level fields, expanded `reactionAnnotations` objects vs. `reactionAnnotationIds`, timestamp formats), idempotency guidance for execution dispatch, and webhook signature verification patterns.
+CRUD patterns for the Velt REST API v2 surface — comment annotations and comments, notifications and notification config, users (add / get / update / delete plus GDPR data operations), documents / organizations / folders, activity logs / CRDT documents, agent execution listing, Memory judgments / knowledge / alerts, and the Approval Engine pointer. All endpoints are POST and use the `https://api.velt.dev/v2` base URL; endpoint identity is verbatim (path and version prefix matter). Includes request and response shape guidance, including the GET response envelope (annotation-level fields, expanded `reactionAnnotations` objects vs. `reactionAnnotationIds`, timestamp formats), idempotency guidance, and webhook signature verification patterns.
 
 ### 2.1 Activity Logs and CRDT Data Endpoints
 
@@ -755,7 +757,64 @@ References:
 
 ---
 
-### 2.5 Manage Advanced Webhooks via REST API
+### 2.5 List agent executions through the Agents REST API
+
+**Impact: MEDIUM (Server-side pagination of agent execution history without fetching executions one by one)**
+
+Use `POST /v2/agents/execution/list` to paginate through an agent's execution history. This endpoint is for reading execution summaries by agent, document, organization, or status; it is not the workflow/Approval Engine API.
+
+**Incorrect (using workflow endpoints or fetching executions one at a time):**
+
+```bash
+# Wrong family: workflow executions are Approval Engine executions,
+# not generic agent execution history.
+POST https://api.velt.dev/v2/workflow/executions/list
+{ "data": { "agentId": "agent_123" } }
+```
+
+**Correct (list agent execution summaries):**
+
+```json
+POST https://api.velt.dev/v2/agents/execution/list
+x-velt-api-key: YOUR_API_KEY
+x-velt-auth-token: YOUR_AUTH_TOKEN
+
+{
+  "data": {
+    "agentId": "agent_123",
+    "documentId": "doc_001",
+    "status": "failed",
+    "pageSize": 50,
+    "orderDirection": "desc"
+  }
+}
+{
+  "result": {
+    "items": [
+      {
+        "id": "exec_1711900000000_abc123",
+        "agentId": "agent_123",
+        "agentName": "Brand Consistency Checker",
+        "agentVersion": 3,
+        "status": "passed",
+        "message": "Found 7 issues across 12 pages.",
+        "startedAt": 1711900000000,
+        "completedAt": 1711900150000,
+        "durationMs": 150000,
+        "trigger": "standalone"
+      }
+    ],
+    "nextCursor": "eyJvZmZzZXQiOjUwfQ==",
+    "hasMore": true
+  }
+}
+```
+
+The response returns `result.items`, plus `nextCursor` and `hasMore` for pagination.
+
+---
+
+### 2.6 Manage Advanced Webhooks via REST API
 
 **Impact: MEDIUM (Programmatically enable advanced webhooks and manage delivery endpoints, signing secrets, and per-endpoint event/channel filters)**
 
@@ -844,7 +903,7 @@ POST https://api.velt.dev/v2/workspace/advancedwebhook/endpoints/secret/get
 
 ---
 
-### 2.6 Notification Management via REST API
+### 2.7 Notification Management via REST API
 
 **Impact: MEDIUM (Notifications keep users informed of collaboration events — misconfigured templates produce broken messages)**
 
@@ -1001,7 +1060,85 @@ Reference: `https://docs.velt.dev/api-reference/rest-api/notifications` (## REST
 
 ---
 
-### 2.7 User Management via REST API
+### 2.8 Use Memory REST APIs for judgments, knowledge, alerts, and suggestions
+
+**Impact: HIGH (Memory endpoints provide grounded search and knowledge workflows; wrong retrieval mode or ingest path creates misleading AI results)**
+
+Use the `/v2/memory/*` REST API family for grounded review memory: semantic search over judgments, Q&A and decision suggestions, knowledge ingestion/search, profile/pattern/stat insights, and proactive alerts. These endpoints use the standard REST envelope and the same `x-velt-api-key` / `x-velt-auth-token` headers as the rest of v2.
+
+**Incorrect (treating Memory as a chat completion endpoint):**
+
+```bash
+# Do not invent an answer when Memory has no grounding context.
+POST https://api.velt.dev/v2/memory/ask
+{ "data": { "question": "What policy do we follow for medical claims?" } }
+```
+
+**Correct (handle empty grounded results explicitly):**
+
+```bash
+POST https://api.velt.dev/v2/memory/ask
+x-velt-api-key: YOUR_API_KEY
+x-velt-auth-token: YOUR_AUTH_TOKEN
+
+{
+  "data": {
+    "question": "What policy do we follow for medical claims?",
+    "organizationId": "org_123"
+  }
+}
+```
+
+If retrieval finds no relevant context, `answer` is an empty string with `confidence: 0`. Treat that as "Memory has nothing to say yet", not as a model failure to patch over.
+| Group | Endpoints | Notes |
+|-------|-----------|-------|
+| Judgments | `/v2/memory/search`, `/v2/memory/judgments/query` | `search` is semantic; `judgments/query` is structured listing. `filters.annotationId` requires `organizationId`. |
+| Q&A and decisions | `/v2/memory/ask`, `/v2/memory/suggest` | `ask` returns grounded answers with citations; `suggest` returns `primary` and optional `conflict` recommendations. |
+| Knowledge | `/v2/memory/knowledge/ingest`, `upload-url`, `ingest-status`, `update`, `delete`, `search`, `list`, `download`, `rules` | Ingestion is async. Inline files are up to 5 MB decoded; by-reference files use `upload-url` and support up to 30 MB. |
+| Insights | `/v2/memory/profiles/get`, `/v2/memory/patterns/get`, `/v2/memory/stats/get` | Derived reviewer/profile/pattern/stat views over remembered judgments. |
+| Alerts | `/v2/memory/alerts/list`, `dismiss`, `action`, `config/get`, `config/update` | Alerts are proactive signals; list is capped at 50 active alerts. |
+
+**Knowledge ingest pattern:**
+
+```bash
+# Inline file, up to 5 MB decoded.
+POST https://api.velt.dev/v2/memory/knowledge/ingest
+{
+  "data": {
+    "source": "inline",
+    "file": {
+      "base64": "JVBERi0xLjQK...",
+      "mimeType": "application/pdf",
+      "fileName": "brand-guidelines.pdf",
+      "fileSize": 184320
+    },
+    "organizationId": "org_123"
+  }
+}
+
+# Poll until terminal.
+POST https://api.velt.dev/v2/memory/knowledge/ingest-status
+{ "data": { "sourceId": "source_123" } }
+```
+
+**Search pattern:**
+
+```bash
+POST https://api.velt.dev/v2/memory/search
+{
+  "data": {
+    "query": "marketing copy with unsupported medical claims",
+    "scope": "organization",
+    "organizationId": "org_123",
+    "limit": 5,
+    "filters": { "decision": "reject" }
+  }
+}
+```
+
+---
+
+### 2.9 User Management via REST API
 
 **Impact: HIGH (User provisioning and GDPR compliance are critical for production deployments)**
 

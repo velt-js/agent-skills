@@ -48,7 +48,7 @@ jobs:
 
       - name: 1. Reject workspace or evals edits
         run: |
-          BAD=$(grep -E '(/.*-workspace/|/evals/)' /tmp/changed-files.txt || true)
+          BAD=$(grep -E '(^|/)([^/]+-workspace/|evals/)' /tmp/changed-files.txt || true)
           if [ -n "$BAD" ]; then
             echo "::error::PR edits files inside *-workspace/** or **/evals/**, which are out-of-scope for automation:"
             echo "$BAD" | while read -r f; do echo "::error file=$f::out-of-scope path"; done
@@ -96,8 +96,8 @@ jobs:
 
           # For each skill that has rule changes, confirm metadata.json version moved.
           FAILED=0
-          SKILLS_WITH_RULE_CHANGES=$(grep -E '/skills/[^/]+/rules/' /tmp/changed-files.txt \
-            | awk -F/ '{print $2"/"$3}' | sort -u || true)
+          SKILLS_WITH_RULE_CHANGES=$(grep -E '^skills/[^/]+/rules/' /tmp/changed-files.txt \
+            | awk -F/ '{print $1"/"$2}' | sort -u || true)
 
           for skill_path in $SKILLS_WITH_RULE_CHANGES; do
             metadata="$skill_path/metadata.json"
@@ -117,7 +117,7 @@ jobs:
         run: |
           FAILED=0
           # For every changed AGENTS.md or AGENTS.full.md, ensure the same skill has a rule change.
-          for agents_file in $(grep -E '/AGENTS(\.full)?\.md$' /tmp/changed-files.txt || true); do
+          for agents_file in $(grep -E '(^|/)AGENTS(\.full)?\.md$' /tmp/changed-files.txt || true); do
             skill_dir=$(dirname "$agents_file")
             if ! grep -qE "^${skill_dir}/rules/" /tmp/changed-files.txt; then
               echo "::error file=$agents_file::AGENTS.md changed without any corresponding rule edit under $skill_dir/rules/ — likely a stale build artifact"
@@ -128,8 +128,8 @@ jobs:
 
       - name: 5. Warn on oversized diffs
         run: |
-          NUM_SKILLS=$(grep -E '/skills/[^/]+/' /tmp/changed-files.txt | awk -F/ '{print $2"/"$3}' | sort -u | wc -l | tr -d ' ')
-          NUM_RULES=$(grep -E '/skills/[^/]+/rules/.*\.md$' /tmp/changed-files.txt | wc -l | tr -d ' ')
+          NUM_SKILLS=$(grep -E '^skills/[^/]+/' /tmp/changed-files.txt | awk -F/ '{print $1"/"$2}' | sort -u | wc -l | tr -d ' ')
+          NUM_RULES=$(grep -E '^skills/[^/]+/rules/.*\.md$' /tmp/changed-files.txt | wc -l | tr -d ' ')
 
           echo "Skills touched: $NUM_SKILLS"
           echo "Rule files touched: $NUM_RULES"

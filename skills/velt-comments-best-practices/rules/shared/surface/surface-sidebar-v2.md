@@ -62,7 +62,7 @@ export default function App() {
 ></velt-comments-sidebar-v2>
 ```
 
-`<velt-comments-sidebar-v2>` / `VeltCommentsSidebarV2` is the only entry point documented by the V2 setup page — the legacy `version="2"` opt-in on the V1 component (`<VeltCommentsSidebar version="2" />` / `<velt-comments-sidebar version="2">`) is no longer shown in `async-collaboration/comments-sidebar/v2/setup`. Mount the dedicated V2 tag directly; do not pair it with a V1 tag.
+`<velt-comments-sidebar-v2>` / `VeltCommentsSidebarV2` is the only entry point documented by the V2 setup page. The old V1 component prop opt-in is no longer shown in `async-collaboration/comments-sidebar/v2/setup`. Mount the dedicated V2 tag directly; do not pair it with a V1 tag.
 
 **VeltCommentsSidebarV2 Props (core layout / event surface):**
 
@@ -293,7 +293,7 @@ interface FilterFieldResolver {
 - **`MinimalActionsDropdown` removed** — replaced by the combined `actions` filter-dropdown configured via `minimalFilters`.
 
 **Verification Checklist:**
-- [ ] `VeltCommentsSidebarV2` (or `<velt-comments-sidebar-v2>`) is mounted directly for per-section customization — the V2 setup docs no longer cover the legacy `version="2"` opt-in on the V1 component
+- [ ] `VeltCommentsSidebarV2` (or `<velt-comments-sidebar-v2>`) is mounted directly for per-section customization — the V2 setup docs no longer cover the legacy V1 component prop opt-in
 - [ ] `focusedThreadMode` is set explicitly when inline thread expansion is needed
 - [ ] `forceClose` is driven by state when not using the new default of `true` (V2 default flipped from `false` to `true`)
 - [ ] Filter / sort props are configured together (`filters` + `minimalFilters` for visible UI, `sortBy` / `sortOrder` for default ordering)

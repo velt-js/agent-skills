@@ -2,7 +2,7 @@
 title: Use sdk.api.* for REST API Operations Without a Database
 impact: HIGH
 impactDescription: Using sdk.api.* eliminates the need for MongoDB/AWS setup when calling Velt APIs directly, reducing backend complexity significantly
-tags: python, rest-api, sdk.api, organizations, documents, users, notifications
+tags: python, rest-api, sdk.api, organizations, documents, users, notifications, workflow
 ---
 
 ## Use sdk.api.* for REST API Operations Without a Database
@@ -64,11 +64,15 @@ result = sdk.api.documents.addDocuments(
 | GDPR | `sdk.api.gdpr` |
 | Workspace | `sdk.api.workspace` |
 | Token | `sdk.api.token` |
+| Workflow | `sdk.api.workflow` |
 
 **Key points:**
 
 - Import request dataclasses from `velt_py.models.<domain>` (e.g., `velt_py.models.organization`, `velt_py.models.document`, `velt_py.models.user_api`).
 - All service methods use camelCase names matching the Velt Node SDK (e.g., `addOrganizations`, `getDocuments`, `deleteUsers`).
+- Current docs expose 18 services. The Agents and Memory sections are intentionally hidden in commented MDX; do not document `sdk.api.agents` or `sdk.api.memory` until they are visible in the Python SDK reference.
+- `sdk.api.documents.getDocumentsCount(GetDocumentsCountRequest(...))` returns document counts, optionally scoped to a folder or excluding folder documents.
+- `sdk.api.workflow.*` covers Approval Engine workflow definitions, executions, lifecycle events, step cancellation/resolution, and reviewer/agent decisions through request dataclasses from `velt_py.models.workflow`.
 - Responses are dicts: `result['result']` on success, `result['error']` on failure. Always check for the `error` key before accessing `result`.
 - `sdk.api.*` and `sdk.selfHosting.*` are independent — you can use both in the same initialized SDK instance if you also provide `database` config.
 
@@ -76,6 +80,8 @@ result = sdk.api.documents.addDocuments(
 - [ ] `VeltSDK.initialize` is called with at least `apiKey` and `authToken` (or env vars `VELT_API_KEY` / `VELT_AUTH_TOKEN`)
 - [ ] Request dataclasses are imported from `velt_py.models.<domain>`, not constructed as raw dicts
 - [ ] Service method names are camelCase (e.g., `addOrganizations`, not `add_organizations`)
+- [ ] Approval workflow calls use `sdk.api.workflow.*` and request classes from `velt_py.models.workflow`
+- [ ] Hidden/commented Agents and Memory SDK sections are not treated as available Python APIs
 - [ ] Response `error` key is checked before accessing `result`
 
 **Source Pointers:**
