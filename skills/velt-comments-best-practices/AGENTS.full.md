@@ -1,6 +1,6 @@
 # Velt Comments Best Practices
 
-**Version 1.1.8**  
+**Version 1.1.9**  
 Velt  
 January 2026
 
@@ -3641,7 +3641,7 @@ export default function App() {
 ></velt-comments-sidebar-v2>
 ```
 
-`<velt-comments-sidebar-v2>` is the canonical V2 entry point. The V1 escape-hatch `<velt-comments-sidebar version="2">` (and the React `<VeltCommentsSidebar version="2" />`) routes to the same implementation — see `surface/surface-sidebar.md` for that opt-in. Do not mount V1 and V2 tags simultaneously.
+`<velt-comments-sidebar-v2>` / `VeltCommentsSidebarV2` is the only entry point documented by the V2 setup page — the legacy `version="2"` opt-in on the V1 component (`<VeltCommentsSidebar version="2" />` / `<velt-comments-sidebar version="2">`) is no longer shown in `async-collaboration/comments-sidebar/v2/setup`. Mount the dedicated V2 tag directly; do not pair it with a V1 tag.
 
 **VeltCommentsSidebarV2 Props (core layout / event surface):**
 
