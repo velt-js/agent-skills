@@ -1,6 +1,6 @@
 # Velt Notifications Best Practices
 
-**Version 1.1.2**  
+**Version 1.1.3**  
 Velt  
 January 2026
 
@@ -191,7 +191,7 @@ function ConfigureNotifications() {
 
 **Primitive-Level Feed Selection (`listType`):**
 
-```html
+```jsx
 import {
   VeltNotificationsPanelContentList,
   VeltNotificationsPanelContentLoadMore,
@@ -200,6 +200,11 @@ import {
 // Render the "For You" feed in a custom panel
 <VeltNotificationsPanelContentList listType="for-you" />
 <VeltNotificationsPanelContentLoadMore listType="for-you" />
+```
+
+**For HTML:**
+
+```html
 <velt-notifications-panel-content-list list-type="for-you"></velt-notifications-panel-content-list>
 <velt-notifications-panel-content-load-more list-type="for-you"></velt-notifications-panel-content-load-more>
 ```
@@ -306,10 +311,14 @@ function NotificationButton() {
 
 **Controlling Initial Load Count:**
 
-```html
+```jsx
 // Control how many notifications load initially (v4.7.1+)
 <VeltNotificationsTool pageSize={20} />
-<!-- HTML variant -->
+```
+
+**For HTML:**
+
+```html
 <velt-notifications-tool page-size="20"></velt-notifications-tool>
 ```
 
@@ -381,7 +390,7 @@ notificationElement.disableCurrentDocumentOnly();
 
 **Primitive-Level Document Scoping (`documentId`):**
 
-```html
+```jsx
 import {
   VeltNotificationsPanelContentList,
   VeltNotificationsPanelContentLoadMore,
@@ -389,6 +398,11 @@ import {
 
 <VeltNotificationsPanelContentList documentId="doc-123" />
 <VeltNotificationsPanelContentLoadMore documentId="doc-123" />
+```
+
+**For HTML:**
+
+```html
 <velt-notifications-panel-content-list document-id="doc-123"></velt-notifications-panel-content-list>
 <velt-notifications-panel-content-load-more document-id="doc-123"></velt-notifications-panel-content-load-more>
 ```

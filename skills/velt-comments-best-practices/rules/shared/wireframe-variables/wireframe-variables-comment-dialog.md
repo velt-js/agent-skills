@@ -2,7 +2,7 @@
 title: Bind Comment Dialog Wireframe Slots Using Template Variables
 impact: MEDIUM
 impactDescription: Drives layout-mode styling, capability gating, composer state, thread-card iteration, and banner visibility inside the Comment Dialog wireframe family without re-subscribing to annotation state
-tags: wireframe, template-variables, velt-data, velt-if, velt-class, defaultCondition, comment-dialog, composer, thread-card, banners
+tags: wireframe, template-variables, velt-data, velt-if, velt-class, defaultCondition, comment-dialog, composer, thread-card, banners, collapsedRepliesPreview, more-reply
 ---
 
 ## Bind Comment Dialog Wireframe Slots Using Template Variables
@@ -221,6 +221,7 @@ The dialog injects four root namespaces plus context-specific (loop-scoped) vari
 | `enableSignInButton` / `enableUpgradeButton` | `boolean` | Sign-in / upgrade buttons rendered. |
 | `enableGhostCommentsMessage` | `boolean` | Ghost-comment banner enabled. |
 | `replyAvatars` | `boolean` | Reply-avatars strip enabled. |
+| `collapsedRepliesPreview` | `boolean` | Surface the collapsed teaser (first comment + "Show N replies…" divider + last comment) even while the dialog is non-selected/preview. Mirrors the `collapsedRepliesPreview` prop / `collapsed-replies-preview` attribute. Default `false`. |
 | `userMentions` | `boolean` | @-mention autocomplete enabled. |
 | `recordingSummaryEnabled` | `boolean` | Recording AI-summary feature enabled. |
 | `enableAttachment` | `boolean` | File attachments enabled. |
@@ -395,7 +396,7 @@ The **visibility-banner dropdown subtree** mirrors the status / priority dropdow
 | `<velt-comment-dialog-reply-avatars-wireframe>` (+ `-list-item-wireframe` child) | Strip of reply-author avatars. `shouldShow` requires `{replyAvatars}`. |
 | `<velt-comment-dialog-toggle-reply-wireframe>` (+ `-count`, `-icon`, `-text` children) | "View N replies" toggle. |
 | `<velt-comment-dialog-hide-reply-wireframe>` | "Hide replies" toggle. |
-| `<velt-comment-dialog-more-reply-wireframe>` | "+N more" indicator. |
+| `<velt-comment-dialog-more-reply-wireframe>` (+ `-count-wireframe` / `-text-wireframe` children) | "Show N replies…" expander between the first comment and the rest — label composed as `Show` + `Count` + `Text`. `shouldShow` = (`isDialogSelected` **or** `collapsedRepliesPreview`) **and** `!showAllComments` **and** `annotation.comments.length > 2`. The `-count` child renders the hidden-reply count (`annotation.comments.length - 2`, clamped ≥ 0); the `-text` child renders the pluralized noun (`reply` / `replies`). Exposed in React as `VeltCommentDialogWireframe.MoreReply.Count` / `.Text`. |
 | `<velt-comment-dialog-navigation-button-wireframe>` | Inter-thread navigation. |
 
 **Auxiliary** (3 tags):

@@ -2,7 +2,7 @@
 title: Customize Comment Dialog Appearance
 impact: MEDIUM
 impactDescription: Match comment dialogs to your application design system
-tags: dialog, customization, styling, wireframe, ui, darkMode, readOnly, sidebarMode, isFocusedThreadEnabled, openAnnotationInFocusMode, expandOnSelection, inlineCommentMode, inboxMode, isInsidePdfViewer, multiThread, commentComposerMode, dialogSelection, dialogMode, focusedThreadMode, pageModeComposer, messageTruncation, initialEditCommentIndex, messageTruncationLines, variant, composerPosition, sortBy, sortOrder, commentPinType, containerComponentId, targetElementId, targetComposerElementId, locationVersion, locationDisplayName, context, commentPlaceholder, replyPlaceholder, VeltCommentDialogThreadCardReactionPin, VeltCommentDialogThreadCardAssignButton, VeltCommentDialogThreadCardEditComposer, VeltCommentDialogOptionsDropdownContent, enableAssignment, enableEdit, enableNotifications, enablePrivateMode, enableMarkAsRead
+tags: dialog, customization, styling, wireframe, ui, darkMode, readOnly, sidebarMode, isFocusedThreadEnabled, openAnnotationInFocusMode, expandOnSelection, inlineCommentMode, inboxMode, isInsidePdfViewer, multiThread, commentComposerMode, dialogSelection, dialogMode, focusedThreadMode, pageModeComposer, messageTruncation, initialEditCommentIndex, messageTruncationLines, variant, composerPosition, sortBy, sortOrder, commentPinType, containerComponentId, targetElementId, targetComposerElementId, locationVersion, locationDisplayName, context, commentPlaceholder, replyPlaceholder, VeltCommentDialogThreadCardReactionPin, VeltCommentDialogThreadCardAssignButton, VeltCommentDialogThreadCardEditComposer, VeltCommentDialogOptionsDropdownContent, enableAssignment, enableEdit, enableNotifications, enablePrivateMode, enableMarkAsRead, VeltCommentDialogMoreReplyCount, VeltCommentDialogMoreReplyText, collapsedRepliesPreview
 ---
 
 ## Customize Comment Dialog Appearance
@@ -247,6 +247,30 @@ Previously documented as common-inputs-only; now exposes per-option enable flags
 | `enablePrivateMode` | `boolean` | Shows the private mode option |
 | `enableMarkAsRead` | `boolean` | Shows the mark-as-read option |
 
+**Collapsed-Replies-Preview Primitives (v5.0.2-beta.37+):**
+
+Two primitives render the "Show N replies…" divider in a comment dialog's collapsed teaser (shown in the non-selected/preview state when `collapsedRepliesPreview` is enabled). They appear only when a thread has more than two comments.
+
+```jsx
+import {
+  VeltCommentDialogMoreReplyCount,
+  VeltCommentDialogMoreReplyText,
+} from '@veltdev/react';
+
+// Hidden-reply count: annotation.comments.length - 2, clamped to >= 0
+<VeltCommentDialogMoreReplyCount annotationId="abc123" />
+
+// Pluralized noun: "reply" when one reply is hidden, otherwise "replies"
+<VeltCommentDialogMoreReplyText annotationId="abc123" />
+```
+
+```html
+<velt-comment-dialog-more-reply-count annotation-id="abc123"></velt-comment-dialog-more-reply-count>
+<velt-comment-dialog-more-reply-text annotation-id="abc123"></velt-comment-dialog-more-reply-text>
+```
+
+Both accept Common Inputs only. In React wireframe mode the public primitive is also exposed as the named sub-properties `VeltCommentDialogMoreReply.Count` and `.Text`; see `wireframe-variables-comment-dialog` for the separate wireframe-tree names.
+
 **Verification Checklist:**
 - [ ] Variant applied if using pre-defined styles
 - [ ] shadowDom={false} if using custom CSS
@@ -254,6 +278,7 @@ Previously documented as common-inputs-only; now exposes per-option enable flags
 - [ ] `VeltCommentDialogProps` flags use React camelCase (e.g. `darkMode`, `readOnly`, `pageModeComposer`); HTML attributes use kebab-case
 - [ ] Thread-card primitives (`VeltCommentDialogThreadCard{ReactionPin,AssignButton,EditComposer}`) receive `annotationId` (+ `commentId` or `commentIndex` where relevant)
 - [ ] `VeltCommentDialogOptionsDropdownContent` sets `enable*` flags for any individual options it should show; omitted flags default to the SDK's built-in behavior
+- [ ] `VeltCommentDialogMoreReply{Count,Text}` used only inside the collapsed-replies-preview divider (threads with more than two comments); both take Common Inputs only
 
 **Source Pointers:**
 - https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog-structure - Structure

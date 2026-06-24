@@ -1,5 +1,5 @@
 {
-  "version": "1.0.1",
+  "version": "1.0.2",
   "organization": "Velt",
   "date": "May 2026",
   "abstract": "Velt Approval Engine implementation guide covering the declarative workflow runtime for multi-step agent + human approval processes — the 14 REST endpoints under /v2/workflow/*, the definition model (nodes + edges + parallel-quorum groups), execution dispatch with idempotency, HMAC-SHA256 webhook signature verification, missed-event recovery via getEvents+sinceSeq, SLA breach edges, and the quorum policies (waitAll / cancelOnQuorum / joinOnQuorum).",

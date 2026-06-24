@@ -1,5 +1,5 @@
 # Velt Approval Engine Best Practices
-|v1.0.1|Velt|May 2026
+|v1.0.2|Velt|May 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
 |root: ./rules
 
@@ -10,4 +10,4 @@
 |shared/rest:{rest-foundations.md,rest-definitions.md,rest-executions.md,rest-object-views.md,rest-steps.md}
 
 ## 3. Webhooks — HIGH
-|shared/webhooks:{webhooks-delivery.md}
+|shared/webhooks:{webhooks-inbound-handler.md,webhooks-delivery.md}

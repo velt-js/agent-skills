@@ -79,6 +79,8 @@ import {
 <VeltNotificationsPanelContentLoadMore documentId="doc-123" />
 ```
 
+**For HTML:**
+
 ```html
 <velt-notifications-panel-content-list document-id="doc-123"></velt-notifications-panel-content-list>
 <velt-notifications-panel-content-load-more document-id="doc-123"></velt-notifications-panel-content-load-more>

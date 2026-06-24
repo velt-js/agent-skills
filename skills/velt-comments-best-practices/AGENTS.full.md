@@ -1,6 +1,6 @@
 # Velt Comments Best Practices
 
-**Version 1.1.9**  
+**Version 1.1.10**  
 Velt  
 January 2026
 
@@ -4232,6 +4232,25 @@ import {
 | `enablePrivateMode` | `boolean` | Shows the private mode option |
 | `enableMarkAsRead` | `boolean` | Shows the mark-as-read option |
 
+**Collapsed-Replies-Preview Primitives (v5.0.2-beta.37+):**
+
+```html
+import {
+  VeltCommentDialogMoreReplyCount,
+  VeltCommentDialogMoreReplyText,
+} from '@veltdev/react';
+
+// Hidden-reply count: annotation.comments.length - 2, clamped to >= 0
+<VeltCommentDialogMoreReplyCount annotationId="abc123" />
+
+// Pluralized noun: "reply" when one reply is hidden, otherwise "replies"
+<VeltCommentDialogMoreReplyText annotationId="abc123" />
+<velt-comment-dialog-more-reply-count annotation-id="abc123"></velt-comment-dialog-more-reply-count>
+<velt-comment-dialog-more-reply-text annotation-id="abc123"></velt-comment-dialog-more-reply-text>
+```
+
+Both accept Common Inputs only. In React wireframe mode the public primitive is also exposed as the named sub-properties `VeltCommentDialogMoreReply.Count` and `.Text`; see `wireframe-variables-comment-dialog` for the separate wireframe-tree names.
+
 ---
 
 ### 6.3 Set defaultCondition on V2 Primitive Sub-Components to Control Default Rendering
@@ -8017,6 +8036,20 @@ commentElement.enableRecordingCountdown();
 commentElement.enableRecordingTranscription();
 commentElement.disableRecordingTranscription();
 ```
+
+**Collapsed Replies Preview (v5.0.2-beta.37+):**
+
+```tsx
+const commentElement = client.getCommentElement();
+
+// Show the collapsed teaser in the non-selected/preview state
+commentElement.enableCollapsedRepliesPreview();
+
+// Revert to showing only the first comment when not selected (default)
+commentElement.disableCollapsedRepliesPreview();
+```
+
+Also settable declaratively as a prop (`<VeltComments collapsedRepliesPreview={true} />`) or HTML attribute (`<velt-comments collapsed-replies-preview="true">`). The same flag is exposed as the `collapsedRepliesPreview` comment-dialog wireframe variable (boolean, default `false`); see `wireframe-variables-comment-dialog`. Both methods take no params and return `void`.
 
 Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior - UI/UX
 

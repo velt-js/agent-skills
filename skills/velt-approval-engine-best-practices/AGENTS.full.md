@@ -1,6 +1,6 @@
 # Velt Approval Engine Best Practices
 
-**Version 1.0.1**  
+**Version 1.0.2**  
 Velt  
 May 2026
 
@@ -31,7 +31,8 @@ Velt Approval Engine implementation guide covering the declarative workflow runt
    - 2.5 [Steps endpoints — recordReviewerDecision, recordAgentResolution, cancel (admin), resolve (admin)](#25-steps-endpoints-recordreviewerdecision-recordagentresolution-cancel-admin-resolve-admin)
 
 3. [Webhooks](#3-webhooks) — **HIGH**
-   - 3.1 [Webhook delivery — HMAC verification on raw bytes, payload shape, event catalog with data highlights, retry schedule, idempotency on (executionId, seq)](#31-webhook-delivery-hmac-verification-on-raw-bytes-payload-shape-event-catalog-with-data-highlights-retry-schedule-idempotency-on-executionid-seq)
+   - 3.1 [Inbound webhook handler — raw JSON ingress with bearer auth, signed callbacks, rate/size limits, SSRF guard](#31-inbound-webhook-handler-raw-json-ingress-with-bearer-auth-signed-callbacks-ratesize-limits-ssrf-guard)
+   - 3.2 [Webhook delivery — HMAC verification on raw bytes, payload shape, event catalog with data highlights, retry schedule, idempotency on (executionId, seq)](#32-webhook-delivery-hmac-verification-on-raw-bytes-payload-shape-event-catalog-with-data-highlights-retry-schedule-idempotency-on-executionid-seq)
 
 ---
 
@@ -875,9 +876,47 @@ The `action` field (REQUIRED) is the central discriminator. It determines both t
 
 **Impact: HIGH**
 
-Inbound webhook delivery — required HMAC-SHA256 signature verification on the raw bytes (not re-serialized JSON), the three `x-velt-*` headers, the full payload field shape, the event catalog with `data` highlights per event type (including new `loop.iteration-started` and `loop.exhausted` events), the retry schedule (immediate → +2s → +8s → +32s → +2min → +8min → DLQ), the at-least-once delivery contract with idempotency on `(executionId, seq)`, the cancellation reason vocabulary, and missed-event recovery via `/executions/getEvents?sinceSeq=N`.
+The two webhook surfaces of the Approval Engine. Outbound delivery (`webhooks-delivery`) — required HMAC-SHA256 signature verification on the raw bytes (not re-serialized JSON), the three `x-velt-*` headers, the full payload field shape, the event catalog with `data` highlights per event type (including new `loop.iteration-started` and `loop.exhausted` events), the retry schedule (immediate → +2s → +8s → +32s → +2min → +8min → DLQ), the at-least-once delivery contract with idempotency on `(executionId, seq)`, the cancellation reason vocabulary, and missed-event recovery via `/executions/getEvents?sinceSeq=N`. Inbound ingress (`webhooks-inbound-handler`) — a stable HTTP endpoint external systems POST raw JSON to (no `{data:...}` envelope), with bearer-token auth, signed callback tokens, per-source rate limiting, body-size limits, and an SSRF URL guard.
 
-### 3.1 Webhook delivery — HMAC verification on raw bytes, payload shape, event catalog with data highlights, retry schedule, idempotency on (executionId, seq)
+### 3.1 Inbound webhook handler — raw JSON ingress with bearer auth, signed callbacks, rate/size limits, SSRF guard
+
+**Impact: MEDIUM-HIGH (External systems POST raw JSON directly (no {data:...} envelope); skipping the bearer token or assuming the standard REST envelope makes every inbound call fail)**
+
+In addition to outbound delivery (`webhooks-delivery`), the Approval Engine exposes an **inbound** webhook handler: an HTTP endpoint with a stable URL that external systems (Salesforce, Stripe, GitHub, etc.) POST raw JSON to in order to push events *into* the engine. It is complementary to — not a duplicate of — outbound delivery; both paths are active independently and can coexist on the same workflow.
+
+The key shape difference from the standard REST API: inbound payloads are **not** wrapped in a `{ data: ... }` envelope. The handler accepts raw JSON bodies directly.
+
+**Incorrect (wrapping the body in the REST `{data:...}` envelope and omitting the bearer token):**
+
+```text
+{
+  "data": { "event": "deal.closed", "dealId": "abc123" }
+}
+POST <inbound-handler-url>
+Content-Type: application/json
+// no Authorization header → rejected before any processing
+```
+
+**Correct (raw JSON body + bearer token):**
+
+```json
+POST <inbound-handler-url>
+Content-Type: application/json
+Authorization: Bearer <token>
+{ "event": "deal.closed", "dealId": "abc123" }
+```
+
+The inbound handler enforces, at the boundary:
+- **Bearer-token validation** — requests must carry a valid bearer token; unauthenticated requests are rejected before any processing.
+- **Signed callback tokens** — callbacks issued by the handler are signed so downstream consumers can verify authenticity end-to-end.
+- **Rate limiting** — per-source request rate is capped to prevent abuse.
+- **Body-size limits** — oversized payloads are rejected before parsing.
+- **SSRF URL guard** — any URL values in the incoming payload are validated against an allowlist to block server-side request forgery.
+Keep the two surfaces straight: **inbound** = external systems push events *into* the engine (this rule); **outbound** = the engine pushes state-change events *out* to your receiver via the per-dispatch `webhookUrl` + `webhookSecret` (`webhooks-delivery`). This is also distinct from the deferred `node.type === "webhook"` step type, which validates in a definition but does not run in v1 (`concepts-workflow-model`).
+
+---
+
+### 3.2 Webhook delivery — HMAC verification on raw bytes, payload shape, event catalog with data highlights, retry schedule, idempotency on (executionId, seq)
 
 **Impact: HIGH (Wrong signature verification (hashing re-serialized JSON instead of raw bytes) lets forged requests through; missing seq-based idempotency double-processes every retried event)**
 

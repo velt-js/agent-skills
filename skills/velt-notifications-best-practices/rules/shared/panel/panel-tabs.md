@@ -98,6 +98,8 @@ import {
 <VeltNotificationsPanelContentLoadMore listType="for-you" />
 ```
 
+**For HTML:**
+
 ```html
 <velt-notifications-panel-content-list list-type="for-you"></velt-notifications-panel-content-list>
 <velt-notifications-panel-content-load-more list-type="for-you"></velt-notifications-panel-content-load-more>
