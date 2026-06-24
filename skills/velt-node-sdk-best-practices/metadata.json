@@ -1,8 +1,8 @@
 {
-  "version": "0.2.0",
+  "version": "0.2.3",
   "organization": "Velt",
   "date": "June 2026",
-  "abstract": "Implementation guide for the Velt Node SDK (@veltdev/node) covering its two backends — sdk.api.* (REST API, 17 services) and sdk.selfHosting.* (MongoDB + S3 self-hosted, 7 services + token) — with emphasis on response envelopes, lazy-load pattern for self-hosting services, positional-arg surprise on getToken/getAttachment/saveAttachment, typed error class hierarchy, and data models (PartialCommentAnnotation, BaseMetadata, resolvedByUserId three-state semantics, round-trip dict helpers).",
+  "abstract": "Implementation guide for the Velt Node SDK (@veltdev/node) covering its two backends — sdk.api.* (REST API, 18 services) and sdk.selfHosting.* (MongoDB + S3 self-hosted, 7 services + token) — with emphasis on response envelopes, lazy-load pattern for self-hosting services, positional-arg surprise on getToken/getAttachment/saveAttachment, typed error class hierarchy, and data models (PartialCommentAnnotation, BaseMetadata, resolvedByUserId three-state semantics, round-trip dict helpers).",
   "references": [
     "https://docs.velt.dev",
     "https://docs.velt.dev/backend-sdks/node",

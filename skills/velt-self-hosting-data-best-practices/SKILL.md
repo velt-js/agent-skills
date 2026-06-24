@@ -9,7 +9,7 @@ metadata:
 
 # Velt Self-Hosting Data Best Practices
 
-Comprehensive implementation guide for Velt's self-hosting data feature in React and Next.js applications. Contains 18 rules across 7 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's self-hosting data feature in React and Next.js applications. Contains 24 rules across 8 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
@@ -32,8 +32,9 @@ Reference these guidelines when:
 | 3 | Attachment Data Provider | HIGH | `attachment-` |
 | 4 | Additional Providers | MEDIUM | `provider-` |
 | 5 | Backend Implementation | MEDIUM | `backend-` |
-| 6 | Python SDK | HIGH | `python-` |
-| 7 | Debugging | LOW-MEDIUM | `debug-` |
+| 6 | Data Types | MEDIUM | `data-` |
+| 7 | Python SDK | HIGH | `python-` |
+| 8 | Debugging | LOW-MEDIUM | `debug-` |
 
 ## Quick Reference
 
@@ -41,6 +42,8 @@ Reference these guidelines when:
 
 - `core-provider-setup` — Configure VeltProvider dataProviders prop with correct initialization order
 - `core-response-format` — Return the required response shape from all data provider handlers
+- `core-auth-provider` — Use authProvider on VeltProvider with dataProviders; never call identify()
+- `core-python-sdk-setup` — Install and initialize the Velt Python SDK (velt-py)
 
 ### 2. Comment Data Provider (HIGH)
 
@@ -55,6 +58,9 @@ Reference these guidelines when:
 
 - `provider-user-resolver` — Implement read-only user data provider for PII protection
 - `provider-reaction-recording` — Configure reaction and recording data providers
+- `provider-recorder` — Self-host recording data and media files
+- `provider-notification` — Self-host notification data for custom notifications
+- `provider-activity` — Self-host activity log data for custom activities (function-based and endpoint-based DataProvider)
 - `provider-retry-timeout` — Configure retry policies and timeouts per data provider
 
 ### 5. Backend Implementation (MEDIUM)
@@ -63,17 +69,20 @@ Reference these guidelines when:
 - `backend-database-patterns` — Implement database storage with upsert and proper indexing
 - `backend-s3-attachments` — Store and delete attachments in S3-compatible object storage
 
-### 6. Python SDK (HIGH)
+### 6. Data Types (MEDIUM)
 
-- `python-rest-api-backend` — Use sdk.api.* for REST API operations without a database (no MongoDB required)
+- `data-types-reference` — Self-hosting provider interfaces, config, and request/response type reference (the SDK ↔ backend contract)
+
+### 7. Python SDK (HIGH)
+
+- `python-rest-api-backend` — Use sdk.api.* for REST API operations without a database (no MongoDB). Covers the REST services — documents `getDocumentsCount`, users invitation lifecycle, crdt `deleteCrdtData`, workspace extensions (domain requests, API key copy/update, advanced webhooks, `getApiKeyMetadata`), workflow definitions/executions — and the opt-in `filter_unknown_fields` flag on add/update methods
 - `python-comments` — Comments CRUD via sdk.selfHosting.comments
 - `python-attachments` — Attachment upload and delete via sdk.selfHosting.attachments with S3
-- `python-users-reactions` — Users and reactions management via sdk.selfHosting.users/reactions
+- `python-users-reactions` — Users and reactions management via sdk.selfHosting.users/reactions, PartialReactionAnnotation model, and the v0.1.12 `user` → `from_` rename
 - `python-frameworks` — Django, Flask, and FastAPI integration patterns
 - `python-token` — Generate user auth tokens via sdk.selfHosting.token.getToken for frontend authProvider
-- `python-data-models` — Python dataclasses for self-hosting comment annotations (PartialCommentAnnotation, PartialTargetTextRange, UNSET sentinel, BaseMetadata) introduced in v0.1.10
 
-### 7. Debugging (LOW-MEDIUM)
+### 8. Debugging (LOW-MEDIUM)
 
 - `debug-data-provider-events` — Monitor data provider events for troubleshooting
 

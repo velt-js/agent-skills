@@ -64,7 +64,7 @@ Reference these guidelines when:
 
 ### 5. Configuration (MEDIUM)
 
-- `config-cross-organization` — Cross-organization notifications: enableCrossOrganization/disableCrossOrganization, CrossOrganizationConfig (organizationIds, excludeOrganizationIds, maxOrganizations), "For You" feed merging, getCrossOrganizationConfig$() subscription
+- `config-cross-organization` — Cross-organization notifications: enableCrossOrganization/disableCrossOrganization, CrossOrganizationConfig (organizationIds, excludeOrganizationIds), "For You" feed merging, getCrossOrganizationConfig$() subscription
 
 ### 6. Notification Triggers (MEDIUM)
 

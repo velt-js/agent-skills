@@ -2,7 +2,7 @@
 title: UI/UX Toggle Methods — Comment Display, Interaction, and Behavior
 impact: LOW
 impactDescription: Fine-tune comment UI appearance and interaction behavior
-tags: enableCollapsedComments, enableMobileMode, enableCommentPinHighlighter, enableDialogOnHover, enableFloatingCommentDialog, enableDraftMode, enableGhostComments, enableHotkey, enableEnterKeyToSubmit, enablePersistentCommentMode, enableMinimap, enableCommentIndex, enableDeviceInfo, enableReplyAvatars, composerMode, showCommentsOnDom, showResolvedCommentsOnDom
+tags: enableCollapsedComments, enableMobileMode, enableCommentPinHighlighter, enableDialogOnHover, enableFloatingCommentDialog, enableDraftMode, enableGhostComments, enableHotkey, enableEnterKeyToSubmit, enablePersistentCommentMode, enableMinimap, enableCommentIndex, enableDeviceInfo, enableReplyAvatars, composerMode, showCommentsOnDom, showResolvedCommentsOnDom, enableCollapsedRepliesPreview, disableCollapsedRepliesPreview, collapsedRepliesPreview
 ---
 
 ## UI/UX Toggle Methods — Comment Display, Interaction, and Behavior
@@ -244,6 +244,22 @@ Drafts are session-only and are cleared on:
 - Page refresh
 
 There is no API surface for this behavior — it is fully automatic. Developers should be aware of the session-only scoping: drafts do not survive a page reload.
+
+**Collapsed Replies Preview (v5.0.2-beta.37+):**
+
+When enabled, a comment dialog's non-selected/preview state shows the collapsed thread teaser — first comment, a "Show N replies…" divider, and the last comment — instead of only the first comment. Clicking the divider selects and expands the dialog in one step. Defaults to disabled.
+
+```tsx
+const commentElement = client.getCommentElement();
+
+// Show the collapsed teaser in the non-selected/preview state
+commentElement.enableCollapsedRepliesPreview();
+
+// Revert to showing only the first comment when not selected (default)
+commentElement.disableCollapsedRepliesPreview();
+```
+
+Also settable declaratively as a prop (`<VeltComments collapsedRepliesPreview={true} />`) or HTML attribute (`<velt-comments collapsed-replies-preview="true">`). The same flag is exposed as the `collapsedRepliesPreview` comment-dialog wireframe variable (boolean, default `false`); see `wireframe-variables-comment-dialog`. Both methods take no params and return `void`.
 
 **Key details:**
 - All toggle methods have corresponding `disable` variants

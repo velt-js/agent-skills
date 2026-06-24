@@ -1,6 +1,6 @@
 # Velt Setup Best Practices
 
-**Version 1.0.0**  
+**Version 1.0.1**  
 Velt  
 January 2026
 
@@ -36,9 +36,10 @@ Comprehensive setup guide for integrating Velt collaboration SDK into web applic
    - 3.4 [Structure User Object with Required Fields](#34-structure-user-object-with-required-fields)
 
 4. [Document Identity](#4-document-identity) — **CRITICAL**
-   - 4.1 [Attach Metadata to Documents](#41-attach-metadata-to-documents)
-   - 4.2 [Generate and Manage Document IDs](#42-generate-and-manage-document-ids)
-   - 4.3 [Initialize Documents with setDocuments API](#43-initialize-documents-with-setdocuments-api)
+   - 4.1 [Attach Custom Page Info to Newly Created Data](#41-attach-custom-page-info-to-newly-created-data)
+   - 4.2 [Attach Metadata to Documents](#42-attach-metadata-to-documents)
+   - 4.3 [Generate and Manage Document IDs](#43-generate-and-manage-document-ids)
+   - 4.4 [Initialize Documents with setDocuments API](#44-initialize-documents-with-setdocuments-api)
 
 5. [Config](#5-config) — **HIGH**
    - 5.1 [Call enableFirestorePersistentCache Before Authentication to Enable Offline and Multi-Tab Sync](#51-call-enablefirestorepersistentcache-before-authentication-to-enable-offline-and-multi-tab-sync)
@@ -1148,7 +1149,50 @@ await client.setVeltAuthProvider({
 
 Document initialization with setDocuments API. Documents define collaborative spaces where users can interact. SDK will not function without calling setDocument.
 
-### 4.1 Attach Metadata to Documents
+### 4.1 Attach Custom Page Info to Newly Created Data
+
+**Impact: MEDIUM (Apps with client-side routing or custom URL schemes otherwise record browser-derived page info on comments, reactions, recordings, presence, and cursors)**
+
+By default Velt derives page info (URL, title, path) from the browser and stamps it onto newly created data — comments, reactions, recordings, presence, and cursors. In apps with client-side routing or custom URL schemes the browser URL may not be the identity you want recorded. `setPageInfo()` opts into supplying your own `PageInfo`; it affects **only newly created data** (existing records are untouched). `clearPageInfo()` reverts to the automatic browser-derived behavior.
+
+**Incorrect (relying on browser-derived URL in a client-side-routed app — created data records the wrong page):**
+
+```jsx
+// SPA route is /doc/42 but the browser URL/title may lag or use a hash scheme;
+// new comments/reactions get stamped with whatever the browser reports.
+<VeltComments />
+```
+
+**Correct (stamp your own page info via the hook or the client API):**
+
+```jsx
+import { useSetPageInfo, useClearPageInfo } from '@veltdev/react';
+
+const { setPageInfo } = useSetPageInfo();
+setPageInfo({ url: 'https://app.example.com/doc/42', title: 'Design Doc' });
+
+// Or via the client API
+client.setPageInfo({ url: 'https://app.example.com/doc/42', title: 'Design Doc' });
+
+// Revert to automatic browser-derived page info
+const { clearPageInfo } = useClearPageInfo();
+clearPageInfo();
+```
+
+**For HTML/Vanilla JS:**
+
+```js
+Velt.setPageInfo({ url: 'https://app.example.com/doc/42', title: 'Design Doc' });
+
+// Revert to automatic browser-derived page info
+Velt.clearPageInfo();
+```
+
+The SDK signature also accepts `options?.documentId` on `setPageInfo()` / `clearPageInfo()`, but the docs mark it as reserved for a future per-document scope. Do not rely on per-document page-info behavior yet; treat custom page info as global until that scope ships.
+
+---
+
+### 4.2 Attach Metadata to Documents
 
 **Impact: MEDIUM-HIGH (Metadata enables document names in UI and custom filtering)**
 
@@ -1258,7 +1302,7 @@ async function loadDocument(docId: string) {
 
 ---
 
-### 4.2 Generate and Manage Document IDs
+### 4.3 Generate and Manage Document IDs
 
 **Impact: CRITICAL (Document ID determines which users see the same collaborative content)**
 
@@ -1402,7 +1446,7 @@ function Dashboard() {
 
 ---
 
-### 4.3 Initialize Documents with setDocuments API
+### 4.4 Initialize Documents with setDocuments API
 
 **Impact: CRITICAL (SDK will not function without calling setDocuments)**
 

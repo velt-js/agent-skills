@@ -1,5 +1,5 @@
 # Velt Comments Best Practices
-|v1.1.5|Velt|January 2026
+|v1.1.10|Velt|January 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
 |root: ./rules
 
@@ -9,7 +9,7 @@
 
 ## 2. REST API — HIGH
 ## 3. Comment Modes — HIGH
-|react/mode:{mode-canvas.md,mode-chart-chartjs.md,mode-chart-custom.md,mode-chart-nivo.md,mode-chart-highcharts.md,mode-ace.md,mode-codemirror-comments.md,mode-lexical.md,mode-plate.md,mode-quill.md,mode-slatejs.md,mode-tiptap.md}
+|react/mode:{mode-canvas.md,mode-chart-chartjs.md,mode-chart-custom.md,mode-chart-nivo.md,mode-chart-highcharts.md,mode-ace.md,mode-apryse.md,mode-codemirror-comments.md,mode-lexical.md,mode-plate.md,mode-quill.md,mode-slatejs.md,mode-tiptap.md}
 |shared/mode:{mode-lottie-player.md,mode-video-player-custom.md,mode-freestyle.md,mode-inline-comments.md,mode-page.md,mode-popover.md,mode-video-player-prebuilt.md,mode-stream.md,mode-text.md}
 
 ## 4. Standalone Components — MEDIUM-HIGH

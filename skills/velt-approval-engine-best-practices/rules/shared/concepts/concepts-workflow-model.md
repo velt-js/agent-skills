@@ -2,7 +2,7 @@
 title: Approval Engine workflow model — nodes, edges, groups, quorum policies, loop regions, and step IDs
 impact: HIGH
 impactDescription: Every REST payload carries these shapes; misunderstanding them produces either INVALID_ARGUMENT linter failures at create time or stuck-forever executions at runtime
-tags: approval-engine, workflow, definition, nodes, edges, groups, quorum, agent, human, reviewers, reviewerIds, slaMs, onQuorumMet, requiredNodeIds, stepId, loops, onReject, reviewerEmails, commentBody
+tags: approval-engine, workflow, definition, nodes, edges, groups, quorum, agent, human, webhook, reviewers, reviewerIds, slaMs, onQuorumMet, requiredNodeIds, stepId, loops, onReject, reviewerEmails, commentBody, storeDbId, tenant-partitioning, __mock__, mock-agent
 ---
 
 ## Approval Engine workflow model — nodes, edges, groups, quorum policies, loop regions, and step IDs
@@ -20,7 +20,22 @@ agent      Runs an agent. Non-blocking by default (completes asynchronously with
 
 human      Requires reviewer approval. Drives via /steps/recordReviewerDecision. Parks in
            "waiting" until aggregator resolves.
+
+webhook    Deferred in v1. The `webhook` type passes definition validation (so authors can
+           draft graphs that will rely on it later), but the runtime handler is NOT enabled —
+           a `webhook` node will not run today. Treat it as a forward-compatibility hook,
+           not a runnable surface.
 ```
+
+**`webhook` vs. inbound handler vs. outbound delivery — three distinct surfaces:**
+
+The string `webhook` appears in three unrelated places in the Approval Engine. Do NOT conflate them:
+
+1. **`node.type === "webhook"`** — a *deferred* node type that validates in a definition but does not run in v1 (above).
+2. **Inbound webhook handler** — a *live* HTTP endpoint that external systems POST raw JSON to (covered in `webhooks-inbound-handler`).
+3. **Per-execution outbound delivery** — the `webhookUrl` + `webhookSecret` pair set on dispatch that pushes externally-visible events to your receiver (covered in `webhooks-delivery`).
+
+The inbound handler and outbound delivery are both live in v1 and active independently; the `webhook` node is not.
 
 **Agent node shape:**
 
@@ -41,6 +56,10 @@ human      Requires reviewer approval. Drives via /steps/recordReviewerDecision.
 ```
 
 Agent node config fields: `agentId` (required), `promptOverride` (≤ 8000 chars), `inputMapping` (object), `blocking` (default false), `resolutionPolicy` (**required when `blocking: true`**: `{ kind: "allResolved" | "minResolved", minCount?: integer }`; `minCount` is required when `kind === "minResolved"`), `agentMaxRuntimeMs` (≤ 86_400_000 / 24h), `requireNonEmptyOutput` (boolean).
+
+**Reserved `__mock__` agent id:**
+
+`agentId: "__mock__"` is a reserved identifier that lets you run a definition end-to-end without registering a real agent. The engine accepts the node, treats the step as terminal, and lets the workflow advance — useful for testing the graph shape, edge expressions, and webhook receiver before any real agent code exists. Swap to a real `agentId` before production; `__mock__` does not invoke any agent runtime.
 
 **Human node shape (new — preferred):**
 
@@ -279,8 +298,20 @@ Step:      pending → running → (waiting) → completed | failed | skipped | 
            // `waiting` applies only to human steps and blocking:true agent steps
 ```
 
+**Tenant partitioning — `storeDbId`:**
+
+Approval Engine state is partitioned per tenant: each tenant's executions, definitions, and events are routed to that tenant's dedicated `storeDbId`. Two operational consequences:
+
+- A definition created under tenant A is not visible to tenant B; an `executionId` from one tenant cannot be fetched, cancelled, or replayed under another tenant's API key.
+- Recovery via `/executions/getEvents?sinceSeq=` reads from the partition that owns the execution. There is no cross-tenant event stream.
+
+Treat the partition boundary as a hard isolation boundary when designing multi-tenant integrations — never assume an ID is portable across tenants.
+
 **Verification Checklist:**
-- [ ] Node `type` is one of `agent` / `human`
+- [ ] Node `type` is one of `agent` / `human` / `webhook` (the `webhook` type validates but does NOT run in v1 — don't depend on its runtime behavior)
+- [ ] Code that switches on `webhook` does not confuse the deferred node type with the live [[webhooks-inbound-handler]] or the live outbound delivery covered in [[webhooks-delivery]]
+- [ ] Test runs that use `agentId: "__mock__"` are swapped to a real `agentId` before production
+- [ ] Multi-tenant integrations treat `storeDbId` as a hard isolation boundary — no IDs assumed portable across tenants
 - [ ] Every `human` node provides exactly one of `reviewers[]` or `reviewerIds[]` — never both
 - [ ] Every `human` node using the new shape has at least one `reviewers[].mandatory: true`
 - [ ] Every `human` node satisfies strict-mode: has `config.onReject` set OR is a member of a top-level `loops[]` body
@@ -297,5 +328,6 @@ Step:      pending → running → (waiting) → completed | failed | skipped | 
 - [ ] Every `loops[]` entry: `entryNodeId` is in `bodyNodeIds`, `maxIterations` 1–20, no node appears in more than one loop body, `onExhausted.routeToNodeId` (if set) references a node outside the loop body
 
 **Source Pointers:**
-- https://docs.velt.dev/ai/approval-engine/overview — concepts overview, step ID formats
-- https://docs.velt.dev/ai/approval-engine/customize-behavior — full node configuration, edge expressions, quorum policies, SLAs
+- https://docs.velt.dev/ai/approval-engine/overview — concepts overview, step ID formats, deferred `webhook` node type, tenant `storeDbId` partitioning
+- https://docs.velt.dev/ai/approval-engine/customize-behavior — full node configuration, edge expressions, quorum policies, SLAs, deferred `webhook` node clarification vs. inbound/outbound surfaces
+- https://docs.velt.dev/ai/approval-engine/setup — reserved `__mock__` agent id for end-to-end tests

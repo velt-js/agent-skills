@@ -1,6 +1,6 @@
 # Velt Node Sdk Best Practices
 
-**Version 0.2.0**  
+**Version 0.2.3**  
 Velt  
 June 2026
 
@@ -14,7 +14,7 @@ June 2026
 
 ## Abstract
 
-Implementation guide for the Velt Node SDK (@veltdev/node) covering its two backends — sdk.api.* (REST API, 17 services) and sdk.selfHosting.* (MongoDB + S3 self-hosted, 7 services + token) — with emphasis on response envelopes, lazy-load pattern for self-hosting services, positional-arg surprise on getToken/getAttachment/saveAttachment, typed error class hierarchy, and data models (PartialCommentAnnotation, BaseMetadata, resolvedByUserId three-state semantics, round-trip dict helpers).
+Implementation guide for the Velt Node SDK (@veltdev/node) covering its two backends — sdk.api.* (REST API, 18 services) and sdk.selfHosting.* (MongoDB + S3 self-hosted, 7 services + token) — with emphasis on response envelopes, lazy-load pattern for self-hosting services, positional-arg surprise on getToken/getAttachment/saveAttachment, typed error class hierarchy, and data models (PartialCommentAnnotation, BaseMetadata, resolvedByUserId three-state semantics, round-trip dict helpers).
 
 ---
 
@@ -22,6 +22,14 @@ Implementation guide for the Velt Node SDK (@veltdev/node) covering its two back
 
 1. [Initialization & lifecycle](#1-initialization-lifecycle) — **CRITICAL**
    - 1.1 [Initialize VeltSDK in the right mode and wire shutdown](#11-initialize-veltsdk-in-the-right-mode-and-wire-shutdown)
+
+2. [sdk.api.* REST backend](#2-sdkapi-rest-backend) — **HIGH**
+   - 2.1 [Drop unknown fields from REST writes with the FieldFilterOptions allowlist](#21-drop-unknown-fields-from-rest-writes-with-the-fieldfilteroptions-allowlist)
+   - 2.2 [Read the sdk.api.* envelope correctly and use the right service namespace](#22-read-the-sdkapi-envelope-correctly-and-use-the-right-service-namespace)
+
+3. [sdk.selfHosting.* MongoDB + S3](#3-sdkselfhosting-mongodb-s3) — **HIGH**
+   - 3.1 [Lazy-load self-hosting services and check the flat envelope](#31-lazy-load-self-hosting-services-and-check-the-flat-envelope)
+   - 3.2 [Pass file bytes positionally to saveAttachment; getAttachment is purely positional](#32-pass-file-bytes-positionally-to-saveattachment-getattachment-is-purely-positional)
 
 4. [Data models](#4-data-models) — **HIGH**
    - 4.1 [Use Correct PartialCommentAnnotation and BaseMetadata Shapes for Updates](#41-use-correct-partialcommentannotation-and-basemetadata-shapes-for-updates)
@@ -46,6 +54,174 @@ Implementation guide for the Velt Node SDK (@veltdev/node) covering its two back
 **Install** — `@veltdev/node` alone is enough for REST-only. Add `mongodb ^6` if you'll call any `sdk.selfHosting.*` method, and `@aws-sdk/client-s3 ^3` if any `saveAttachment` call will pass a file buffer. Node.js 18+.
 
 Reference: `backend-sdks/node.mdx` (Installation; Quick Start → Initialize/Shutdown; Configuration → Environment Variables)
+
+---
+
+## 2. sdk.api.* REST backend
+
+**Impact: HIGH**
+
+18 typed services that wrap the Velt REST API v2. Response envelope is `{ result: { status, message, data, ... } }`. Every method requires `organizationId` (write) or `organizationIds` (read). Service instances are available immediately — no async lazy-load. The `activities` / `commentAnnotations` / `notifications` add/update methods accept an optional `FieldFilterOptions` second argument (`{ filterUnknownFields: true }`) to drop unknown keys before the write.
+
+### 2.1 Drop unknown fields from REST writes with the FieldFilterOptions allowlist
+
+**Impact: MEDIUM (Opt-in payload narrowing keeps custom/unknown keys out of Velt REST writes; fail-open so a write is never blocked)**
+
+The `sdk.api.*` add/update methods on `activities`, `commentAnnotations`, and `notifications` accept an optional **second** argument, `FieldFilterOptions`. Pass `{ filterUnknownFields: true }` to narrow the request to exactly the fields the target Velt backend endpoint accepts, dropping unknown/custom keys before the request is sent. It is **opt-in** (defaults to `false`) and **fail-open**: if filtering throws, the original payload is sent, so enabling it never blocks a write.
+
+The eight methods that accept the option: `addActivities`, `updateActivities`, `addCommentAnnotations`, `updateCommentAnnotations`, `addComments`, `updateComments`, `addNotifications`, `updateNotifications`.
+
+**Incorrect (passing custom/unknown keys and assuming the backend strips them — they are forwarded as-is, and `isRead`/`isArchived` silently do nothing on update):**
+
+```ts
+// Unknown `internalTag` is sent verbatim; nothing narrows it.
+await sdk.api.notifications.addNotifications({
+  organizationId: 'org-123',
+  documentId: 'doc-1',
+  notifications: [{ /* ... */ internalTag: 'debug' }],
+});
+
+// isRead/isArchived are NOT part of /v2/notifications/update — they are ignored.
+await sdk.api.notifications.updateNotifications({
+  organizationId: 'org-123',
+  notifications: [{ id: 'n-1', isRead: true }],
+});
+```
+
+**Correct (opt in with the second argument to drop unknown keys before sending):**
+
+```ts
+await sdk.api.notifications.addNotifications(
+  {
+    organizationId: 'org-123',
+    documentId: 'doc-1',
+    notifications: [{ /* ... */ internalTag: 'debug' }], // internalTag dropped
+  },
+  { filterUnknownFields: true },
+);
+pickKnownFields<T extends object>(data: T, keys: readonly string[]): Partial<T>;
+filterRequest<T extends object>(request: T, spec: FilterSpec): T;
+
+interface FilterSpec {
+  keys: readonly string[];              // allowed top-level keys (everything else dropped)
+  arrays?: Record<string, FilterSpec>;  // array-of-object fields, filtered per item
+  objects?: Record<string, FilterSpec>; // single-object fields, filtered recursively
+}
+```
+
+Open-typed objects (`actionUser`, `context`, `metadata`, `from`, `entityData`, and user objects) pass through whole — their nested contents are never filtered.
+**Exported utilities** — the field-allowlist module is exported from `@veltdev/node` so advanced callers can reuse the same logic:
+- `pickKnownFields(data, keys)` — keeps only own-enumerable keys present in `keys`; values kept by reference (no recursion); non-object/array/null inputs returned unchanged.
+- `filterRequest(request, spec)` — applies a `FilterSpec` recursively; never mutates input; fail-open (returns the original request on any error).
+- Eight per-method specs are exported: `ADD_ACTIVITIES_SPEC`, `UPDATE_ACTIVITIES_SPEC`, `ADD_COMMENT_ANNOTATIONS_SPEC`, `UPDATE_COMMENT_ANNOTATIONS_SPEC`, `ADD_COMMENTS_SPEC`, `UPDATE_COMMENTS_SPEC`, `ADD_NOTIFICATIONS_SPEC`, `UPDATE_NOTIFICATIONS_SPEC`. See the docs for the full per-endpoint allowlisted-key tables.
+**Note:** `UPDATE_NOTIFICATIONS_SPEC` intentionally excludes `isRead`/`isArchived` — they are absent from the backend `UpdateNotificationsSchemaV2` and unsupported by `/v2/notifications/update`, so they are dropped when filtering is on.
+
+Reference: `backend-sdks/node.mdx` — "Field Allowlist" (FieldFilterOptions, exported `pickKnownFields`/`filterRequest`/`FilterSpec`, per-endpoint specs)
+
+---
+
+### 2.2 Read the sdk.api.* envelope correctly and use the right service namespace
+
+**Impact: HIGH (Wrong envelope check silently mis-reads every response; wrong service/method name is a runtime "is not a function")**
+
+Every `sdk.api.*` method returns the REST envelope and requires `organizationId`. Service instances are available immediately — there is no `await sdk.api.getXxx()` lazy-load (that pattern is `sdk.selfHosting.*` only).
+
+**Envelope** — success returns:
+
+**High-risk additions to remember:**
+
+```ts
+const result = await sdk.api.documents.addDocuments({
+  organizationId: 'org-123',
+  documents: [{ documentId: 'doc-1', documentName: 'My Document' }],
+});
+if (result.result.status !== 'success') throw new Error(result.result.message);
+```
+
+Workspace and Token methods are workspace-scoped — they use `VELT_WORKSPACE_AUTH_TOKEN` and `VELT_WORKSPACE_ID` when set.
+
+Reference: `backend-sdks/node.mdx` (REST API Backend → all 18 service subsections); `api-reference/sdk/models/data-models.mdx` (Node SDK Types → `VeltApiResponse`, per-service request/response types)
+
+---
+
+## 3. sdk.selfHosting.* MongoDB + S3
+
+**Impact: HIGH**
+
+7 services backed by your own MongoDB (and optionally AWS S3 for attachments). Loader pattern: `const svc = await sdk.selfHosting.getXxx()` — instances cached after first call. Flat response envelope: `{ success, statusCode, data }` on success, `{ success: false, statusCode, error, errorCode }` on failure. Attachment uploads use a hybrid call shape — request object plus optional positional file args.
+
+### 3.1 Lazy-load self-hosting services and check the flat envelope
+
+**Impact: HIGH (Forgetting `await` returns a Promise (next call throws "is not a function"); reading the wrong envelope key silently mis-judges every result)**
+
+Self-hosting services are lazy-loaded with `await sdk.selfHosting.getXxx()` — the service instance is cached after the first call. Skip the `await` and you get a Promise object back, then every method on it throws "is not a function".
+
+**Envelope** — flat shape, NOT the nested `{ result: { status, ... } }` of `sdk.api.*`:
+
+**Incorrect — pre-v1.0.5 `user` field is silently ignored:**
+
+```ts
+const svc = await sdk.selfHosting.getReactions();
+await svc.saveReactions({
+  metadata: { organizationId: 'org-123', documentId: 'doc-1' },
+  reactionAnnotation: {
+    'reaction-1': { annotationId: 'reaction-1', icon: 'thumbsup', user: { userId: 'u-1' } }, // `user` is not a recognized key on v1.0.5+
+  },
+});
+```
+
+**Correct — use `from`:**
+
+```ts
+const svc = await sdk.selfHosting.getReactions();
+await svc.saveReactions({
+  metadata: { organizationId: 'org-123', documentId: 'doc-1' },
+  reactionAnnotation: {
+    'reaction-1': { annotationId: 'reaction-1', icon: 'thumbsup', from: { userId: 'u-1' }, metadata: {} },
+  },
+});
+```
+
+**Canonical write:**
+
+```ts
+const svc = await sdk.selfHosting.getComments();
+const r = await svc.saveComments({
+  metadata: { organizationId: 'org-123', documentId: 'doc-1' },
+  commentAnnotation: {
+    'annotation-1': {
+      annotationId: 'annotation-1',
+      comments: { '123456': { commentId: '123456', commentText: 'Hello' } },
+      metadata: {},
+    },
+  },
+});
+// → { success: true, statusCode: 200, data: { saved: true } }
+```
+
+**Canonical delete:**
+
+```ts
+const svc = await sdk.selfHosting.getComments();
+await svc.deleteComment({
+  commentAnnotationId: 'annotation-1',
+  metadata: { organizationId: 'org-123' },
+});
+```
+
+Reference: `backend-sdks/node.mdx` (Self-Hosting Backend opening + all 7 service subsections); `api-reference/sdk/models/data-models.mdx` (Node SDK Types → `VeltSelfHostingResponse`, per-method request types)
+
+---
+
+### 3.2 Pass file bytes positionally to saveAttachment; getAttachment is purely positional
+
+**Impact: HIGH (Putting fileData inside the request object silently no-ops the S3 upload; wrapping getAttachment's args in an object returns nothing useful)**
+
+Attachments is the one self-hosting service that mixes a request object with positional file arguments. This trips up everyone the first time.
+
+**`saveAttachment(request, fileBuffer?, fileName?, mimeType?)`** — the request object goes first; the next three are optional positional args. Supply all three when you want the SDK to upload the body to S3; omit them when you're storing only metadata.
+
+Reference: `backend-sdks/node.mdx` (Self-Hosting Backend → Attachments)
 
 ---
 

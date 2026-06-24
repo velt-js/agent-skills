@@ -141,8 +141,6 @@ commentElement.toggleCommentSidebar();
 import { VeltCommentsSidebarV2 } from '@veltdev/react';
 
 <VeltCommentsSidebarV2 />
-// or
-<VeltCommentsSidebar version="2" />
 ```
 
 V2 replaces the per-category filter panel with a unified `FilterDropdown`. For V2 wireframe customization, see the Comment Sidebar V2 Structure docs.

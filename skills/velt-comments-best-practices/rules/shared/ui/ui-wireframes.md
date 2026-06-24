@@ -216,6 +216,76 @@ As of v5.0.1-beta.2, the wireframe template for the resolve and unresolve button
 - `List` - Comment list
 - `EmptyPlaceholder` - Empty state
 
+**V2 Sidebar Wireframe Subtrees (`VeltCommentsSidebarV2Wireframe.*` / `velt-comments-sidebar-*-v2-wireframe`):**
+
+The V2 sidebar wireframe catalog gained five new subtrees and lost the MinimalActionsDropdown family. Compose them inside `VeltWireframe` / `<velt-wireframe>`.
+
+- `Search` — header search row (and its `Icon` + `Input` leaves).
+- `FilterButton` — opens the Main Filter container; child `AppliedIcon` leaf surfaces the active-filter indicator.
+- `FilterContainer` — Main Filter bottom-sheet / menu subtree:
+  - `Title`, `GroupBy`, `ResetButton`, `ApplyButton`, `CloseButton` leaves.
+  - `SectionList` → `Section` → `SectionLabel` (leaf) and `SectionField` → `SectionControl` (+ `SectionControlChevron`, `SectionControlValue`, `SectionControlChipList` → `SectionControlChip`, `SectionControlSearch`) and `SectionOptionList` → `SectionOption` (+ `SectionOptionCheckbox`, `SectionOptionName`, `SectionOptionCount`).
+- `FullscreenButton` — leaf header toggle that emits the new `onFullscreenClick` event.
+- `ListGroupHeader` — renders once per group when grouping is enabled; child leaves `Label`, `Count`, `Chevron`, `Separator`.
+- `FilterDropdown.Content.List.Item.Count` — new leaf under the existing `FilterDropdown` subtree.
+- `FilterDropdown.Content.List.Category.Label` — new leaf alongside the existing `Category.Content`.
+
+> **Breaking change (Comment Sidebar V2 — current release):** `VeltCommentsSidebarV2Wireframe.MinimalActionsDropdown` (Trigger / Content / MarkAllRead / MarkAllResolved) and the `velt-comments-sidebar-minimal-actions-dropdown-v2-wireframe` family are removed from the wireframe catalog. The actions are now exposed by the combined `actions` filter-dropdown, configured via the `minimalFilters` input on `VeltCommentsSidebarV2`. Migrate any custom wireframes to a `FilterDropdown` (or `FilterContainer`) composition.
+
+```jsx
+// React — V2 sidebar header composed against the new wireframe subtree
+<VeltWireframe>
+  <VeltCommentsSidebarV2Wireframe.Header>
+    <VeltCommentsSidebarV2Wireframe.CloseButton />
+    <VeltCommentsSidebarV2Wireframe.Search>
+      <VeltCommentsSidebarV2Wireframe.Search.Icon />
+      <VeltCommentsSidebarV2Wireframe.Search.Input />
+    </VeltCommentsSidebarV2Wireframe.Search>
+    <VeltCommentsSidebarV2Wireframe.FilterButton>
+      <VeltCommentsSidebarV2Wireframe.FilterButton.AppliedIcon />
+    </VeltCommentsSidebarV2Wireframe.FilterButton>
+    <VeltCommentsSidebarV2Wireframe.FilterContainer />
+    <VeltCommentsSidebarV2Wireframe.FullscreenButton />
+    <VeltCommentsSidebarV2Wireframe.FilterDropdown />
+  </VeltCommentsSidebarV2Wireframe.Header>
+  <VeltCommentsSidebarV2Wireframe.List>
+    <VeltCommentsSidebarV2Wireframe.ListGroupHeader>
+      <VeltCommentsSidebarV2Wireframe.ListGroupHeader.Label />
+      <VeltCommentsSidebarV2Wireframe.ListGroupHeader.Count />
+      <VeltCommentsSidebarV2Wireframe.ListGroupHeader.Chevron />
+      <VeltCommentsSidebarV2Wireframe.ListGroupHeader.Separator />
+    </VeltCommentsSidebarV2Wireframe.ListGroupHeader>
+  </VeltCommentsSidebarV2Wireframe.List>
+</VeltWireframe>
+```
+
+```html
+<!-- HTML / Other Frameworks — matching velt-comments-sidebar-*-v2-wireframe tags -->
+<velt-wireframe style="display:none;">
+  <velt-comments-sidebar-header-v2-wireframe>
+    <velt-comments-sidebar-close-button-v2-wireframe></velt-comments-sidebar-close-button-v2-wireframe>
+    <velt-comments-sidebar-search-v2-wireframe>
+      <velt-comments-sidebar-search-v2-icon-wireframe></velt-comments-sidebar-search-v2-icon-wireframe>
+      <velt-comments-sidebar-search-v2-input-wireframe></velt-comments-sidebar-search-v2-input-wireframe>
+    </velt-comments-sidebar-search-v2-wireframe>
+    <velt-comments-sidebar-filter-button-v2-wireframe>
+      <velt-comments-sidebar-filter-button-v2-applied-icon-wireframe></velt-comments-sidebar-filter-button-v2-applied-icon-wireframe>
+    </velt-comments-sidebar-filter-button-v2-wireframe>
+    <velt-comments-sidebar-filter-container-v2-wireframe></velt-comments-sidebar-filter-container-v2-wireframe>
+    <velt-comments-sidebar-fullscreen-button-v2-wireframe></velt-comments-sidebar-fullscreen-button-v2-wireframe>
+    <velt-comments-sidebar-filter-dropdown-v2-wireframe></velt-comments-sidebar-filter-dropdown-v2-wireframe>
+  </velt-comments-sidebar-header-v2-wireframe>
+  <velt-comments-sidebar-list-v2-wireframe>
+    <velt-comments-sidebar-list-group-header-v2-wireframe>
+      <velt-comments-sidebar-list-group-header-v2-label-wireframe></velt-comments-sidebar-list-group-header-v2-label-wireframe>
+      <velt-comments-sidebar-list-group-header-v2-count-wireframe></velt-comments-sidebar-list-group-header-v2-count-wireframe>
+      <velt-comments-sidebar-list-group-header-v2-chevron-wireframe></velt-comments-sidebar-list-group-header-v2-chevron-wireframe>
+      <velt-comments-sidebar-list-group-header-v2-separator-wireframe></velt-comments-sidebar-list-group-header-v2-separator-wireframe>
+    </velt-comments-sidebar-list-group-header-v2-wireframe>
+  </velt-comments-sidebar-list-v2-wireframe>
+</velt-wireframe>
+```
+
 **For HTML:**
 
 ```html
@@ -305,7 +375,10 @@ These controls only render when a message exceeds the `messageTruncationLines` t
 - [ ] Framework naming convention followed
 - [ ] Required subcomponents included
 - [ ] When accessing annotation data in wireframe templates, use `annotations` or `allAnnotations` shorthand variables (v5.0.2-beta.11+) instead of long-form signal paths
+- [ ] V2 sidebar header compositions use `Search` / `FilterButton` / `FilterContainer` / `FullscreenButton` / `FilterDropdown` — `MinimalActionsDropdown` and its descendants are no longer in the catalog
+- [ ] V2 sidebar list compositions place `ListGroupHeader` (+ `Label`, `Count`, `Chevron`, `Separator`) inside `List`
 
 **Source Pointers:**
 - https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog-structure - Dialog wireframe
 - https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar-structure - Sidebar wireframe
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar-structure-v2 - V2 Sidebar wireframe structure (Search / FilterButton / FilterContainer / FullscreenButton / ListGroupHeader)

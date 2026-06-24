@@ -4,7 +4,7 @@ description: Velt Node SDK (`@veltdev/node`) implementation patterns for Node.js
 license: MIT
 metadata:
   author: velt
-  version: "0.2.0"
+  version: "0.2.3"
 ---
 
 # Velt Node SDK Best Practices
@@ -48,7 +48,8 @@ The two return **different response envelopes** — that's the single highest-im
 - `init-dual-mode` — Pick the right `VeltSDK.initialize` shape (REST-only vs self-hosting) and wire `await sdk.close()` on shutdown
 
 ### 2. sdk.api.* (REST backend)
-- `api-envelope-and-services` — Use the `{ result: { status, data } }` envelope; service-by-service method index for all 17 namespaces; `organizationId` is required on every method
+- `api-envelope-and-services` — Use the `{ result: { status, data } }` envelope; service-by-service method index for all 18 namespaces; `organizationId` is required on every method
+- `api-field-allowlist` — Pass `{ filterUnknownFields: true }` as the second arg to the activities/commentAnnotations/notifications add/update methods to drop unknown keys before the REST write (opt-in, fail-open); reuse via exported `pickKnownFields` / `filterRequest` / `FilterSpec`
 
 ### 3. sdk.selfHosting.* (MongoDB + S3)
 - `selfhost-lazy-load-and-services` — Lazy-load with `await sdk.selfHosting.getXxx()`; flat envelope with `success` + `errorCode`; per-service method index for all 7 services

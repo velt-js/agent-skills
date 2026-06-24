@@ -7,14 +7,14 @@
 
 ---
 
-## 2. sdk.api.* (REST backend) (api)
+## 2. sdk.api.* REST backend (api)
 
 **Impact:** HIGH
-**Description:** 17 typed services that wrap the Velt REST API v2. Response envelope is `{ result: { status, message, data, ... } }`. Every method requires `organizationId` (write) or `organizationIds` (read). Service instances are available immediately — no async lazy-load.
+**Description:** 18 typed services that wrap the Velt REST API v2. Response envelope is `{ result: { status, message, data, ... } }`. Every method requires `organizationId` (write) or `organizationIds` (read). Service instances are available immediately — no async lazy-load. The `activities` / `commentAnnotations` / `notifications` add/update methods accept an optional `FieldFilterOptions` second argument (`{ filterUnknownFields: true }`) to drop unknown keys before the write.
 
 ---
 
-## 3. sdk.selfHosting.* (MongoDB + S3) (selfhost)
+## 3. sdk.selfHosting.* MongoDB + S3 (selfhost)
 
 **Impact:** HIGH
 **Description:** 7 services backed by your own MongoDB (and optionally AWS S3 for attachments). Loader pattern: `const svc = await sdk.selfHosting.getXxx()` — instances cached after first call. Flat response envelope: `{ success, statusCode, data }` on success, `{ success: false, statusCode, error, errorCode }` on failure. Attachment uploads use a hybrid call shape — request object plus optional positional file args.

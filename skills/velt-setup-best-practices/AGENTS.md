@@ -1,5 +1,5 @@
 # Velt Setup Best Practices
-|v1.0.0|Velt|January 2026
+|v1.0.1|Velt|January 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
 |root: ./rules
 
@@ -16,7 +16,7 @@
 |shared/identity:{identity-jwt-generation.md,identity-organization-id.md,identity-user-object-shape.md}
 
 ## 4. Document Identity — CRITICAL
-|shared/document-identity:{document-metadata.md,document-id-generation.md,document-set-document.md}
+|shared/document-identity:{document-page-info.md,document-metadata.md,document-id-generation.md,document-set-document.md}
 
 ## 5. Config — HIGH
 |shared/config:{config-firestore-persistent-cache.md,config-api-key.md,config-proxy-config.md,config-auth-token-security.md,config-domain-safelist.md}

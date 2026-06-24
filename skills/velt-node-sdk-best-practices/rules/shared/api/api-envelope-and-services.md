@@ -28,27 +28,35 @@ if (result.success) { /* never runs */ }
 
 **Organization ID** — read methods take `organizationIds` (plural array); write/single-org methods take `organizationId` (singular string) at the root of the request.
 
-**Service-by-service method index** (17 namespaces):
+**Service-by-service method index** (18 namespaces):
 
 | # | Namespace | Methods |
 |---|---|---|
 | 1 | `sdk.api.organizations` | `addOrganizations`, `getOrganizations`, `updateOrganizations`, `deleteOrganizations`, `updateOrganizationDisableState` |
 | 2 | `sdk.api.folders` | `addFolder`, `getFolders`, `updateFolder`, `deleteFolder`, `updateFolderAccess` |
-| 3 | `sdk.api.documents` | `addDocuments`, `getDocuments`, `updateDocuments`, `deleteDocuments`, `moveDocuments`, `updateDocumentAccess`, `updateDocumentDisableState`, `migrateDocuments`, `migrateDocumentsStatus` |
-| 4 | `sdk.api.users` | `addUsers`, `getUsers`, `updateUsers`, `deleteUsers` |
+| 3 | `sdk.api.documents` | `addDocuments`, `getDocuments`, `updateDocuments`, `deleteDocuments`, `moveDocuments`, `updateDocumentAccess`, `updateDocumentDisableState`, `migrateDocuments`, `migrateDocumentsStatus`, `getDocumentsCount` |
+| 4 | `sdk.api.users` | `addUsers`, `getUsers`, `updateUsers`, `deleteUsers`, `getUsersCount`, `getDocUsers`, `addUserInvite`, `respondToUserInvite`, `getUserInvites`, `getUserInvitations`, `getInvitedPendingUsersCount` |
 | 5 | `sdk.api.userGroups` | `addUserGroups`, `addUsersToGroup`, `deleteUsersFromGroup` |
 | 6 | `sdk.api.notifications` | `addNotifications`, `getNotifications`, `updateNotifications`, `deleteNotifications`, `getNotificationConfig`, `setNotificationConfig` |
 | 7 | `sdk.api.commentAnnotations` | `addCommentAnnotations`, `getCommentAnnotations`, `getCommentAnnotationsCount`, `updateCommentAnnotations`, `deleteCommentAnnotations`, `addComments`, `getComments`, `updateComments`, `deleteComments` |
 | 8 | `sdk.api.activities` | `addActivities`, `getActivities`, `updateActivities`, `deleteActivities` |
 | 9 | `sdk.api.accessControl` | `addPermissions`, `getPermissions`, `removePermissions`, `generateSignature`, `generateToken` |
-| 10 | `sdk.api.crdt` | `addCrdtData`, `getCrdtData`, `updateCrdtData` |
+| 10 | `sdk.api.crdt` | `addCrdtData`, `getCrdtData`, `updateCrdtData`, `deleteCrdtData` |
 | 11 | `sdk.api.presence` | `addPresence`, `updatePresence`, `deletePresence` |
 | 12 | `sdk.api.livestate` | `broadcastEvent` |
 | 13 | `sdk.api.recordings` | `getRecordings` |
 | 14 | `sdk.api.rewriter` | `askAi` |
 | 15 | `sdk.api.gdpr` | `deleteAllUserData`, `getAllUserData`, `getDeleteUserDataStatus` |
-| 16 | `sdk.api.workspace` | `createWorkspace`, `getWorkspace`, `createApiKey`, `updateApiKey`, `getApiKeys`, `getApiKeyMetadata`, `resetAuthToken`, `getAuthTokens`, `addDomains`, `deleteDomains`, `getDomains`, `getEmailStatus`, `sendLoginLink`, `getEmailConfig`, `updateEmailConfig`, `getWebhookConfig`, `updateWebhookConfig` |
+| 16 | `sdk.api.workspace` | `createWorkspace`, `getWorkspace`, `createApiKey`, `updateApiKey`, `getApiKeys`, `getApiKeyMetadata`, `resetAuthToken`, `getAuthTokens`, `addDomains`, `deleteDomains`, `getDomains`, `getRequestedDomains`, `acceptRejectAdditionalUrlRequest`, `createDomainRequest`, `getEmailStatus`, `sendLoginLink`, `getEmailConfig`, `updateEmailConfig`, `copyApiKey`, `updateApiKeyConfig`, `getNotificationConfig`, `updateNotificationConfig`, `getPermissionProviderConfig`, `updatePermissionProviderConfig`, `getActivityConfig`, `updateActivityConfig`, `ensureWorkspaceAuthToken`, `getWebhookConfig`, `updateWebhookConfig`, `getAdvancedWebhookConfig`, `updateAdvancedWebhookConfig`, `getAdvancedWebhookEndpoints`, `createAdvancedWebhookEndpoint`, `updateAdvancedWebhookEndpoint`, `deleteAdvancedWebhookEndpoint`, `getAdvancedWebhookEndpointSecret` |
 | 17 | `sdk.api.token` | `getToken` (positional args — see `pitfalls-token-and-envelopes`) |
+| 18 | `sdk.api.approval` | `createDefinition`, `updateDefinition`, `deleteDefinition`, `getDefinition`, `listDefinitions`, `dispatchExecution`, `cancelExecution`, `getExecution`, `getExecutionEvents`, `listExecutions`, `cancelStep`, `resolveStep`, `recordAgentResolution`, `recordReviewerDecision` |
+
+The docs intentionally hide the Node SDK `sdk.api.agents` and `sdk.api.memory` sections for now. Do not add those namespaces from draft or commented MDX until they are visible in the published Node SDK reference.
+
+**High-risk additions to remember:**
+- `sdk.api.documents.getDocumentsCount()` returns organization document counts, optionally scoped by `folderId` and `excludeFolderDocs`.
+- `sdk.api.crdt.deleteCrdtData()` deletes CRDT editor data; omitting `editorIds` deletes CRDT data for all editors in the document.
+- `sdk.api.approval.*` maps to the `/v2/workflow/*` Approval Engine workflow surface. Use it for definitions, executions, step cancellation/resolution, and reviewer/agent decisions.
 
 **Canonical call**:
 
@@ -68,4 +76,4 @@ Workspace and Token methods are workspace-scoped — they use `VELT_WORKSPACE_AU
 - [ ] No `await sdk.api.getXxx()` calls — those are invented
 - [ ] Method name + namespace match the table above
 
-**Source Pointer:** `backend-sdks/node.mdx` (REST API Backend → all 17 service subsections); `api-reference/sdk/models/data-models.mdx` (Node SDK Types → `VeltApiResponse`, per-service request/response types)
+**Source Pointer:** `backend-sdks/node.mdx` (REST API Backend → all 18 service subsections); `api-reference/sdk/models/data-models.mdx` (Node SDK Types → `VeltApiResponse`, per-service request/response types)

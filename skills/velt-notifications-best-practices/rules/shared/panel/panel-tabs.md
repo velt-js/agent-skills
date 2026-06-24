@@ -2,7 +2,7 @@
 title: Configure Notification Panel Tabs
 impact: HIGH
 impactDescription: Customize which notification categories users see
-tags: panel, tabs, forYou, all, documents, tabConfig
+tags: panel, tabs, forYou, all, documents, tabConfig, listType, primitives
 ---
 
 ## Configure Notification Panel Tabs
@@ -83,9 +83,36 @@ function ConfigureNotifications() {
 }
 ```
 
+**Primitive-Level Feed Selection (`listType`):**
+
+When building a custom panel out of primitives instead of `VeltNotificationsTool`, use the `listType` prop on `VeltNotificationsPanelContentList` and `VeltNotificationsPanelContentLoadMore` to choose which feed each primitive renders or paginates from the shared context. Valid values: `'all'` (default) and `'for-you'`.
+
+```jsx
+import {
+  VeltNotificationsPanelContentList,
+  VeltNotificationsPanelContentLoadMore,
+} from '@veltdev/react';
+
+// Render the "For You" feed in a custom panel
+<VeltNotificationsPanelContentList listType="for-you" />
+<VeltNotificationsPanelContentLoadMore listType="for-you" />
+```
+
+**For HTML:**
+
+```html
+<velt-notifications-panel-content-list list-type="for-you"></velt-notifications-panel-content-list>
+<velt-notifications-panel-content-load-more list-type="for-you"></velt-notifications-panel-content-load-more>
+```
+
+`listType` is ignored when `notifications` is bound directly to the list primitive.
+
 **Verification:**
 - [ ] tabConfig object uses correct tab keys
 - [ ] Each tab has name and enable properties
 - [ ] Disabled tabs do not appear in panel
+- [ ] When using primitives, `listType` matches the intended feed (`'all'` vs `'for-you'`) on both the list and the load-more button
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Tab Configuration
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Tab Configuration
+- https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel/primitives - VeltNotificationsPanelContentList, VeltNotificationsPanelContentLoadMore

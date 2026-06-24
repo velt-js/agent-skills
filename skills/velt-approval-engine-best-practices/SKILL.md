@@ -47,6 +47,7 @@ For general Velt REST API patterns (Comments, Notifications, Activity, etc.), se
 
 ### Webhooks (HIGH)
 - `webhooks-delivery` — HMAC-SHA256 signature verification on raw bytes, delivery headers, retry schedule, event-type catalog (now includes `loop.iteration-started` and `loop.exhausted`), at-least-once idempotency
+- `webhooks-inbound-handler` — inbound HTTP endpoint that external systems POST raw JSON to (no `{data: ...}` envelope), bearer-token auth, signed callback tokens, per-source rate limiting, body-size limits, SSRF URL guard; distinct from outbound delivery and from the deferred `node.type === "webhook"`
 
 ## How to Use
 
@@ -60,6 +61,7 @@ rules/shared/rest/rest-executions.md
 rules/shared/rest/rest-steps.md
 rules/shared/rest/rest-object-views.md
 rules/shared/webhooks/webhooks-delivery.md
+rules/shared/webhooks/webhooks-inbound-handler.md
 ```
 
 Each rule file contains:

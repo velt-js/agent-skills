@@ -106,8 +106,9 @@ function NotificationButton() {
 <VeltNotificationsTool pageSize={20} />
 ```
 
+**For HTML:**
+
 ```html
-<!-- HTML variant -->
 <velt-notifications-tool page-size="20"></velt-notifications-tool>
 ```
 

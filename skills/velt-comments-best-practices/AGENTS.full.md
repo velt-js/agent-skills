@@ -1,6 +1,6 @@
 # Velt Comments Best Practices
 
-**Version 1.1.5**  
+**Version 1.1.10**  
 Velt  
 January 2026
 
@@ -34,21 +34,22 @@ Comprehensive Velt Comments implementation guide covering comment modes, setup p
    - 3.4 [Add Comments to Nivo Charts](#34-add-comments-to-nivo-charts)
    - 3.5 [Add Data Point Comments to Highcharts](#35-add-data-point-comments-to-highcharts)
    - 3.6 [Integrate Comments with Ace Editor](#36-integrate-comments-with-ace-editor)
-   - 3.7 [Integrate Comments with CodeMirror Editor](#37-integrate-comments-with-codemirror-editor)
-   - 3.8 [Integrate Comments with Lexical Editor](#38-integrate-comments-with-lexical-editor)
-   - 3.9 [Integrate Comments with Plate Editor](#39-integrate-comments-with-plate-editor)
-   - 3.10 [Integrate Comments with Quill Editor](#310-integrate-comments-with-quill-editor)
-   - 3.11 [Integrate Comments with SlateJS Editor](#311-integrate-comments-with-slatejs-editor)
-   - 3.12 [Integrate Comments with TipTap Editor](#312-integrate-comments-with-tiptap-editor)
-   - 3.13 [Add Frame-by-Frame Comments to Lottie Animations](#313-add-frame-by-frame-comments-to-lottie-animations)
-   - 3.14 [Integrate Comments with Custom Video Player](#314-integrate-comments-with-custom-video-player)
-   - 3.15 [Use Freestyle Mode for Pin-Anywhere Comments](#315-use-freestyle-mode-for-pin-anywhere-comments)
-   - 3.16 [Use Inline Comments for Traditional Thread Style](#316-use-inline-comments-for-traditional-thread-style)
-   - 3.17 [Use Page Mode for Page-Level Comments](#317-use-page-mode-for-page-level-comments)
-   - 3.18 [Use Popover Mode for Table Cell Comments](#318-use-popover-mode-for-table-cell-comments)
-   - 3.19 [Use Prebuilt Video Player for Quick Setup](#319-use-prebuilt-video-player-for-quick-setup)
-   - 3.20 [Use Stream Mode for Google Docs-Style Comments](#320-use-stream-mode-for-google-docs-style-comments)
-   - 3.21 [Use Text Mode for Text Highlight Comments](#321-use-text-mode-for-text-highlight-comments)
+   - 3.7 [Integrate Comments with Apryse WebViewer](#37-integrate-comments-with-apryse-webviewer)
+   - 3.8 [Integrate Comments with CodeMirror Editor](#38-integrate-comments-with-codemirror-editor)
+   - 3.9 [Integrate Comments with Lexical Editor](#39-integrate-comments-with-lexical-editor)
+   - 3.10 [Integrate Comments with Plate Editor](#310-integrate-comments-with-plate-editor)
+   - 3.11 [Integrate Comments with Quill Editor](#311-integrate-comments-with-quill-editor)
+   - 3.12 [Integrate Comments with SlateJS Editor](#312-integrate-comments-with-slatejs-editor)
+   - 3.13 [Integrate Comments with TipTap Editor](#313-integrate-comments-with-tiptap-editor)
+   - 3.14 [Add Frame-by-Frame Comments to Lottie Animations](#314-add-frame-by-frame-comments-to-lottie-animations)
+   - 3.15 [Integrate Comments with Custom Video Player](#315-integrate-comments-with-custom-video-player)
+   - 3.16 [Use Freestyle Mode for Pin-Anywhere Comments](#316-use-freestyle-mode-for-pin-anywhere-comments)
+   - 3.17 [Use Inline Comments for Traditional Thread Style](#317-use-inline-comments-for-traditional-thread-style)
+   - 3.18 [Use Page Mode for Page-Level Comments](#318-use-page-mode-for-page-level-comments)
+   - 3.19 [Use Popover Mode for Table Cell Comments](#319-use-popover-mode-for-table-cell-comments)
+   - 3.20 [Use Prebuilt Video Player for Quick Setup](#320-use-prebuilt-video-player-for-quick-setup)
+   - 3.21 [Use Stream Mode for Google Docs-Style Comments](#321-use-stream-mode-for-google-docs-style-comments)
+   - 3.22 [Use Text Mode for Text Highlight Comments](#322-use-text-mode-for-text-highlight-comments)
 
 4. [Standalone Components](#4-standalone-components) — **MEDIUM-HIGH**
    - 4.1 [Use Comment Pin for Manual Position Control](#41-use-comment-pin-for-manual-position-control)
@@ -1250,7 +1251,124 @@ velt-comment-text {
 
 ---
 
-### 3.7 Integrate Comments with CodeMirror Editor
+### 3.7 Integrate Comments with Apryse WebViewer
+
+**Impact: HIGH (PDF and DOCX text comments in Apryse WebViewer with durable anchors and cleanup)**
+
+Use `@veltdev/apryse-velt-comments` when adding Velt text comments to Apryse WebViewer documents. The integration attaches to one WebViewer instance, renders existing Velt annotations back into Apryse, and stores durable text anchors that survive document edits and viewer/docxEditor mode switches.
+
+**Incorrect (using default text comments without the Apryse extension):**
+
+```jsx
+// Default text mode cannot render selections inside the Apryse canvas.
+<VeltProvider apiKey="API_KEY">
+  <VeltComments textMode={true} />
+  <div ref={viewerRef} />
+</VeltProvider>
+```
+
+**Correct (React / Next.js with the Apryse extension):**
+
+```jsx
+npm install @veltdev/apryse-velt-comments @pdftron/webviewer
+import { VeltProvider, VeltComments } from '@veltdev/react';
+
+<VeltProvider apiKey="API_KEY">
+  <VeltComments textMode={false} />
+</VeltProvider>
+import { useEffect, useRef, useState } from 'react';
+import { useCommentAnnotations } from '@veltdev/react';
+import {
+  ApryseVeltComments,
+  addComment,
+  renderComments,
+} from '@veltdev/apryse-velt-comments';
+
+function ApryseEditor() {
+  const viewerRef = useRef(null);
+  const instanceRef = useRef(null);
+  const extensionRef = useRef(null);
+  const [instance, setInstance] = useState(null);
+  const annotations = useCommentAnnotations();
+
+  useEffect(() => {
+    if (!viewerRef.current || instanceRef.current) return;
+    let cancelled = false;
+
+    import('@pdftron/webviewer').then(({ default: WebViewer }) => {
+      if (cancelled) return;
+      WebViewer(
+        {
+          path: 'lib/webviewer',
+          licenseKey: 'YOUR_APRYSE_LICENSE_KEY',
+          initialDoc: '/your-document.docx',
+          initialMode: 'docxEditor',
+        },
+        viewerRef.current,
+      ).then((webViewerInstance) => {
+        if (cancelled) return;
+        instanceRef.current = webViewerInstance;
+        extensionRef.current = ApryseVeltComments
+          .configure({ editorId: 'contract-viewer' })
+          .attach(webViewerInstance);
+        setInstance(webViewerInstance);
+      });
+    });
+
+    return () => {
+      cancelled = true;
+      extensionRef.current?.detach();
+      extensionRef.current = null;
+      instanceRef.current = null;
+      setInstance(null);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (instance && annotations) {
+      renderComments({ instance, commentAnnotations: annotations });
+    }
+  }, [instance, annotations]);
+
+  return (
+    <>
+      <button
+        onClick={async () => {
+          if (!instance) return;
+          const result = await addComment({ instance });
+          if (!result) {
+            console.warn('Select text in the WebViewer before adding a comment.');
+          }
+        }}
+      >
+        Add Comment
+      </button>
+      <div ref={viewerRef} style={{ width: '100%', height: '100vh' }} />
+    </>
+  );
+}
+```
+
+`@pdftron/webviewer` is a peer dependency. Copy its `public/core` and `public/ui` runtime folders into your app's public assets, then point WebViewer's `path` option at that location.
+**Step 2: Mount Velt comments with default text mode disabled**
+**Step 3: Dynamically create WebViewer and attach the Velt extension**
+
+**Style Apryse highlights:**
+
+```css
+velt-comment-text .velt-apryse-highlight {
+  background-color: rgba(60, 130, 246, 0.30) !important;
+  border-bottom: 2px solid rgba(60, 130, 246, 0.95) !important;
+}
+
+velt-comment-text:hover .velt-apryse-highlight {
+  background-color: rgba(60, 130, 246, 0.50) !important;
+}
+```
+
+---
+
+### 3.8 Integrate Comments with CodeMirror Editor
 
 **Impact: MEDIUM (Text comments in CodeMirror code editor with highlight decorations)**
 
@@ -1393,7 +1511,7 @@ velt-comment-text {
 
 ---
 
-### 3.8 Integrate Comments with Lexical Editor
+### 3.9 Integrate Comments with Lexical Editor
 
 **Impact: HIGH (Text comments in Lexical rich text editor with CommentNode)**
 
@@ -1487,7 +1605,7 @@ velt-comment-text[comment-available="true"] {
 
 ---
 
-### 3.9 Integrate Comments with Plate Editor
+### 3.10 Integrate Comments with Plate Editor
 
 **Impact: MEDIUM (Text comments in Plate.js rich text editor with highlight marks)**
 
@@ -1601,7 +1719,7 @@ velt-comment-text {
 
 ---
 
-### 3.10 Integrate Comments with Quill Editor
+### 3.11 Integrate Comments with Quill Editor
 
 **Impact: MEDIUM (Text comments in Quill rich text editor with highlight marks)**
 
@@ -1733,7 +1851,7 @@ velt-comment-text {
 
 ---
 
-### 3.11 Integrate Comments with SlateJS Editor
+### 3.12 Integrate Comments with SlateJS Editor
 
 **Impact: HIGH (Text comments in SlateJS rich text editor with custom elements)**
 
@@ -1828,7 +1946,7 @@ velt-comment-text[comment-available="true"] {
 
 ---
 
-### 3.12 Integrate Comments with TipTap Editor
+### 3.13 Integrate Comments with TipTap Editor
 
 **Impact: HIGH (Text comments in TipTap rich text editor with highlight marks)**
 
@@ -1951,7 +2069,7 @@ velt-comment-text[comment-available="true"] {
 
 ---
 
-### 3.13 Add Frame-by-Frame Comments to Lottie Animations
+### 3.14 Add Frame-by-Frame Comments to Lottie Animations
 
 **Impact: HIGH (Comments synced to specific frames in Lottie animations)**
 
@@ -2108,7 +2226,7 @@ commentElement.allowedElementIds(['lottiePlayerContainer']);
 
 ---
 
-### 3.14 Integrate Comments with Custom Video Player
+### 3.15 Integrate Comments with Custom Video Player
 
 **Impact: HIGH (Add comments to any video player with timeline and sidebar)**
 
@@ -2252,7 +2370,7 @@ const onCommentClick = async (event) => {
 
 ---
 
-### 3.15 Use Freestyle Mode for Pin-Anywhere Comments
+### 3.16 Use Freestyle Mode for Pin-Anywhere Comments
 
 **Impact: HIGH (Default mode - enables clicking anywhere to pin comments)**
 
@@ -2329,7 +2447,7 @@ export default function App() {
 
 ---
 
-### 3.16 Use Inline Comments for Traditional Thread Style
+### 3.17 Use Inline Comments for Traditional Thread Style
 
 **Impact: HIGH (Traditional comment threads bound to container elements)**
 
@@ -2479,7 +2597,7 @@ export default function App() {
 
 ---
 
-### 3.17 Use Page Mode for Page-Level Comments
+### 3.18 Use Page Mode for Page-Level Comments
 
 **Impact: HIGH (Comments at page level via sidebar, not attached to elements)**
 
@@ -2581,7 +2699,7 @@ function PageModeControls() {
 
 ---
 
-### 3.18 Use Popover Mode for Table Cell Comments
+### 3.19 Use Popover Mode for Table Cell Comments
 
 **Impact: HIGH (Google Sheets-style comments attached to specific elements)**
 
@@ -2679,7 +2797,7 @@ export default function App() {
 
 ---
 
-### 3.19 Use Prebuilt Video Player for Quick Setup
+### 3.20 Use Prebuilt Video Player for Quick Setup
 
 **Impact: HIGH (Velt-provided video player with built-in commenting)**
 
@@ -2724,7 +2842,7 @@ export default function App() {
 
 ---
 
-### 3.20 Use Stream Mode for Google Docs-Style Comments
+### 3.21 Use Stream Mode for Google Docs-Style Comments
 
 **Impact: HIGH (Comments appear in a side column synchronized with scroll position)**
 
@@ -2780,7 +2898,7 @@ export default function App() {
 
 ---
 
-### 3.21 Use Text Mode for Text Highlight Comments
+### 3.22 Use Text Mode for Text Highlight Comments
 
 **Impact: HIGH (Comments attached to selected text, like Google Docs highlighting)**
 
@@ -3383,8 +3501,6 @@ commentElement.toggleCommentSidebar();
 import { VeltCommentsSidebarV2 } from '@veltdev/react';
 
 <VeltCommentsSidebarV2 />
-// or
-<VeltCommentsSidebar version="2" />
 ```
 
 V2 replaces the per-category filter panel with a unified `FilterDropdown`. For V2 wireframe customization, see the Comment Sidebar V2 Structure docs.
@@ -3395,7 +3511,7 @@ V2 replaces the per-category filter panel with a unified `FilterDropdown`. For V
 
 **Impact: MEDIUM-HIGH (Central panel for viewing, filtering, and navigating all comments)**
 
-VeltCommentsSidebar provides a panel displaying all comments with search, filter, and navigation capabilities. Essential for any non-trivial commenting implementation.
+`VeltCommentsSidebar` provides a panel displaying all comments with search, filter, and navigation capabilities. Essential for any non-trivial commenting implementation. The same `VeltCommentsSidebarProps` shape is reused by `VeltCommentsSidebarV2` — this rule is the prop catalog for both surfaces; for the V2-only declarative filter / sort surface, see `surface/surface-sidebar-v2.md`.
 
 **Basic Setup:**
 
@@ -3455,14 +3571,13 @@ export default function App() {
 />
 ```
 
-**V1 defers to V2 when both are mounted (v5.0.2-beta.13+):**
+**V2 Sidebar Entry:**
 
-```jsx
-// Before (no longer valid — version prop removed):
-<VeltCommentsSidebar version="2" />
+```html
+import { VeltCommentsSidebarV2 } from '@veltdev/react';
 
-// After — use VeltCommentsSidebarV2 directly:
 <VeltCommentsSidebarV2 />
+<velt-comments-sidebar-v2></velt-comments-sidebar-v2>
 ```
 
 **For HTML:**
@@ -3493,6 +3608,8 @@ export default function App() {
   }}
 />
 ```
+
+The React TypeScript interface; HTML attributes use the same names in kebab-case. All props are optional. Defaults reflect the current SDK surface — note in particular: `position` is narrowed from `string` to `'right' | 'left'`, and `forceClose` now defaults to `true` (the sidebar force-closes on outside click unless you explicitly set `forceClose={false}` — embed mode is unaffected).
 
 ---
 
@@ -3577,9 +3694,9 @@ export default function App() {
 
 ### 5.4 Use VeltCommentsSidebarV2 for Primitive-Architecture Sidebar Customization
 
-**Impact: MEDIUM-HIGH (Full composability of every sidebar UI section via 27+ independently importable primitives, enabling precise customization without forking the entire component)**
+**Impact: MEDIUM-HIGH (Full composability of every sidebar UI section via 56+ independently importable primitives, enabling precise customization without forking the entire component)**
 
-`VeltCommentsSidebarV2` is a complete redesign of the Comments Sidebar built on a flat primitive component architecture. Every section of the UI is an independently importable and composable primitive, so you can replace only the parts you need without reimplementing the whole component. V2 ships with a unified filter model (replacing the legacy `minimalFilter` + `advancedFilters` system), CDK virtual scroll for large comment lists, a focused-thread view, a minimal actions dropdown, and a filter dropdown.
+`VeltCommentsSidebarV2` is a complete redesign of the Comments Sidebar built on a flat primitive component architecture. Every section of the UI is an independently importable and composable primitive, so you can replace only the parts you need without reimplementing the whole component. V2 ships with a declarative filter / sort / group model (three filter surfaces — main panel, mini funnel dropdown, multi-dropdown minimal bar), CDK virtual scroll for large comment lists, a focused-thread view, a fullscreen toggle, and a header search.
 
 **Incorrect (customizing V1 sidebar by overriding deeply nested internals):**
 
@@ -3610,7 +3727,7 @@ export default function App() {
         readOnly={false}
         position="right"
         variant="sidebar"
-        forceClose={false}
+        forceClose={true}
         onSidebarOpen={(data) => console.log('sidebar opened', data)}
         onSidebarClose={(data) => console.log('sidebar closed', data)}
         onCommentClick={(data) => console.log('comment clicked', data)}
@@ -3621,7 +3738,7 @@ export default function App() {
 }
 ```
 
-**Correct (HTML / Other Frameworks):**
+**Correct (HTML / Other Frameworks — dedicated V2 web-component tag):**
 
 ```html
 <velt-comments-sidebar-v2
@@ -3630,9 +3747,180 @@ export default function App() {
   read-only="false"
   position="right"
   variant="sidebar"
-  force-close="false"
+  force-close="true"
 ></velt-comments-sidebar-v2>
 ```
+
+`<velt-comments-sidebar-v2>` / `VeltCommentsSidebarV2` is the only entry point documented by the V2 setup page. The old V1 component prop opt-in is no longer shown in `async-collaboration/comments-sidebar/v2/setup`. Mount the dedicated V2 tag directly; do not pair it with a V1 tag.
+
+**VeltCommentsSidebarV2 Props (core layout / event surface):**
+
+```typescript
+// React — main filter panel + a multi-dropdown minimal bar
+<VeltCommentsSidebarV2
+  filters={[
+    { field: 'status' },
+    { field: 'assigned' },
+    { field: 'authorName', label: 'Written By', valuePath: 'from.name' },
+  ]}
+  minimalFilters={[
+    { type: 'filter', fields: [{ field: 'status' }] },
+    { type: 'sort', sorts: ['date', 'unread'] },
+    { type: 'quick', actions: ['open', 'resolved', { label: 'Mine', path: 'from.userId', value: '1.1' }] },
+  ]}
+  filterOperator="and"
+  filterPanelLayout="bottomSheet"
+  filterOptionLayout="dropdown"
+  filterCount={true}
+  filterGhostCommentsInSidebar={false}
+  systemFiltersOperator="and"
+  defaultMinimalFilter="open"
+/>
+<!-- HTML — same shape, kebab-cased attributes; multi-value props as JSON strings -->
+<velt-comments-sidebar-v2
+  minimal-filters='[{"type":"filter","fields":[{"field":"status"}]},{"type":"sort","sorts":["date","unread"]}]'
+  filter-operator="and"
+  filter-panel-layout="bottomSheet"
+  filter-option-layout="dropdown"
+  filter-count="true"
+  filter-ghost-comments-in-sidebar="false"
+  system-filters-operator="and"
+  default-minimal-filter="open"
+></velt-comments-sidebar-v2>
+<VeltCommentsSidebarV2 sortBy="comments.createdAt" sortOrder="desc" defaultMinimalFilter="open" />
+const commentElement = client.getCommentElement();
+const filtered: CommentAnnotation[] = commentElement.applyCommentSidebarClientFilters(
+  annotations,
+  filters,
+);
+// Filter field definition (panel sections + minimal-filter `filter` dropdowns)
+interface FilterField {
+  field: string;                              // BuiltInFilterFieldId or custom id
+  label?: string;
+  select?: 'single' | 'multi';
+  searchable?: boolean;
+  showCounts?: boolean;
+  icon?: string;
+  valuePath?: string;                         // dot-path for custom fields
+  includeUnset?: boolean;
+  placeholder?: string;
+  groupable?: boolean;
+  order?: string[];
+  options?: SidebarFilterValue[];
+}
+
+// Single selectable option inside a FilterField — { id, label, count?, icon? }
+interface SidebarFilterValue { /* id + display + optional count/icon */ }
+
+// One dropdown in the minimalFilters bar
+interface SidebarMinimalFilterConfig {
+  type?: SidebarFilterDropdownType;           // 'filter' | 'sort' | 'quick' | 'actions'
+  label?: string;
+  field?: string;
+  fields?: FilterField[];                     // for type === 'filter'
+  sorts?: (string | SidebarSortConfig)[];     // for type === 'sort' or 'actions'
+  actions?: (string | SidebarQuickFilterConfig)[]; // for type === 'quick' or 'actions'
+}
+
+// One sort option
+interface SidebarSortConfig {
+  label?: string;
+  preset?: string;                            // 'date' | 'unread' | ...
+  path?: string;
+  field?: string;
+  order?: 'asc' | 'desc';
+}
+
+// One quick-filter predicate
+interface SidebarQuickFilterConfig {
+  label?: string;
+  preset?: string;                            // 'open' | 'resolved' | 'unread' | ...
+  path?: string;
+  field?: string;
+  value?: any;
+  conditions?: SidebarQuickCondition[];
+  operator?: 'and' | 'or';
+}
+
+interface SidebarQuickCondition {
+  path?: string;
+  field?: string;
+  value: any;
+}
+
+// List grouping + flattened virtual-scroll rows
+interface SidebarAnnotationGroup {
+  id: string;
+  label: string;
+  count: number;
+  isExpanded: boolean;
+  isCurrentPage?: boolean;
+  annotations: CommentAnnotation[];
+}
+
+type SidebarListRow =
+  | { type: 'group'; group: SidebarAnnotationGroup }
+  | { type: 'annotation'; annotation: CommentAnnotation; groupId: string };
+
+// Operators + dropdown kinds
+type FilterFieldOperator = 'and' | 'or';
+type SidebarFilterDropdownType = 'filter' | 'sort' | 'quick' | 'actions';
+
+// Built-in field ids — recognized natively by the V2 filter pipeline
+const BUILT_IN_FILTER_FIELD_IDS = [
+  'status', 'priority', 'category', 'people', 'assigned',
+  'tagged', 'involved', 'location', 'version', 'document',
+] as const;
+type BuiltInFilterFieldId = typeof BUILT_IN_FILTER_FIELD_IDS[number];
+
+// Section header chips + "All" toggle (panel-level controls)
+type SectionControlChip = { id: string; label: string; isAll: boolean };
+type SectionAllOption = { show: boolean; label: string };
+
+// Helper types for the resolved sort / quick pipelines
+type SidebarSortCriterion = unknown;   // resolved from SidebarSortConfig
+type SidebarQuickPredicate = unknown;  // resolved from SidebarQuickFilterConfig
+
+// Default sort surface (props sortBy / sortOrder)
+type SortBy = string;
+type SortOrder = 'asc' | 'desc';
+
+// Custom-field resolver registration
+interface FacetContext {
+  annotations: CommentAnnotation[];
+  field: FilterField;
+}
+
+interface FilterFieldResolver {
+  id: string;
+  optionSource: 'catalog' | 'scan';
+  buildOptions: (ctx: FacetContext) => SidebarFilterValue[];
+  matches: (annotation: CommentAnnotation, selectedValueIds: string[]) => boolean;
+}
+```
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `filters` | `string \| FilterField[] \| object` | `[]` | Main Filter panel sections, OR an object of active selections that routes to the V1 `setCommentSidebarFilters` path. |
+| `miniFilters` | `string \| FilterField[]` | `[]` | Single header funnel dropdown. |
+| `minimalFilters` | `string \| SidebarMinimalFilterConfig[]` | `[]` | Multiple configurable header dropdowns. Replaces the single mini-filter funnel when present. |
+| `filterOperator` | `'and' \| 'or'` | `'and'` | Cross-section combination of active filter selections. |
+| `filterPanelLayout` | `'bottomSheet' \| 'menu'` | `'bottomSheet'` | Main Filter panel layout. |
+| `filterOptionLayout` | `'dropdown' \| 'checkbox'` | `'dropdown'` | How options render within a filter section. |
+| `filterCount` | boolean | `true` | Per-option facet counts. Disabling improves performance. |
+| `filterGhostCommentsInSidebar` | boolean | `false` | Hide ghost comments from the list. |
+| `systemFiltersOperator` | `'and' \| 'or'` | `'and'` | Operator applied to system filters. Mirrored by `applyCommentSidebarClientFilters()`. |
+| `defaultMinimalFilter` | `'all' \| 'read' \| 'unread' \| 'resolved' \| 'open' \| 'assignedToMe' \| 'reset'` | — | Default active quick filter applied on load. |
+| Prop | Type | Description |
+|------|------|-------------|
+| `sortBy` | [`SortBy`](#) | Default sort key — built-in preset (`'date'`, `'unread'`) or a dot-path (e.g. `'comments.createdAt'`). Sets the default sort; does not render a sort dropdown on its own. |
+| `sortOrder` | [`SortOrder`](#) — `'asc' \| 'desc'` | Default sort direction. |
+| `sortData` | string | Custom-field sort path used when sorting by a custom field. |
+Apply a `CommentSidebarFilters` payload to an annotation array client-side, honoring the current `systemFiltersOperator`. Backs the V2 declarative filter pipeline; reach for it when filtering annotations outside the sidebar (custom previews, off-screen counts, exports).
+- Params: `annotations: CommentAnnotation[]`, `filters: CommentSidebarFilters`.
+- Returns: `CommentAnnotation[]`.
+- No React hook — call on `commentElement`.
+V2-only types that back the declarative pipeline. They are consumed exclusively through V2 props (filter / sort / group / list / facet) — keep them co-located with this surface rule rather than mixing them into the core type reference.
 
 ---
 
@@ -3741,10 +4029,76 @@ Customize comment dialog appearance using variants, styling, and wireframe compo
 <VeltComments dialogVariant="variant-name" />
 ```
 
+**Dark Mode:**
+
+```jsx
+<VeltCommentDialog darkMode={true} />
+```
+
 **Disable Shadow DOM (for CSS access):**
 
 ```jsx
 <VeltComments shadowDom={false} />
+```
+
+**`VeltCommentDialogProps` — full prop surface (v5.0.2-beta.11+):**
+
+```jsx
+interface VeltCommentDialogProps {
+  annotationId?: string;
+  multiThreadAnnotationId?: string;
+
+  // Display & mode flags
+  darkMode?: boolean;
+  readOnly?: boolean;
+  sidebarMode?: boolean;
+  isFocusedThreadEnabled?: boolean;
+  openAnnotationInFocusMode?: boolean;
+  expandOnSelection?: boolean;
+  inlineCommentMode?: boolean;
+  inboxMode?: boolean;
+  isInsidePdfViewer?: boolean;
+  multiThread?: boolean;
+  commentComposerMode?: boolean;
+  dialogSelection?: boolean;
+  dialogMode?: boolean;
+  focusedThreadMode?: boolean;
+  pageModeComposer?: boolean;
+  messageTruncation?: boolean;
+  initialEditCommentIndex?: number | string | null;
+  messageTruncationLines?: number | string;
+
+  // Layout & styling
+  variant?: string;
+  composerPosition?: string;
+  sortBy?: string;
+  sortOrder?: string;
+  commentPinType?: 'bubble' | 'pin' | 'chart' | 'text';
+
+  // Target & context binding
+  containerComponentId?: string;
+  targetElementId?: string;
+  targetComposerElementId?: string; // For programmatic submitComment()
+  locationVersion?: string;
+  locationDisplayName?: string;
+  context?: any;
+
+  // Placeholders (paired with config-component-props edit-mode rule)
+  commentPlaceholder?: string;
+  replyPlaceholder?: string;
+  editPlaceholder?: string;
+  editCommentPlaceholder?: string;
+  editReplyPlaceholder?: string;
+}
+// Common combinations
+<VeltCommentDialog
+  darkMode={true}
+  readOnly={false}
+  multiThread={true}
+  sortBy="timestamp"
+  sortOrder="desc"
+  targetComposerElementId="my-composer"
+/>
 ```
 
 **Wireframe Customization (full control):**
@@ -3794,15 +4148,116 @@ velt-comment-dialog {
 />
 ```
 
+**Thread-Card Primitives (v5.0.2-beta.11+):**
+
+```html
+import {
+  VeltCommentDialogThreadCardReactionPin,
+  VeltCommentDialogThreadCardAssignButton,
+  VeltCommentDialogThreadCardEditComposer,
+} from '@veltdev/react';
+
+// Reaction pin inside a thread card
+<VeltCommentDialogThreadCardReactionPin
+  annotationId="abc123"
+  reactionId="reaction-1"
+  commentIndex={0}
+/>
+
+// Assign-to button inside a thread card
+<VeltCommentDialogThreadCardAssignButton
+  annotationId="abc123"
+  commentId="456"
+/>
+
+// Inline edit composer inside a thread card
+<VeltCommentDialogThreadCardEditComposer
+  annotationId="abc123"
+  commentId="456"
+/>
+<!-- HTML — primitive custom elements -->
+<velt-comment-dialog-thread-card-reaction-pin
+  annotation-id="abc123"
+  reaction-id="reaction-1"
+  comment-index="0">
+</velt-comment-dialog-thread-card-reaction-pin>
+
+<velt-comment-dialog-thread-card-assign-button
+  annotation-id="abc123"
+  comment-id="456">
+</velt-comment-dialog-thread-card-assign-button>
+
+<velt-comment-dialog-thread-card-edit-composer
+  annotation-id="abc123"
+  comment-id="456">
+</velt-comment-dialog-thread-card-edit-composer>
+```
+
+| Primitive | Extra Props (beyond Common Inputs) |
+|-----------|-----------------------------------|
+| `VeltCommentDialogThreadCardReactionPin` | `reactionId`, `commentObj`, `commentIndex`, `index` |
+| `VeltCommentDialogThreadCardAssignButton` | `commentObj`, `commentId`, `commentIndex` |
+| `VeltCommentDialogThreadCardEditComposer` | `commentObj`, `commentId`, `commentIndex` |
+
+**`VeltCommentDialogOptionsDropdownContent` — show/hide individual options (v5.0.2-beta.11+):**
+
+```html
+// React — show only the edit option
+<VeltCommentDialogOptionsDropdownContent
+  annotationId="abc123"
+  enableEdit={true}
+  enableAssignment={false}
+  enableNotifications={false}
+  enablePrivateMode={false}
+  enableMarkAsRead={false}
+/>
+<!-- HTML — same shape, kebab-case string attrs -->
+<velt-comment-dialog-options-dropdown-content
+  annotation-id="abc123"
+  enable-edit="true"
+  enable-assignment="false"
+  enable-notifications="false"
+  enable-private-mode="false"
+  enable-mark-as-read="false">
+</velt-comment-dialog-options-dropdown-content>
+```
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `commentObj` | `any \| string` | Comment data object (or serialized JSON string for HTML) |
+| `commentIndex` | `number \| string` | Index of comment in the array |
+| `enableAssignment` | `boolean` | Shows the assign option |
+| `enableEdit` | `boolean` | Shows the edit option |
+| `enableNotifications` | `boolean` | Shows the notifications option |
+| `enablePrivateMode` | `boolean` | Shows the private mode option |
+| `enableMarkAsRead` | `boolean` | Shows the mark-as-read option |
+
+**Collapsed-Replies-Preview Primitives (v5.0.2-beta.37+):**
+
+```html
+import {
+  VeltCommentDialogMoreReplyCount,
+  VeltCommentDialogMoreReplyText,
+} from '@veltdev/react';
+
+// Hidden-reply count: annotation.comments.length - 2, clamped to >= 0
+<VeltCommentDialogMoreReplyCount annotationId="abc123" />
+
+// Pluralized noun: "reply" when one reply is hidden, otherwise "replies"
+<VeltCommentDialogMoreReplyText annotationId="abc123" />
+<velt-comment-dialog-more-reply-count annotation-id="abc123"></velt-comment-dialog-more-reply-count>
+<velt-comment-dialog-more-reply-text annotation-id="abc123"></velt-comment-dialog-more-reply-text>
+```
+
+Both accept Common Inputs only. In React wireframe mode the public primitive is also exposed as the named sub-properties `VeltCommentDialogMoreReply.Count` and `.Text`; see `wireframe-variables-comment-dialog` for the separate wireframe-tree names.
+
 ---
 
 ### 6.3 Set defaultCondition on V2 Primitive Sub-Components to Control Default Rendering
 
 **Impact: MEDIUM (Prevents the SDK's default show/hide logic from conflicting with custom wireframe compositions in V2 primitive component families)**
 
-Six comment component families have been migrated to the V2 primitive architecture: Comment Pin (6 primitives), Comment Bubble (3, HTML-only), Text Comment (7), Inline Comments Section (23), Multi-Thread Comment Dialog (24), and Sidebar Button (3). Every primitive in these families accepts a `defaultCondition` / `default-condition` prop. When a wireframe replaces a section of the UI, set `defaultCondition={false}` to bypass the SDK's built-in default show/hide logic and prevent double-rendering or unintended visibility toggles.
-
-<!-- TODO (v5.0.2-beta.11): Verify the exact primitive component names within each family (e.g., the individual identifiers for the 6 Comment Pin primitives). Release note confirms primitive counts per family and the `defaultCondition` prop name, but does not enumerate individual primitive names. -->
+Seven comment component families use the V2 primitive architecture: Comment Pin (6 primitives), Comment Bubble (3, HTML-only), Text Comment (7), Inline Comments Section (24), Multi-Thread Comment Dialog (25), Sidebar Button (3), and Comments Sidebar V2 (56+ — expanded with the new Search / FilterButton / FilterContainer / FullscreenButton families this release). Every primitive in these families accepts a `defaultCondition` / `default-condition` prop. When a wireframe replaces a section of the UI, set `defaultCondition={false}` to bypass the SDK's built-in default show/hide logic and prevent double-rendering or unintended visibility toggles.
 
 **Incorrect (omitting defaultCondition when overriding a primitive section):**
 
@@ -3851,6 +4306,142 @@ import { VeltWireframe } from '@veltdev/react';
 <velt-comment-dialog-composer-attachments-image-download annotation-id="abc123"></velt-comment-dialog-composer-attachments-image-download>
 <velt-comment-dialog-composer-attachments-other-download annotation-id="abc123"></velt-comment-dialog-composer-attachments-other-download>
 ```
+
+> **Note:** The root container `VeltCommentsSidebarV2` / `<velt-comments-sidebar-v2>` is plural. **Every** standalone sub-primitive — React identifier *and* HTML custom-element tag — uses the singular form `VeltCommentSidebarV2*` / `<velt-comment-sidebar-*-v2>`. The HTML tag rename (plural → singular for sub-primitives) is the current release; React identifiers were already singular.
+
+**Incorrect (old plural HTML / React identifiers):**
+
+```html
+<VeltCommentsSidebarV2>
+  <VeltCommentsSidebarV2Skeleton />
+  <VeltCommentsSidebarV2Panel>
+    <VeltCommentsSidebarV2Header />
+    <VeltCommentsSidebarV2List />
+  </VeltCommentsSidebarV2Panel>
+</VeltCommentsSidebarV2>
+<!-- Old plural HTML sub-primitive tags — no longer valid -->
+<velt-comments-sidebar-v2>
+  <velt-comments-sidebar-skeleton-v2></velt-comments-sidebar-skeleton-v2>
+  <velt-comments-sidebar-panel-v2>
+    <velt-comments-sidebar-header-v2></velt-comments-sidebar-header-v2>
+    <velt-comments-sidebar-list-v2></velt-comments-sidebar-list-v2>
+  </velt-comments-sidebar-panel-v2>
+</velt-comments-sidebar-v2>
+```
+
+**Correct (singular sub-primitive names for React *and* HTML; root stays plural):**
+
+```html
+<VeltCommentsSidebarV2>
+  <VeltCommentSidebarV2Skeleton />
+  <VeltCommentSidebarV2Panel>
+    <VeltCommentSidebarV2Header>
+      <VeltCommentSidebarV2CloseButton />
+      <VeltCommentSidebarV2FullscreenButton />
+      <VeltCommentSidebarV2Search>
+        <VeltCommentSidebarV2SearchIcon />
+        <VeltCommentSidebarV2SearchInput />
+      </VeltCommentSidebarV2Search>
+      <VeltCommentSidebarV2FilterButton>
+        <VeltCommentSidebarV2FilterButtonAppliedIcon />
+      </VeltCommentSidebarV2FilterButton>
+      <VeltCommentSidebarV2FilterDropdown />
+    </VeltCommentSidebarV2Header>
+    <VeltCommentSidebarV2List />
+    <VeltCommentSidebarV2EmptyPlaceholder>
+      <VeltCommentSidebarV2ResetFilterButton />
+    </VeltCommentSidebarV2EmptyPlaceholder>
+    <VeltCommentSidebarV2PageModeComposer />
+    <VeltCommentSidebarV2FocusedThread>
+      <VeltCommentSidebarV2FocusedThreadBackButton />
+      <VeltCommentSidebarV2FocusedThreadDialogContainer />
+    </VeltCommentSidebarV2FocusedThread>
+  </VeltCommentSidebarV2Panel>
+</VeltCommentsSidebarV2>
+<velt-comments-sidebar-v2>
+  <velt-comment-sidebar-skeleton-v2></velt-comment-sidebar-skeleton-v2>
+  <velt-comment-sidebar-panel-v2>
+    <velt-comment-sidebar-header-v2>
+      <velt-comment-sidebar-close-button-v2></velt-comment-sidebar-close-button-v2>
+      <velt-comment-sidebar-fullscreen-button-v2></velt-comment-sidebar-fullscreen-button-v2>
+      <velt-comment-sidebar-search-v2>
+        <velt-comment-sidebar-search-v2-icon></velt-comment-sidebar-search-v2-icon>
+        <velt-comment-sidebar-search-v2-input></velt-comment-sidebar-search-v2-input>
+      </velt-comment-sidebar-search-v2>
+      <velt-comment-sidebar-filter-button-v2>
+        <velt-comment-sidebar-filter-button-v2-applied-icon></velt-comment-sidebar-filter-button-v2-applied-icon>
+      </velt-comment-sidebar-filter-button-v2>
+      <velt-comment-sidebar-filter-dropdown-v2></velt-comment-sidebar-filter-dropdown-v2>
+    </velt-comment-sidebar-header-v2>
+    <velt-comment-sidebar-list-v2></velt-comment-sidebar-list-v2>
+  </velt-comment-sidebar-panel-v2>
+</velt-comments-sidebar-v2>
+```
+
+| Identifier family (React + HTML) | Identifier | HTML element |
+|----------------------------------|-----------|--------------|
+| Skeleton | `VeltCommentSidebarV2Skeleton` | `velt-comment-sidebar-skeleton-v2` |
+| Panel | `VeltCommentSidebarV2Panel` | `velt-comment-sidebar-panel-v2` |
+| Header | `VeltCommentSidebarV2Header` | `velt-comment-sidebar-header-v2` |
+| CloseButton | `VeltCommentSidebarV2CloseButton` | `velt-comment-sidebar-close-button-v2` |
+| FullscreenButton (new) | `VeltCommentSidebarV2FullscreenButton` | `velt-comment-sidebar-fullscreen-button-v2` |
+| Search (new) | `VeltCommentSidebarV2Search` (+ `Icon`, `Input`) | `velt-comment-sidebar-search-v2` (+ `-icon`, `-input`) |
+| FilterButton (new) | `VeltCommentSidebarV2FilterButton` (+ `AppliedIcon`) | `velt-comment-sidebar-filter-button-v2` (+ `-applied-icon`) |
+| FilterDropdown (+ subtree, incl. new `Content.List.Item.Count` and `Content.List.Category.Label` leaves) | `VeltCommentSidebarV2FilterDropdown*` | `velt-comment-sidebar-filter-dropdown-*-v2` |
+| FilterContainer (new — Main Filter bottom-sheet subtree) | `VeltCommentSidebarV2FilterContainer*` | `velt-comment-sidebar-filter-container-*-v2` |
+| List / ListItem | `VeltCommentSidebarV2List` / `*ListItem` | `velt-comment-sidebar-list-v2` / `velt-comment-sidebar-list-item-v2` |
+| EmptyPlaceholder | `VeltCommentSidebarV2EmptyPlaceholder` | `velt-comment-sidebar-empty-placeholder-v2` |
+| ResetFilterButton | `VeltCommentSidebarV2ResetFilterButton` | `velt-comment-sidebar-reset-filter-button-v2` |
+| PageModeComposer | `VeltCommentSidebarV2PageModeComposer` | `velt-comment-sidebar-page-mode-composer-v2` |
+| FocusedThread (+ subtree) | `VeltCommentSidebarV2FocusedThread*` | `velt-comment-sidebar-focused-thread-*-v2` |
+> **Breaking change (Comment Sidebar V2 — current release):** `VeltCommentSidebarV2MinimalActionsDropdown` (and the `Trigger` / `Content` / `MarkAllRead` / `MarkAllResolved` children) plus the corresponding `velt-comments-sidebar-minimal-actions-dropdown-v2` HTML family have been **removed**. The bulk actions are now exposed by the combined `actions` filter-dropdown, configured via the `minimalFilters` input on `VeltCommentsSidebarV2`. Replace any `MinimalActionsDropdown` usage with a `FilterDropdown` configured as `{ type: 'actions', sorts: [...], actions: [...] }` — see `surface/surface-sidebar-v2.md`.
+- **Search** — header search container holding the icon + input leaves (`VeltCommentSidebarV2Search`, `*SearchIcon`, `*SearchInput`).
+- **FilterButton** — header button that opens the Main Filter container; child `*FilterButtonAppliedIcon` surfaces the active-filter indicator.
+- **FullscreenButton** — header leaf that emits `onFullscreenClick` when clicked.
+- **FilterContainer** — root container for the Main Filter bottom-sheet / menu, holding:
+  - `Title`, `GroupBy`, `ResetButton`, `ApplyButton`, `CloseButton` leaves.
+  - `SectionList` → `Section` → `SectionLabel` (leaf) and `SectionField` → `SectionControl` (+ `SectionControlChevron`, `SectionControlValue`, `SectionControlChipList` → `SectionControlChip`, `SectionControlSearch`) and `SectionOptionList` → `SectionOption` (+ `SectionOptionCheckbox`, `SectionOptionName`, `SectionOptionCount`).
+The `Search`, `FilterButton`, `FilterContainer`, and `FullscreenButton` families replace the customization surface previously occupied by `MinimalActionsDropdown`. Use the `actions` dropdown type on `minimalFilters` for bulk mark-all-read / mark-all-resolved — these primitive families are the new shape for that surface.
+
+**`VeltInlineCommentsSectionFilterDropdownContentApplyButton` — React promotion (v5.0.2-beta.11+):**
+
+```html
+<VeltInlineCommentsSectionFilterDropdownContentApplyButton
+  targetElementId="my-section"
+  defaultCondition={true}
+/>
+<velt-inline-comments-section-filter-dropdown-content-apply-button
+  target-element-id="my-section"
+  default-condition="true">
+</velt-inline-comments-section-filter-dropdown-content-apply-button>
+```
+
+**`VeltMultiThreadCommentDialog` — new root primitive (v5.0.2-beta.11+):**
+
+```html
+<VeltMultiThreadCommentDialog
+  multiThreadAnnotationId="thread-123"
+  readOnly={false}
+  defaultCondition={true}
+  onSaveComment={(e) => console.log(e)}
+/>
+<velt-multi-thread-comment-dialog
+  multi-thread-annotation-id="thread-123"
+  read-only="false"
+  default-condition="true">
+</velt-multi-thread-comment-dialog>
+```
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `annotationId` | `string` | — | The annotation ID |
+| `multiThreadAnnotationId` | `string` | — | The multi-thread annotation ID |
+| `annotation` | `any` | — | Annotation data object (serialized JSON in HTML) |
+| `readOnly` | `boolean` | `false` | Disables user interaction |
+| `defaultCondition` | `boolean` | `true` | When `false`, the component always renders regardless of internal state |
+| `variant` | `string` | — | Visual variant for the component |
+| `inboxMode` | `boolean` | `false` | Renders the dialog in inbox mode |
+| `onSaveComment` | `Function` | — | Callback fired when a comment is saved (HTML: listen via `addEventListener('onSaveComment', ...)`) |
 
 ---
 
@@ -3973,6 +4564,40 @@ import { VeltWireframe, VeltAutocompleteEmptyWireframe } from '@veltdev/react';
 ```
 
 <!-- TODO (v5.0.2-beta.5): Verify default values for readOnly and inline props on VeltAutocomplete. Release note confirms the prop names and types but does not specify default values. -->
+
+**`VeltAutocompletePanel` — standalone panel (v5.0.2-beta.11+):**
+
+```html
+// React — inline user picker that always renders
+<VeltAutocompletePanel
+  type="contact"
+  multiSelect={true}
+  selectedFirstOrdering={true}
+  inline={true}
+  defaultCondition={false}
+/>
+<!-- HTML — same shape, kebab-case attrs -->
+<velt-autocomplete-panel
+  type="contact"
+  multi-select="true"
+  selected-first-ordering="true"
+  inline="true"
+  default-condition="false">
+</velt-autocomplete-panel>
+```
+
+| React Prop | HTML Attribute | Type | Default | Description |
+|------------|---------------|------|---------|-------------|
+| `type` | `type` | `'contact' \| 'generic'` | `'contact'` | Type of options the panel renders |
+| `hideInput` | `hide-input` | `boolean` | `false` | Hides the search input |
+| `placeholder` | `placeholder` | `string` | — | Placeholder text for the search input |
+| `multiSelect` | `multi-select` | `boolean` | `false` | Allows selecting multiple contacts |
+| `selectedFirstOrdering` | `selected-first-ordering` | `boolean` | `false` | Shows selected items first in the list |
+| `readOnly` | `read-only` | `boolean` | `false` | Disables user interaction |
+| `inline` | `inline` | `boolean` | `false` | Renders the panel inline |
+| `enableOnFocus` | `enable-on-focus` | `boolean` | `false` | Opens the panel when the input receives focus |
+| `position` | `position` | `'above' \| 'below' \| 'auto' \| string` | `'auto'` | Position of the panel relative to its anchor |
+| `defaultCondition` | `default-condition` | `boolean` | `true` | When `false`, the component always renders regardless of internal state |
 
 ---
 
@@ -4219,6 +4844,59 @@ function CustomSidebar() {
     <!-- Custom content inside unresolve button -->
   </velt-comment-dialog-assignee-banner-unresolve-button-wireframe>
 </velt-comment-dialog-assignee-banner-wireframe>
+```
+
+**V2 Sidebar Wireframe Subtrees (`VeltCommentsSidebarV2Wireframe.*` / `velt-comments-sidebar-*-v2-wireframe`):**
+
+```html
+// React — V2 sidebar header composed against the new wireframe subtree
+<VeltWireframe>
+  <VeltCommentsSidebarV2Wireframe.Header>
+    <VeltCommentsSidebarV2Wireframe.CloseButton />
+    <VeltCommentsSidebarV2Wireframe.Search>
+      <VeltCommentsSidebarV2Wireframe.Search.Icon />
+      <VeltCommentsSidebarV2Wireframe.Search.Input />
+    </VeltCommentsSidebarV2Wireframe.Search>
+    <VeltCommentsSidebarV2Wireframe.FilterButton>
+      <VeltCommentsSidebarV2Wireframe.FilterButton.AppliedIcon />
+    </VeltCommentsSidebarV2Wireframe.FilterButton>
+    <VeltCommentsSidebarV2Wireframe.FilterContainer />
+    <VeltCommentsSidebarV2Wireframe.FullscreenButton />
+    <VeltCommentsSidebarV2Wireframe.FilterDropdown />
+  </VeltCommentsSidebarV2Wireframe.Header>
+  <VeltCommentsSidebarV2Wireframe.List>
+    <VeltCommentsSidebarV2Wireframe.ListGroupHeader>
+      <VeltCommentsSidebarV2Wireframe.ListGroupHeader.Label />
+      <VeltCommentsSidebarV2Wireframe.ListGroupHeader.Count />
+      <VeltCommentsSidebarV2Wireframe.ListGroupHeader.Chevron />
+      <VeltCommentsSidebarV2Wireframe.ListGroupHeader.Separator />
+    </VeltCommentsSidebarV2Wireframe.ListGroupHeader>
+  </VeltCommentsSidebarV2Wireframe.List>
+</VeltWireframe>
+<!-- HTML / Other Frameworks — matching velt-comments-sidebar-*-v2-wireframe tags -->
+<velt-wireframe style="display:none;">
+  <velt-comments-sidebar-header-v2-wireframe>
+    <velt-comments-sidebar-close-button-v2-wireframe></velt-comments-sidebar-close-button-v2-wireframe>
+    <velt-comments-sidebar-search-v2-wireframe>
+      <velt-comments-sidebar-search-v2-icon-wireframe></velt-comments-sidebar-search-v2-icon-wireframe>
+      <velt-comments-sidebar-search-v2-input-wireframe></velt-comments-sidebar-search-v2-input-wireframe>
+    </velt-comments-sidebar-search-v2-wireframe>
+    <velt-comments-sidebar-filter-button-v2-wireframe>
+      <velt-comments-sidebar-filter-button-v2-applied-icon-wireframe></velt-comments-sidebar-filter-button-v2-applied-icon-wireframe>
+    </velt-comments-sidebar-filter-button-v2-wireframe>
+    <velt-comments-sidebar-filter-container-v2-wireframe></velt-comments-sidebar-filter-container-v2-wireframe>
+    <velt-comments-sidebar-fullscreen-button-v2-wireframe></velt-comments-sidebar-fullscreen-button-v2-wireframe>
+    <velt-comments-sidebar-filter-dropdown-v2-wireframe></velt-comments-sidebar-filter-dropdown-v2-wireframe>
+  </velt-comments-sidebar-header-v2-wireframe>
+  <velt-comments-sidebar-list-v2-wireframe>
+    <velt-comments-sidebar-list-group-header-v2-wireframe>
+      <velt-comments-sidebar-list-group-header-v2-label-wireframe></velt-comments-sidebar-list-group-header-v2-label-wireframe>
+      <velt-comments-sidebar-list-group-header-v2-count-wireframe></velt-comments-sidebar-list-group-header-v2-count-wireframe>
+      <velt-comments-sidebar-list-group-header-v2-chevron-wireframe></velt-comments-sidebar-list-group-header-v2-chevron-wireframe>
+      <velt-comments-sidebar-list-group-header-v2-separator-wireframe></velt-comments-sidebar-list-group-header-v2-separator-wireframe>
+    </velt-comments-sidebar-list-group-header-v2-wireframe>
+  </velt-comments-sidebar-list-v2-wireframe>
+</velt-wireframe>
 ```
 
 **For HTML:**
@@ -4633,6 +5311,8 @@ interface CommentAnnotation {
     topPercentage: number;             // Defaults to 0 when not set
     leftPercentage: number;            // Defaults to 0 when not set
   };
+  involvedUserIds?: string[];          // All user IDs involved in the annotation (subscribed + unsubscribed). Read-only, server-derived
+  mentionedUserIds?: string[];         // User IDs @mentioned across the annotation's comments. Read-only, server-derived
 }
 ```
 
@@ -4652,6 +5332,9 @@ interface Comment {
   lastUpdated?: number;                // Last update timestamp
   isEdited?: boolean;                  // Whether comment was edited
   type?: string;                       // Comment type
+  sourceType?: string;                 // Origin of the comment; 'agent' indicates AI-agent-authored. Read-only
+  agent?: AgentData;                   // AI agent identity + output for an agent-authored comment. Read-only. See data-agent-fields-query.md
+  metadata?: any;                      // Customer-supplied metadata bag, persisted as-is when provided
 }
 ```
 
@@ -4715,6 +5398,24 @@ interface TargetElement {
   targetText?: string;                 // Selected text (for text mode)
   occurrence?: number;                 // Which occurrence of text
   selectAllContent?: boolean;          // Whether all content selected
+}
+```
+
+**ReactionAnnotation (placed emoji reaction):**
+
+```typescript
+interface ReactionAnnotation {
+  annotationId?: string;               // Reaction-annotation ID
+  documentId?: string;
+  organizationId?: string;
+  location?: Location;
+  targetElement?: TargetElement;
+  reactions?: Reaction[];
+  createdAt?: any;                     // Auto-generated
+  lastUpdated?: any;                   // Auto-generated
+  metadata?: ReactionMetadata;
+  context?: Context;
+  involvedUserIds?: string[];          // All user IDs involved in the reaction annotation. Read-only, server-derived
 }
 ```
 
@@ -5092,6 +5793,20 @@ const subscription = commentElement.getCommentAnnotationCount({
   console.log('Agent annotation count:', result);
 });
 ```
+
+**AgentData (set on `Comment.agent`):**
+
+```typescript
+interface AgentData {
+  agentName?: string;            // Agent identifier. Always retained for agent-field querying.
+  name?: string;                 // Agent display name.
+  avatar?: string;               // Agent avatar URL.
+  result?: { title?: string };   // Structured agent output; `title` renders in the agent suggestion card.
+  agentFields?: string[];        // Agent field tags used by CommentRequestQuery.agentFields.
+}
+```
+
+The annotation-level `CommentAnnotationAgent` (see `data-types-reference.md`) is a sibling shape used on `CommentAnnotation.agent`; `AgentData` is its comment-level counterpart on `Comment.agent`. Both surface `agentFields` for the same query-side filter.
 
 ---
 
@@ -7321,6 +8036,20 @@ commentElement.enableRecordingCountdown();
 commentElement.enableRecordingTranscription();
 commentElement.disableRecordingTranscription();
 ```
+
+**Collapsed Replies Preview (v5.0.2-beta.37+):**
+
+```tsx
+const commentElement = client.getCommentElement();
+
+// Show the collapsed teaser in the non-selected/preview state
+commentElement.enableCollapsedRepliesPreview();
+
+// Revert to showing only the first comment when not selected (default)
+commentElement.disableCollapsedRepliesPreview();
+```
+
+Also settable declaratively as a prop (`<VeltComments collapsedRepliesPreview={true} />`) or HTML attribute (`<velt-comments collapsed-replies-preview="true">`). The same flag is exposed as the `collapsedRepliesPreview` comment-dialog wireframe variable (boolean, default `false`); see `wireframe-variables-comment-dialog`. Both methods take no params and return `void`.
 
 Reference: https://docs.velt.dev/async-collaboration/comments/customize-behavior - UI/UX
 
@@ -10646,7 +11375,7 @@ import { VeltCommentsSidebarWireframe } from '@veltdev/react';
 </velt-comments-sidebar-wireframe>
 ```
 
-**List data:**
+**FilterDropdown subtree leaves (new this release):**
 
 ```typescript
 // On any <velt-comments-sidebar-...-wireframe> in an Angular template
@@ -11162,3 +11891,14 @@ Override either with `defaultCondition={false}` (React) / `default-condition="fa
 - https://docs.velt.dev/ui-customization/features/async/comments/autocomplete-wireframe-variables
 - https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar-button/wireframe-variables
 - https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-wireframe-variables
+- https://docs.velt.dev/async-collaboration/comments/setup/apryse
+- https://docs.velt.dev/api-reference/sdk/models/data-models
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/primitives
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-v2-primitives
+- https://docs.velt.dev/ui-customization/features/async/comments/inline-comments-section/primitives
+- https://docs.velt.dev/ui-customization/features/async/comments/multithread-comments/primitives
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/setup
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/customize-behavior
+- https://docs.velt.dev/api-reference/sdk/api/api-methods
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar-structure-v2
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-v2-wireframes
