@@ -1,6 +1,6 @@
 # Velt Rest Apis Best Practices
 
-**Version 1.0.5**  
+**Version 1.0.6**  
 Velt  
 May 2026
 
@@ -1518,3 +1518,4 @@ Reference: `https://docs.velt.dev/api-reference/rest-api/overview` (## REST API 
 - https://docs.velt.dev/api-reference/rest-apis/v2/memory/search
 - https://docs.velt.dev/api-reference/rest-apis/v2/memory/stats/get
 - https://docs.velt.dev/api-reference/rest-apis/v2/memory/suggest
+- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/apikey-create

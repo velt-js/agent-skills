@@ -4,12 +4,12 @@ description: "Velt REST API v2 and webhook best practices for server-side integr
 license: MIT
 metadata:
   author: velt
-  version: "1.0.1"
+  version: "1.0.2"
 ---
 
 # Velt REST APIs Best Practices
 
-Comprehensive guide for Velt REST API v2, JWT authentication, and webhooks. Contains 12 rules across 4 categories covering core setup, REST API endpoints, webhook handling, and debugging.
+Comprehensive guide for Velt REST API v2, JWT authentication, and webhooks. Contains 13 rules across 4 categories covering core setup, REST API endpoints, webhook handling, and debugging.
 
 ## When to Apply
 
@@ -44,6 +44,7 @@ Reference these guidelines when:
 - `rest-advanced-webhooks` — Manage advanced webhooks: config enable + endpoint CRUD + signing-secret retrieval
 - `rest-agents` — List agent execution history with pagination and status filters
 - `rest-memory` — Memory judgments, knowledge ingestion/search, Q&A, suggestions, insights, and alerts
+- `rest-workspace-apikey` — Create workspace API keys: testing vs. production (gated), region selection, service toggles, and default triggers
 - `rest-approval-engine` — pointer (Approval Engine is now its own skill: see `velt-approval-engine-best-practices`)
 
 ### Webhooks (MEDIUM)
