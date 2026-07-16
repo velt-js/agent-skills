@@ -1,5 +1,5 @@
 # Velt Setup Best Practices
-|v1.0.2|Velt|January 2026
+|v1.0.3|Velt|January 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
 |root: ./rules
 

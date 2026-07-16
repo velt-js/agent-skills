@@ -1,6 +1,6 @@
 # Velt Setup Best Practices
 
-**Version 1.0.2**  
+**Version 1.0.3**  
 Velt  
 January 2026
 
@@ -3034,3 +3034,4 @@ export function VeltDebug() {
 - https://docs.velt.dev/get-started/quickstart
 - https://docs.velt.dev/get-started/advanced
 - https://console.velt.dev
+- https://docs.velt.dev/api-reference/sdk/api/api-methods
