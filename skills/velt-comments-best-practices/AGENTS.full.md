@@ -1,6 +1,6 @@
 # Velt Comments Best Practices
 
-**Version 1.1.11**  
+**Version 1.1.12**  
 Velt  
 January 2026
 
@@ -5602,7 +5602,20 @@ interface CommentAnnotationSuggestion {
 
 Suggestion state is mutated by `acceptSuggestion()` / `rejectSuggestion()` API methods. The `commentType` field on the parent annotation is `'suggestion'` for agent suggestion comments. The `sourceType` field selects the agent-identity vs human-author header variant rendered in the UI.
 
-Reference: https://docs.velt.dev/api-reference/sdk/models/data-models - Comments
+**FullscreenClickEvent (payload for the `fullscreenClick` sidebar event):**
+
+```typescript
+interface FullscreenClickEvent {
+  fullScreen: boolean;           // Required. Fullscreen state AFTER the toggle. `true` = now fullscreen
+  metadata?: VeltEventMetadata;  // Optional event metadata
+}
+```
+
+Emitted by the Comment Sidebar V2 `fullscreenClick` event when the header fullscreen toggle is clicked. `fullScreen` is the **post-toggle** state, not the previous state. See `events-comment-lifecycle.md` for subscription patterns.
+
+References:
+- https://docs.velt.dev/api-reference/sdk/models/data-models - Comments
+- https://docs.velt.dev/api-reference/sdk/models/data-models#fullscreenclickevent
 
 ---
 
@@ -8381,9 +8394,44 @@ const subscription = commentElement.on('addCommentDraft').subscribe((event) => {
 subscription.unsubscribe();
 ```
 
+**Correct (React — subscribe to fullscreen toggle):**
+
+```jsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function FullscreenHandler() {
+  const fullscreenEvent = useCommentEventCallback('fullscreenClick');
+
+  useEffect(() => {
+    if (!fullscreenEvent) return;
+    // fullscreenEvent.fullScreen — post-toggle state (true = now fullscreen)
+    console.log('Sidebar fullscreen:', fullscreenEvent.fullScreen);
+  }, [fullscreenEvent]);
+
+  return null;
+}
+```
+
+**Correct (Other frameworks — subscribe to fullscreen toggle):**
+
+```typescript
+const commentElement = client.getCommentElement();
+const subscription = commentElement.on('fullscreenClick').subscribe((event) => {
+  // event: FullscreenClickEvent
+  // event.fullScreen — post-toggle state; event.metadata — VeltEventMetadata
+  console.log('Sidebar fullscreen:', event.fullScreen);
+});
+
+// Clean up on teardown
+subscription.unsubscribe();
+```
+
 References:
 - https://docs.velt.dev/async-collaboration/comments/customize-behavior - Events
 - https://docs.velt.dev/api-reference/sdk/models/data-models#addcommentdraftevent
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/customize-behavior#fullscreenclick
+- https://docs.velt.dev/api-reference/sdk/models/data-models#fullscreenclickevent
 
 ---
 
@@ -9699,9 +9747,44 @@ const subscription = commentElement.on('addCommentDraft').subscribe((event) => {
 subscription.unsubscribe();
 ```
 
+**Correct (React — subscribe to fullscreen toggle):**
+
+```jsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function FullscreenHandler() {
+  const fullscreenEvent = useCommentEventCallback('fullscreenClick');
+
+  useEffect(() => {
+    if (!fullscreenEvent) return;
+    // fullscreenEvent.fullScreen — post-toggle state (true = now fullscreen)
+    console.log('Sidebar fullscreen:', fullscreenEvent.fullScreen);
+  }, [fullscreenEvent]);
+
+  return null;
+}
+```
+
+**Correct (Other frameworks — subscribe to fullscreen toggle):**
+
+```typescript
+const commentElement = client.getCommentElement();
+const subscription = commentElement.on('fullscreenClick').subscribe((event) => {
+  // event: FullscreenClickEvent
+  // event.fullScreen — post-toggle state; event.metadata — VeltEventMetadata
+  console.log('Sidebar fullscreen:', event.fullScreen);
+});
+
+// Clean up on teardown
+subscription.unsubscribe();
+```
+
 References:
 - https://docs.velt.dev/async-collaboration/comments/customize-behavior - Events
 - https://docs.velt.dev/api-reference/sdk/models/data-models#addcommentdraftevent
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/customize-behavior#fullscreenclick
+- https://docs.velt.dev/api-reference/sdk/models/data-models#fullscreenclickevent
 
 ---
 

@@ -2,7 +2,7 @@
 title: Comments Data Type Reference — Core Models
 impact: MEDIUM
 impactDescription: Type definitions for comment annotations, comments, status, priority, attachments
-tags: CommentAnnotation, Comment, ReactionAnnotation, Status, Priority, Attachment, Location, TargetElement, CommentRequestQuery, AddCommentAnnotationRequest, CommentSidebarData, CommentAnnotationAgent, AgentResult, CommentAnnotationSuggestion, basicAnchorData, commentType, sourceType, involvedUserIds, mentionedUserIds, metadata, types, models
+tags: CommentAnnotation, Comment, ReactionAnnotation, Status, Priority, Attachment, Location, TargetElement, CommentRequestQuery, AddCommentAnnotationRequest, CommentSidebarData, CommentAnnotationAgent, AgentResult, CommentAnnotationSuggestion, FullscreenClickEvent, basicAnchorData, commentType, sourceType, involvedUserIds, mentionedUserIds, metadata, types, models
 ---
 
 ## Comments Data Type Reference — Core Models
@@ -200,6 +200,17 @@ interface CommentAnnotationSuggestion {
 
 Suggestion state is mutated by `acceptSuggestion()` / `rejectSuggestion()` API methods. The `commentType` field on the parent annotation is `'suggestion'` for agent suggestion comments. The `sourceType` field selects the agent-identity vs human-author header variant rendered in the UI.
 
+**FullscreenClickEvent (payload for the `fullscreenClick` sidebar event):**
+
+```typescript
+interface FullscreenClickEvent {
+  fullScreen: boolean;           // Required. Fullscreen state AFTER the toggle. `true` = now fullscreen
+  metadata?: VeltEventMetadata;  // Optional event metadata
+}
+```
+
+Emitted by the Comment Sidebar V2 `fullscreenClick` event when the header fullscreen toggle is clicked. `fullScreen` is the **post-toggle** state, not the previous state. See `events-comment-lifecycle.md` for subscription patterns.
+
 **Verification:**
 - [ ] Using correct types for all comment-related data
 - [ ] commentId is number, annotationId is string
@@ -209,5 +220,7 @@ Suggestion state is mutated by `acceptSuggestion()` / `rejectSuggestion()` API m
 - [ ] `CommentAnnotation.involvedUserIds` / `mentionedUserIds` and `ReactionAnnotation.involvedUserIds` are treated as read-only server-derived fields (never written from the client)
 - [ ] `Comment.sourceType === 'agent'` is the discriminator for the agent-identity header; `Comment.agent` carries the AI payload (`AgentData` — see `data-agent-fields-query.md` for the shape)
 - [ ] `Comment.metadata` is opaque to Velt — application code owns its schema
+- [ ] `FullscreenClickEvent.fullScreen` is read as the post-toggle state (`true` = now fullscreen)
 
 **Source Pointer:** https://docs.velt.dev/api-reference/sdk/models/data-models - Comments
+**Source Pointer:** https://docs.velt.dev/api-reference/sdk/models/data-models#fullscreenclickevent
