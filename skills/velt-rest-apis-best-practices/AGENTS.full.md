@@ -1,6 +1,6 @@
 # Velt Rest Apis Best Practices
 
-**Version 1.0.6**  
+**Version 1.0.7**  
 Velt  
 May 2026
 
@@ -29,8 +29,8 @@ Comprehensive guide for integrating Velt's server-side surface: the Velt REST AP
    - 2.2 [Approval Engine REST API — moved to its own skill](#22-approval-engine-rest-api-moved-to-its-own-skill)
    - 2.3 [Comment Annotations and Comments CRUD via REST API](#23-comment-annotations-and-comments-crud-via-rest-api)
    - 2.4 [Document, Organization, and Folder Management via REST API](#24-document-organization-and-folder-management-via-rest-api)
-   - 2.5 [List agent executions through the Agents REST API](#25-list-agent-executions-through-the-agents-rest-api)
-   - 2.6 [Manage Advanced Webhooks via REST API](#26-manage-advanced-webhooks-via-rest-api)
+   - 2.5 [Manage Advanced Webhooks via REST API](#25-manage-advanced-webhooks-via-rest-api)
+   - 2.6 [Manage agents, executions, versions, and groups through the Agents REST API](#26-manage-agents-executions-versions-and-groups-through-the-agents-rest-api)
    - 2.7 [Notification Management via REST API](#27-notification-management-via-rest-api)
    - 2.8 [Use Memory REST APIs for judgments, knowledge, alerts, and suggestions](#28-use-memory-rest-apis-for-judgments-knowledge-alerts-and-suggestions)
    - 2.9 [User Management via REST API](#29-user-management-via-rest-api)
@@ -757,64 +757,7 @@ References:
 
 ---
 
-### 2.5 List agent executions through the Agents REST API
-
-**Impact: MEDIUM (Server-side pagination of agent execution history without fetching executions one by one)**
-
-Use `POST /v2/agents/execution/list` to paginate through an agent's execution history. This endpoint is for reading execution summaries by agent, document, organization, or status; it is not the workflow/Approval Engine API.
-
-**Incorrect (using workflow endpoints or fetching executions one at a time):**
-
-```bash
-# Wrong family: workflow executions are Approval Engine executions,
-# not generic agent execution history.
-POST https://api.velt.dev/v2/workflow/executions/list
-{ "data": { "agentId": "agent_123" } }
-```
-
-**Correct (list agent execution summaries):**
-
-```json
-POST https://api.velt.dev/v2/agents/execution/list
-x-velt-api-key: YOUR_API_KEY
-x-velt-auth-token: YOUR_AUTH_TOKEN
-
-{
-  "data": {
-    "agentId": "agent_123",
-    "documentId": "doc_001",
-    "status": "failed",
-    "pageSize": 50,
-    "orderDirection": "desc"
-  }
-}
-{
-  "result": {
-    "items": [
-      {
-        "id": "exec_1711900000000_abc123",
-        "agentId": "agent_123",
-        "agentName": "Brand Consistency Checker",
-        "agentVersion": 3,
-        "status": "passed",
-        "message": "Found 7 issues across 12 pages.",
-        "startedAt": 1711900000000,
-        "completedAt": 1711900150000,
-        "durationMs": 150000,
-        "trigger": "standalone"
-      }
-    ],
-    "nextCursor": "eyJvZmZzZXQiOjUwfQ==",
-    "hasMore": true
-  }
-}
-```
-
-The response returns `result.items`, plus `nextCursor` and `hasMore` for pagination.
-
----
-
-### 2.6 Manage Advanced Webhooks via REST API
+### 2.5 Manage Advanced Webhooks via REST API
 
 **Impact: MEDIUM (Programmatically enable advanced webhooks and manage delivery endpoints, signing secrets, and per-endpoint event/channel filters)**
 
@@ -900,6 +843,220 @@ POST https://api.velt.dev/v2/workspace/advancedwebhook/endpoints/secret/get
 { "data": { "endpointId": "ep_..." } }
 # → data.secret = "whsec_..."
 ```
+
+---
+
+### 2.6 Manage agents, executions, versions, and groups through the Agents REST API
+
+**Impact: HIGH (Full lifecycle control over custom agents (CRUD + versioning), async executions with polling, and group-based fan-out; misuse either invents versions or leaks per-URL results behind the wrong endpoint)**
+
+Use the `/v2/agents/*` REST API family to author custom agents, run and poll executions, walk version history, and manage groups. All endpoints are `POST`, use the standard `https://api.velt.dev/v2` base URL, and require both `x-velt-api-key` and `x-velt-auth-token` headers. Endpoint identity is verbatim — the `/v2/` prefix and the exact path segments matter and are part of the URL.
+
+**Incorrect (fetching per-URL results via the list endpoint, or omitting the poll loop):**
+
+```bash
+# Wrong: /v2/agents/execution/list never returns the per-URL findings subcollection,
+# and calling it right after /v2/agents/execution/run can return an incomplete run.
+POST https://api.velt.dev/v2/agents/execution/list
+{ "data": { "agentId": "abc123def456" } }
+```
+
+**Correct (start an async execution, poll Get Execution until status leaves `"running"`):**
+
+```bash
+POST https://api.velt.dev/v2/agents/execution/run
+x-velt-api-key: YOUR_API_KEY
+x-velt-auth-token: YOUR_AUTH_TOKEN
+
+{
+  "data": {
+    "agentId": "abc123def456",
+    "url": "https://example.com/pricing",
+    "organizationId": "org_001",
+    "documentId": "doc_001",
+    "ranBy": { "userId": "user_123" }
+  }
+}
+
+# Response: { "result": { "data": { "executionId": "exec_..." } } }
+
+POST https://api.velt.dev/v2/agents/execution/get
+x-velt-api-key: YOUR_API_KEY
+x-velt-auth-token: YOUR_AUTH_TOKEN
+
+{
+  "data": {
+    "executionId": "exec_1711900000000_abc123def456",
+    "includeResults": true
+  }
+}
+POST https://api.velt.dev/v2/agents/create
+x-velt-api-key: YOUR_API_KEY
+x-velt-auth-token: YOUR_AUTH_TOKEN
+
+{
+  "data": {
+    "name": "Brand Consistency Checker",
+    "instructions": "Check that all headings use the brand font 'Inter'.",
+    "contextGathering": { "strategies": ["web-page-text", "web-page-html"] },
+    "execution": { "executionStrategy": "ai" }
+  }
+}
+# → { "result": { "data": { "agentId": "abc123def456" } } }
+
+POST https://api.velt.dev/v2/agents/execution/run
+x-velt-api-key: YOUR_API_KEY
+x-velt-auth-token: YOUR_AUTH_TOKEN
+
+{
+  "data": {
+    "agentId": "abc123def456",
+    "url": "https://example.com",
+    "crossPageExecute": true,
+    "maxUrlsToProcess": 25,
+    "organizationId": "org_001",
+    "documentId": "doc_001"
+  }
+}
+
+POST https://api.velt.dev/v2/agents/version/update
+x-velt-api-key: YOUR_API_KEY
+x-velt-auth-token: YOUR_AUTH_TOKEN
+
+{
+  "data": {
+    "agentId": "abc123def456",
+    "instructions": "Check headings use 'Inter' font. Verify #1A73E8 on all CTAs and links."
+  }
+}
+# → { "result": { "data": { "version": 4 } } }
+
+POST https://api.velt.dev/v2/agents/versions/restore
+x-velt-api-key: YOUR_API_KEY
+x-velt-auth-token: YOUR_AUTH_TOKEN
+
+{ "data": { "agentId": "abc123def456" } }
+# → { "result": { "data": { "version": 3 } } }
+# 1. All executions of one agent across the workspace.
+POST https://api.velt.dev/v2/agents/execution/list
+{ "data": { "agentId": "abc123def456", "pageSize": 20 } }
+
+# 2. All executions on one document (any agent).
+POST https://api.velt.dev/v2/agents/execution/list
+{ "data": { "organizationId": "org_001", "documentId": "doc_001" } }
+
+# 3. All three narrows a single agent to a single document.
+POST https://api.velt.dev/v2/agents/execution/list
+{
+  "data": {
+    "agentId": "abc123def456",
+    "organizationId": "org_001",
+    "documentId": "doc_001",
+    "pageSize": 50
+  }
+}
+POST https://api.velt.dev/v2/agents/execution/count
+x-velt-api-key: YOUR_API_KEY
+x-velt-auth-token: YOUR_AUTH_TOKEN
+
+{
+  "data": {
+    "agentIds": ["abc123def456", "spell-check"],
+    "status": "running"
+  }
+}
+# → { "result": { "data": { "counts": { "abc123def456": 2, "spell-check": 0 } } } }
+# Create a group with initial members and immutable metadata.
+POST https://api.velt.dev/v2/agents/groups/create
+x-velt-api-key: YOUR_API_KEY
+x-velt-auth-token: YOUR_AUTH_TOKEN
+
+{
+  "data": {
+    "name": "Brand QA",
+    "description": "All brand-quality agents",
+    "agentIds": ["abc123def456", "spell-check"],
+    "metadata": { "clientOrganizationId": "org_001" }
+  }
+}
+
+# Membership changes go through add-agents / remove-agents, never through /update.
+POST https://api.velt.dev/v2/agents/groups/add-agents
+{ "data": { "groupId": "grp_9f3ac2", "agentIds": ["xyz789ghi012"] } }
+
+POST https://api.velt.dev/v2/agents/groups/remove-agents
+{ "data": { "groupId": "grp_9f3ac2", "agentIds": ["spell-check"] } }
+
+# Filter an agent list to a group's members.
+POST https://api.velt.dev/v2/agents/get
+{ "data": { "groupId": "grp_9f3ac2" } }
+# 1. Check whether a raw prompt is specific enough.
+POST https://api.velt.dev/v2/agents/prompt/enhance
+{ "data": { "prompt": "Check that the page uses our brand colors" } }
+# → { "enhancedPrompt": { "requirement": "Please specify which brand colors..." } }
+
+# 2. Expand a simple instruction into a structured task.
+POST https://api.velt.dev/v2/agents/prompt/validate
+{ "data": { "prompt": "Make sure there are no broken links on the page" } }
+# → { "validationResult": { "analysis_prompt": "## Objective\n...", "demos": { ... } } }
+
+# 3. Iterate the analysis prompt against demo failures.
+POST https://api.velt.dev/v2/agents/prompt/refine
+{
+  "data": {
+    "analysisPrompt": "## Objective\nIdentify all broken links...",
+    "demoFeedback": [
+      {
+        "demoId": "demo-1",
+        "demoTitle": "Mailto link with malformed address",
+        "demoHtml": "<a href=\"mailto:invalid email@\">Email us</a>",
+        "demoExpected": "detected",
+        "feedback": "Malformed mailto links should also count as broken."
+      }
+    ]
+  }
+}
+
+# 4. Recommend contextGathering / execution strategies for the final instructions.
+POST https://api.velt.dev/v2/agents/config/resolve
+{ "data": { "instructions": "Verify all CTAs use the primary brand color #1A73E8." } }
+# → { "resolvedConfig": { "extraction_strategies": [...], "execution_strategy": "ai" } }
+POST https://api.velt.dev/v2/agents/extract
+x-velt-api-key: YOUR_API_KEY
+x-velt-auth-token: YOUR_AUTH_TOKEN
+
+{
+  "data": {
+    "fileBase64": "QWdlbnQgTmFtZSxEZXNjcmlwdGlvbixJbnN0cnVjdGlvbnMK...",
+    "mimeType": "text/csv",
+    "fileName": "qa-checklist.csv"
+  }
+}
+POST https://api.velt.dev/v2/agents/analytics/get
+x-velt-api-key: YOUR_API_KEY
+x-velt-auth-token: YOUR_AUTH_TOKEN
+
+{ "data": { "agentId": "abc123def456", "year": "2026", "month": "03" } }
+```
+
+Poll `/v2/agents/execution/get` until `execution.status !== "running"`. Only this endpoint returns the per-URL `results` subcollection (when `includeResults: true`); `/v2/agents/execution/list` never does.
+| Group | Endpoints | Notes |
+|-------|-----------|-------|
+| Agent CRUD | `/v2/agents/create`, `/v2/agents/get`, `/v2/agents/update`, `/v2/agents/delete` | `create` writes version 1 automatically. `update` edits identity only (`name`, `description`, `enabled`); behavioral changes use `/v2/agents/version/update`. `get` returns a single agent when `agentId` is provided, otherwise a list; `filter` and `groupId` narrow the list. |
+| Executions | `/v2/agents/execution/run`, `/v2/agents/execution/get`, `/v2/agents/execution/list`, `/v2/agents/execution/count` | `run` is async — the response returns `executionId` immediately; poll `get` until `status !== "running"`. `get` is the only way to read the per-URL `results` subcollection (`includeResults: true`); `list` and `count` never include results. `list` accepts exactly three filter shapes: `{ agentId }`, `{ organizationId, documentId }`, or all three. |
+| Versioning | `/v2/agents/version/update`, `/v2/agents/versions/list`, `/v2/agents/versions/restore` | Every behavioral edit creates a new version N+1. `versions/list` returns snapshots newest-first with secrets redacted. `versions/restore` is a single-step undo that walks back to N-1 and cannot go below version 1. |
+| Prompt authoring | `/v2/agents/prompt/enhance`, `/v2/agents/prompt/validate`, `/v2/agents/prompt/refine`, `/v2/agents/config/resolve`, `/v2/agents/extract` | `enhance` checks a prompt for missing context (returns a clarification `requirement` or `null`). `validate` expands a one-line instruction into a structured task. `refine` iterates a prompt against demo failures. `config/resolve` recommends `contextGathering.strategies` and `execution.executionStrategy`. `extract` parses a CSV/PDF/XLSX file into agent configs ready for `/v2/agents/create`. |
+| Groups | `/v2/agents/groups/create`, `get`, `list`, `update`, `delete`, `add-agents`, `remove-agents` | Groups bundle custom and built-in agents (max 100 members per group, max 50 groups per workspace). `update` only edits `name`/`description` — `metadata` is immutable after creation and membership uses `add-agents` / `remove-agents`. `list` strips `agentIds` and returns `agentCount` per row; call `get` for the full membership. |
+| Analytics | `/v2/agents/analytics/get` | Per-agent, per-model, per-month token usage and execution counts. Omit `agentId` for a workspace-wide aggregate. Model keys are sanitised as `provider_model`. |
+Create → run → check results → edit behavior (new version) → roll back if needed:
+Server-managed fields (`id`, `version`, `createdAt`, `updatedAt`, `managedBy`, `metadata.type`, `metadata.category`, `metadata.internal`, `metadata.apiKey`) are rejected with `INVALID_ARGUMENT` if sent on `/v2/agents/create` or `/v2/agents/version/update`. Auth secrets in `contextGathering.strategyOptions["rest-api"]` and `execution.mcpServers[].auth` are encrypted at rest and returned as `"__redacted__"` on `get` / `versions/list`; rotate by sending the new plaintext, keep by omitting the field.
+`/v2/agents/execution/list` rejects every filter combination outside this whitelist:
+Pagination continues via `pageToken = data.nextPageToken`; the `nextPageToken` key is omitted entirely (not `null`) when the result set is exhausted. `pageSize` is `1..100` (default 20).
+`agentIds` accepts a single string or an array of 1–200 ids. Failed per-agent counts return the integer sentinel `-1` (not `null`); unknown agent ids return `0`. Omit `agentIds` for a single workspace-wide `total`.
+`add-agents` and `remove-agents` are idempotent (`arrayUnion` / `arrayRemove`); re-adding a member or removing a non-member is a silent success. The membership cap of 100 is enforced atomically. Deleting a group (`/v2/agents/groups/delete`) removes the group document only — member agents are untouched.
+`/v2/agents/prompt/*` and `/v2/agents/config/resolve` are pure design tools — they do not create or modify agents:
+`/v2/agents/extract` bulk-imports an existing checklist (CSV / PDF / XLSX / plain text) into a list of agent configs that can be passed straight into `/v2/agents/create`:
+Response `analytics.tokenUsage` is broken down by `allTime`, `yearly[year][provider_model]`, `monthly[month][provider_model]`, and `byModel[provider_model]`. `year` must match `^\d{4}$`; `month` must match `^(0[1-9]|1[0-2])$`.
 
 ---
 
@@ -1496,7 +1653,7 @@ Reference: `https://docs.velt.dev/api-reference/rest-api/overview` (## REST API 
 - https://docs.velt.dev/api-reference/rest-apis/v2/notifications/add-notifications
 - https://docs.velt.dev/api-reference/rest-apis/v2/workspace/create
 - https://docs.velt.dev/api-reference/rest-apis/v2/workspace/advancedwebhookconfig-update
-- https://docs.velt.dev/api-reference/rest-apis/v2/agents/list-agent-executions
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/execution/list
 - https://docs.velt.dev/api-reference/rest-apis/v2/memory/alerts/action
 - https://docs.velt.dev/api-reference/rest-apis/v2/memory/alerts/config/get
 - https://docs.velt.dev/api-reference/rest-apis/v2/memory/alerts/config/update
@@ -1519,3 +1676,26 @@ Reference: `https://docs.velt.dev/api-reference/rest-api/overview` (## REST API 
 - https://docs.velt.dev/api-reference/rest-apis/v2/memory/stats/get
 - https://docs.velt.dev/api-reference/rest-apis/v2/memory/suggest
 - https://docs.velt.dev/api-reference/rest-apis/v2/workspace/apikey-create
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/create
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/get
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/update
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/delete
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/extract
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/execution/run
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/execution/get
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/execution/count
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/config/resolve
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/analytics/get
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/prompt/enhance
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/prompt/validate
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/prompt/refine
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/version/update
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/versions/list
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/versions/restore
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/groups/create
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/groups/get
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/groups/list
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/groups/update
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/groups/delete
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/groups/add-agents
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/groups/remove-agents

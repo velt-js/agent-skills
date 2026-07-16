@@ -42,7 +42,7 @@ Reference these guidelines when:
 - `rest-notifications` — Notification add/get/update/delete + config
 - `rest-activities-crdt` — Activity logs + CRDT data endpoints
 - `rest-advanced-webhooks` — Manage advanced webhooks: config enable + endpoint CRUD + signing-secret retrieval
-- `rest-agents` — List agent execution history with pagination and status filters
+- `rest-agents` — Full lifecycle for `/v2/agents/*`: agent CRUD, async executions (run/get/list/count), version update/list/restore, prompt authoring (enhance/validate/refine/resolve/extract), groups, and analytics
 - `rest-memory` — Memory judgments, knowledge ingestion/search, Q&A, suggestions, insights, and alerts
 - `rest-workspace-apikey` — Create workspace API keys: testing vs. production (gated), region selection, service toggles, and default triggers
 - `rest-approval-engine` — pointer (Approval Engine is now its own skill: see `velt-approval-engine-best-practices`)
