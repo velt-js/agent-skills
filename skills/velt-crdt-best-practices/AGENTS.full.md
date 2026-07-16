@@ -1,6 +1,6 @@
 # Velt Crdt Best Practices
 
-**Version 2.1.0**  
+**Version 2.1.1**  
 Velt  
 January 2026
 
@@ -507,7 +507,7 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (## Mi
 
 **Impact: MEDIUM-HIGH (Enables rollback to known good states)**
 
-Use `saveVersion()` to create named checkpoints that can be restored later. Useful for autosave, undo/redo at document level, or user-triggered saves.
+Use `saveVersion()` to create named checkpoints that can be restored later. Useful for autosave, undo/redo at document level, or user-triggered saves. The full version lifecycle — `saveVersion` → `getVersions` / `getVersionById` → `restoreVersion` (or `setStateFromVersion` for a local-only preview) — is available on every Velt CRDT store: plain stores (`array`, `map`, `text`, `xml`) and the editor integrations built on top of them (Tiptap, BlockNote, CodeMirror, ReactFlow).
 
 **Correct (React - saving versions):**
 
@@ -560,8 +560,6 @@ if (fetched) {
   await store.setStateFromVersion(fetched);
 }
 ```
-
-Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Step 6: Save and restore versions)
 
 ---
 
