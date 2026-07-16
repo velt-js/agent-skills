@@ -1,6 +1,6 @@
 # Velt Comments Best Practices
 
-**Version 1.1.10**  
+**Version 1.1.11**  
 Velt  
 January 2026
 
@@ -3498,12 +3498,38 @@ commentElement.toggleCommentSidebar();
 **V2 Sidebar (primitive-based):**
 
 ```jsx
-import { VeltCommentsSidebarV2 } from '@veltdev/react';
+import {
+  VeltProvider,
+  VeltComments,
+  VeltCommentsSidebarV2,
+  VeltSidebarButton,
+  VeltCommentTool,
+} from '@veltdev/react';
 
-<VeltCommentsSidebarV2 />
+export default function App() {
+  return (
+    <VeltProvider apiKey="API_KEY">
+      <VeltComments />
+      <VeltCommentsSidebarV2 />
+      <div className="toolbar">
+        <VeltSidebarButton />
+        <VeltCommentTool />
+      </div>
+    </VeltProvider>
+  );
+}
 ```
 
-V2 replaces the per-category filter panel with a unified `FilterDropdown`. For V2 wireframe customization, see the Comment Sidebar V2 Structure docs.
+**Incorrect (sidebar mounted without VeltComments — pins do not render):**
+
+```jsx
+<VeltProvider apiKey="API_KEY">
+  {/* Missing <VeltComments /> — page-level pins will not render */}
+  <VeltCommentsSidebarV2 />
+</VeltProvider>
+```
+
+V2 replaces the per-category filter panel with a unified `FilterDropdown`. For V2 wireframe customization, see the [Comment Sidebar V2 Wireframes](https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-v2-wireframes) docs (the older `comment-sidebar-structure-v2` path is superseded).
 
 ---
 
@@ -3755,7 +3781,7 @@ export default function App() {
 
 **VeltCommentsSidebarV2 Props (core layout / event surface):**
 
-```typescript
+```html
 // React — main filter panel + a multi-dropdown minimal bar
 <VeltCommentsSidebarV2
   filters={[
@@ -3787,12 +3813,81 @@ export default function App() {
   system-filters-operator="and"
   default-minimal-filter="open"
 ></velt-comments-sidebar-v2>
+<VeltCommentsSidebarV2
+  filters={{
+    status: ['OPEN'],
+    people: [{ userId: '1.1' }, { userId: '2.3' }],
+    location: [{ locationName: 'Home' }],
+  }}
+/>
+<velt-comments-sidebar-v2></velt-comments-sidebar-v2>
+<script>
+  const sidebar = document.querySelector('velt-comments-sidebar-v2');
+  sidebar.filters = {
+    status: ['OPEN'],
+    people: [{ userId: '1.1' }, { userId: '2.3' }],
+    location: [{ locationName: 'Home' }],
+  };
+</script>
+```
+
+**Active-selections form (`CommentSidebarFilters`)** — pass an object keyed by field instead of a `FilterField[]` to apply selected values directly. User/location identities are objects, not bare id strings. Included keys replace their current selections; omitted keys are preserved; a present-but-empty array clears one field; `{}` clears all client-provided selections; **Reset** in the Main Filter panel clears them too:
+
+**Incorrect (V1-style bare-id selections):**
+
+```typescript
+// Bare id strings for people/location no longer match the CommentSidebarFilters shape
+<VeltCommentsSidebarV2
+  filters={{ status: ['open'], people: ['1.1', '2.3'] }}
+/>
 <VeltCommentsSidebarV2 sortBy="comments.createdAt" sortOrder="desc" defaultMinimalFilter="open" />
 const commentElement = client.getCommentElement();
 const filtered: CommentAnnotation[] = commentElement.applyCommentSidebarClientFilters(
   annotations,
   filters,
 );
+const commentElement = client.getCommentElement();
+
+// Apply / replace selections for specific fields
+commentElement.setCommentSidebarFilters({
+  status: ['OPEN'],
+  involved: [{ userId: 'user-123' }],
+  location: [{ locationName: 'Home' }],
+});
+
+// Clear a single field — other client-provided selections stay
+commentElement.setCommentSidebarFilters({ location: [] });
+
+// Clear everything the client has supplied
+commentElement.setCommentSidebarFilters({});
+const commentElement = client.getCommentElement();
+commentElement.setSystemFiltersOperator('or');   // 'and' | 'or'
+const commentElement = client.getCommentElement();
+commentElement.setSidebarButtonCountType('filter');   // 'default' | 'filter'
+<VeltCommentsSidebarV2
+  filters={[
+    { field: 'status' },
+    { field: 'priority', includeUnset: false },
+  ]}
+/>
+// Active-selection payload consumed by `filters={...}`, setCommentSidebarFilters(),
+// and applyCommentSidebarClientFilters(). Included keys REPLACE; omitted keys are preserved.
+interface CommentSidebarFilters {
+  location?:   { id?: string | number; locationName?: string }[];
+  document?:   { id: string }[];
+  people?:     { userId?: string; email?: string }[];
+  tagged?:     { userId?: string; email?: string }[];
+  assigned?:   { userId?: string; email?: string }[];
+  involved?:   { userId?: string; email?: string }[];
+  priority?:   string[];
+  status?:     string[];
+  category?:   string[];
+  version?:    { id: string }[];
+  accessModes?: CommentAccessMode[];             // 'public' | 'private'
+  // Custom fields — string values or { id?, name? } objects
+  [key: string]: string[] | { id?: string; name?: string }[] | undefined;
+}
+
 // Filter field definition (panel sections + minimal-filter `filter` dropdowns)
 interface FilterField {
   field: string;                              // BuiltInFilterFieldId or custom id
@@ -3848,7 +3943,9 @@ interface SidebarQuickCondition {
   value: any;
 }
 
-// List grouping + flattened virtual-scroll rows
+// List grouping + flattened virtual-scroll rows.
+// `isExpanded` in V2 is resolved from user overrides (persisted in sessionStorage)
+// combined with the current grouping default — not a plain "default true" flag.
 interface SidebarAnnotationGroup {
   id: string;
   label: string;
@@ -3901,15 +3998,15 @@ interface FilterFieldResolver {
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `filters` | `string \| FilterField[] \| object` | `[]` | Main Filter panel sections, OR an object of active selections that routes to the V1 `setCommentSidebarFilters` path. |
+| `filters` | `string \| FilterField[] \| CommentSidebarFilters` | `[]` | Main Filter panel sections, OR a `CommentSidebarFilters` object of active selections. Included selection keys replace their values, omitted keys are preserved, and **Reset** clears the client-provided selections. |
 | `miniFilters` | `string \| FilterField[]` | `[]` | Single header funnel dropdown. |
 | `minimalFilters` | `string \| SidebarMinimalFilterConfig[]` | `[]` | Multiple configurable header dropdowns. Replaces the single mini-filter funnel when present. |
-| `filterOperator` | `'and' \| 'or'` | `'and'` | Cross-section combination of active filter selections. |
+| `filterOperator` | `'and' \| 'or'` | `'and'` | Cross-field combination of active filter selections. Directly configures the V2 filter engine and shares its effective value with the `systemFiltersOperator` input / API. |
 | `filterPanelLayout` | `'bottomSheet' \| 'menu'` | `'bottomSheet'` | Main Filter panel layout. |
 | `filterOptionLayout` | `'dropdown' \| 'checkbox'` | `'dropdown'` | How options render within a filter section. |
-| `filterCount` | boolean | `true` | Per-option facet counts. Disabling improves performance. |
+| `filterCount` | boolean | `true` | Per-option facet counts. Counts remain **absolute** within the current page-scoped annotation set and do **not** shrink around selections supplied through `setCommentSidebarFilters()`. Disabling improves performance. |
 | `filterGhostCommentsInSidebar` | boolean | `false` | Hide ghost comments from the list. |
-| `systemFiltersOperator` | `'and' \| 'or'` | `'and'` | Operator applied to system filters. Mirrored by `applyCommentSidebarClientFilters()`. |
+| `systemFiltersOperator` | `'and' \| 'or'` | `'and'` (effective) | Combines selections across **different** filter fields; values within one field always use OR. Also applies to client filters set via `setCommentSidebarFilters()` and is mirrored by `applyCommentSidebarClientFilters()`. An explicit `filterOperator` set at init is preserved over the shared operator's default. |
 | `defaultMinimalFilter` | `'all' \| 'read' \| 'unread' \| 'resolved' \| 'open' \| 'assignedToMe' \| 'reset'` | — | Default active quick filter applied on load. |
 | Prop | Type | Description |
 |------|------|-------------|
@@ -3920,6 +4017,40 @@ Apply a `CommentSidebarFilters` payload to an annotation array client-side, hono
 - Params: `annotations: CommentAnnotation[]`, `filters: CommentSidebarFilters`.
 - Returns: `CommentAnnotation[]`.
 - No React hook — call on `commentElement`.
+`setCommentSidebarFilters()` writes into the sidebar's active selections; the values render as checked options in the Main Filter panel and are cleared by **Reset**. Each call is a partial update, not a full overwrite: keys included in the payload replace their current selections, while omitted keys are preserved. A present-but-empty array clears one field, and an empty object clears all client-provided selections.
+Normalization used by the sidebar's active selections:
+- `location`: matched by `id` (numeric `id` compares to string filter values; `id: 0` is valid), with `locationName` as fallback when `id` is `null` / `undefined` / empty.
+- `people` / `assigned` / `tagged` / `involved`: matched by `userId`, with `email` as fallback when `userId` is absent. Email-only records do not create duplicate filter options.
+- `status` / `priority` / `category`: matched by the provided ids without further normalization.
+- `accessModes`: `'public'` or `'private'` — recognizes both legacy `iam.accessMode` and new `visibilityConfig` (`restricted` / `organizationPrivate` → `'private'`).
+- `version`: matched by `id`.
+- Custom fields (`[key: string]`): string values or `{ id?, name? }` objects.
+A non-empty client selection filters even when its field is not declared in the Main Filter panel; empty undeclared fields are ignored, and declared fields are not duplicated. Facet counts stay absolute — see `filterCount` above.
+Set how selections from **different** sidebar filter fields are combined. Values within one field always use OR.
+- Params: `operator: 'and' | 'or'`.
+- Returns: `void`.
+- Effective default: `'and'`.
+- Also applies to client filters set via `setCommentSidebarFilters()`, including any value written before the sidebar initializes.
+- An explicit `filterOperator` set at init is preserved over the shared operator's default.
+Change what the sidebar button count badge reflects.
+- `'default'` — count of comments in open and in-progress states.
+- `'filter'` — count of the sidebar's currently filtered list, including `0` for an empty result. Updates when comments are deleted. When `filterCommentsOnDom` is enabled, the same filtered list also gates which pins render on the page. The current filtered result is preserved while the sidebar is loading and is cleared when the sidebar is destroyed, so a removed sidebar no longer gates the badge or on-page pins.
+On first load, the Status field starts with **Open** plus every **In Progress** status selected; the sidebar shows active comments by default. The default selection is skipped when:
+- Filter state was restored from `sessionStorage`.
+- A caller supplied a status selection through `setCommentSidebarFilters()`.
+- The user has already changed the Status selection.
+If the status catalog loads after the sidebar renders and the user hasn't touched Status, the default selection refreshes to match the catalog's current Open + In Progress statuses. **Reset** does not re-apply the default statuses — clear the Status field or select **All** to show resolved / terminal comments.
+The default Priority field includes a **Not set** option for comments without a priority. Opt out by supplying a custom `FilterField` with `includeUnset: false`:
+The sidebar identifies a location by its `id`, falling back to `locationName` when `id` is `null`, `undefined`, or an empty string. `id: 0` is valid, numeric annotation ids compare with equivalent string filter values, and `id` takes precedence when both fields are present. This identity is used consistently by grouping, location filter options and matching, page mode, and client filters (`setCommentSidebarFilters()`). Comments without any location context appear in the **Others** group.
+People / Involved / Assigned / Tagged options are keyed by `userId` with the user's display name as the label and email as fallback. Records containing only an email do not create filter options — this prevents duplicate options when another record for the same person contains a `userId`.
+- **Location grouping** — the current + additional-location groups start expanded; other location groups start collapsed.
+- **Document grouping** — the current document starts expanded; other documents start collapsed.
+- **Status / priority / custom-field grouping** — all groups start expanded.
+- Precedence: explicit expand > explicit collapse > grouping default. Both overrides persist in `sessionStorage`.
+- A real location change resets overrides so the new current group expands. The initial location emitted during a reload preserves restored overrides.
+`CommentSidebarGroup.isExpanded` is no longer just a boolean default: an omitted value is resolved from the user's overrides plus the current grouping default per the precedence above.
+The page-mode composer list is scoped by the current location identity, so a location supplied with only `locationName` behaves like an id-based location.
+Rows wider than the sidebar viewport are clipped to sidebar width rather than producing a horizontal scrollbar. Tune the virtual-scroll window via `measuredSize` / `minBufferPx` / `maxBufferPx` (defaults `220` / `1000` / `2000`).
 V2-only types that back the declarative pipeline. They are consumed exclusively through V2 props (filter / sort / group / list / facet) — keep them co-located with this surface rule rather than mixing them into the core type reference.
 
 ---
