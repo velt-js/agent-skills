@@ -1,5 +1,5 @@
 # Velt Rest Apis Best Practices
-|v1.0.8|Velt|May 2026
+|v1.0.9|Velt|May 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
 |root: ./rules
 

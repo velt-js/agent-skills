@@ -1,6 +1,6 @@
 # Velt Comments Best Practices
 
-**Version 1.1.14**  
+**Version 1.1.15**  
 Velt  
 January 2026
 
@@ -8535,7 +8535,7 @@ response = requests.post(
 )
 ```
 
-Attaching the `agent` block to the root comment marks the whole annotation as agent-authored: the server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). Attaching an `agent` block to a reply instead (see "Replying as an agent" below) marks only that individual comment as agent-authored — the parent annotation is not reclassified. The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
+Attaching the `agent` block to `commentData[0]` (the root comment) marks the whole annotation as agent-authored: the server stamps `sourceType: "agent"` on both that comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). Attaching an `agent` block to a reply instead (see "Replying as an agent" below) marks only that individual comment as agent-authored — the annotation root stays a normal comment and is not reclassified. The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
 `reason` carries the finding's details. Three fields are required; the remaining ten are optional. Any extra custom fields beyond this list are preserved by the server.
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
@@ -8691,8 +8691,36 @@ Agent comments are updated through the same endpoints as any other comment — t
 - **Individual comment content** within the thread goes through the Update Comments API (`POST /v2/comments/update`). See `rest-comments-api`.
 There is no agent-specific update endpoint; the `agent` block on the comment is carried through unchanged.
 Two scopes, same split:
-- **Whole-thread deletion** goes through the Delete Comment Annotations API (`POST /v2/commentannotations/delete`). Filter by `annotationIds` for specific threads, or by the agent's `userIds` — this is the idiomatic pattern for **purging every annotation a given agent created** (e.g. wiping a bot's findings before a re-run). See `rest-comment-annotations-api`.
+- **Whole-thread deletion** goes through the Delete Comment Annotations API (`POST /v2/commentannotations/delete`). Filter by `annotationIds` for specific threads, by the agent's `userIds` (the idiomatic pattern for **purging every annotation a given agent created** — e.g. wiping a bot's findings before a re-run), or by the **combinable agent filters** `agentId`, `agentSuggestions`, and `agentUrls`, which are AND-combined to scope deletion (e.g. delete only one agent's still-pending suggestions on a specific set of pages). See `rest-comment-annotations-api`.
 - **Single-comment deletion** within a thread goes through the Delete Comments API (`POST /v2/comments/delete`). See `rest-comments-api`.
+The combinable agent filters target only annotations that still match the filter — suggestions already accepted, rejected, or resolved are left untouched when `agentSuggestions: true` is set (it selects only still-pending suggestions).
+
+**Correct (purge one agent's pending suggestions on two specific pages):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/delete
+const response = await fetch('https://api.velt.dev/v2/commentannotations/delete', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentId: 'a11y-bot',
+      agentSuggestions: true,
+      agentUrls: [
+        'https://example.com/design-mockup-v2/page-1',
+        'https://example.com/design-mockup-v2/page-2',
+      ],
+    },
+  }),
+});
+```
+
 Agent findings render with Accept and Reject buttons. Subscribe to `suggestionAccepted` and `suggestionRejected` on the comment element to apply the change to your own data or trigger follow-up logic. The SDK records the outcome and persists the suggestion status — applying the actual change is your code's responsibility.
 
 **Correct (React — subscribe to agent suggestion events):**
@@ -8874,7 +8902,7 @@ response = requests.post(
 )
 ```
 
-Attaching the `agent` block to the root comment marks the whole annotation as agent-authored: the server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). Attaching an `agent` block to a reply instead (see "Replying as an agent" below) marks only that individual comment as agent-authored — the parent annotation is not reclassified. The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
+Attaching the `agent` block to `commentData[0]` (the root comment) marks the whole annotation as agent-authored: the server stamps `sourceType: "agent"` on both that comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). Attaching an `agent` block to a reply instead (see "Replying as an agent" below) marks only that individual comment as agent-authored — the annotation root stays a normal comment and is not reclassified. The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
 `reason` carries the finding's details. Three fields are required; the remaining ten are optional. Any extra custom fields beyond this list are preserved by the server.
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
@@ -9030,8 +9058,36 @@ Agent comments are updated through the same endpoints as any other comment — t
 - **Individual comment content** within the thread goes through the Update Comments API (`POST /v2/comments/update`). See `rest-comments-api`.
 There is no agent-specific update endpoint; the `agent` block on the comment is carried through unchanged.
 Two scopes, same split:
-- **Whole-thread deletion** goes through the Delete Comment Annotations API (`POST /v2/commentannotations/delete`). Filter by `annotationIds` for specific threads, or by the agent's `userIds` — this is the idiomatic pattern for **purging every annotation a given agent created** (e.g. wiping a bot's findings before a re-run). See `rest-comment-annotations-api`.
+- **Whole-thread deletion** goes through the Delete Comment Annotations API (`POST /v2/commentannotations/delete`). Filter by `annotationIds` for specific threads, by the agent's `userIds` (the idiomatic pattern for **purging every annotation a given agent created** — e.g. wiping a bot's findings before a re-run), or by the **combinable agent filters** `agentId`, `agentSuggestions`, and `agentUrls`, which are AND-combined to scope deletion (e.g. delete only one agent's still-pending suggestions on a specific set of pages). See `rest-comment-annotations-api`.
 - **Single-comment deletion** within a thread goes through the Delete Comments API (`POST /v2/comments/delete`). See `rest-comments-api`.
+The combinable agent filters target only annotations that still match the filter — suggestions already accepted, rejected, or resolved are left untouched when `agentSuggestions: true` is set (it selects only still-pending suggestions).
+
+**Correct (purge one agent's pending suggestions on two specific pages):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/delete
+const response = await fetch('https://api.velt.dev/v2/commentannotations/delete', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentId: 'a11y-bot',
+      agentSuggestions: true,
+      agentUrls: [
+        'https://example.com/design-mockup-v2/page-1',
+        'https://example.com/design-mockup-v2/page-2',
+      ],
+    },
+  }),
+});
+```
+
 Agent findings render with Accept and Reject buttons. Subscribe to `suggestionAccepted` and `suggestionRejected` on the comment element to apply the change to your own data or trigger follow-up logic. The SDK records the outcome and persists the suggestion status — applying the actual change is your code's responsibility.
 
 **Correct (React — subscribe to agent suggestion events):**
@@ -10002,7 +10058,7 @@ response = requests.post(
 )
 ```
 
-Attaching the `agent` block to the root comment marks the whole annotation as agent-authored: the server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). Attaching an `agent` block to a reply instead (see "Replying as an agent" below) marks only that individual comment as agent-authored — the parent annotation is not reclassified. The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
+Attaching the `agent` block to `commentData[0]` (the root comment) marks the whole annotation as agent-authored: the server stamps `sourceType: "agent"` on both that comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). Attaching an `agent` block to a reply instead (see "Replying as an agent" below) marks only that individual comment as agent-authored — the annotation root stays a normal comment and is not reclassified. The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
 `reason` carries the finding's details. Three fields are required; the remaining ten are optional. Any extra custom fields beyond this list are preserved by the server.
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
@@ -10158,8 +10214,36 @@ Agent comments are updated through the same endpoints as any other comment — t
 - **Individual comment content** within the thread goes through the Update Comments API (`POST /v2/comments/update`). See `rest-comments-api`.
 There is no agent-specific update endpoint; the `agent` block on the comment is carried through unchanged.
 Two scopes, same split:
-- **Whole-thread deletion** goes through the Delete Comment Annotations API (`POST /v2/commentannotations/delete`). Filter by `annotationIds` for specific threads, or by the agent's `userIds` — this is the idiomatic pattern for **purging every annotation a given agent created** (e.g. wiping a bot's findings before a re-run). See `rest-comment-annotations-api`.
+- **Whole-thread deletion** goes through the Delete Comment Annotations API (`POST /v2/commentannotations/delete`). Filter by `annotationIds` for specific threads, by the agent's `userIds` (the idiomatic pattern for **purging every annotation a given agent created** — e.g. wiping a bot's findings before a re-run), or by the **combinable agent filters** `agentId`, `agentSuggestions`, and `agentUrls`, which are AND-combined to scope deletion (e.g. delete only one agent's still-pending suggestions on a specific set of pages). See `rest-comment-annotations-api`.
 - **Single-comment deletion** within a thread goes through the Delete Comments API (`POST /v2/comments/delete`). See `rest-comments-api`.
+The combinable agent filters target only annotations that still match the filter — suggestions already accepted, rejected, or resolved are left untouched when `agentSuggestions: true` is set (it selects only still-pending suggestions).
+
+**Correct (purge one agent's pending suggestions on two specific pages):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/delete
+const response = await fetch('https://api.velt.dev/v2/commentannotations/delete', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentId: 'a11y-bot',
+      agentSuggestions: true,
+      agentUrls: [
+        'https://example.com/design-mockup-v2/page-1',
+        'https://example.com/design-mockup-v2/page-2',
+      ],
+    },
+  }),
+});
+```
+
 Agent findings render with Accept and Reject buttons. Subscribe to `suggestionAccepted` and `suggestionRejected` on the comment element to apply the change to your own data or trigger follow-up logic. The SDK records the outcome and persists the suggestion status — applying the actual change is your code's responsibility.
 
 **Correct (React — subscribe to agent suggestion events):**
@@ -10341,7 +10425,7 @@ response = requests.post(
 )
 ```
 
-Attaching the `agent` block to the root comment marks the whole annotation as agent-authored: the server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). Attaching an `agent` block to a reply instead (see "Replying as an agent" below) marks only that individual comment as agent-authored — the parent annotation is not reclassified. The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
+Attaching the `agent` block to `commentData[0]` (the root comment) marks the whole annotation as agent-authored: the server stamps `sourceType: "agent"` on both that comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). Attaching an `agent` block to a reply instead (see "Replying as an agent" below) marks only that individual comment as agent-authored — the annotation root stays a normal comment and is not reclassified. The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
 `reason` carries the finding's details. Three fields are required; the remaining ten are optional. Any extra custom fields beyond this list are preserved by the server.
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
@@ -10497,8 +10581,36 @@ Agent comments are updated through the same endpoints as any other comment — t
 - **Individual comment content** within the thread goes through the Update Comments API (`POST /v2/comments/update`). See `rest-comments-api`.
 There is no agent-specific update endpoint; the `agent` block on the comment is carried through unchanged.
 Two scopes, same split:
-- **Whole-thread deletion** goes through the Delete Comment Annotations API (`POST /v2/commentannotations/delete`). Filter by `annotationIds` for specific threads, or by the agent's `userIds` — this is the idiomatic pattern for **purging every annotation a given agent created** (e.g. wiping a bot's findings before a re-run). See `rest-comment-annotations-api`.
+- **Whole-thread deletion** goes through the Delete Comment Annotations API (`POST /v2/commentannotations/delete`). Filter by `annotationIds` for specific threads, by the agent's `userIds` (the idiomatic pattern for **purging every annotation a given agent created** — e.g. wiping a bot's findings before a re-run), or by the **combinable agent filters** `agentId`, `agentSuggestions`, and `agentUrls`, which are AND-combined to scope deletion (e.g. delete only one agent's still-pending suggestions on a specific set of pages). See `rest-comment-annotations-api`.
 - **Single-comment deletion** within a thread goes through the Delete Comments API (`POST /v2/comments/delete`). See `rest-comments-api`.
+The combinable agent filters target only annotations that still match the filter — suggestions already accepted, rejected, or resolved are left untouched when `agentSuggestions: true` is set (it selects only still-pending suggestions).
+
+**Correct (purge one agent's pending suggestions on two specific pages):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/delete
+const response = await fetch('https://api.velt.dev/v2/commentannotations/delete', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentId: 'a11y-bot',
+      agentSuggestions: true,
+      agentUrls: [
+        'https://example.com/design-mockup-v2/page-1',
+        'https://example.com/design-mockup-v2/page-2',
+      ],
+    },
+  }),
+});
+```
+
 Agent findings render with Accept and Reject buttons. Subscribe to `suggestionAccepted` and `suggestionRejected` on the comment element to apply the change to your own data or trigger follow-up logic. The SDK records the outcome and persists the suggestion status — applying the actual change is your code's responsibility.
 
 **Correct (React — subscribe to agent suggestion events):**

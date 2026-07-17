@@ -1,6 +1,6 @@
 # Velt Rest Apis Best Practices
 
-**Version 1.0.8**  
+**Version 1.0.9**  
 Velt  
 May 2026
 
@@ -515,6 +515,30 @@ POST https://api.velt.dev/v2/commentannotations/delete
 }
 ```
 
+**Delete comment annotations — agent filters (AND-combined):**
+
+```bash
+# Delete only the spell-check agent's still-pending suggestions on named pages.
+POST https://api.velt.dev/v2/commentannotations/delete
+
+{
+  "data": {
+    "organizationId": "yourOrganizationId",
+    "documentId": "yourDocumentId",
+    "agentId": "spell-check",
+    "agentSuggestions": true,
+    "agentUrls": ["https://example.com/pricing"]
+  }
+}
+```
+
+Scope collapses as filters drop:
+- `{ agentId, agentSuggestions, agentUrls }` — one agent's still-pending suggestions on those pages only.
+- `{ agentSuggestions: true }` alone — all still-pending suggestions on the document.
+- `{ agentId }` alone — all of that agent's annotations on the document.
+- `{ agentUrls }` alone — all agent annotations stamped for those pages.
+Annotations created before URL stamping existed are never matched by `agentUrls`.
+
 **Get annotation count:**
 
 ```bash
@@ -970,6 +994,8 @@ x-velt-auth-token: YOUR_AUTH_TOKEN
 {
   "data": {
     "name": "Brand Consistency Checker",
+    "description": "Validates brand colors, logos, and typography across pages",
+    "enabled": true,
     "instructions": "Check that all headings use the brand font 'Inter'.",
     "contextGathering": { "strategies": ["web-page-text", "web-page-html"] },
     "execution": { "executionStrategy": "ai" }
@@ -999,7 +1025,11 @@ x-velt-auth-token: YOUR_AUTH_TOKEN
 {
   "data": {
     "agentId": "abc123def456",
-    "instructions": "Check headings use 'Inter' font. Verify #1A73E8 on all CTAs and links."
+    "instructions": "Check headings use 'Inter' font. Verify #1A73E8 on all CTAs and links.",
+    "postProcess": {
+      "guardrails": { "enabled": true },
+      "deletePreviousSuggestions": { "enabled": true }
+    }
   }
 }
 # → { "result": { "data": { "version": 4 } } }
@@ -1010,6 +1040,37 @@ x-velt-auth-token: YOUR_AUTH_TOKEN
 
 { "data": { "agentId": "abc123def456" } }
 # → { "result": { "data": { "version": 3 } } }
+{
+  "data": {
+    "name": "Simple Content Checker",
+    "instructions": "Check for broken images and missing alt text on the page.",
+    "contextGathering": {}
+  }
+}
+{
+  "data": {
+    "name": "Simple Content Checker",
+    "description": "Checks for broken images and missing alt text",
+    "enabled": true,
+    "instructions": "Check for broken images and missing alt text on the page.",
+    "contextGathering": { "strategies": ["web-page-html"] },
+    "execution": {}
+  }
+}
+{
+  "data": {
+    "agentId": "abc123def456",
+    "url": "https://example.com"
+  }
+}
+{
+  "data": {
+    "agentId": "abc123def456",
+    "url": "https://example.com",
+    "organizationId": "org_001",
+    "documentId": "doc_001"
+  }
+}
 # 1. All executions of one agent across the workspace.
 POST https://api.velt.dev/v2/agents/execution/list
 { "data": { "agentId": "abc123def456", "pageSize": 20 } }
@@ -1049,7 +1110,11 @@ x-velt-auth-token: YOUR_AUTH_TOKEN
     "name": "Brand QA",
     "description": "All brand-quality agents",
     "agentIds": ["abc123def456", "spell-check"],
-    "metadata": { "clientOrganizationId": "org_001" }
+    "metadata": {
+      "organizationId": "org_001",
+      "documentId": "doc_001",
+      "team": "growth"
+    }
   }
 }
 
@@ -1122,11 +1187,45 @@ Poll `/v2/agents/execution/get` until `execution.status !== "running"`. Only thi
 | Groups | `/v2/agents/groups/create`, `get`, `list`, `update`, `delete`, `add-agents`, `remove-agents` | Groups bundle custom and built-in agents (max 100 members per group, max 50 groups per workspace). `update` only edits `name`/`description` — `metadata` is immutable after creation and membership uses `add-agents` / `remove-agents`. `list` strips `agentIds` and returns `agentCount` per row; call `get` for the full membership. |
 | Analytics | `/v2/agents/analytics/get` | Per-agent, per-model, per-month token usage and execution counts. Omit `agentId` for a workspace-wide aggregate. Model keys are sanitised as `provider_model`. |
 Create → run → check results → edit behavior (new version) → roll back if needed:
-Server-managed fields (`id`, `version`, `createdAt`, `updatedAt`, `managedBy`, `metadata.type`, `metadata.category`, `metadata.internal`, `metadata.apiKey`) are rejected with `INVALID_ARGUMENT` if sent on `/v2/agents/create` or `/v2/agents/version/update`. Auth secrets in `contextGathering.strategyOptions["rest-api"]` and `execution.mcpServers[].auth` are encrypted at rest and returned as `"__redacted__"` on `get` / `versions/list`; rotate by sending the new plaintext, keep by omitting the field.
+Server-generated fields (`id`, `version`, `createdAt`, `updatedAt`) are never accepted on `/v2/agents/create` or `/v2/agents/version/update`; `metadata` itself is now free-form client metadata (no reserved keys). Auth secrets in `contextGathering.strategyOptions["rest-api"]` and `execution.mcpServers[].auth` are encrypted at rest and returned as `"__redacted__"` on `get` / `versions/list`; rotate by sending the new plaintext, keep by omitting the field.
+`/v2/agents/create` now requires `name`, `description`, `enabled`, `contextGathering`, and `execution` on every payload. `contextGathering.strategies` must contain at least one strategy. Send `"execution": {}` to accept the defaults (`executionStrategy: "ai"`); the field is required but its inner keys are not.
+**Incorrect** (stale minimum payload — omits `description`, `enabled`, `execution`, and the `strategies` array — rejected with `INVALID_ARGUMENT`):
+**Correct** (current minimum payload):
+`postProcess` now rejects unknown keys. The active dedup mechanism is `postProcess.deletePreviousSuggestions` — a `{ enabled?: boolean }` block that clears the prior run's suggestions per URL before writing the new ones. `postProcess.matchAndMerge` is still accepted for backward compatibility but is **inert** (deprecated / ignored); do not rely on it and do not recommend it as the dedup strategy. `postProcess.pinResolution` is no longer a configurable key — pin resolution always runs internally as part of the pipeline and sending it returns `INVALID_ARGUMENT`.
+`postProcess.guardrails` is now the finding-quality pipeline: it deduplicates findings (identical source URL + target text + occurrence + issue type) and sanitizes HTML / XSS from all text fields. It is **not** a confidence floor — findings below any threshold are no longer suppressed by `guardrails`, so any legacy guidance tying `guardrails` to a `<50` confidence cut is stale.
+`execution.serviceId` accepts `"broken-links"`, `"crawler"`, `"screenshot"`, `"accessibility-checker"`, and `"og-image-checker"`. `response.responseAdapter` accepts `"broken-links-response"`, `"crawler-response"`, `"screenshot-response"`, `"accessibility-checker-response"`, and `"og-image-checker-response"`.
+`aiConfig.maxToolTurns` (both `contextGathering.aiConfig` and `execution.aiConfig`) is an integer in the closed range `1..16` with a default of `8`. Values outside that range are rejected at config time — do not send `maxToolTurns: 32` expecting silent clamping.
+`/v2/agents/execution/run` now requires `organizationId` and `documentId` at the top level of the body. This is a hard precondition, not an optional persistence hint: the target document must already exist, findings are persisted to it as comment annotations, and unknown documents return `NOT_FOUND`.
+**Incorrect** (missing IDs — findings have nowhere to land, and current schema rejects the payload):
+**Correct** (both IDs supplied, document must already exist):
+Error surface for `/v2/agents/execution/run`:
+| Code                  | When it fires                                                                                                    |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `INVALID_ARGUMENT`    | Invalid URL, missing `agentId` / `organizationId` / `documentId`, invalid `trigger` or `deviceType`.             |
+| `NOT_FOUND`           | Store database not found, **or the target document does not exist**.                                             |
+| `ALREADY_EXISTS`      | Another execution is already running for this `agentId` + `documentId` combo. The error message includes the running execution's ID — log it so retriers can join or drop. |
+| `RESOURCE_EXHAUSTED`  | The workspace's AI credits are exhausted.                                                                        |
+- `execution.metadata` now uses `organizationId` and `documentId` (not `clientOrganizationId` / `clientDocumentId`). Both are echoed verbatim from the `Run Execution` payload; empty string when absent. Any consumer reading `metadata.clientOrganizationId` / `metadata.clientDocumentId` is bound to a retired shape.
+- `resultsSummary.totalAnnotationsCreated` is now defined under delete-and-recreate reruns: it counts the fresh annotations written by this run **after** clearing the prior run's suggestions per URL — no longer "after match-and-merge dedup".
+- `resultsSummary.matchResult` (`{ created, skipped, resolved }`) is **legacy**. Only old execution documents carry it; new executions run per-URL delete-and-recreate and never write this field. Do not treat `matchResult.created` / `.skipped` / `.resolved` as a normal integration path, and never depend on it being present.
+- Per-result `issueType` is an **issue classification tag** (short, lowercase, hyphenated — e.g. `"casing"`, `"pii"`, `"spelling"`, `"broken-link"`). It is not a match-and-merge key.
+- Per-result `confidence` is the 0–100 score reported by the agent; guardrails no longer suppress findings under any threshold, so `< 50` is returned to consumers unchanged.
 `/v2/agents/execution/list` rejects every filter combination outside this whitelist:
 Pagination continues via `pageToken = data.nextPageToken`; the `nextPageToken` key is omitted entirely (not `null`) when the result set is exhausted. `pageSize` is `1..100` (default 20).
+List rows now include the same `metadata: { organizationId, documentId }` block as `Get Execution`, echoing the IDs passed on `Run Execution`. Consumers can read those IDs directly off list rows without a follow-up `Get` roundtrip.
 `agentIds` accepts a single string or an array of 1–200 ids. Failed per-agent counts return the integer sentinel `-1` (not `null`); unknown agent ids return `0`. Omit `agentIds` for a single workspace-wide `total`.
+Group `metadata` is a free-form object of your own keys — `organizationId`, `documentId`, and anything else you want to stamp on the group (e.g. `team`). The retired `clientOrganizationId` / `clientDocumentId` / `clientGroupId` pair and the server-hashed `server_org_001` / `server_doc_001` values are gone from every group example (Create / Get / List). Rule examples must not carry them.
 `add-agents` and `remove-agents` are idempotent (`arrayUnion` / `arrayRemove`); re-adding a member or removing a non-member is a silent success. The membership cap of 100 is enforced atomically. Deleting a group (`/v2/agents/groups/delete`) removes the group document only — member agents are untouched.
+`/v2/agents/groups/list` may include **system groups** that the platform auto-creates while classifying newly-created agents into default buckets (deterministic IDs like `copy-qa`, `seo`, `design-checks`). System rows carry `system: true`; customer-created groups do not have that field. Consumers who only want customer-created groups should filter `system !== true`, and callers should expect deterministic IDs to appear on `list` without an explicit `Create Group` call.
+`/v2/agents/get` responses no longer expose `metadata.internal`, `metadata.type`, `metadata.category`, or `metadata.apiKey`, and the docs no longer mention "internal built-ins (`crawler`, `screenshot`) excluded from list responses". Any consumer that filtered on those reserved metadata keys or expected internal built-ins to be hidden from `list` is bound to stale behavior — drop that logic.
+Built-in agents return their identity fields (`id`, `name`, `description`, `enabled`, `managedBy`, `system`, and `input` when declared); custom agents additionally return the version-subcollection behavioral fields. Auth secrets remain returned as `"__redacted__"`.
+`executionCount` and `lastExecutedAt` are returned **only on list responses**, not on single-agent `Get`. To read those counters, call `/v2/agents/get` without an `agentId` (list form) and pick the row you need — do not expect them on `{ "agentId": "..." }` fetches.
+`/v2/agents/update` is not schema-guarded to require at least one of `name` / `description` / `enabled`:
+- **Custom agents:** a request with no recognized field succeeds as a **silent no-op** (returns 200, changes nothing). Do not rely on "send-nothing" as a validation error — validate the payload client-side before dispatch.
+- **Built-in agents:** the request must include `enabled` or it returns `INVALID_ARGUMENT`. `name` and `description` sent alongside `enabled` are **silently ignored** for built-in agents rather than rejected. Route built-in identity edits through `enabled` only.
+Version snapshots are now **behavioral-only**. Identity fields (`name`, `description`, `enabled`, `managedBy`) live on the root agent document; they are no longer duplicated inside `versions[]`. Any rule example or consumer that pulled `versions[].name` / `.description` is stale — route agent-identity reads to `/v2/agents/get`.
+`versions[].id` is a stable string in the `v{N}` format (e.g. `"v1"`, `"v2"`, `"v3"`) — no longer bare-number strings. Callers that key by `id` must migrate: mixing `"3"` with `"v3"` will silently miss matches. `versions[].version` (the integer version number) is unchanged.
+Version-snapshot `postProcess` mirrors the create/update shape — expect `deletePreviousSuggestions`, not `matchAndMerge`, in current snapshots.
 `/v2/agents/prompt/*` and `/v2/agents/config/resolve` are pure design tools — they do not create or modify agents:
 `/v2/agents/extract` bulk-imports an existing checklist (CSV / PDF / XLSX / plain text) into a list of agent configs that can be passed straight into `/v2/agents/create`:
 Response `analytics.tokenUsage` is broken down by `allTime`, `yearly[year][provider_model]`, `monthly[month][provider_model]`, and `byModel[provider_model]`. `year` must match `^\d{4}$`; `month` must match `^(0[1-9]|1[0-2])$`.
@@ -1774,3 +1873,4 @@ Reference: `https://docs.velt.dev/api-reference/rest-api/overview` (## REST API 
 - https://docs.velt.dev/api-reference/rest-apis/v2/agents/groups/remove-agents
 - https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations
 - https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/add-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/delete-comment-annotations
