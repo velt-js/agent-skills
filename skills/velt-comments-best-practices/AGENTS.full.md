@@ -1,6 +1,6 @@
 # Velt Comments Best Practices
 
-**Version 1.1.10**  
+**Version 1.1.15**  
 Velt  
 January 2026
 
@@ -3498,12 +3498,38 @@ commentElement.toggleCommentSidebar();
 **V2 Sidebar (primitive-based):**
 
 ```jsx
-import { VeltCommentsSidebarV2 } from '@veltdev/react';
+import {
+  VeltProvider,
+  VeltComments,
+  VeltCommentsSidebarV2,
+  VeltSidebarButton,
+  VeltCommentTool,
+} from '@veltdev/react';
 
-<VeltCommentsSidebarV2 />
+export default function App() {
+  return (
+    <VeltProvider apiKey="API_KEY">
+      <VeltComments />
+      <VeltCommentsSidebarV2 />
+      <div className="toolbar">
+        <VeltSidebarButton />
+        <VeltCommentTool />
+      </div>
+    </VeltProvider>
+  );
+}
 ```
 
-V2 replaces the per-category filter panel with a unified `FilterDropdown`. For V2 wireframe customization, see the Comment Sidebar V2 Structure docs.
+**Incorrect (sidebar mounted without VeltComments — pins do not render):**
+
+```jsx
+<VeltProvider apiKey="API_KEY">
+  {/* Missing <VeltComments /> — page-level pins will not render */}
+  <VeltCommentsSidebarV2 />
+</VeltProvider>
+```
+
+V2 replaces the per-category filter panel with a unified `FilterDropdown`. For V2 wireframe customization, see the [Comment Sidebar V2 Wireframes](https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-v2-wireframes) docs (the older `comment-sidebar-structure-v2` path is superseded).
 
 ---
 
@@ -3755,7 +3781,7 @@ export default function App() {
 
 **VeltCommentsSidebarV2 Props (core layout / event surface):**
 
-```typescript
+```html
 // React — main filter panel + a multi-dropdown minimal bar
 <VeltCommentsSidebarV2
   filters={[
@@ -3787,12 +3813,81 @@ export default function App() {
   system-filters-operator="and"
   default-minimal-filter="open"
 ></velt-comments-sidebar-v2>
+<VeltCommentsSidebarV2
+  filters={{
+    status: ['OPEN'],
+    people: [{ userId: '1.1' }, { userId: '2.3' }],
+    location: [{ locationName: 'Home' }],
+  }}
+/>
+<velt-comments-sidebar-v2></velt-comments-sidebar-v2>
+<script>
+  const sidebar = document.querySelector('velt-comments-sidebar-v2');
+  sidebar.filters = {
+    status: ['OPEN'],
+    people: [{ userId: '1.1' }, { userId: '2.3' }],
+    location: [{ locationName: 'Home' }],
+  };
+</script>
+```
+
+**Active-selections form (`CommentSidebarFilters`)** — pass an object keyed by field instead of a `FilterField[]` to apply selected values directly. User/location identities are objects, not bare id strings. Included keys replace their current selections; omitted keys are preserved; a present-but-empty array clears one field; `{}` clears all client-provided selections; **Reset** in the Main Filter panel clears them too:
+
+**Incorrect (V1-style bare-id selections):**
+
+```typescript
+// Bare id strings for people/location no longer match the CommentSidebarFilters shape
+<VeltCommentsSidebarV2
+  filters={{ status: ['open'], people: ['1.1', '2.3'] }}
+/>
 <VeltCommentsSidebarV2 sortBy="comments.createdAt" sortOrder="desc" defaultMinimalFilter="open" />
 const commentElement = client.getCommentElement();
 const filtered: CommentAnnotation[] = commentElement.applyCommentSidebarClientFilters(
   annotations,
   filters,
 );
+const commentElement = client.getCommentElement();
+
+// Apply / replace selections for specific fields
+commentElement.setCommentSidebarFilters({
+  status: ['OPEN'],
+  involved: [{ userId: 'user-123' }],
+  location: [{ locationName: 'Home' }],
+});
+
+// Clear a single field — other client-provided selections stay
+commentElement.setCommentSidebarFilters({ location: [] });
+
+// Clear everything the client has supplied
+commentElement.setCommentSidebarFilters({});
+const commentElement = client.getCommentElement();
+commentElement.setSystemFiltersOperator('or');   // 'and' | 'or'
+const commentElement = client.getCommentElement();
+commentElement.setSidebarButtonCountType('filter');   // 'default' | 'filter'
+<VeltCommentsSidebarV2
+  filters={[
+    { field: 'status' },
+    { field: 'priority', includeUnset: false },
+  ]}
+/>
+// Active-selection payload consumed by `filters={...}`, setCommentSidebarFilters(),
+// and applyCommentSidebarClientFilters(). Included keys REPLACE; omitted keys are preserved.
+interface CommentSidebarFilters {
+  location?:   { id?: string | number; locationName?: string }[];
+  document?:   { id: string }[];
+  people?:     { userId?: string; email?: string }[];
+  tagged?:     { userId?: string; email?: string }[];
+  assigned?:   { userId?: string; email?: string }[];
+  involved?:   { userId?: string; email?: string }[];
+  priority?:   string[];
+  status?:     string[];
+  category?:   string[];
+  version?:    { id: string }[];
+  accessModes?: CommentAccessMode[];             // 'public' | 'private'
+  // Custom fields — string values or { id?, name? } objects
+  [key: string]: string[] | { id?: string; name?: string }[] | undefined;
+}
+
 // Filter field definition (panel sections + minimal-filter `filter` dropdowns)
 interface FilterField {
   field: string;                              // BuiltInFilterFieldId or custom id
@@ -3848,7 +3943,9 @@ interface SidebarQuickCondition {
   value: any;
 }
 
-// List grouping + flattened virtual-scroll rows
+// List grouping + flattened virtual-scroll rows.
+// `isExpanded` in V2 is resolved from user overrides (persisted in sessionStorage)
+// combined with the current grouping default — not a plain "default true" flag.
 interface SidebarAnnotationGroup {
   id: string;
   label: string;
@@ -3901,15 +3998,15 @@ interface FilterFieldResolver {
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `filters` | `string \| FilterField[] \| object` | `[]` | Main Filter panel sections, OR an object of active selections that routes to the V1 `setCommentSidebarFilters` path. |
+| `filters` | `string \| FilterField[] \| CommentSidebarFilters` | `[]` | Main Filter panel sections, OR a `CommentSidebarFilters` object of active selections. Included selection keys replace their values, omitted keys are preserved, and **Reset** clears the client-provided selections. |
 | `miniFilters` | `string \| FilterField[]` | `[]` | Single header funnel dropdown. |
 | `minimalFilters` | `string \| SidebarMinimalFilterConfig[]` | `[]` | Multiple configurable header dropdowns. Replaces the single mini-filter funnel when present. |
-| `filterOperator` | `'and' \| 'or'` | `'and'` | Cross-section combination of active filter selections. |
+| `filterOperator` | `'and' \| 'or'` | `'and'` | Cross-field combination of active filter selections. Directly configures the V2 filter engine and shares its effective value with the `systemFiltersOperator` input / API. |
 | `filterPanelLayout` | `'bottomSheet' \| 'menu'` | `'bottomSheet'` | Main Filter panel layout. |
 | `filterOptionLayout` | `'dropdown' \| 'checkbox'` | `'dropdown'` | How options render within a filter section. |
-| `filterCount` | boolean | `true` | Per-option facet counts. Disabling improves performance. |
+| `filterCount` | boolean | `true` | Per-option facet counts. Counts remain **absolute** within the current page-scoped annotation set and do **not** shrink around selections supplied through `setCommentSidebarFilters()`. Disabling improves performance. |
 | `filterGhostCommentsInSidebar` | boolean | `false` | Hide ghost comments from the list. |
-| `systemFiltersOperator` | `'and' \| 'or'` | `'and'` | Operator applied to system filters. Mirrored by `applyCommentSidebarClientFilters()`. |
+| `systemFiltersOperator` | `'and' \| 'or'` | `'and'` (effective) | Combines selections across **different** filter fields; values within one field always use OR. Also applies to client filters set via `setCommentSidebarFilters()` and is mirrored by `applyCommentSidebarClientFilters()`. An explicit `filterOperator` set at init is preserved over the shared operator's default. |
 | `defaultMinimalFilter` | `'all' \| 'read' \| 'unread' \| 'resolved' \| 'open' \| 'assignedToMe' \| 'reset'` | — | Default active quick filter applied on load. |
 | Prop | Type | Description |
 |------|------|-------------|
@@ -3920,6 +4017,40 @@ Apply a `CommentSidebarFilters` payload to an annotation array client-side, hono
 - Params: `annotations: CommentAnnotation[]`, `filters: CommentSidebarFilters`.
 - Returns: `CommentAnnotation[]`.
 - No React hook — call on `commentElement`.
+`setCommentSidebarFilters()` writes into the sidebar's active selections; the values render as checked options in the Main Filter panel and are cleared by **Reset**. Each call is a partial update, not a full overwrite: keys included in the payload replace their current selections, while omitted keys are preserved. A present-but-empty array clears one field, and an empty object clears all client-provided selections.
+Normalization used by the sidebar's active selections:
+- `location`: matched by `id` (numeric `id` compares to string filter values; `id: 0` is valid), with `locationName` as fallback when `id` is `null` / `undefined` / empty.
+- `people` / `assigned` / `tagged` / `involved`: matched by `userId`, with `email` as fallback when `userId` is absent. Email-only records do not create duplicate filter options.
+- `status` / `priority` / `category`: matched by the provided ids without further normalization.
+- `accessModes`: `'public'` or `'private'` — recognizes both legacy `iam.accessMode` and new `visibilityConfig` (`restricted` / `organizationPrivate` → `'private'`).
+- `version`: matched by `id`.
+- Custom fields (`[key: string]`): string values or `{ id?, name? }` objects.
+A non-empty client selection filters even when its field is not declared in the Main Filter panel; empty undeclared fields are ignored, and declared fields are not duplicated. Facet counts stay absolute — see `filterCount` above.
+Set how selections from **different** sidebar filter fields are combined. Values within one field always use OR.
+- Params: `operator: 'and' | 'or'`.
+- Returns: `void`.
+- Effective default: `'and'`.
+- Also applies to client filters set via `setCommentSidebarFilters()`, including any value written before the sidebar initializes.
+- An explicit `filterOperator` set at init is preserved over the shared operator's default.
+Change what the sidebar button count badge reflects.
+- `'default'` — count of comments in open and in-progress states.
+- `'filter'` — count of the sidebar's currently filtered list, including `0` for an empty result. Updates when comments are deleted. When `filterCommentsOnDom` is enabled, the same filtered list also gates which pins render on the page. The current filtered result is preserved while the sidebar is loading and is cleared when the sidebar is destroyed, so a removed sidebar no longer gates the badge or on-page pins.
+On first load, the Status field starts with **Open** plus every **In Progress** status selected; the sidebar shows active comments by default. The default selection is skipped when:
+- Filter state was restored from `sessionStorage`.
+- A caller supplied a status selection through `setCommentSidebarFilters()`.
+- The user has already changed the Status selection.
+If the status catalog loads after the sidebar renders and the user hasn't touched Status, the default selection refreshes to match the catalog's current Open + In Progress statuses. **Reset** does not re-apply the default statuses — clear the Status field or select **All** to show resolved / terminal comments.
+The default Priority field includes a **Not set** option for comments without a priority. Opt out by supplying a custom `FilterField` with `includeUnset: false`:
+The sidebar identifies a location by its `id`, falling back to `locationName` when `id` is `null`, `undefined`, or an empty string. `id: 0` is valid, numeric annotation ids compare with equivalent string filter values, and `id` takes precedence when both fields are present. This identity is used consistently by grouping, location filter options and matching, page mode, and client filters (`setCommentSidebarFilters()`). Comments without any location context appear in the **Others** group.
+People / Involved / Assigned / Tagged options are keyed by `userId` with the user's display name as the label and email as fallback. Records containing only an email do not create filter options — this prevents duplicate options when another record for the same person contains a `userId`.
+- **Location grouping** — the current + additional-location groups start expanded; other location groups start collapsed.
+- **Document grouping** — the current document starts expanded; other documents start collapsed.
+- **Status / priority / custom-field grouping** — all groups start expanded.
+- Precedence: explicit expand > explicit collapse > grouping default. Both overrides persist in `sessionStorage`.
+- A real location change resets overrides so the new current group expands. The initial location emitted during a reload preserves restored overrides.
+`CommentSidebarGroup.isExpanded` is no longer just a boolean default: an omitted value is resolved from the user's overrides plus the current grouping default per the precedence above.
+The page-mode composer list is scoped by the current location identity, so a location supplied with only `locationName` behaves like an id-based location.
+Rows wider than the sidebar viewport are clipped to sidebar width rather than producing a horizontal scrollbar. Tune the virtual-scroll window via `measuredSize` / `minBufferPx` / `maxBufferPx` (defaults `220` / `1000` / `2000`).
 V2-only types that back the declarative pipeline. They are consumed exclusively through V2 props (filter / sort / group / list / facet) — keep them co-located with this surface rule rather than mixing them into the core type reference.
 
 ---
@@ -5471,7 +5602,20 @@ interface CommentAnnotationSuggestion {
 
 Suggestion state is mutated by `acceptSuggestion()` / `rejectSuggestion()` API methods. The `commentType` field on the parent annotation is `'suggestion'` for agent suggestion comments. The `sourceType` field selects the agent-identity vs human-author header variant rendered in the UI.
 
-Reference: https://docs.velt.dev/api-reference/sdk/models/data-models - Comments
+**FullscreenClickEvent (payload for the `fullscreenClick` sidebar event):**
+
+```typescript
+interface FullscreenClickEvent {
+  fullScreen: boolean;           // Required. Fullscreen state AFTER the toggle. `true` = now fullscreen
+  metadata?: VeltEventMetadata;  // Optional event metadata
+}
+```
+
+Emitted by the Comment Sidebar V2 `fullscreenClick` event when the header fullscreen toggle is clicked. `fullScreen` is the **post-toggle** state, not the previous state. See `events-comment-lifecycle.md` for subscription patterns.
+
+References:
+- https://docs.velt.dev/api-reference/sdk/models/data-models - Comments
+- https://docs.velt.dev/api-reference/sdk/models/data-models#fullscreenclickevent
 
 ---
 
@@ -8250,9 +8394,44 @@ const subscription = commentElement.on('addCommentDraft').subscribe((event) => {
 subscription.unsubscribe();
 ```
 
+**Correct (React — subscribe to fullscreen toggle):**
+
+```jsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function FullscreenHandler() {
+  const fullscreenEvent = useCommentEventCallback('fullscreenClick');
+
+  useEffect(() => {
+    if (!fullscreenEvent) return;
+    // fullscreenEvent.fullScreen — post-toggle state (true = now fullscreen)
+    console.log('Sidebar fullscreen:', fullscreenEvent.fullScreen);
+  }, [fullscreenEvent]);
+
+  return null;
+}
+```
+
+**Correct (Other frameworks — subscribe to fullscreen toggle):**
+
+```typescript
+const commentElement = client.getCommentElement();
+const subscription = commentElement.on('fullscreenClick').subscribe((event) => {
+  // event: FullscreenClickEvent
+  // event.fullScreen — post-toggle state; event.metadata — VeltEventMetadata
+  console.log('Sidebar fullscreen:', event.fullScreen);
+});
+
+// Clean up on teardown
+subscription.unsubscribe();
+```
+
 References:
 - https://docs.velt.dev/async-collaboration/comments/customize-behavior - Events
 - https://docs.velt.dev/api-reference/sdk/models/data-models#addcommentdraftevent
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/customize-behavior#fullscreenclick
+- https://docs.velt.dev/api-reference/sdk/models/data-models#fullscreenclickevent
 
 ---
 
@@ -8260,7 +8439,7 @@ References:
 
 **Impact: HIGH (Let AI agents leave comments via REST API with the agent block, and read them back with agent-specific filters)**
 
-Agent comments let AI agents participate in collaboration by leaving findings via the Add Comment Annotations REST API. The server stamps `sourceType: "agent"` on the annotation and renders it with Accept/Reject buttons in the Velt UI. Any agent that can make an HTTP request can do this — a custom agent registered in the Velt Console, or an external agent running in your own framework.
+Agent comments let AI agents participate in collaboration by leaving findings via the Add Comment Annotations REST API. The server stamps `sourceType: "agent"` on the annotation and renders it with Accept/Reject buttons in the Velt UI. Any agent that can make an HTTP request can do this — a built-in Velt agent, a custom agent created via the Review Agents API (`POST /v2/agents/create`, owned by `velt-rest-apis-best-practices`), or an external agent running in your own framework.
 
 ### Creating agent annotations
 
@@ -8356,7 +8535,7 @@ response = requests.post(
 )
 ```
 
-The server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
+Attaching the `agent` block to `commentData[0]` (the root comment) marks the whole annotation as agent-authored: the server stamps `sourceType: "agent"` on both that comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). Attaching an `agent` block to a reply instead (see "Replying as an agent" below) marks only that individual comment as agent-authored — the annotation root stays a normal comment and is not reclassified. The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
 `reason` carries the finding's details. Three fields are required; the remaining ten are optional. Any extra custom fields beyond this list are preserved by the server.
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
@@ -8395,11 +8574,53 @@ The server stamps `sourceType: "agent"` on both the comment and the annotation, 
 }
 ```
 
-Use the Get Comment Annotations API with agent-specific filters. Only one agent filter may be supplied per request.
+An agent can also post a reply into an existing thread. Use the Add Comments API (`POST /v2/comments/add`, base contract in `rest-comments-api`) and attach an `agent` block to the reply comment — same shape as when creating the root comment.
+Annotation-level fields such as `type` are set **only when the annotation is created**. They are **not accepted** on the Add Comments endpoint — the reply inherits its parent annotation's type. Sending `type` here is a common contract error; the field is silently ignored.
+
+**Correct (external agent replying to an existing thread):**
+
+```javascript
+// POST https://api.velt.dev/v2/comments/add
+const response = await fetch('https://api.velt.dev/v2/comments/add', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      annotationId: 'annotation_abc123',
+      commentData: [
+        {
+          commentText: 'Follow-up: contrast is now 2.7:1 — still below WCAG AA.',
+          from: { userId: 'a11y-bot' },
+          agent: {
+            agentSource: 'external',
+            agentName: 'Accessibility Bot',
+            agentId: 'a11y-bot',
+            executionId: 'run_9c02',
+            reason: {
+              title: 'Low color contrast (follow-up)',
+              description: 'Ratio moved from 2.1:1 to 2.7:1 after the last commit.',
+              severity: 'high',
+            },
+          },
+        },
+      ],
+    },
+  }),
+});
+```
+
+Use the Get Comment Annotations API with agent-specific filters to fetch whole agent-authored threads. Only one agent filter may be supplied per request.
 | Filter | Description |
 |--------|-------------|
 | `agentId` | Annotations created by a specific agent. |
 | `executionId` | Annotations from a specific agent run. |
+| `agentType` | Annotations of a given agent type: `"built-in"`, `"custom"`, or `"external"`. |
 | `agentSource` | `"velt"` or `"external"`. |
 | `agentSuggestions` | When `true`, returns only fresh (unaccepted) agent suggestions. |
 | `agentComments` | When `true`, returns all agent annotations regardless of status. |
@@ -8463,7 +8684,43 @@ const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
 });
 ```
 
-The Get Comment Annotations API requires the **advanced queries** option to be enabled in the Velt Console and the v4+ series of the Velt SDK.
+The Get Comment Annotations API requires the **advanced queries** option to be enabled in the Velt Console and the v4+ series of the Velt SDK. Confirm the current prerequisite against the API reference before assuming this still applies.
+To fetch **individual comments within a specific annotation** (rather than whole threads), use the Get Comments API (`POST /v2/comments/get`) instead — see `rest-comments-api` for the base contract. Get Comment Annotations returns the thread with its full `comments[]` payload; Get Comments is the tool for pulling a single comment out of an existing thread by id.
+Agent comments are updated through the same endpoints as any other comment — the split is by scope:
+- **Annotation-level fields** (status, assignee, location, resolved state, etc.) go through the Update Comment Annotations API (`POST /v2/commentannotations/update`). See `rest-comment-annotations-api` for the base contract.
+- **Individual comment content** within the thread goes through the Update Comments API (`POST /v2/comments/update`). See `rest-comments-api`.
+There is no agent-specific update endpoint; the `agent` block on the comment is carried through unchanged.
+Two scopes, same split:
+- **Whole-thread deletion** goes through the Delete Comment Annotations API (`POST /v2/commentannotations/delete`). Filter by `annotationIds` for specific threads, by the agent's `userIds` (the idiomatic pattern for **purging every annotation a given agent created** — e.g. wiping a bot's findings before a re-run), or by the **combinable agent filters** `agentId`, `agentSuggestions`, and `agentUrls`, which are AND-combined to scope deletion (e.g. delete only one agent's still-pending suggestions on a specific set of pages). See `rest-comment-annotations-api`.
+- **Single-comment deletion** within a thread goes through the Delete Comments API (`POST /v2/comments/delete`). See `rest-comments-api`.
+The combinable agent filters target only annotations that still match the filter — suggestions already accepted, rejected, or resolved are left untouched when `agentSuggestions: true` is set (it selects only still-pending suggestions).
+
+**Correct (purge one agent's pending suggestions on two specific pages):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/delete
+const response = await fetch('https://api.velt.dev/v2/commentannotations/delete', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentId: 'a11y-bot',
+      agentSuggestions: true,
+      agentUrls: [
+        'https://example.com/design-mockup-v2/page-1',
+        'https://example.com/design-mockup-v2/page-2',
+      ],
+    },
+  }),
+});
+```
+
 Agent findings render with Accept and Reject buttons. Subscribe to `suggestionAccepted` and `suggestionRejected` on the comment element to apply the change to your own data or trigger follow-up logic. The SDK records the outcome and persists the suggestion status — applying the actual change is your code's responsibility.
 
 **Correct (React — subscribe to agent suggestion events):**
@@ -8535,6 +8792,13 @@ References:
 - https://docs.velt.dev/ai/agent-comments
 - https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations
 - https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-v2
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/update-comment-annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/delete-comment-annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/add-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/get-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/update-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/delete-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/create
 
 ---
 
@@ -8542,7 +8806,7 @@ References:
 
 **Impact: HIGH (Let AI agents leave comments via REST API with the agent block, and read them back with agent-specific filters)**
 
-Agent comments let AI agents participate in collaboration by leaving findings via the Add Comment Annotations REST API. The server stamps `sourceType: "agent"` on the annotation and renders it with Accept/Reject buttons in the Velt UI. Any agent that can make an HTTP request can do this — a custom agent registered in the Velt Console, or an external agent running in your own framework.
+Agent comments let AI agents participate in collaboration by leaving findings via the Add Comment Annotations REST API. The server stamps `sourceType: "agent"` on the annotation and renders it with Accept/Reject buttons in the Velt UI. Any agent that can make an HTTP request can do this — a built-in Velt agent, a custom agent created via the Review Agents API (`POST /v2/agents/create`, owned by `velt-rest-apis-best-practices`), or an external agent running in your own framework.
 
 ### Creating agent annotations
 
@@ -8638,7 +8902,7 @@ response = requests.post(
 )
 ```
 
-The server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
+Attaching the `agent` block to `commentData[0]` (the root comment) marks the whole annotation as agent-authored: the server stamps `sourceType: "agent"` on both that comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). Attaching an `agent` block to a reply instead (see "Replying as an agent" below) marks only that individual comment as agent-authored — the annotation root stays a normal comment and is not reclassified. The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
 `reason` carries the finding's details. Three fields are required; the remaining ten are optional. Any extra custom fields beyond this list are preserved by the server.
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
@@ -8677,11 +8941,53 @@ The server stamps `sourceType: "agent"` on both the comment and the annotation, 
 }
 ```
 
-Use the Get Comment Annotations API with agent-specific filters. Only one agent filter may be supplied per request.
+An agent can also post a reply into an existing thread. Use the Add Comments API (`POST /v2/comments/add`, base contract in `rest-comments-api`) and attach an `agent` block to the reply comment — same shape as when creating the root comment.
+Annotation-level fields such as `type` are set **only when the annotation is created**. They are **not accepted** on the Add Comments endpoint — the reply inherits its parent annotation's type. Sending `type` here is a common contract error; the field is silently ignored.
+
+**Correct (external agent replying to an existing thread):**
+
+```javascript
+// POST https://api.velt.dev/v2/comments/add
+const response = await fetch('https://api.velt.dev/v2/comments/add', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      annotationId: 'annotation_abc123',
+      commentData: [
+        {
+          commentText: 'Follow-up: contrast is now 2.7:1 — still below WCAG AA.',
+          from: { userId: 'a11y-bot' },
+          agent: {
+            agentSource: 'external',
+            agentName: 'Accessibility Bot',
+            agentId: 'a11y-bot',
+            executionId: 'run_9c02',
+            reason: {
+              title: 'Low color contrast (follow-up)',
+              description: 'Ratio moved from 2.1:1 to 2.7:1 after the last commit.',
+              severity: 'high',
+            },
+          },
+        },
+      ],
+    },
+  }),
+});
+```
+
+Use the Get Comment Annotations API with agent-specific filters to fetch whole agent-authored threads. Only one agent filter may be supplied per request.
 | Filter | Description |
 |--------|-------------|
 | `agentId` | Annotations created by a specific agent. |
 | `executionId` | Annotations from a specific agent run. |
+| `agentType` | Annotations of a given agent type: `"built-in"`, `"custom"`, or `"external"`. |
 | `agentSource` | `"velt"` or `"external"`. |
 | `agentSuggestions` | When `true`, returns only fresh (unaccepted) agent suggestions. |
 | `agentComments` | When `true`, returns all agent annotations regardless of status. |
@@ -8745,7 +9051,43 @@ const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
 });
 ```
 
-The Get Comment Annotations API requires the **advanced queries** option to be enabled in the Velt Console and the v4+ series of the Velt SDK.
+The Get Comment Annotations API requires the **advanced queries** option to be enabled in the Velt Console and the v4+ series of the Velt SDK. Confirm the current prerequisite against the API reference before assuming this still applies.
+To fetch **individual comments within a specific annotation** (rather than whole threads), use the Get Comments API (`POST /v2/comments/get`) instead — see `rest-comments-api` for the base contract. Get Comment Annotations returns the thread with its full `comments[]` payload; Get Comments is the tool for pulling a single comment out of an existing thread by id.
+Agent comments are updated through the same endpoints as any other comment — the split is by scope:
+- **Annotation-level fields** (status, assignee, location, resolved state, etc.) go through the Update Comment Annotations API (`POST /v2/commentannotations/update`). See `rest-comment-annotations-api` for the base contract.
+- **Individual comment content** within the thread goes through the Update Comments API (`POST /v2/comments/update`). See `rest-comments-api`.
+There is no agent-specific update endpoint; the `agent` block on the comment is carried through unchanged.
+Two scopes, same split:
+- **Whole-thread deletion** goes through the Delete Comment Annotations API (`POST /v2/commentannotations/delete`). Filter by `annotationIds` for specific threads, by the agent's `userIds` (the idiomatic pattern for **purging every annotation a given agent created** — e.g. wiping a bot's findings before a re-run), or by the **combinable agent filters** `agentId`, `agentSuggestions`, and `agentUrls`, which are AND-combined to scope deletion (e.g. delete only one agent's still-pending suggestions on a specific set of pages). See `rest-comment-annotations-api`.
+- **Single-comment deletion** within a thread goes through the Delete Comments API (`POST /v2/comments/delete`). See `rest-comments-api`.
+The combinable agent filters target only annotations that still match the filter — suggestions already accepted, rejected, or resolved are left untouched when `agentSuggestions: true` is set (it selects only still-pending suggestions).
+
+**Correct (purge one agent's pending suggestions on two specific pages):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/delete
+const response = await fetch('https://api.velt.dev/v2/commentannotations/delete', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentId: 'a11y-bot',
+      agentSuggestions: true,
+      agentUrls: [
+        'https://example.com/design-mockup-v2/page-1',
+        'https://example.com/design-mockup-v2/page-2',
+      ],
+    },
+  }),
+});
+```
+
 Agent findings render with Accept and Reject buttons. Subscribe to `suggestionAccepted` and `suggestionRejected` on the comment element to apply the change to your own data or trigger follow-up logic. The SDK records the outcome and persists the suggestion status — applying the actual change is your code's responsibility.
 
 **Correct (React — subscribe to agent suggestion events):**
@@ -8817,6 +9159,13 @@ References:
 - https://docs.velt.dev/ai/agent-comments
 - https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations
 - https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-v2
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/update-comment-annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/delete-comment-annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/add-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/get-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/update-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/delete-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/create
 
 ---
 
@@ -9568,9 +9917,44 @@ const subscription = commentElement.on('addCommentDraft').subscribe((event) => {
 subscription.unsubscribe();
 ```
 
+**Correct (React — subscribe to fullscreen toggle):**
+
+```jsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function FullscreenHandler() {
+  const fullscreenEvent = useCommentEventCallback('fullscreenClick');
+
+  useEffect(() => {
+    if (!fullscreenEvent) return;
+    // fullscreenEvent.fullScreen — post-toggle state (true = now fullscreen)
+    console.log('Sidebar fullscreen:', fullscreenEvent.fullScreen);
+  }, [fullscreenEvent]);
+
+  return null;
+}
+```
+
+**Correct (Other frameworks — subscribe to fullscreen toggle):**
+
+```typescript
+const commentElement = client.getCommentElement();
+const subscription = commentElement.on('fullscreenClick').subscribe((event) => {
+  // event: FullscreenClickEvent
+  // event.fullScreen — post-toggle state; event.metadata — VeltEventMetadata
+  console.log('Sidebar fullscreen:', event.fullScreen);
+});
+
+// Clean up on teardown
+subscription.unsubscribe();
+```
+
 References:
 - https://docs.velt.dev/async-collaboration/comments/customize-behavior - Events
 - https://docs.velt.dev/api-reference/sdk/models/data-models#addcommentdraftevent
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/customize-behavior#fullscreenclick
+- https://docs.velt.dev/api-reference/sdk/models/data-models#fullscreenclickevent
 
 ---
 
@@ -9578,7 +9962,7 @@ References:
 
 **Impact: HIGH (Let AI agents leave comments via REST API with the agent block, and read them back with agent-specific filters)**
 
-Agent comments let AI agents participate in collaboration by leaving findings via the Add Comment Annotations REST API. The server stamps `sourceType: "agent"` on the annotation and renders it with Accept/Reject buttons in the Velt UI. Any agent that can make an HTTP request can do this — a custom agent registered in the Velt Console, or an external agent running in your own framework.
+Agent comments let AI agents participate in collaboration by leaving findings via the Add Comment Annotations REST API. The server stamps `sourceType: "agent"` on the annotation and renders it with Accept/Reject buttons in the Velt UI. Any agent that can make an HTTP request can do this — a built-in Velt agent, a custom agent created via the Review Agents API (`POST /v2/agents/create`, owned by `velt-rest-apis-best-practices`), or an external agent running in your own framework.
 
 ### Creating agent annotations
 
@@ -9674,7 +10058,7 @@ response = requests.post(
 )
 ```
 
-The server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
+Attaching the `agent` block to `commentData[0]` (the root comment) marks the whole annotation as agent-authored: the server stamps `sourceType: "agent"` on both that comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). Attaching an `agent` block to a reply instead (see "Replying as an agent" below) marks only that individual comment as agent-authored — the annotation root stays a normal comment and is not reclassified. The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
 `reason` carries the finding's details. Three fields are required; the remaining ten are optional. Any extra custom fields beyond this list are preserved by the server.
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
@@ -9713,11 +10097,53 @@ The server stamps `sourceType: "agent"` on both the comment and the annotation, 
 }
 ```
 
-Use the Get Comment Annotations API with agent-specific filters. Only one agent filter may be supplied per request.
+An agent can also post a reply into an existing thread. Use the Add Comments API (`POST /v2/comments/add`, base contract in `rest-comments-api`) and attach an `agent` block to the reply comment — same shape as when creating the root comment.
+Annotation-level fields such as `type` are set **only when the annotation is created**. They are **not accepted** on the Add Comments endpoint — the reply inherits its parent annotation's type. Sending `type` here is a common contract error; the field is silently ignored.
+
+**Correct (external agent replying to an existing thread):**
+
+```javascript
+// POST https://api.velt.dev/v2/comments/add
+const response = await fetch('https://api.velt.dev/v2/comments/add', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      annotationId: 'annotation_abc123',
+      commentData: [
+        {
+          commentText: 'Follow-up: contrast is now 2.7:1 — still below WCAG AA.',
+          from: { userId: 'a11y-bot' },
+          agent: {
+            agentSource: 'external',
+            agentName: 'Accessibility Bot',
+            agentId: 'a11y-bot',
+            executionId: 'run_9c02',
+            reason: {
+              title: 'Low color contrast (follow-up)',
+              description: 'Ratio moved from 2.1:1 to 2.7:1 after the last commit.',
+              severity: 'high',
+            },
+          },
+        },
+      ],
+    },
+  }),
+});
+```
+
+Use the Get Comment Annotations API with agent-specific filters to fetch whole agent-authored threads. Only one agent filter may be supplied per request.
 | Filter | Description |
 |--------|-------------|
 | `agentId` | Annotations created by a specific agent. |
 | `executionId` | Annotations from a specific agent run. |
+| `agentType` | Annotations of a given agent type: `"built-in"`, `"custom"`, or `"external"`. |
 | `agentSource` | `"velt"` or `"external"`. |
 | `agentSuggestions` | When `true`, returns only fresh (unaccepted) agent suggestions. |
 | `agentComments` | When `true`, returns all agent annotations regardless of status. |
@@ -9781,7 +10207,43 @@ const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
 });
 ```
 
-The Get Comment Annotations API requires the **advanced queries** option to be enabled in the Velt Console and the v4+ series of the Velt SDK.
+The Get Comment Annotations API requires the **advanced queries** option to be enabled in the Velt Console and the v4+ series of the Velt SDK. Confirm the current prerequisite against the API reference before assuming this still applies.
+To fetch **individual comments within a specific annotation** (rather than whole threads), use the Get Comments API (`POST /v2/comments/get`) instead — see `rest-comments-api` for the base contract. Get Comment Annotations returns the thread with its full `comments[]` payload; Get Comments is the tool for pulling a single comment out of an existing thread by id.
+Agent comments are updated through the same endpoints as any other comment — the split is by scope:
+- **Annotation-level fields** (status, assignee, location, resolved state, etc.) go through the Update Comment Annotations API (`POST /v2/commentannotations/update`). See `rest-comment-annotations-api` for the base contract.
+- **Individual comment content** within the thread goes through the Update Comments API (`POST /v2/comments/update`). See `rest-comments-api`.
+There is no agent-specific update endpoint; the `agent` block on the comment is carried through unchanged.
+Two scopes, same split:
+- **Whole-thread deletion** goes through the Delete Comment Annotations API (`POST /v2/commentannotations/delete`). Filter by `annotationIds` for specific threads, by the agent's `userIds` (the idiomatic pattern for **purging every annotation a given agent created** — e.g. wiping a bot's findings before a re-run), or by the **combinable agent filters** `agentId`, `agentSuggestions`, and `agentUrls`, which are AND-combined to scope deletion (e.g. delete only one agent's still-pending suggestions on a specific set of pages). See `rest-comment-annotations-api`.
+- **Single-comment deletion** within a thread goes through the Delete Comments API (`POST /v2/comments/delete`). See `rest-comments-api`.
+The combinable agent filters target only annotations that still match the filter — suggestions already accepted, rejected, or resolved are left untouched when `agentSuggestions: true` is set (it selects only still-pending suggestions).
+
+**Correct (purge one agent's pending suggestions on two specific pages):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/delete
+const response = await fetch('https://api.velt.dev/v2/commentannotations/delete', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentId: 'a11y-bot',
+      agentSuggestions: true,
+      agentUrls: [
+        'https://example.com/design-mockup-v2/page-1',
+        'https://example.com/design-mockup-v2/page-2',
+      ],
+    },
+  }),
+});
+```
+
 Agent findings render with Accept and Reject buttons. Subscribe to `suggestionAccepted` and `suggestionRejected` on the comment element to apply the change to your own data or trigger follow-up logic. The SDK records the outcome and persists the suggestion status — applying the actual change is your code's responsibility.
 
 **Correct (React — subscribe to agent suggestion events):**
@@ -9853,6 +10315,13 @@ References:
 - https://docs.velt.dev/ai/agent-comments
 - https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations
 - https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-v2
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/update-comment-annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/delete-comment-annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/add-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/get-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/update-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/delete-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/create
 
 ---
 
@@ -9860,7 +10329,7 @@ References:
 
 **Impact: HIGH (Let AI agents leave comments via REST API with the agent block, and read them back with agent-specific filters)**
 
-Agent comments let AI agents participate in collaboration by leaving findings via the Add Comment Annotations REST API. The server stamps `sourceType: "agent"` on the annotation and renders it with Accept/Reject buttons in the Velt UI. Any agent that can make an HTTP request can do this — a custom agent registered in the Velt Console, or an external agent running in your own framework.
+Agent comments let AI agents participate in collaboration by leaving findings via the Add Comment Annotations REST API. The server stamps `sourceType: "agent"` on the annotation and renders it with Accept/Reject buttons in the Velt UI. Any agent that can make an HTTP request can do this — a built-in Velt agent, a custom agent created via the Review Agents API (`POST /v2/agents/create`, owned by `velt-rest-apis-best-practices`), or an external agent running in your own framework.
 
 ### Creating agent annotations
 
@@ -9956,7 +10425,7 @@ response = requests.post(
 )
 ```
 
-The server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
+Attaching the `agent` block to `commentData[0]` (the root comment) marks the whole annotation as agent-authored: the server stamps `sourceType: "agent"` on both that comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). Attaching an `agent` block to a reply instead (see "Replying as an agent" below) marks only that individual comment as agent-authored — the annotation root stays a normal comment and is not reclassified. The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
 `reason` carries the finding's details. Three fields are required; the remaining ten are optional. Any extra custom fields beyond this list are preserved by the server.
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
@@ -9995,11 +10464,53 @@ The server stamps `sourceType: "agent"` on both the comment and the annotation, 
 }
 ```
 
-Use the Get Comment Annotations API with agent-specific filters. Only one agent filter may be supplied per request.
+An agent can also post a reply into an existing thread. Use the Add Comments API (`POST /v2/comments/add`, base contract in `rest-comments-api`) and attach an `agent` block to the reply comment — same shape as when creating the root comment.
+Annotation-level fields such as `type` are set **only when the annotation is created**. They are **not accepted** on the Add Comments endpoint — the reply inherits its parent annotation's type. Sending `type` here is a common contract error; the field is silently ignored.
+
+**Correct (external agent replying to an existing thread):**
+
+```javascript
+// POST https://api.velt.dev/v2/comments/add
+const response = await fetch('https://api.velt.dev/v2/comments/add', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      annotationId: 'annotation_abc123',
+      commentData: [
+        {
+          commentText: 'Follow-up: contrast is now 2.7:1 — still below WCAG AA.',
+          from: { userId: 'a11y-bot' },
+          agent: {
+            agentSource: 'external',
+            agentName: 'Accessibility Bot',
+            agentId: 'a11y-bot',
+            executionId: 'run_9c02',
+            reason: {
+              title: 'Low color contrast (follow-up)',
+              description: 'Ratio moved from 2.1:1 to 2.7:1 after the last commit.',
+              severity: 'high',
+            },
+          },
+        },
+      ],
+    },
+  }),
+});
+```
+
+Use the Get Comment Annotations API with agent-specific filters to fetch whole agent-authored threads. Only one agent filter may be supplied per request.
 | Filter | Description |
 |--------|-------------|
 | `agentId` | Annotations created by a specific agent. |
 | `executionId` | Annotations from a specific agent run. |
+| `agentType` | Annotations of a given agent type: `"built-in"`, `"custom"`, or `"external"`. |
 | `agentSource` | `"velt"` or `"external"`. |
 | `agentSuggestions` | When `true`, returns only fresh (unaccepted) agent suggestions. |
 | `agentComments` | When `true`, returns all agent annotations regardless of status. |
@@ -10063,7 +10574,43 @@ const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
 });
 ```
 
-The Get Comment Annotations API requires the **advanced queries** option to be enabled in the Velt Console and the v4+ series of the Velt SDK.
+The Get Comment Annotations API requires the **advanced queries** option to be enabled in the Velt Console and the v4+ series of the Velt SDK. Confirm the current prerequisite against the API reference before assuming this still applies.
+To fetch **individual comments within a specific annotation** (rather than whole threads), use the Get Comments API (`POST /v2/comments/get`) instead — see `rest-comments-api` for the base contract. Get Comment Annotations returns the thread with its full `comments[]` payload; Get Comments is the tool for pulling a single comment out of an existing thread by id.
+Agent comments are updated through the same endpoints as any other comment — the split is by scope:
+- **Annotation-level fields** (status, assignee, location, resolved state, etc.) go through the Update Comment Annotations API (`POST /v2/commentannotations/update`). See `rest-comment-annotations-api` for the base contract.
+- **Individual comment content** within the thread goes through the Update Comments API (`POST /v2/comments/update`). See `rest-comments-api`.
+There is no agent-specific update endpoint; the `agent` block on the comment is carried through unchanged.
+Two scopes, same split:
+- **Whole-thread deletion** goes through the Delete Comment Annotations API (`POST /v2/commentannotations/delete`). Filter by `annotationIds` for specific threads, by the agent's `userIds` (the idiomatic pattern for **purging every annotation a given agent created** — e.g. wiping a bot's findings before a re-run), or by the **combinable agent filters** `agentId`, `agentSuggestions`, and `agentUrls`, which are AND-combined to scope deletion (e.g. delete only one agent's still-pending suggestions on a specific set of pages). See `rest-comment-annotations-api`.
+- **Single-comment deletion** within a thread goes through the Delete Comments API (`POST /v2/comments/delete`). See `rest-comments-api`.
+The combinable agent filters target only annotations that still match the filter — suggestions already accepted, rejected, or resolved are left untouched when `agentSuggestions: true` is set (it selects only still-pending suggestions).
+
+**Correct (purge one agent's pending suggestions on two specific pages):**
+
+```javascript
+// POST https://api.velt.dev/v2/commentannotations/delete
+const response = await fetch('https://api.velt.dev/v2/commentannotations/delete', {
+  method: 'POST',
+  headers: {
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'acme-corp',
+      documentId: 'design-mockup-v2',
+      agentId: 'a11y-bot',
+      agentSuggestions: true,
+      agentUrls: [
+        'https://example.com/design-mockup-v2/page-1',
+        'https://example.com/design-mockup-v2/page-2',
+      ],
+    },
+  }),
+});
+```
+
 Agent findings render with Accept and Reject buttons. Subscribe to `suggestionAccepted` and `suggestionRejected` on the comment element to apply the change to your own data or trigger follow-up logic. The SDK records the outcome and persists the suggestion status — applying the actual change is your code's responsibility.
 
 **Correct (React — subscribe to agent suggestion events):**
@@ -10135,6 +10682,13 @@ References:
 - https://docs.velt.dev/ai/agent-comments
 - https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations
 - https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-v2
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/update-comment-annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/delete-comment-annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/add-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/get-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/update-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/delete-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/create
 
 ---
 
@@ -11902,3 +12456,4 @@ Override either with `defaultCondition={false}` (React) / `default-condition="fa
 - https://docs.velt.dev/api-reference/sdk/api/api-methods
 - https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar-structure-v2
 - https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-v2-wireframes
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/create

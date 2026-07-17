@@ -43,6 +43,7 @@ This file defines all rule categories for velt-setup-best-practices.
 - `config-domain-safelist` - Whitelist allowed domains
 - `config-firestore-persistent-cache` - Enable offline reads and multi-tab sync via Firestore persistent cache
 - `config-proxy-config` - Configure Firebase reverse proxy via proxyConfig (replaces deprecated apiProxyDomain)
+- `config-unstyled-mode` - Toggle Velt's built-in visual styling via setUnstyledMode for headless use
 
 ---
 
