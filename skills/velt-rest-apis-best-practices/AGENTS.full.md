@@ -1,6 +1,6 @@
 # Velt Rest Apis Best Practices
 
-**Version 1.0.7**  
+**Version 1.0.8**  
 Velt  
 May 2026
 
@@ -565,6 +565,81 @@ POST https://api.velt.dev/v2/commentannotations/comments/delete
 { "data": { "organizationId": "org-123", "documentId": "doc-456", "annotationId": "ann-789", "commentIds": ["cmt-1"] } }
 ```
 
+**Required fields inside `agent`:**
+
+```bash
+{
+  "agent": {
+    "agentSource": "external",
+    "agentName": "Accessibility Bot",
+    "reason": {
+      "title": "Low color contrast",
+      "description": "Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.",
+      "severity": "high"
+    }
+  }
+}
+POST https://api.velt.dev/v2/commentannotations/add
+
+{
+  "data": {
+    "organizationId": "acme-corp",
+    "documentId": "design-mockup-v2",
+    "commentAnnotations": [
+      {
+        "type": "suggestion",
+        "commentData": [
+          {
+            "commentText": "This button has insufficient color contrast.",
+            "from": { "userId": "a11y-bot" },
+            "agent": {
+              "agentSource": "external",
+              "agentId": "a11y-bot",
+              "agentName": "Accessibility Bot",
+              "reason": {
+                "title": "Low color contrast",
+                "description": "Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.",
+                "severity": "high",
+                "findingType": "pin"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
+POST https://api.velt.dev/v2/commentannotations/comments/add
+
+{
+  "data": {
+    "organizationId": "yourOrganizationId",
+    "documentId": "yourDocumentId",
+    "annotationId": "yourAnnotationId",
+    "commentData": [
+      {
+        "commentText": "I fixed the spelling. Please re-review.",
+        "from": { "userId": "spell-check", "name": "Spell Check Agent" },
+        "agent": {
+          "agentSource": "velt",
+          "agentId": "spell-check",
+          "executionId": "exec_124",
+          "reason": {
+            "title": "Spelling corrected",
+            "description": "Updated 'Welcom' to 'Welcome'.",
+            "severity": "info",
+            "findingType": "text"
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+**Correct:** Supply `agentId` on every agent block. For `external`, also supply `agentName`:
+For a Velt built-in or verified custom agent, drop `agentName` and set `agentSource: "velt"`:
+
 **Top-level annotation envelope (returned for each annotation):**
 
 ```json
@@ -628,8 +703,6 @@ const ids: string[] = comment.reactionAnnotations; // type error at runtime
 
 **Correct:** Each entry in `reactionAnnotations` is a full reaction object:
 If you only need IDs (e.g. to fan out a follow-up fetch), read `reactionAnnotationIds`. If you need icon, who reacted (`fromUsers`), or when (`lastUpdated`), read `reactionAnnotations`.
-
-Reference: `https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-v2` and `https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/get-comments`
 
 ---
 
@@ -1699,3 +1772,5 @@ Reference: `https://docs.velt.dev/api-reference/rest-api/overview` (## REST API 
 - https://docs.velt.dev/api-reference/rest-apis/v2/agents/groups/delete
 - https://docs.velt.dev/api-reference/rest-apis/v2/agents/groups/add-agents
 - https://docs.velt.dev/api-reference/rest-apis/v2/agents/groups/remove-agents
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/add-comments

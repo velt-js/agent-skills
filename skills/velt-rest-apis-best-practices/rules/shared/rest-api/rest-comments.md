@@ -145,6 +145,107 @@ POST https://api.velt.dev/v2/commentannotations/comments/delete
 - Annotation-level operations use `annotationIds` (array). Comment-level operations use `annotationId` (singular) plus `commentId`/`commentIds`.
 - The `/count/get` endpoint returns the total number of annotations for a document.
 
+### Agent block on comment annotations
+
+Both `/v2/commentannotations/add` (via the root `commentData[0]`) and `/v2/commentannotations/comments/add` accept an `agent` block that marks a comment as agent-authored. When the block is attached, the server stamps `sourceType: "agent"` on the comment; when attached to the root comment on `/v2/commentannotations/add`, the server also generates the annotation-level agent block and stamps `sourceType: "agent"` on the annotation.
+
+**Required fields inside `agent`:**
+
+- `agentSource` — must be `"velt"` or `"external"`.
+- `agentId` — must be non-empty **for both sources**. For `velt`, it is a built-in agent like `spell-check` or a custom agent ID verified server-side; for `external`, it is opaque and never validated.
+- `reason` — finding details object. `reason.title`, `reason.description`, and `reason.severity` (one of `critical`, `high`, `medium`, `low`, `info`) are all required.
+
+**Conditionally required:** `agentName` must be supplied when `agentSource` is `"external"` (it is the only source of truth for an external agent's display name). It is not used for `velt` agents, which resolve their name server-side.
+
+**Incorrect:** Omitting `agentId` for an external-agent finding (the request is rejected — `agentId` is required regardless of source):
+
+```json
+{
+  "agent": {
+    "agentSource": "external",
+    "agentName": "Accessibility Bot",
+    "reason": {
+      "title": "Low color contrast",
+      "description": "Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.",
+      "severity": "high"
+    }
+  }
+}
+```
+
+**Correct:** Supply `agentId` on every agent block. For `external`, also supply `agentName`:
+
+```bash
+POST https://api.velt.dev/v2/commentannotations/add
+
+{
+  "data": {
+    "organizationId": "acme-corp",
+    "documentId": "design-mockup-v2",
+    "commentAnnotations": [
+      {
+        "type": "suggestion",
+        "commentData": [
+          {
+            "commentText": "This button has insufficient color contrast.",
+            "from": { "userId": "a11y-bot" },
+            "agent": {
+              "agentSource": "external",
+              "agentId": "a11y-bot",
+              "agentName": "Accessibility Bot",
+              "reason": {
+                "title": "Low color contrast",
+                "description": "Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.",
+                "severity": "high",
+                "findingType": "pin"
+              }
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+For a Velt built-in or verified custom agent, drop `agentName` and set `agentSource: "velt"`:
+
+```bash
+POST https://api.velt.dev/v2/commentannotations/comments/add
+
+{
+  "data": {
+    "organizationId": "yourOrganizationId",
+    "documentId": "yourDocumentId",
+    "annotationId": "yourAnnotationId",
+    "commentData": [
+      {
+        "commentText": "I fixed the spelling. Please re-review.",
+        "from": { "userId": "spell-check", "name": "Spell Check Agent" },
+        "agent": {
+          "agentSource": "velt",
+          "agentId": "spell-check",
+          "executionId": "exec_124",
+          "reason": {
+            "title": "Spelling corrected",
+            "description": "Updated 'Welcom' to 'Welcome'.",
+            "severity": "info",
+            "findingType": "text"
+          }
+        }
+      }
+    ]
+  }
+}
+```
+
+**Key points:**
+
+- `agentId` is required on every agent block — the previous "optional for external" allowance is gone. Backfill any prior client that omitted it for `external` findings.
+- `agentName` is required only when `agentSource` is `"external"`; do not send it for `velt` agents.
+- Setting `type: "suggestion"` at the annotation level plus an `agent` block on `commentData[0]` is the canonical shape for an agent finding. The annotation-level `type` is the source of truth for the suggestion classification; the legacy `commentType: "suggestion"` no longer drives it.
+- `reason` is required, and inside it `title`, `description`, and `severity` are required.
+
 ### GET Response Shapes
 
 The `/commentannotations/get` and `/commentannotations/comments/get` endpoints return more data than older docs suggested. Bind your consumers to the current shape, not the older one.
@@ -245,5 +346,12 @@ If you only need IDs (e.g. to fan out a follow-up fetch), read `reactionAnnotati
 - [ ] Timestamp parsing handles ms-epoch (annotations/reactions) vs. ISO 8601 (comments)
 - [ ] `null` entries inside `result.data` are handled (missing IDs)
 - [ ] No code depends on `viewedBy` being present on GET responses
+- [ ] Every `agent` block includes a non-empty `agentId` — for both `velt` and `external` sources
+- [ ] `agentName` is present whenever `agentSource` is `"external"`
+- [ ] `reason.title`, `reason.description`, and `reason.severity` are set on every agent block
 
-**Source Pointer:** `https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-v2` and `https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/get-comments`
+**Source Pointers:**
+- `https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-v2`
+- `https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/get-comments`
+- `https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations`
+- `https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/add-comments`

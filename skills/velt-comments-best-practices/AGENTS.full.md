@@ -1,6 +1,6 @@
 # Velt Comments Best Practices
 
-**Version 1.1.13**  
+**Version 1.1.14**  
 Velt  
 January 2026
 
@@ -8535,7 +8535,7 @@ response = requests.post(
 )
 ```
 
-The server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
+Attaching the `agent` block to the root comment marks the whole annotation as agent-authored: the server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). Attaching an `agent` block to a reply instead (see "Replying as an agent" below) marks only that individual comment as agent-authored — the parent annotation is not reclassified. The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
 `reason` carries the finding's details. Three fields are required; the remaining ten are optional. Any extra custom fields beyond this list are preserved by the server.
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
@@ -8874,7 +8874,7 @@ response = requests.post(
 )
 ```
 
-The server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
+Attaching the `agent` block to the root comment marks the whole annotation as agent-authored: the server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). Attaching an `agent` block to a reply instead (see "Replying as an agent" below) marks only that individual comment as agent-authored — the parent annotation is not reclassified. The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
 `reason` carries the finding's details. Three fields are required; the remaining ten are optional. Any extra custom fields beyond this list are preserved by the server.
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
@@ -10002,7 +10002,7 @@ response = requests.post(
 )
 ```
 
-The server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
+Attaching the `agent` block to the root comment marks the whole annotation as agent-authored: the server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). Attaching an `agent` block to a reply instead (see "Replying as an agent" below) marks only that individual comment as agent-authored — the parent annotation is not reclassified. The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
 `reason` carries the finding's details. Three fields are required; the remaining ten are optional. Any extra custom fields beyond this list are preserved by the server.
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
@@ -10341,7 +10341,7 @@ response = requests.post(
 )
 ```
 
-The server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
+Attaching the `agent` block to the root comment marks the whole annotation as agent-authored: the server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). Attaching an `agent` block to a reply instead (see "Replying as an agent" below) marks only that individual comment as agent-authored — the parent annotation is not reclassified. The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
 `reason` carries the finding's details. Three fields are required; the remaining ten are optional. Any extra custom fields beyond this list are preserved by the server.
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|

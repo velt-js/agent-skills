@@ -18,7 +18,7 @@ Attach an `agent` object to `commentData[0]` (the root comment). Set the annotat
 | Field | Required | Description |
 |-------|----------|-------------|
 | `agentSource` | Yes | Origin of the agent: `"velt"` or `"external"` |
-| `agentId` | Required for `velt`, optional for `external` | A custom agent ID verified server-side. Opaque (never validated) for `external` agents. |
+| `agentId` | Yes | The agent's ID. Must be non-empty. Verified server-side for `velt` agents; opaque (never validated) for `external` agents. |
 | `agentName` | Required for `external` | Display name for the agent. For `velt` agents, the name is resolved server-side. |
 | `executionId` | No | Execution / run ID for this agent invocation. Used to query all findings from a single run. |
 | `url` | No | Page URL associated with the finding. |
@@ -114,7 +114,7 @@ response = requests.post(
 )
 ```
 
-The server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
+Attaching the `agent` block to the root comment marks the whole annotation as agent-authored: the server stamps `sourceType: "agent"` on both the comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). Attaching an `agent` block to a reply instead (see "Replying as an agent" below) marks only that individual comment as agent-authored — the parent annotation is not reclassified. The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
 
 ### The `reason` object
 
@@ -373,6 +373,7 @@ The full 21-component hierarchy and all props are documented in `ui-agent-sugges
 **Verification:**
 - [ ] `agent` block is on `commentData[0]` (the root comment) when creating a thread, or on the reply comment when replying via `/v2/comments/add` — not on the annotation wrapper
 - [ ] `agentSource` is set — `"external"` for your own agents, `"velt"` for built-in agents or custom agents created via the Review Agents API
+- [ ] `agentId` is set to a non-empty string for **both** `velt` and `external` agents (required regardless of `agentSource`)
 - [ ] `agentName` is provided when `agentSource` is `"external"` (server cannot resolve it)
 - [ ] Annotation `type` is `"suggestion"` when **creating** so Accept/Reject buttons render — do **not** send `type` on the Add Comments (`/v2/comments/add`) reply endpoint; it is ignored
 - [ ] `reason` object is provided with all three required fields (`title`, `description`, `severity`)
