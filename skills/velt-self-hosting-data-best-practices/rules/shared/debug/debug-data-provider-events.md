@@ -96,4 +96,4 @@ For deeper inspection beyond log output, use the [Velt Chrome DevTools extension
 - [ ] Subscription cleaned up on unmount
 - [ ] Webhook-based email notifications set up if needed
 
-**Source Pointer:** https://docs.velt.dev/self-host-data/overview - "Debugging"; https://docs.velt.dev/self-host-data/comments - Debugging, Email Notifications
+**Source Pointer:** https://docs.velt.dev/self-hosting/partial/overview - "Debugging"; https://docs.velt.dev/self-hosting/partial/comments - Debugging, Email Notifications

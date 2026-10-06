@@ -1,66 +1,72 @@
 ---
-title: Generate Auth Tokens via sdk.selfHosting.token.getToken
+title: Generate Auth Tokens via sdk.api.accessControl.generateToken
 impact: HIGH
-impactDescription: Issuing auth tokens server-side with the self-hosting variant ensures token generation works within your own infrastructure without a separate REST call
-tags: python, token, auth, self-hosting, jwt, authentication
+impactDescription: The positional getToken helpers are gone from the Python SDK docs; minting tokens with generateToken keeps frontend auth working without exposing API credentials
+tags: python, token, auth, generateToken, GenerateTokenRequest, accessControl, jwt, authentication, authProvider, permissions
 ---
 
-## Generate Auth Tokens via sdk.selfHosting.token.getToken
+## Generate Auth Tokens via sdk.api.accessControl.generateToken
 
-The Python SDK exposes `sdk.selfHosting.token.getToken` to generate a Velt auth token for a user on the server side. This is the self-hosting variant of token generation — use it when your backend already has MongoDB + AWS configured via `sdk.selfHosting.*`. The generated token is passed to the frontend `authProvider` prop so the client can authenticate without exposing your API credentials.
+Mint the JWT that the frontend `authProvider.generateToken` returns with `sdk.api.accessControl.generateToken`. It calls `POST /v2/auth/generate_token`, takes a `GenerateTokenRequest` dataclass like every other `sdk.api.*` method, needs only `apiKey` and `authToken` (no database), and returns the raw REST envelope. The `sdk.selfHosting.token.getToken` and `sdk.api.token.getToken` sections were removed from the Python SDK docs.
 
-Do not call the Velt REST auth endpoint directly with `requests` or `httpx` and do not attempt to construct the JWT manually. Unlike other `sdk.selfHosting.*` methods, `getToken` does **not** accept a typed request dataclass — pass arguments as keyword arguments directly.
+Do not call the Velt REST auth endpoint with `requests` / `httpx`, and never build the JWT yourself.
 
-**Correct (generate token and return to frontend):**
+**Incorrect (removed keyword-argument getToken and a flat envelope):**
+
+```python
+# WRONG: no longer documented; also reads the self-hosting envelope shape
+result = sdk.selfHosting.token.getToken(organizationId='org-123', userId='user-1')
+token = result['data']['token']
+```
+
+**Correct:**
 
 ```python
 from velt_py import VeltSDK
+from velt_py.models.access_control import GenerateTokenRequest
 
 sdk = VeltSDK.initialize({
     'apiKey': 'YOUR_VELT_API_KEY',
     'authToken': 'YOUR_VELT_AUTH_TOKEN',
-    'database': {
-        'mongoURI': 'YOUR_MONGO_URI',
-        'dbName': 'YOUR_DB_NAME'
-    }
 })
 
-result = sdk.selfHosting.token.getToken(
-    organizationId='org-123',
-    userId='user-1',
-    email='user@example.com',   # optional
-    isAdmin=False                # optional, defaults to False
+result = sdk.api.accessControl.generateToken(
+    GenerateTokenRequest(
+        userId='user-1',
+        userProperties={'name': 'John Doe', 'email': 'john@example.com', 'isAdmin': False},
+        permissions={'resources': [
+            {'type': 'organization', 'id': 'org-123', 'accessRole': 'viewer'},
+            {'type': 'document', 'id': 'doc-1', 'organizationId': 'org-123', 'accessRole': 'editor'},
+        ]},
+    )
 )
 
-if result['success']:
-    token = result['data']['token']   # JWT string — pass to frontend authProvider
-else:
-    print(f"Token error {result.get('errorCode')}: {result.get('error')}")
+if 'error' in result:
+    raise RuntimeError(result['error']['message'])
+token = result['result']['data']['token']  # return this to the frontend authProvider
 ```
 
 **Response shape:**
 
 ```python
-# Success
-{'success': True, 'statusCode': 200, 'data': {'token': 'eyJhbGciOi...'}}
-
-# Error
-{'success': False, 'statusCode': 500, 'error': '...', 'errorCode': 'INTERNAL_ERROR'}
+{'result': {'status': 'success', 'message': 'Token generated successfully.',
+            'data': {'token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'}}}
 ```
 
 **Key points:**
 
-- `organizationId` and `userId` are required; `email` and `isAdmin` are optional keyword arguments (defaults: `email=None`, `isAdmin=False`).
-- Do NOT pass a dataclass to `getToken` — it uses positional/keyword arguments only.
-- Access the token with `result['data']['token']` (dict key access, not attribute access).
-- Always check `result['success']` before reading `result['data']`.
-- The returned JWT is meant for the **frontend** `authProvider` prop on `VeltProvider` — never log or expose it to untrusted clients beyond the requesting user's session.
+- `userId`, `userProperties` (with `name` and `email`; optional `isAdmin`), and `permissions` are required.
+- Each resource has `type`, `id`, optional `accessRole`, optional `expiresAt`, and `organizationId` (required for `document` and `folder` resources).
+- Read the token from `result['result']['data']['token']`; check for an `error` key first.
+- Return the token only to the authenticated user's session; never log it.
 
 **Verification Checklist:**
-- [ ] `organizationId` and `userId` are passed as keyword or positional arguments (not wrapped in a dataclass)
-- [ ] Response is accessed as a dict: `result['success']`, `result['data']['token']`
-- [ ] `result['success']` is checked before reading `result['data']`
-- [ ] Token is forwarded to the frontend `authProvider` and not stored long-term server-side
+- [ ] No `getToken` calls and no `sdk.selfHosting.token` / `sdk.api.token` references remain
+- [ ] `GenerateTokenRequest` is imported from `velt_py.models.access_control`
+- [ ] `userProperties` includes `name` and `email`; document and folder resources include `organizationId`
+- [ ] The response is read as a dict with `error` checked before `result`
 
 **Source Pointers:**
-- https://docs.velt.dev/backend-sdks/python - Velt Python SDK > Self-hosting > Token > getToken
+- https://docs.velt.dev/backend-sdks/python#generatetoken - "Access Control > generateToken"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#generatetokenrequest - "GenerateTokenRequest"
+- https://docs.velt.dev/api-reference/rest-apis/v2/auth/generate-token - "Generate Token"

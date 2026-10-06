@@ -62,13 +62,13 @@ const subscription = activityElement.getAllActivities({
 });
 ```
 
-**Known Members (v5.0.2-beta.7):**
+**Members:**
 
 | Constant Key | String Value |
 |--------------|--------------|
 | `EDITOR_EDIT` | `'crdt.editor_edit'` |
 
-<!-- TODO (v5.0.2-beta.7): Verify the complete member list for CrdtActivityActionTypes. Release note confirms the constant exists and is used in ActivitySubscribeConfig.actionTypes filters, but only the CRDT variant name is confirmed — exact member enumeration beyond EDITOR_EDIT should be validated against the SDK source. -->
+`EDITOR_EDIT` is the only member listed in the data-models reference.
 
 **Verification Checklist:**
 - [ ] `CrdtActivityActionTypes` imported from `@veltdev/react` (React) or `@veltdev/types` (other frameworks)
@@ -78,4 +78,5 @@ const subscription = activityElement.getAllActivities({
 
 **Source Pointers:**
 - https://docs.velt.dev/api-reference/sdk/models/data-models#activitysubscribeconfig - ActivitySubscribeConfig
-- https://docs.velt.dev/realtime-collaboration/crdt/setup/core - CRDT Setup and CrdtElement methods
+- https://docs.velt.dev/api-reference/sdk/models/data-models#crdtactivityactiontypes - CrdtActivityActionTypes
+- https://docs.velt.dev/async-collaboration/activity/overview#activity-log-action-types - Activity Log Action Types

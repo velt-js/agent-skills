@@ -1,5 +1,5 @@
 # Velt Single Editor Mode Best Practices
-|v1.0.0|Velt|March 2026
+|v1.1.0|Velt|October 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
 |root: ./rules
 
@@ -27,3 +27,6 @@
 
 ## 7. Debugging & Testing — LOW-MEDIUM
 |shared/debug:{debug-common-issues.md}
+
+## 8. UI Customization — MEDIUM
+|shared/ui:{ui-panel-wireframe.md}

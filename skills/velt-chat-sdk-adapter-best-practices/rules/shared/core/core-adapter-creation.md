@@ -1,55 +1,64 @@
 ---
-title: createVeltAdapter Configuration
+title: Configure createVeltAdapter with bot identity, organization, and env credentials
 impact: CRITICAL
-tags: createVeltAdapter, config, apiKey, authToken, organizationId, webhookSecret
+impactDescription: botUserId drives feedback-loop filtering and reply authorship; missing credentials make the adapter throw on first use
+tags: createVeltAdapter, config, apiKey, authToken, webhookSecret, organizationId, botUserId, botUserName, resolveUsers, env
 ---
 
-## createVeltAdapter Configuration
+## Configure createVeltAdapter with bot identity, organization, and env credentials
 
-The `createVeltAdapter()` factory function creates the adapter instance. It reads credentials from both explicit options and environment variables.
+`createVeltAdapter(options)` builds the adapter. Credentials fall back to environment variables, so most apps pass only the bot identity, `organizationId`, and `resolveUsers`.
+
+**Incorrect (hard-coded secrets, no bot identity):**
+
+```typescript
+createVeltAdapter({
+  apiKey: "sk_live_123",            // BUG: secret committed to source
+  webhookSecret: "whsec_abc",       // BUG: secret committed to source
+  // BUG: no botUserId / botUserName, so the bot cannot recognize its own messages or mentions
+});
+```
+
+**Correct:**
 
 ```typescript
 import { createVeltAdapter } from "@veltdev/chat-sdk-adapter";
 
 const adapter = createVeltAdapter({
-  botUserId: "my-bot",
-  botUserName: "My Bot",
-  organizationId: process.env.VELT_ORGANIZATION_ID!,
+  botUserId: "velt-bot",
+  botUserName: "Velt Bot",
+  organizationId: process.env.VELT_ORGANIZATION_ID,
   resolveUsers,
-  // webhookVersion: "v2",        // default; set "v1" for Basic webhooks
-  // webhookSecret: "whsec_...",  // overrides VELT_WEBHOOK_SECRET env var
+  // webhookVersion: "v1",            // only for Basic webhooks; "v2" is the default
+  // webhookSecret: "...",            // overrides VELT_WEBHOOK_SECRET
+  // selfHostingConfig: { reactionsService }, // only for reaction writes
 });
 ```
 
-### Configuration Options
+| Option | Notes |
+|---|---|
+| `botUserId` | Stable bot user ID; replies are posted as this user and its own events are ignored |
+| `botUserName` | Display name; also used to detect @-mentions of the bot |
+| `organizationId` | Velt organization; falls back to `VELT_ORGANIZATION_ID` and scopes generated tokens |
+| `resolveUsers` | Maps user IDs to display names for mentions and authors (recommended) |
+| `webhookVersion` | `"v2"` (default, Advanced) or `"v1"` (Basic) |
+| `webhookSecret` | Overrides `VELT_WEBHOOK_SECRET` |
+| `selfHostingConfig` | Enables reaction writes via a self-hosted backend |
 
-| Option | Required | Description |
-|--------|----------|-------------|
-| `botUserId` | Yes | Unique ID for the bot user (used to filter out bot's own messages) |
-| `botUserName` | Yes | Display name shown on bot replies |
-| `organizationId` | Yes | Velt organization ID (used for auth token scoping) |
-| `resolveUsers` | Yes | Function to resolve user IDs to display names (see users rules) |
-| `webhookVersion` | No | `"v2"` (default, Svix HMAC-SHA256) or `"v1"` (Basic auth token) |
-| `webhookSecret` | No | Overrides `VELT_WEBHOOK_SECRET` env var |
-| `selfHostingConfig` | No | For writing reactions on self-hosted backends (see reactions rules) |
+```env
+VELT_API_KEY="your-velt-api-key"
+VELT_AUTH_TOKEN=""
+VELT_WEBHOOK_SECRET="whsec_..."
+VELT_ORGANIZATION_ID="your-organization-id"
+```
 
-### Environment Variables
+`VELT_AUTH_TOKEN` is optional: if omitted, the adapter generates a bot token from your API key, scoped to `VELT_ORGANIZATION_ID`, and refreshes it automatically.
 
-The adapter reads these automatically:
+**Verification Checklist:**
+- [ ] `VELT_API_KEY` and `VELT_WEBHOOK_SECRET` come from the environment
+- [ ] `botUserId` and `botUserName` are set and stable
+- [ ] `organizationId` is passed or `VELT_ORGANIZATION_ID` is set
+- [ ] `webhookVersion` matches the webhook type configured in the Velt Console
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `VELT_API_KEY` | Yes | Your Velt API key |
-| `VELT_AUTH_TOKEN` | No | Bot auth token. If omitted, the adapter auto-generates one from the API key scoped to the organization |
-| `VELT_WEBHOOK_SECRET` | Yes | Webhook signing secret. v2 format: `whsec_<base64>`. v1 format: plain token |
-| `VELT_ORGANIZATION_ID` | Yes | Organization ID (also passed explicitly in config) |
-
-### Auth Token Auto-Generation
-
-If `VELT_AUTH_TOKEN` is not set, the adapter automatically generates a bot token via `POST /v2/auth/generate_token`, scoped to the organization with `editor` access. Tokens are cached internally with a 40-hour TTL (Velt tokens last 48 hours) and auto-refresh on 401 or expiry.
-
-### Key Points
-
-- `botUserId` is critical for avoiding feedback loops — the adapter ignores webhook events from this user ID
-- Always set `VELT_API_KEY` and `VELT_WEBHOOK_SECRET` as environment variables (never hardcode secrets)
-- Omitting `VELT_AUTH_TOKEN` is fine for most cases — auto-generation handles it
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "Quickstart" (Add your environment variables, Create the bot instance) and "Webhook versions"

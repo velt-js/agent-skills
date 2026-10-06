@@ -93,6 +93,8 @@ async function saveAnnotations(client, annotations, context) {
 | Filter | `organizationId` | Non-unique | Org-scoped queries |
 | Compound | `documentId + organizationId` | Non-unique | Combined filter queries |
 
+**Using a Velt backend SDK instead:** if your provider backend is Node or Python, `@veltdev/node` 2.x and `velt-py` 0.2.x implement this storage for you on MongoDB or PostgreSQL (`database.type: 'postgresql'`). On PostgreSQL they create one table per collection with a single JSONB `data` column and expression indexes, and on MongoDB they retry a concurrent save of the same annotation instead of failing with a duplicate-key error. Hand-roll the patterns below only for other stacks or custom schemas (see `core-python-sdk-setup` and the Node SDK skill).
+
 **Key details:**
 - Upsert ensures idempotency — retried saves don't create duplicates
 - MongoDB `bulkWrite` with `upsert: true` handles multiple annotations efficiently
@@ -108,4 +110,7 @@ async function saveAnnotations(client, annotations, context) {
 - [ ] Parameterized queries used (no string concatenation in SQL)
 - [ ] Transactions used for multi-annotation saves
 
-**Source Pointer:** https://docs.velt.dev/self-host-data/comments - Backend Example (MongoDB, PostgreSQL)
+**Source Pointers:**
+- https://docs.velt.dev/self-hosting/partial/comments - Backend Example (MongoDB, PostgreSQL)
+- https://docs.velt.dev/backend-sdks/node#self-hosting-configuration - "How PostgreSQL storage works"
+- https://docs.velt.dev/backend-sdks/python#self-hosting-configuration - "How PostgreSQL storage works"

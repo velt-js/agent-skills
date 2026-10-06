@@ -7,7 +7,7 @@ tags: crdt, store, lifecycle, cleanup, destroy
 
 ## Manage CRDT Store Lifecycle and Cleanup with destroy()
 
-In non-React frameworks, you must manually call `store.destroy()` to clean up resources and listeners when done with a CRDT store. In React, the `useStore` hook handles cleanup automatically on unmount. The store also exposes Yjs-level accessors (`getDoc()`, `getProvider()`, `getText()`, `getXml()`) for advanced integrations.
+In non-React frameworks, you must manually call `store.destroy()` to clean up resources and listeners when done with a CRDT store. In React, the `useStore` hook handles cleanup automatically on unmount. The store also exposes Yjs-level accessors (`getDoc()`, `getProvider()`, `getText()`, `getXml()`, `getAwareness()`) for advanced integrations.
 
 **Incorrect (no cleanup in non-React frameworks):**
 
@@ -56,6 +56,7 @@ store.destroy();
 | `store.getProvider()` | `Provider` | Get the provider instance for the store |
 | `store.getText()` | `Y.Text \| null` | Get the Y.Text instance (only if store type is `text`) |
 | `store.getXml()` | `Y.XmlFragment \| null` | Get the Y.XmlFragment instance (only if store type is `xml`) |
+| `store.getAwareness()` | `Awareness` | Get the Awareness instance for cursor/presence tracking (React: prefer `useAwareness(store)`) |
 
 **Verification Checklist:**
 - [ ] `store.destroy()` called when store is no longer needed (non-React)
@@ -63,4 +64,4 @@ store.destroy();
 - [ ] Yjs accessors used only after store is initialized (non-null)
 
 **Source Pointers:**
-- https://docs.velt.dev/realtime-collaboration/crdt/setup/core - destroy(), getDoc(), getProvider(), getText(), getXml()
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/core#store-methods - destroy(), getDoc(), getProvider(), getText(), getXml(), getAwareness()

@@ -1,12 +1,22 @@
 ---
 title: Content Security Policy (CSP) Whitelisting for Velt
 impact: HIGH
+impactDescription: Without these CSP entries the browser blocks Velt requests; proxy domains must be added too
 tags: CSP, Content-Security-Policy, whitelist, script-src, connect-src, img-src, media-src
 ---
 
 ## Content Security Policy (CSP) Whitelisting
 
-If your app has a Content Security Policy, whitelist these domains for Velt to function. When using a proxy, you'll also need to whitelist your proxy domains in addition to (or instead of) these defaults.
+If your app has a Content Security Policy, whitelist these domains for Velt to function. When using a proxy, also whitelist your proxy domains in addition to (or instead of) these defaults.
+
+**Incorrect (connect-src without WebSocket entries):**
+
+```text
+Content-Security-Policy: connect-src 'self' *.velt.dev *.googleapis.com
+# Realtime WebSocket connections to wss://*.firebaseio.com are blocked
+```
+
+**Correct:** include every directive below.
 
 ### Required CSP Directives
 
@@ -57,6 +67,9 @@ If you're only proxying some services, include both your proxy domains and the d
 
 ### Key Points
 
-- Without these CSP entries, the browser will block Velt SDK requests silently — check the browser console for CSP violation reports
-- The `wss://` entries are needed for WebSocket connections to the ephemeral database — omit them only if you're using `forceLongPolling: true`
+- Without these CSP entries, the browser blocks Velt SDK requests; check the browser console for CSP violation reports
+- The `wss://` entries are needed for WebSocket connections to the ephemeral database; omit them only if you're using `forceLongPolling: true`
 - When proxying storage, update `img-src` and `media-src` to include your storage proxy domain
+
+**Source Pointers:**
+- https://docs.velt.dev/security/content-security-policy — Whitelisting Rules for Content Security Policy (CSP)

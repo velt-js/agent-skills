@@ -1,29 +1,50 @@
 ---
-title: Use authProvider for Authentication — Never useIdentify
+title: Use the authProvider Object Alongside proxyConfig
 impact: CRITICAL
-tags: authProvider, useIdentify, identify, authentication, VeltProvider
+impactDescription: authProvider is an object of user plus generateToken, not a callback; the wrong shape leaves users unauthenticated behind the proxy
+tags: authProvider, generateToken, useIdentify, identify, authentication, VeltProvider, proxyConfig, setVeltAuthProvider
 ---
 
-## Use authProvider for Authentication
+## Use the authProvider Object Alongside proxyConfig
 
-When setting up Velt alongside proxy configuration, authentication must use the `authProvider` callback on `VeltProvider`. The deprecated `useIdentify` hook and `client.identify()` method must never be used.
+When you set up Velt behind a proxy, authenticate with the `authProvider` prop on `VeltProvider` (React) or `setVeltAuthProvider()` (other frameworks). `authProvider` is an object with `user` and an async `generateToken` that returns a Velt JWT from your backend. Velt calls `generateToken` on sign-in and whenever the token expires. `identify()` / `useIdentify()` still work, but you must then refresh expired tokens yourself, so prefer `authProvider`.
 
-The `authProvider` callback receives a `veltUser` setter function. Call it with your user object whenever your auth state changes:
+**Incorrect (authProvider as a callback that receives a setter):**
+
+```jsx
+// Not the VeltAuthProvider shape: Velt never calls this function
+const authProvider = async ({ veltUser }) => {
+  const user = await getAuthenticatedUser();
+  veltUser({ userId: user.uid, organizationId: 'org-1' });
+};
+
+<VeltProvider apiKey="YOUR_API_KEY" authProvider={authProvider} config={{ proxyConfig: { /* ... */ } }} />
+```
+
+**Correct (React / Next.js):**
 
 ```jsx
 import { VeltProvider } from '@veltdev/react';
 
-function App() {
-  const authProvider = async ({ veltUser }) => {
-    // Your auth logic (Firebase, Supabase, Auth0, etc.)
-    const user = await getAuthenticatedUser();
-    veltUser({
+function App({ user }) {
+  const authProvider = {
+    user: {
       userId: user.uid,
+      organizationId: user.orgId,
       name: user.displayName,
       email: user.email,
       photoUrl: user.photoURL,
-      organizationId: 'your-org-id',
-    });
+    },
+    retryConfig: { retryCount: 3, retryDelay: 1000 },
+    generateToken: async () => {
+      const resp = await fetch('/api/velt/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.uid, organizationId: user.orgId }),
+      });
+      const { token } = await resp.json();
+      return token;
+    },
   };
 
   return (
@@ -32,7 +53,8 @@ function App() {
       authProvider={authProvider}
       config={{
         proxyConfig: {
-          // your proxy hosts here
+          authHost: 'https://auth-proxy.yourdomain.com',
+          v2DbHost: 'https://v2db-proxy.yourdomain.com',
         },
       }}
     >
@@ -42,6 +64,35 @@ function App() {
 }
 ```
 
-The `authProvider` prop and `config.proxyConfig` are siblings on `VeltProvider` — both go directly on the component, not nested inside each other.
+**Correct (Other Frameworks):**
 
-**Why this matters:** `useIdentify` is deprecated and will be removed. Agents that generate `useIdentify` or `client.identify()` code produce broken applications. The `authProvider` pattern is the only supported authentication method.
+```js
+const client = await initVelt('YOUR_API_KEY', {
+  proxyConfig: {
+    authHost: 'https://auth-proxy.yourdomain.com',
+    v2DbHost: 'https://v2db-proxy.yourdomain.com',
+  },
+});
+
+await client.setVeltAuthProvider({
+  user,
+  generateToken: async () => {
+    const resp = await fetch('/api/velt/token', { method: 'POST' });
+    const { token } = await resp.json();
+    return token;
+  },
+});
+```
+
+`authProvider` and `config` are sibling props on `VeltProvider`; neither goes inside the other. If your app also calls Velt's REST APIs (for example to generate tokens) through `apiHost`, those calls still need the `x-velt-api-key` and `x-velt-auth-token` headers passed through unchanged.
+
+**Verification:**
+- [ ] `authProvider` is an object with `user` (including `userId` and `organizationId`) and `generateToken`
+- [ ] `generateToken` returns a JWT string from your backend
+- [ ] `authProvider` and `config.proxyConfig` are separate props on `VeltProvider`
+- [ ] Token refresh requests appear on your `authHost` proxy, not on Google hosts
+
+**Source Pointers:**
+- https://docs.velt.dev/key-concepts/overview#authenticate-a-user — "Use Auth Provider"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#veltauthprovider — VeltAuthProvider
+- https://docs.velt.dev/security/proxy-server#quick-start — "Quick start"

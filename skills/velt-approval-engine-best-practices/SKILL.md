@@ -1,29 +1,30 @@
 ---
 name: velt-approval-engine-best-practices
-description: "Best practices for the Velt Approval Engine — the declarative workflow runtime for multi-step agent + human approval processes. Use whenever the user is building approval workflows, multi-step review processes, agent-then-human approval chains, parallel reviewer quorums, SLA-aware approval steps, rejection-loop retry regions, or any workflow that combines AI agents with human gatekeeping. Triggers on any task involving the Velt Approval Engine, /v2/workflow/ REST endpoints, workflow definitions (nodes/edges/groups/loops), executions dispatch with idempotencyKey, recording reviewer decisions or agent resolutions, workflow webhooks (execution.dispatched/completed/failed/cancelled, step.awaiting-approval/completed/failed/breached/cancelled, group.quorum-met, loop.iteration-started, loop.exhausted), HMAC-SHA256 webhook signature verification, SLA-routed breach edges, quorum policies (waitAll/cancelOnQuorum/joinOnQuorum), onReject shorthand, loop regions, or recovering missed webhook events via /executions/getEvents with sinceSeq — even if the user does not explicitly say 'Approval Engine'."
+description: "Best practices for the Velt Approval Engine (docs: Review Workflow Builder) for multi-step agent and human approval. Use for review workflows, /v2/workflow/ REST calls, definitions with agent, human, notification, or webhook nodes, edge on roles and reject loop-backs, quorum groups, SLAs, triggers (inbound webhook, cron, GitHub/Vercel app), agent node aiConfig, idempotent dispatch, reviewer decisions, or signed webhook delivery, even if the user does not say 'Approval Engine'."
 license: MIT
 metadata:
   author: velt
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Velt Approval Engine Best Practices
 
-Implementation guide for the Velt Approval Engine — a declarative workflow runtime for multi-step agent + human approval processes. Covers the workflow model (definitions = nodes + edges + groups), the 14 REST endpoints under `/v2/workflow/*` (definitions, executions, steps), webhook delivery with HMAC signature verification, and idempotency/recovery patterns.
+Implementation guide for the Velt Approval Engine, documented on docs.velt.dev as the **Review Workflow Builder (Beta)**: a workflow runtime for multi-step agent and human review. Covers the workflow model (definitions of nodes, edges, groups, and triggers), the 14 enveloped REST endpoints under `/v2/workflow/*` plus the raw-JSON inbound trigger endpoint, webhook delivery with HMAC verification, and the patterns and anti-patterns from the docs.
 
 ## When to Apply
 
 Reference these guidelines when:
-- Authoring approval workflow **definitions** — nodes (`agent`, `human`), edges (with optional `when` gating expressions), groups (parallel quorum)
-- **Dispatching executions** — always with an `idempotencyKey`; configuring `webhookUrl` + `webhookSecret` together
-- **Recording decisions** — human reviewer approvals/rejections (`/steps/recordReviewerDecision`) or external blocking-agent resolutions (`/steps/recordAgentResolution`)
-- **Building webhook receivers** — HMAC-SHA256 signature verification on raw bytes, idempotency on `(executionId, seq)`, retry schedule, missed-event recovery
-- Using **quorum groups** with `waitAll` / `cancelOnQuorum` / `joinOnQuorum` policies
-- Configuring **SLAs** (`slaMs` on a node) and the required breach-routed outgoing edge
-- Admin-scoped operations (`/steps/cancel`, `/steps/resolve`)
-- Debugging `INVALID_ARGUMENT` linter rejections (cycle, dangling-edge, unreachable-node, missing-breach-edge, group-joinonquorum-members-must-share-successors)
+- Authoring **definitions**: `agent` nodes (`url` / `urlPath`, `aiConfig`), `human` nodes (mandatory reviewers, required `on: "reject"` edge), `notification` nodes (email / Slack), `webhook` nodes (sync / async callback)
+- Routing with **edges**: `on` roles (`approve`, `reject`, `always`, `exhausted`, `custom` with JSON-AST `when`), reject loop-backs with `loop.maxIterations`, SLA breach routes
+- Using **parallel groups** with `waitAll` / `cancelOnQuorum` / `joinOnQuorum`, `requiredNodeIds`, and group edge sources
+- Adding **triggers** that start runs: `inboundWebhook`, cron `schedule`, GitHub / Vercel `appTrigger`
+- **Dispatching executions** with an `idempotencyKey`, and configuring `webhookConfig` or a per-dispatch `webhookUrl` + `webhookSecret`
+- **Recording decisions** with `/steps/recordReviewerDecision`, or overriding with `/steps/cancel` and `/steps/resolve`
+- **Building webhook receivers**: HMAC-SHA256 on raw bytes, idempotency on `(executionId, seq)`, recovery with `/executions/getEvents` and `sinceSeq`
+- **Updating or copying definitions**: full-replace updates with `ifVersion`, stripping server-owned fields and nulls, write-only `webhookConfig`
+- Debugging `INVALID_ARGUMENT` linter failures (`missing-breach-edge`, `loop-node-in-multiple-loops`, `group-joinonquorum-members-must-share-successors`, reject-path and URL rules)
 
-For general Velt REST API patterns (Comments, Notifications, Activity, etc.), see `velt-rest-apis-best-practices` — only the Approval Engine domain is covered here.
+The agents that `agent` nodes run (built-in and custom agents, Run Execution, the `aiConfig` model allowlist) are covered by `rest-agents` in `velt-rest-apis-best-practices`. Other Velt REST APIs are covered there too; only the Approval Engine domain is covered here.
 
 ## Rule Categories by Priority
 
@@ -32,22 +33,34 @@ For general Velt REST API patterns (Comments, Notifications, Activity, etc.), se
 | 1 | Concepts | HIGH | `concepts-` |
 | 2 | REST Endpoints | HIGH | `rest-` |
 | 3 | Webhooks | HIGH | `webhooks-` |
+| 4 | Patterns | MEDIUM-HIGH | `patterns-` |
 
 ## Quick Reference
 
 ### Concepts (HIGH)
-- `concepts-workflow-model` — definitions = nodes + edges + groups + loops; node shapes (agent / human); `reviewerEmails` (0–50, surfaces in step output); `commentBody` (stored on output — engine does NOT auto-create annotations); `onReject` shorthand (Form A: routeToNodeId; Form B: loopBack); strict-mode: every human node needs onReject or loop membership; top-level `loops[]` (loopId, entryNodeId, bodyNodeIds 1–50, maxIterations 1–20, previousAttempts threading); default loop predicate `decision == 'reject' && rejectorMandatory == true` does NOT fire when step resolved via `/steps/resolve` reject actions (use `recordReviewerDecision` instead); edge `when` expressions; group quorum policies (waitAll / cancelOnQuorum / joinOnQuorum)
+- `concepts-workflow-model` — definition anatomy and limits, the four node types, common node fields, lifecycles (`waiting` for agent, human, async webhook steps), deterministic step IDs, scope semantics, versioning pin, tenant partitioning, beta limitations
+- `concepts-agent-node` — `agentId` plus required `url` / `urlPath`, crawl and polling fields, `aiConfig` (`provider`, `model`, `defaultModels`, `maxToolTurns`), `__mock__`, no `blocking: true`, outputs, dispatch `organizationId` / `documentId`, link to the Agents feature
+- `concepts-human-node` — `reviewers[]` vs legacy `reviewerIds[]`, `reviewerEmails`, `commentBody`, resolution rule, required `on: "reject"` edge, undeclared reviewers return `recorded: false`
+- `concepts-notification-webhook-nodes` — email / Slack notification config and `{{...}}` templating; webhook node sync vs async, callback token contract, `hmac` / `token` / `none` auth, outputs
+- `concepts-edge-model` — `EdgeEndpoint`, `on` roles, JSON-AST `when` (custom only), reject loop-backs, `on: "exhausted"`, derived `compiled.loops`, fixed loop predicate, body shapes, `previousAttempts`, breach routing, `compiled` view
+- `concepts-groups-quorum` — group fields, quorum counts approvals (passing agents count), policy behavior, `requiredNodeIds`, groups as edge sources, `joinOnQuorum` successor input
+- `concepts-triggers` — trigger entries (one mechanism each), scope inheritance, cron `schedule`, GitHub / Vercel `appTrigger`, triggers now dispatch runs
 
 ### REST Endpoints (HIGH)
-- `rest-foundations` — auth headers, request/response envelope, canonical error codes (including `DEADLINE_EXCEEDED`), schema-level validation message reference
-- `rest-definitions` — 5 endpoints: create / update (with `ifVersion` optimistic lock) / get / list / delete; **full 25-rule linter reference** (16 graph+group rules + 9 new loop rules); scope per-level required fields (`organizationId` for organization scope; both `organizationId` + `documentId` for document scope); server-namespaced ID caveat; triggers shape (`{ triggerId, eventName?, filters? }`) — descriptive metadata only in v1, engine does NOT auto-dispatch
-- `rest-executions` — 5 endpoints: dispatch (idempotencyKey + webhook config) / get / list / cancel / getEvents (sinceSeq recovery + externally-visible event enumeration cross-referenced to webhooks-delivery, including loop events); v1 list limitation: no `organizationId`/`documentId` filter support
-- `rest-steps` — 4 endpoints: recordReviewerDecision (unknown reviewer silently accepted as unknown responder — no INVALID_ARGUMENT) / recordAgentResolution / cancel (admin, `actorId` REQUIRED 1–256 chars, error matrix: INVALID_ARGUMENT/FAILED_PRECONDITION/NOT_FOUND) / resolve (action-discriminated: `force-approve`, `force-reject`, `force-complete`, `force-fail`, `reviewer-approve`, `reviewer-reject`; `actorId` REQUIRED 1–256 chars; `reason` ≤ 2000 chars; reject actions do NOT populate `rejectorMandatory` — loop predicates won't fire; response shape `{ resolved, executionId, stepId, action }`)
-- `rest-object-views` — TypeScript shapes for `ExecutionView`, `StepView`, `DefinitionView`, `ApprovalEventView`, the human step `output` aggregator rollup, and the `joinOnQuorum` successor input
+- `rest-foundations` — headers, envelope, error codes, linter codes parsed from `error.message`, Zod `error.details.issues`, literal schema messages, rate limiting
+- `rest-definitions` — create, update as full replace with required `ifVersion`, round-tripping reads, get (no `webhookConfig`), list with `pageSize` / integer `cursor` / `items`, soft or `purge` delete, 19 linter codes and edge-contract rules
+- `rest-executions` — dispatch fields and errors (tombstoned is `FAILED_PRECONDITION`), get, list (`items` with `steps: []`, string `cursor`), cancel (no-op on terminal runs), `getEvents` with `sinceSeq`, `pageSize`, `hasMore`
+- `rest-steps` — `recordReviewerDecision` (`recorded`, `rejectionReason`, `aggregatorStatus`), `recordAgentResolution` unavailable in beta, `/steps/cancel`, `/steps/resolve` action matrix and loop-predicate caveat
+- `rest-object-views` — `ExecutionView`, `StepView` (four node types), `DefinitionView` with `compiled`, `CompiledGraph`, `ApprovalEventView`, human / agent / webhook step outputs, `joinOnQuorum` successor input
 
 ### Webhooks (HIGH)
-- `webhooks-delivery` — HMAC-SHA256 signature verification on raw bytes, delivery headers, retry schedule, event-type catalog (now includes `loop.iteration-started` and `loop.exhausted`), at-least-once idempotency
-- `webhooks-inbound-handler` — inbound HTTP endpoint that external systems POST raw JSON to (no `{data: ...}` envelope), bearer-token auth, signed callback tokens, per-source rate limiting, body-size limits, SSRF URL guard; distinct from outbound delivery and from the deferred `node.type === "webhook"`
+- `webhooks-delivery` — `webhookConfig` vs dispatch override, raw-byte HMAC verification, headers, retry schedule, 12-event catalog with per-node-type `data`, cancellation reasons, `(executionId, seq)` idempotency
+- `webhooks-inbound-handler` — `/v2/workflow/webhook-inbound/trigger` raw-JSON contract, per-trigger secret, provider presets, `allowedEvents`, idempotency headers, 1 MB limit, no built-in rate limiting or payload URL screening
+
+### Patterns (MEDIUM-HIGH)
+- `patterns-choose-the-right-construct` — "I want X, use Y" decision table, parallel policy choice, webhooks plus polling
+- `patterns-rejection-and-loops` — three rejection shapes, one group-source back-edge for parallel rewinds, anti-patterns (per-reviewer back-edges, `slaMs` with only reject, exhausted targets reachable twice)
+- `patterns-copy-update-versioning` — manual copy steps, triggers and `webhookConfig` pitfalls, full-replace updates, versioning without history or rollback
 
 ## How to Use
 
@@ -55,6 +68,12 @@ Read individual rule files for detailed explanations and code examples:
 
 ```
 rules/shared/concepts/concepts-workflow-model.md
+rules/shared/concepts/concepts-agent-node.md
+rules/shared/concepts/concepts-human-node.md
+rules/shared/concepts/concepts-notification-webhook-nodes.md
+rules/shared/concepts/concepts-edge-model.md
+rules/shared/concepts/concepts-groups-quorum.md
+rules/shared/concepts/concepts-triggers.md
 rules/shared/rest/rest-foundations.md
 rules/shared/rest/rest-definitions.md
 rules/shared/rest/rest-executions.md
@@ -62,11 +81,14 @@ rules/shared/rest/rest-steps.md
 rules/shared/rest/rest-object-views.md
 rules/shared/webhooks/webhooks-delivery.md
 rules/shared/webhooks/webhooks-inbound-handler.md
+rules/shared/patterns/patterns-choose-the-right-construct.md
+rules/shared/patterns/patterns-rejection-and-loops.md
+rules/shared/patterns/patterns-copy-update-versioning.md
 ```
 
 Each rule file contains:
 - Brief explanation of why it matters
-- Concrete request/response examples
+- Incorrect and correct request examples
 - Common pitfalls and what NOT to do
 - Verification checklist
 - Source pointers to official docs

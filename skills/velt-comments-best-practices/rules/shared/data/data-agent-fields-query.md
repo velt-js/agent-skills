@@ -2,14 +2,14 @@
 title: Use agentFields on CommentRequestQuery to Filter Annotation Count by Agent
 impact: MEDIUM
 impactDescription: Enables precise comment count queries scoped to agent-tagged annotations, avoiding full-collection scans
-tags: agent-fields, comment-request-query, getCommentAnnotationCount, agent, filter, AgentData
+tags: agent-fields, comment-request-query, getCommentAnnotationsCount, agent, filter, AgentData
 ---
 
 ## Use agentFields on CommentRequestQuery to Filter Annotation Count by Agent
 
 > **This rule is about QUERYING annotation counts on the frontend**, not about CREATING annotations. To create agent annotations via REST API, see `rest-agent-comments-api.md` — the creation API uses `agentName`, `reason`, `type: "suggestion"`, and `executionId` on `commentData[0].agent`. Do not confuse `agentFields` (a query-side filter) with the creation-side `agent` block fields.
 
-`CommentRequestQuery.agentFields` filters `getCommentAnnotationCount()` to only annotations where `agent.agentFields` contains any of the provided values. This is useful when a document has a mix of human and agent-authored annotations and you want a count scoped to a specific agent. Due to a Firestore `array-contains` limitation, when `agentFields` is set the unread count query is skipped and the unread count is treated as equal to the total count.
+`CommentRequestQuery.agentFields` filters `getCommentAnnotationsCount()` to only annotations where `agent.agentFields` contains any of the provided values. This is useful when a document has a mix of human and agent-authored annotations and you want a count scoped to a specific agent. When `agentFields` is set, the unread count equals the total count.
 
 **Incorrect (querying all annotation counts without agent scoping):**
 
@@ -17,7 +17,7 @@ tags: agent-fields, comment-request-query, getCommentAnnotationCount, agent, fil
 // Returns total + unread counts across all annotations,
 // including those not authored by the target agent
 const commentElement = client.getCommentElement();
-commentElement.getCommentAnnotationCount({
+commentElement.getCommentAnnotationsCount({
   organizationId: 'org-123',
 });
 ```
@@ -38,33 +38,38 @@ function AgentCommentCount() {
 
     // Filters to annotations where agent.agentFields contains
     // 'agent-1' or 'agent-2'. Unread count equals total count
-    // when agentFields is set (Firestore array-contains constraint).
-    const subscription = commentElement.getCommentAnnotationCount({
+    // when agentFields is set.
+    const subscription = commentElement.getCommentAnnotationsCount({
       organizationId: 'org-123',
       agentFields: ['agent-1', 'agent-2'],
-    }).subscribe((result) => {
-      setCount(result);
+    }).subscribe((response) => {
+      // response.data: Record<documentId, { total, unread }>, null while loading
+      setCount(response?.data);
     });
 
     return () => subscription.unsubscribe();
   }, [client]);
 
-  return <div>Agent annotations: {count?.totalCount ?? 0}</div>;
+  const total = Object.values(count ?? {}).reduce((sum, c) => sum + c.total, 0);
+  return <div>Agent annotations: {total}</div>;
 }
 ```
 
 **Correct (Other Frameworks — Angular, Vue, Vanilla JS):**
 
 ```typescript
-const commentElement = client.getCommentElement();
+const commentElement = Velt.getCommentElement();
 
-const subscription = commentElement.getCommentAnnotationCount({
+const subscription = commentElement.getCommentAnnotationsCount({
   organizationId: 'org-123',
   agentFields: ['agent-1', 'agent-2'],
-}).subscribe((result) => {
-  console.log('Agent annotation count:', result);
+}).subscribe((response) => {
+  console.log('Agent annotation count:', response?.data);
 });
+subscription?.unsubscribe();
 ```
+
+React hook equivalent: `const { data } = useCommentAnnotationsCount({ organizationId: 'org-123', agentFields: ['agent-1'] });`
 
 **CommentRequestQuery.agentFields:**
 
@@ -72,7 +77,7 @@ const subscription = commentElement.getCommentAnnotationCount({
 |-------|------|----------|-------------|
 | `agentFields` | `string[]` | Yes | Filters count queries to annotations where `agent.agentFields` contains any of the provided values. When set, unread count is treated as equal to total count. |
 
-**Behavioral Note:** The unread count query uses a Firestore `array-contains` constraint that cannot be combined with the filter used for unread counting. When `agentFields` is set, Velt skips the separate unread count query and returns `unreadCount === totalCount`. If your UI distinguishes read from unread, do not rely on `unreadCount` when `agentFields` is active.
+**Behavioral Note:** When `agentFields` is set, the returned `unread` count equals `total`. If your UI distinguishes read from unread, do not rely on `unread` when `agentFields` is active.
 
 **AgentData (set on `Comment.agent`):**
 
@@ -99,4 +104,5 @@ The annotation-level `CommentAnnotationAgent` (see `data-types-reference.md`) is
 
 **Source Pointers:**
 - https://docs.velt.dev/api-reference/sdk/models/data-models#commentrequestquery - CommentRequestQuery model
-- https://docs.velt.dev/async-collaboration/comments/customize-behavior/data/overview - Data customization overview
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#getcommentannotationscount - getCommentAnnotationsCount
+- https://docs.velt.dev/api-reference/sdk/models/data-models#getcommentannotationscountresponse - GetCommentAnnotationsCountResponse

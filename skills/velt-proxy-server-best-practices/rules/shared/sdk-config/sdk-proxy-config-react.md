@@ -1,12 +1,23 @@
 ---
 title: Configure proxyConfig in React / Next.js
 impact: CRITICAL
+impactDescription: proxyConfig must sit inside VeltProvider's config prop; a top-level prop is ignored
 tags: proxyConfig, VeltProvider, React, Next.js, config
 ---
 
 ## Configure proxyConfig in React / Next.js
 
 Pass `proxyConfig` inside the `config` prop on `VeltProvider`. Each field is a base URL pointing to your reverse proxy.
+
+**Incorrect (top-level prop):**
+
+```jsx
+<VeltProvider apiKey="YOUR_API_KEY" proxyConfig={{ cdnHost: 'https://cdn.yourdomain.com' }}>
+  <App />
+</VeltProvider>
+```
+
+**Correct:**
 
 ### Single Host (e.g., proxy only the CDN)
 
@@ -52,7 +63,7 @@ The SDK automatically appends `/lib/sdk@[VERSION]/velt.js` to `cdnHost` to fetch
 
 - `proxyConfig` is nested under `config`, not at the top level of `VeltProvider`
 - The deprecated `apiProxyDomain` top-level field still works but should be replaced with `proxyConfig.apiHost`
-- Only specify the hosts you're actually proxying — omit the rest
+- Only specify the hosts you're actually proxying; omit the rest
 - `authProvider` and `config` are sibling props on `VeltProvider`
 
 ### Migration from apiProxyDomain
@@ -66,3 +77,8 @@ If you have the deprecated `apiProxyDomain`, replace it:
 // After
 <VeltProvider config={{ proxyConfig: { apiHost: 'https://proxy.example.com/api' } }} />
 ```
+
+**Source Pointers:**
+- https://docs.velt.dev/security/proxy-server#quick-start — "Quick start"
+- https://docs.velt.dev/security/proxy-server#configure-each-service — "Configure each service"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#veltproviderconfig — VeltProviderConfig (deprecated `apiProxyDomain`)

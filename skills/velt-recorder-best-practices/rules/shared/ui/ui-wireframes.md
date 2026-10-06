@@ -7,7 +7,40 @@ tags: wireframe, VeltRecorderToolWireframe, VeltRecorderControlPanelWireframe, V
 
 ## Customize Recorder UI with Wireframe Components
 
-The recorder exposes 9 wireframe component hierarchies for full structural customization. Each sub-component accepts `defaultCondition?: boolean` to control visibility.
+The recorder exposes 9 wireframe component hierarchies for full structural customization. Each sub-component accepts `defaultCondition?: boolean` to control visibility. Wireframes are templates: place them inside `VeltWireframe` (React) or `<velt-wireframe style="display:none;">` (HTML), separate from the live recorder components.
+
+**Incorrect (wireframe rendered on its own):**
+
+```jsx
+// Outside VeltWireframe the SDK never registers the template
+<VeltRecorderAllToolWireframe>
+  <span>Record</span>
+</VeltRecorderAllToolWireframe>
+```
+
+**Correct (inside VeltWireframe):**
+
+```jsx
+import { VeltWireframe, VeltRecorderAllToolMenuWireframe } from '@veltdev/react';
+
+<VeltWireframe>
+  <VeltRecorderAllToolMenuWireframe>
+    <VeltRecorderAllToolMenuWireframe.Audio>Audio note</VeltRecorderAllToolMenuWireframe.Audio>
+    <VeltRecorderAllToolMenuWireframe.Video>Camera</VeltRecorderAllToolMenuWireframe.Video>
+    <VeltRecorderAllToolMenuWireframe.Screen>Screen</VeltRecorderAllToolMenuWireframe.Screen>
+  </VeltRecorderAllToolMenuWireframe>
+</VeltWireframe>
+```
+
+```html
+<velt-wireframe style="display:none;">
+  <velt-recorder-all-tool-menu-wireframe>
+    <velt-recorder-all-tool-menu-audio-wireframe>Audio note</velt-recorder-all-tool-menu-audio-wireframe>
+    <velt-recorder-all-tool-menu-video-wireframe>Camera</velt-recorder-all-tool-menu-video-wireframe>
+    <velt-recorder-all-tool-menu-screen-wireframe>Screen</velt-recorder-all-tool-menu-screen-wireframe>
+  </velt-recorder-all-tool-menu-wireframe>
+</velt-wireframe>
+```
 
 **Recorder Tool Wireframes:**
 
@@ -123,8 +156,18 @@ VeltSubtitlesWireframe
 - Wireframes override the default UI structure — omitted sub-components won't render
 
 **Verification:**
+- [ ] Wireframes are wrapped in `VeltWireframe` / `<velt-wireframe style="display:none;">`
 - [ ] Parent component has `shadowDom={false}` for custom styling
 - [ ] Wireframe hierarchy matches the component being customized
 - [ ] All desired sub-components included (omitted ones won't render)
 
-**Source Pointer:** https://docs.velt.dev/ui-customization/features/async/recorder/
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/async/recorder/recorder-tool - "Recorder Tool"
+- https://docs.velt.dev/ui-customization/features/async/recorder/control-panel - "Control Panel"
+- https://docs.velt.dev/ui-customization/features/async/recorder/recorder-player - "Recorder player"
+- https://docs.velt.dev/ui-customization/features/async/recorder/recorder-player-expanded - "Recorder Player Expanded"
+- https://docs.velt.dev/ui-customization/features/async/recorder/recording-preview-steps-dialog - "Recording Preview Steps Dialog"
+- https://docs.velt.dev/ui-customization/features/async/recorder/media-source-settings - "Media Source Settings"
+- https://docs.velt.dev/ui-customization/features/async/recorder/video-editor - "Video Editor"
+- https://docs.velt.dev/ui-customization/features/async/recorder/transcription - "Transcription"
+- https://docs.velt.dev/ui-customization/features/async/recorder/subtitles - "Subtitles"

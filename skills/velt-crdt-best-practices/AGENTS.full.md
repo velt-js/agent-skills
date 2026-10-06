@@ -1,8 +1,8 @@
 # Velt Crdt Best Practices
 
-**Version 2.1.1**  
+**Version 2.2.0**  
 Velt  
-January 2026
+October 2026
 
 > **Note:**  
 > This document is mainly for agents and LLMs to follow when maintaining,  
@@ -14,7 +14,7 @@ January 2026
 
 ## Abstract
 
-Comprehensive best practices guide for implementing real-time collaborative editing with Velt CRDT (Yjs). Contains 35 rules across 5 categories: Core CRDT (13 rules), Tiptap (7 rules), BlockNote (4 rules), CodeMirror (6 rules), and ReactFlow (5 rules). Each rule includes explanations, incorrect vs. correct code examples, verification checklists, and source pointers to official Velt documentation.
+Comprehensive best practices guide for implementing real-time collaborative editing with Velt CRDT (Yjs). Covers the core CRDT store API, the Tiptap, BlockNote, CodeMirror and ReactFlow integrations, and the multiplayer editor packages for Lexical, ProseMirror, Monaco, Ace, Quill, TinyMCE, CKEditor, SuperDoc, Apryse, Nutrient, SpreadJS, Slate and Draft.js. Each rule includes explanations, incorrect vs. correct code examples, verification checklists, and source pointers to official Velt documentation.
 
 ---
 
@@ -85,6 +85,23 @@ Comprehensive best practices guide for implementing real-time collaborative edit
    - 5.3 [Use CRDT Handlers for Node and Edge Changes](#53-use-crdt-handlers-for-node-and-edge-changes)
    - 5.4 [Use Unique editorId for Each ReactFlow Diagram](#54-use-unique-editorid-for-each-reactflow-diagram)
    - 5.5 [Use useVeltReactFlowCrdtExtension for Collaborative Diagrams](#55-use-useveltreactflowcrdtextension-for-collaborative-diagrams)
+
+6. [Multiplayer Editor Integrations](#6-multiplayer-editor-integrations) — **HIGH**
+   - 6.1 [Create the Slate Editor Once and Let the Manager Apply the Slate-Yjs Plugins](#61-create-the-slate-editor-once-and-let-the-manager-apply-the-slate-yjs-plugins)
+   - 6.2 [Route Every Draft.js Change Through handleChange() with Ref-Backed EditorState](#62-route-every-draftjs-change-through-handlechange-with-ref-backed-editorstate)
+   - 6.3 [Attach the ProseMirror View Before initialize() and Use Velt's Yjs undo/redo](#63-attach-the-prosemirror-view-before-initialize-and-use-velts-yjs-undoredo)
+   - 6.4 [Bind Monaco Once, Keep It Uncontrolled, and Style y-monaco Cursors](#64-bind-monaco-once-keep-it-uncontrolled-and-style-y-monaco-cursors)
+   - 6.5 [Create CKEditor First, Keep data Uncontrolled, and Forward onAfterDestroy](#65-create-ckeditor-first-keep-data-uncontrolled-and-forward-onafterdestroy)
+   - 6.6 [Create the SuperDoc Manager First and Pass Its ydoc and provider to Both Config Slots](#66-create-the-superdoc-manager-first-and-pass-its-ydoc-and-provider-to-both-config-slots)
+   - 6.7 [Follow the Shared Lifecycle for Velt Multiplayer Editor Integrations](#67-follow-the-shared-lifecycle-for-velt-multiplayer-editor-integrations)
+   - 6.8 [Give Ace a Real Range Factory and Use Collaborative Undo](#68-give-ace-a-real-range-factory-and-use-collaborative-undo)
+   - 6.9 [Keep TinyMCE Uncontrolled and Destroy the Manager Before tinymce.remove()](#69-keep-tinymce-uncontrolled-and-destroy-the-manager-before-tinymceremove)
+   - 6.10 [Pass GC.Spread.Sheets.Events and Destroy the Manager Before the Workbook](#610-pass-gcspreadsheetsevents-and-destroy-the-manager-before-the-workbook)
+   - 6.11 [Pass overlayContainer and Unload Nutrient Only After manager.destroy()](#611-pass-overlaycontainer-and-unload-nutrient-only-after-managerdestroy)
+   - 6.12 [Pick the Velt Multiplayer Package and Entry Point That Match Your Editor](#612-pick-the-velt-multiplayer-package-and-entry-point-that-match-your-editor)
+   - 6.13 [Register quill-cursors Before new Quill() and Use the Manager's Yjs Undo](#613-register-quill-cursors-before-new-quill-and-use-the-managers-yjs-undo)
+   - 6.14 [Set Lexical editorState to null and Use the Manager's Yjs Undo](#614-set-lexical-editorstate-to-null-and-use-the-managers-yjs-undo)
+   - 6.15 [Sync Apryse Annotations as XFDF Around an App-Owned WebViewer](#615-sync-apryse-annotations-as-xfdf-around-an-app-owned-webviewer)
 
 ---
 
@@ -273,7 +290,7 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### S
 
 **Impact: CRITICAL (Prevents CRDT store creation failures)**
 
-CRDT stores require a properly initialized Velt client. React apps must wrap with `VeltProvider`; other frameworks must call `initVelt()` before creating stores.
+CRDT stores require a properly initialized Velt client with a document context and an authenticated user. React apps wrap with `VeltProvider` and set the document; other frameworks call `initVelt()`, set the document, identify the user, and wait for `getVeltInitState()` before creating stores.
 
 **Incorrect (store created without Velt initialization):**
 
@@ -289,17 +306,18 @@ function App() {
 **Correct (React / Next.js):**
 
 ```tsx
-import { VeltProvider } from '@veltdev/react';
+import { VeltProvider, useSetDocument } from '@veltdev/react';
 
 function App() {
   return (
-    <VeltProvider apiKey="YOUR_API_KEY">
+    <VeltProvider apiKey="YOUR_API_KEY" authProvider={authProvider}>
       <CollaborativeEditor />
     </VeltProvider>
   );
 }
 
 function CollaborativeEditor() {
+  useSetDocument('my-document-id', { documentName: 'My Document' });
   // Now works - VeltProvider initialized the client
   const { store } = useStore({ storeId: 'note', type: 'text' });
   return <div>{/* ... */}</div>;
@@ -315,15 +333,22 @@ import { initVelt } from '@veltdev/client';
 // Step 1: Initialize Velt client first
 const veltClient = await initVelt('YOUR_API_KEY');
 
-// Step 2: Now create store with veltClient
-const store = await createVeltStore({
-  id: 'my-document',
-  type: 'text',
-  veltClient,  // Required - pass the initialized client
+// Step 2: Set the document scope and authenticate the user
+veltClient.setDocument('my-document-id', { documentName: 'My Document' });
+await veltClient.identify({ userId: 'user-1', name: 'John Doe', email: 'john@example.com' });
+
+// Step 3: Wait for the SDK, then create the store with veltClient
+veltClient.getVeltInitState().subscribe(async (isReady) => {
+  if (!isReady) return;
+  const store = await createVeltStore({
+    id: 'my-store',
+    type: 'text',
+    veltClient,  // Required - pass the initialized client
+  });
 });
 ```
 
-Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Step 2: Initialize Velt in your app)
+**v6 modular SDK note:** each feature loads as its own chunk. If you pass `featureAllowList` at init, include `'crdt'` so the CRDT chunk preloads (for example `['comment', 'presence', 'crdt']`), or call `await client.preloadCrdt()` before first use. Per the docs, calling `getCrdtElement()` or `preloadCrdt()` for a feature omitted from the list auto-enables it. Omitting `featureAllowList` preloads every chunk, as before.
 
 ---
 
@@ -360,7 +385,7 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (## Se
 
 **Impact: MEDIUM (Prevents memory leaks and stale listeners when stores are no longer needed)**
 
-In non-React frameworks, you must manually call `store.destroy()` to clean up resources and listeners when done with a CRDT store. In React, the `useStore` hook handles cleanup automatically on unmount. The store also exposes Yjs-level accessors (`getDoc()`, `getProvider()`, `getText()`, `getXml()`) for advanced integrations.
+In non-React frameworks, you must manually call `store.destroy()` to clean up resources and listeners when done with a CRDT store. In React, the `useStore` hook handles cleanup automatically on unmount. The store also exposes Yjs-level accessors (`getDoc()`, `getProvider()`, `getText()`, `getXml()`, `getAwareness()`) for advanced integrations.
 
 **Incorrect (no cleanup in non-React frameworks):**
 
@@ -507,7 +532,7 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (## Mi
 
 **Impact: MEDIUM-HIGH (Enables rollback to known good states)**
 
-Use `saveVersion()` to create named checkpoints that can be restored later. Useful for autosave, undo/redo at document level, or user-triggered saves. The full version lifecycle — `saveVersion` → `getVersions` / `getVersionById` → `restoreVersion` (or `setStateFromVersion` for a local-only preview) — is available on every Velt CRDT store: plain stores (`array`, `map`, `text`, `xml`) and the editor integrations built on top of them (Tiptap, BlockNote, CodeMirror, ReactFlow).
+Use `saveVersion()` to create named checkpoints that can be restored later. Useful for autosave, undo/redo at document level, or user-triggered saves. The full version lifecycle — `saveVersion` → `getVersions` / `getVersionById` → `restoreVersion` (or `setStateFromVersion` for a local-only preview) — is available on every Velt CRDT store: plain stores (`array`, `map`, `text`, `xml`) and the editor integrations built on top of them (Tiptap, BlockNote, CodeMirror, ReactFlow). The multiplayer editor managers (Lexical, Slate, Draft.js, ProseMirror, Quill, TinyMCE, CKEditor, SuperDoc, Monaco, Ace, Apryse, Nutrient, SpreadJS) expose the same `saveVersion` / `getVersions` / `restoreVersion` / `setStateFromVersion` methods on `CollaborationManager`; most of their React hooks also return reactive `versions` plus `saveVersion`, `restoreVersion`, and `refreshVersions()` (Lexical exposes versions through `manager` only).
 
 **Correct (React - saving versions):**
 
@@ -729,7 +754,7 @@ unsubscribe();
 const currentValue = store.getValue();
 ```
 
-Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Step 5: Listen for changes)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core#subscribe` (### Store Methods > #### subscribe())
 
 ---
 
@@ -915,29 +940,47 @@ async function checkpointAndPrune(client: any, docId: string, ydoc: Y.Doc) {
 }
 ```
 
-**Data types:**
+**Data types (from the data-models reference):**
 
 ```typescript
+interface CrdtGetMessagesQuery { id: string; afterTs?: number; }
+interface CrdtOnMessageQuery { id: string; callback: (message: CrdtMessageData) => void; afterTs?: number; }
+interface CrdtPruneMessagesQuery { id: string; beforeTs: number; }
+
 interface CrdtMessageData {
-  data: number[];        // Yjs update bytes (lib0-encoded)
-  source: string;        // Source identifier (e.g., 'tiptap')
-  timestamp: number;     // Unix timestamp (ms)
+  data: number[];        // Raw Yjs message bytes
+  yjsClientId: number;   // Yjs client ID of the sender
+  timestamp: number;     // Unix timestamp when the message was persisted
 }
 
 interface CrdtSnapshotData {
-  state: Uint8Array;     // Encoded Yjs state (Y.encodeStateAsUpdate output)
-  timestamp: number;     // Unix timestamp (ms)
-  vector?: Uint8Array;   // State vector (Y.encodeStateVector output)
+  state?: Uint8Array | number[];   // Encoded Yjs state (Y.encodeStateAsUpdate output)
+  vector?: Uint8Array | number[];  // Encoded state vector (Y.encodeStateVector output)
+  timestamp?: number;              // Unix timestamp when the snapshot was saved
 }
 
 interface CrdtPushMessageQuery {
-  id: string;                    // Document ID
-  data: number[];                // Yjs update bytes
-  yjsClientId: number;          // Yjs client ID (ydoc.clientID)
-  messageType: 'sync' | 'awareness'; // Message type
-  source?: string;               // Source identifier
+  id: string;                          // Document or store ID
+  data: number[];                      // Raw Yjs message bytes
+  yjsClientId: number;                 // ydoc.clientID
+  messageType?: 'sync' | 'awareness';  // Defaults to 'sync'
+  eventData?: unknown;                 // Optional arbitrary event payload
+  type?: string;                       // 'text' | 'map' | 'array' | 'xml' | 'xmltext'
+  contentKey?: string;                 // Content key used in Y.Doc shared types
+  source?: string;                     // Editor/library identifier, e.g. 'tiptap'
+}
+
+interface CrdtSaveSnapshotQuery {
+  id: string;
+  state: Uint8Array | number[];
+  vector: Uint8Array | number[];
+  type?: string;
+  contentKey?: string;
+  source?: string;
 }
 ```
+
+When a Velt multiplayer package exists for your editor (see `editors-choose-package`), use its `CollaborationManager` instead. Reach for the message stream only for a custom Yjs integration that has no Velt package.
 
 ---
 
@@ -1699,7 +1742,7 @@ const store = await createVeltStore<string>({
 store.update('Hello, collaborative world!');
 ```
 
-Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Step 4: Set or update the store value)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core#update` (### Store Methods > #### update())
 
 ---
 
@@ -1889,7 +1932,7 @@ window.addEventListener('veltCrdtStoreUnregister', (event) => {
 });
 ```
 
-Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Debugging > #### window.VeltCrdtStoreMap)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core#debugging` (## Debugging > ### window.VeltCrdtStoreMap); `getAll()` and the registration events are documented in the v4 CRDT core changelog
 
 ---
 
@@ -1897,7 +1940,7 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### D
 
 **Impact: HIGH (Enables server-side reactions to collaborative data changes)**
 
-CRDT stores support webhook notifications for data changes, allowing server-side systems to react to collaborative edits. Webhooks are disabled by default and use a 5-second debounce to batch rapid changes.
+CRDT stores emit the `crdt.update_data` webhook event so server-side systems can react to collaborative edits. Changes are debounced (default and minimum 5 seconds) to batch rapid edits. The docs disagree on the default state (the webhooks reference says enabled by default, the original v4 release note says disabled by default), so call `enableWebhook()` explicitly when your backend depends on these events.
 
 **Incorrect (no server-side awareness of CRDT changes):**
 
@@ -1911,6 +1954,7 @@ const store = await createVeltStore({ id: 'doc', type: 'text', veltClient });
 
 ```jsx
 import { useVeltClient } from '@veltdev/react';
+import { useEffect } from 'react';
 
 function CrdtWebhookSetup() {
   const { client } = useVeltClient();
@@ -1928,10 +1972,19 @@ function CrdtWebhookSetup() {
 }
 ```
 
+**Correct (Other Frameworks):**
+
+```js
+const crdtElement = Velt.getCrdtElement();
+crdtElement.enableWebhook();
+crdtElement.setWebhookDebounceTime(10000); // minimum 5000 ms
+```
+
 **Subscribing to `updateData` Events (Client-Side):**
 
 ```jsx
 import { useVeltClient } from '@veltdev/react';
+import { useEffect } from 'react';
 
 function CrdtChangeListener() {
   const { client } = useVeltClient();
@@ -1950,21 +2003,34 @@ function CrdtChangeListener() {
 }
 ```
 
-**Webhook payload structure (sent to your webhook URL):**
+**Webhook payload structure (`crdt.update_data`, sent to your webhook URL):**
 
-```typescript
-// POST to your webhook endpoint
+```json
 {
-  notificationSource: 'crdt',
-  crdtData: {
-    id: string;               // Editor/store ID
-    data: unknown;             // Current content
-    lastUpdatedBy: string;     // User ID of last editor
-    sessionId: string | null;  // Session ID
-    lastUpdate: string;        // ISO timestamp
+  "event": "crdt.update_data",
+  "actionType": "updateData",
+  "source": "crdt",
+  "platform": "sdk",
+  "webhookId": "-OnuSfG_ffGIwNkodE2a",
+  "data": {
+    "actionUser": { "userId": "michael", "name": "Michael Scott", "organizationId": "org-1" },
+    "crdtData": {
+      "id": "crdt-array-demo-todos-1",
+      "data": [{ "id": "seed-1", "text": "Welcome Todo", "completed": false }],
+      "lastUpdatedBy": "michael",
+      "sessionId": "tvLupvP0L2jiztlba4P0",
+      "lastUpdate": "2026-03-17T06:23:24.514Z"
+    },
+    "metadata": {
+      "apiKey": "YOUR_API_KEY",
+      "document": { "documentId": "crdt-array-demo-doc-1", "documentName": "CRDT Array Demo" },
+      "organization": { "organizationId": "org-1" }
+    }
   }
 }
 ```
+
+`data` follows the `CRDTPayload` model: `crdtData.id` is the editor/store ID and `crdtData.data` is the current value for any store type (array, map, text, xml, or xmltext).
 
 ---
 
@@ -2033,7 +2099,7 @@ unsubscribe();
 store.destroy();
 ```
 
-Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Step 3: Initialize a CRDT store > Other Frameworks)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/core#non-react-createveltstore` (## APIs > ### Non-React: createVeltStore())
 
 ---
 
@@ -2135,7 +2201,7 @@ function CollaborativeEditor() {
 }
 ```
 
-Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (### Step 3: Initialize Velt CRDT Extension > React / Next.js)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap#legacy-api-v1` (## Legacy API (v1) > React: useVeltTiptapCrdtExtension() (deprecated))
 
 ---
 
@@ -2823,7 +2889,7 @@ editor.destroy();
 store.destroy();
 ```
 
-Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (### Step 3: Initialize Velt CRDT Extension > Other Frameworks)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap#legacy-api-v1` (## Legacy API (v1)); also https://docs.velt.dev/api-reference/sdk/api/api-methods#createvelttiptapstore-deprecated
 
 ---
 
@@ -2946,7 +3012,7 @@ function CollaborativeEditor() {
 }
 ```
 
-Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/blocknote` (### Step 3: Initialize Velt CRDT Extension)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/blocknote#legacy-api-v1` (## Legacy API (v1) > React: useVeltBlockNoteCrdtExtension() (deprecated))
 
 ---
 
@@ -4029,7 +4095,1256 @@ function App() {
 }
 ```
 
-Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/reactflow` (### Step 3: Initialize Velt CRDT Extension)
+Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/reactflow#step-3-initialize-velt-crdt-extension` (### Step 3: Initialize Velt CRDT Extension)
+
+---
+
+## 6. Multiplayer Editor Integrations
+
+**Impact: HIGH**
+
+Velt multiplayer packages for Lexical, Slate, Draft.js, ProseMirror, Quill, TinyMCE, CKEditor 5, SuperDoc, Monaco, Ace, Apryse WebViewer, Nutrient, and SpreadJS. Covers the shared CollaborationManager lifecycle, package selection, and each editor's binding, history, cursor, and teardown pitfalls.
+
+### 6.1 Create the Slate Editor Once and Let the Manager Apply the Slate-Yjs Plugins
+
+**Impact: HIGH (Recreating the editor every render tears down collaboration; wrapping withYjs yourself or passing HTML initial content breaks sync and hydration)**
+
+`@veltdev/slate-crdt` (one package with both `useCollaboration()` and `createCollaboration()`) enhances a consumer-owned Slate editor. The manager applies `withYjs`, `withYHistory`, and (unless `enableCursors: false`) `withCursors` before remote data hydrates, backed by a shared `Y.XmlText`. Create the editor once with `useMemo()`, pass Slate `Descendant[]` nodes as `initialContent`, and publish selection changes so remote cursors render.
+
+**Incorrect (editor recreated each render, manual plugins, HTML seed):**
+
+```tsx
+import { createEditor } from 'slate';
+import { withReact } from 'slate-react';
+import { withYjs } from '@slate-yjs/core';
+import { useCollaboration } from '@veltdev/slate-crdt';
+
+function Editor() {
+  const editor = withYjs(withReact(createEditor()), sharedType); // new editor every render, manual binding
+  useCollaboration({
+    editorId: 'my-slate-editor',
+    editor,
+    initialContent: '<p>Hello</p>', // Slate expects Descendant[] nodes, not HTML
+  });
+}
+```
+
+**Correct (React hook):**
+
+```tsx
+import { useMemo } from 'react';
+import { createEditor } from 'slate';
+import { Editable, Slate, withReact } from 'slate-react';
+import { useDecorateRemoteCursors } from '@slate-yjs/react';
+import { useCollaboration } from '@veltdev/slate-crdt';
+
+const INITIAL_CONTENT = [{ type: 'paragraph', children: [{ text: 'Start writing...' }] }];
+
+function CursorEditable({ readOnly }: { readOnly: boolean }) {
+  const decorate = useDecorateRemoteCursors({ carets: true });
+  return <Editable readOnly={readOnly} decorate={decorate} placeholder="Start typing..." />;
+}
+
+export function CollaborativeEditor() {
+  const rawEditor = useMemo(() => withReact(createEditor()), []);
+
+  const { manager, isLoading, isSynced, status, error } = useCollaboration({
+    editorId: 'my-slate-editor',
+    editor: rawEditor,
+    initialContent: INITIAL_CONTENT,
+    cursorData: { name: 'Ada', color: '#2563eb', colorLight: 'rgba(37, 99, 235, 0.2)' },
+    onError: (err) => console.error('Collaboration error:', err),
+  });
+
+  if (error) return <div>Error: {error.message}</div>;
+
+  return (
+    <>
+      <div>Status: {status} | Synced: {isSynced ? 'Yes' : 'No'}</div>
+      <Slate
+        editor={rawEditor}
+        initialValue={INITIAL_CONTENT}
+        onChange={() => manager?.sendCursorPosition(rawEditor.selection)}
+      >
+        <CursorEditable readOnly={isLoading} />
+      </Slate>
+    </>
+  );
+}
+```
+
+**Correct (imperative API, lifecycle managed by your code):**
+
+```tsx
+import { createEditor } from 'slate';
+import { withReact } from 'slate-react';
+import { createCollaboration } from '@veltdev/slate-crdt';
+
+const editor = withReact(createEditor());
+const manager = await createCollaboration({
+  editorId: 'my-slate-editor',
+  editor,
+  veltClient: client, // initialized, user identified, document set
+  initialContent: [{ type: 'paragraph', children: [{ text: 'Start writing...' }] }],
+});
+
+const enhancedEditor = manager.getEditor(); // editor with YjsEditor, YHistoryEditor, CursorEditor applied
+
+// Cleanup
+manager.destroy();
+```
+
+- `manager.updateCursorData()`, `manager.sendCursorPosition(selection)`, and `manager.getCursorStates()` manage awareness-backed cursors.
+- Option passthroughs: `yjsOptions` (to `withYjs`), `undoManagerOptions` (to `withYHistory`), `cursorOptions` (to `withCursors`); `autoConnect: false` leaves the Yjs editor disconnected after initialization.
+- The hook destroys the manager on unmount or when `editorId`, editor, or Velt client change, and returns `destroy()` for early teardown.
+- `forceResetInitialContent: true` clears shared Slate content for every user; reserve it for deliberate resets.
+
+---
+
+### 6.2 Route Every Draft.js Change Through handleChange() with Ref-Backed EditorState
+
+**Impact: HIGH (Bypassing handleChange() means local edits never reach the CRDT; a closure-captured getEditorState applies remote snapshots to stale state)**
+
+Draft.js is a controlled editor, so `@veltdev/draftjs-crdt` (one package with `useCollaboration()` and `createCollaboration()`) needs `getEditorState` / `setEditorState` accessors from your app. Keep a ref synchronized with the latest `EditorState`, and pass every `onChange` value (including `RichUtils` results) through `handleChange()` before storing it. Bypassing it keeps the change local.
+
+**Incorrect (bypasses handleChange, stale closure):**
+
+```tsx
+const [editorState, setEditorState] = useState(() => EditorState.createEmpty());
+
+useCollaboration({
+  editorId: 'my-draftjs-editor',
+  getEditorState: () => editorState, // captured once: stale after the first change
+  setEditorState,
+});
+
+<Editor editorState={editorState} onChange={setEditorState} />; // never reaches the CRDT
+```
+
+**Correct (React hook):**
+
+```tsx
+import { useCallback, useRef, useState } from 'react';
+import { Editor, EditorState, RichUtils } from 'draft-js';
+import 'draft-js/dist/Draft.css';
+import { useCollaboration } from '@veltdev/draftjs-crdt';
+
+export function CollaborativeEditor() {
+  const [editorState, setEditorStateValue] = useState(() => EditorState.createEmpty());
+  const editorStateRef = useRef(editorState);
+
+  const setEditorState = useCallback((next: EditorState) => {
+    editorStateRef.current = next;
+    setEditorStateValue(next);
+  }, []);
+  const getEditorState = useCallback(() => editorStateRef.current, []);
+
+  const { handleChange, manager, isLoading, isSynced, status, error } = useCollaboration({
+    editorId: 'my-draftjs-editor',
+    getEditorState,
+    setEditorState,
+    initialContent: 'Hello Draft.js CRDT!',
+    cursorData: { name: 'Ada', color: '#2563eb' },
+    onError: (err) => console.error('Collaboration error:', err),
+  });
+
+  const onEditorChange = useCallback(
+    (next: EditorState) => setEditorState(handleChange(next)),
+    [handleChange, setEditorState],
+  );
+  const toggleBold = () => onEditorChange(RichUtils.toggleInlineStyle(editorStateRef.current, 'BOLD'));
+
+  if (error) return <div>Error: {error.message}</div>;
+
+  return (
+    <div>
+      <div>Status: {isLoading ? 'loading' : status} | Synced: {isSynced ? 'Yes' : 'No'}</div>
+      <button onClick={toggleBold}>Bold</button>
+      <Editor
+        editorState={editorState}
+        onChange={onEditorChange}
+        onFocus={() => manager?.sendCursorPosition()}
+        onBlur={() => manager?.sendCursorPosition()}
+      />
+    </div>
+  );
+}
+```
+
+With the imperative `createCollaboration({ editorId, veltClient, getEditorState, setEditorState })`, call `setEditorState(manager.handleChange(next))` and `manager.destroy()` on teardown (safe to call more than once).
+- Cursor DOM is application-owned: subscribe with `manager.onRemoteCursorsChange((cursors) => ...)` and render the returned `RemoteDraftCursor` data yourself.
+- `initialContent` accepts plain text or `RawDraftContentState`. Migrate existing content with `convertToRaw(editorState.getCurrentContent())`, not through HTML.
+- Data model: an XML store (key `draftjs`) holding raw-content snapshots. Online edits sync quickly, but two offline users editing the same old snapshot can supersede each other; choose Lexical or Slate when character-level offline merging matters.
+- REST-created content is bridged from the `restContentKey` fragment (default `'document-store'`); send Yjs-compatible XML state through the CRDT REST endpoints.
+- Do not disable local editing only because the provider is `connecting`.
+
+---
+
+### 6.3 Attach the ProseMirror View Before initialize() and Use Velt's Yjs undo/redo
+
+**Impact: HIGH (Initializing before the view is attached drops remote hydration; prosemirror-history or y-prosemirror commands break collaborative undo)**
+
+`@veltdev/prosemirror-crdt` installs Yjs sync, cursor, and undo plugins into a ProseMirror `EditorState`. In direct (Other Frameworks) setups, create the manager with `autoInitialize: false`, build the plugin set, create the state and view, attach the view, and only then call `initialize()`. Otherwise remote updates can arrive before the `EditorView` can receive them.
+
+**Incorrect (auto-initialize, local history, y-prosemirror commands, plugins twice):**
+
+```ts
+import { history, undo as pmUndo } from 'prosemirror-history';
+import { undo } from 'y-prosemirror';
+import { createCollaboration } from '@veltdev/prosemirror-crdt';
+
+const manager = await createCollaboration({ editorId: 'doc', veltClient: client, schema });
+// Store already hydrated before any view exists
+
+const pluginsA = manager.createCollaborationPlugins();
+const pluginsB = manager.createCollaborationPlugins(); // second plugin set for the same state
+const state = EditorState.create({ schema, plugins: [...pluginsA.plugins, history()] });
+```
+
+**Correct (Other Frameworks: deferred lifecycle):**
+
+```ts
+import { createCollaboration, undo, redo } from '@veltdev/prosemirror-crdt';
+import { EditorState } from 'prosemirror-state';
+import { EditorView } from 'prosemirror-view';
+import { keymap } from 'prosemirror-keymap';
+import { baseKeymap } from 'prosemirror-commands';
+
+const manager = await createCollaboration({
+  editorId: 'my-prosemirror-doc',
+  veltClient: client,
+  schema,                       // one schema, created once, compatible across clients
+  initialContent: 'Start writing here...',
+  autoInitialize: false,        // required for direct setup
+});
+
+const collaboration = manager.createCollaborationPlugins({
+  plugins: [keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Mod-Shift-z': redo }), keymap(baseKeymap)],
+});
+const state = EditorState.create({ schema, plugins: collaboration.plugins });
+const view = new EditorView(mountElement, { state });
+
+manager.attachEditorView(view);
+await manager.initialize(); // last
+
+// Teardown: view first, then the manager
+view.destroy();
+manager.destroy();
+```
+
+**Correct (React / Next.js: drop-in component with module-scope schema):**
+
+```tsx
+import { keymap } from 'prosemirror-keymap';
+import { baseKeymap } from 'prosemirror-commands';
+import {
+  ProseMirrorCrdtEditor,
+  createDefaultProseMirrorSchema,
+  undo,
+  redo,
+} from '@veltdev/prosemirror-crdt-react';
+
+const schema = createDefaultProseMirrorSchema(); // never rebuilt per render
+const plugins = [keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Mod-Shift-z': redo }), keymap(baseKeymap)];
+
+export function CollaborativeEditor() {
+  return (
+    <ProseMirrorCrdtEditor
+      editorId="my-prosemirror-doc"
+      schema={schema}
+      plugins={plugins}
+      initialContent="Start writing here..."
+      cursorData={{ name: 'Ada', color: '#2563eb' }}
+      onError={(error) => console.error('Collaboration error:', error)}
+    />
+  );
+}
+```
+
+The `useCollaboration()` hook returns `mountRef` and `editorView`; pass `editorView` plus `destroyViewOnUnmount: false` to attach an application-owned view (built with `manager.createCollaborationPlugins()` or `manager.createEditorState()`).
+- Import `undo` / `redo` from the Velt package you use, not from `y-prosemirror`, and never add `prosemirror-history`.
+- Schema node and mark names are part of the shared document contract; deploy schema changes as migrations. Invalid JSON in `initialContent` is rejected by the schema.
+- `initialContent` accepts plain text or ProseMirror JSON. The shared fragment is stored under the `prosemirror` key.
+- Style `.ProseMirror-yjs-cursor` / `.velt-prosemirror-cursor` and their `-label` / selection classes, or pass `disableCursors` to sync without the cursor plugin.
+- Deduplicate `yjs`, `y-prosemirror`, and the `prosemirror-*` packages in the bundle.
+
+---
+
+### 6.4 Bind Monaco Once, Keep It Uncontrolled, and Style y-monaco Cursors
+
+**Impact: HIGH (Controlled value props or a second bindEditor() call desync the shared Y.Text; missing cursor CSS leaves remote carets invisible)**
+
+`@veltdev/monaco-crdt` binds a Monaco model to a shared `Y.Text` through `y-monaco`. The CRDT-backed model owns content, so never pass `value` / `defaultValue` to the React wrapper or seed a direct editor with local text; use `initialContent` instead. Choose exactly one binding path: pass `editor` to `createCollaboration()` (auto-bind) or omit it and call `bindEditor(editor)` once later.
+
+**Incorrect (controlled value and double binding):**
+
+```tsx
+// React: value makes Monaco a second content source
+<MonacoCrdtEditor editorId="file-1" value={code} onChange={setCode} />;
+
+// Other Frameworks: auto-bound via `editor`, then bound again
+const manager = await createCollaboration({ editorId: 'file-1', veltClient: client, editor });
+await manager.bindEditor(editor);
+```
+
+**Correct (React / Next.js: drop-in component):**
+
+```tsx
+import { MonacoCrdtEditor } from '@veltdev/monaco-crdt-react';
+
+export function CollaborativeEditor() {
+  return (
+    <MonacoCrdtEditor
+      editorId="file-1"
+      language="typescript"
+      height="500px"
+      initialContent={'export const greeting = "Hello";\n'}
+      cursorData={{ name: 'Ada', color: '#2563eb' }}
+      onError={(error) => console.error('Collaboration error:', error)}
+    />
+  );
+}
+```
+
+With `useCollaboration()`, render `@monaco-editor/react`'s `Editor` and pass `onMount={(editor) => editorRef(editor)}`.
+
+**Correct (Other Frameworks: auto-bind, then manager-first teardown):**
+
+```ts
+import * as monaco from 'monaco-editor';
+import { createCollaboration } from '@veltdev/monaco-crdt';
+
+const editor = monaco.editor.create(document.getElementById('editor'), { value: '', language: 'typescript' });
+
+const manager = await createCollaboration({
+  editorId: 'file-1',
+  veltClient: client,
+  editor,                                  // auto-binds; do not call bindEditor() too
+  initialContent: '// Start writing here\n',
+  cursorData: { name: 'Ada', color: '#2563eb' },
+});
+
+// Collaboration-aware history
+manager.getUndoManager()?.undo();
+
+// Teardown
+manager.destroy();
+editor.dispose();
+```
+
+**Remote cursor CSS (required for visible carets):**
+
+```css
+.yRemoteSelection { background-color: rgba(37, 99, 235, 0.2); }
+.yRemoteSelectionHead { border-left: 2px solid #2563eb; min-height: 1.2em; }
+```
+
+For per-user colors and name labels, read `manager.getAwareness().getStates()` on `change` and inject `.yRemoteSelection-${clientId}` / `.yRemoteSelectionHead-${clientId}` rules, skipping `manager.getDoc().clientID`. Remove the style element and the `change` listener before destroying the manager.
+- Monaco needs browser APIs: in Next.js load the editor with `dynamic(() => import('./CollaborativeMonaco'), { ssr: false })` and configure Monaco workers in your bundler.
+- Deduplicate `yjs`, `y-protocols`, and `monaco-editor` (for example Vite `resolve.dedupe`). A "Yjs was already imported" warning means two copies are bundled.
+- The manager creates a `text` store with content key `content`; the Monaco `language` does not change the shared format.
+- `bindEditor(editor, { model, editors, awareness, destroyExisting })` is for shared models across several editor surfaces.
+
+---
+
+### 6.5 Create CKEditor First, Keep data Uncontrolled, and Forward onAfterDestroy
+
+**Impact: HIGH (Controlled data overwrites shared HTML; a missing onAfterDestroy leaves a stale manager bound after a watchdog restart)**
+
+`@veltdev/ckeditor-crdt` stores normalized CKEditor HTML in a Yjs XML fragment. The manager owns content, so the drop-in component must not receive `data` or `onReady`, and a self-rendered `CKEditor` must keep `data=""` and never update it from React state. When you render CKEditor yourself, forward `onAfterDestroy` to `editorRef(null)` so the manager releases a destroyed instance.
+
+**Incorrect (controlled data, no release on destroy):**
+
+```tsx
+<CKEditor
+  editor={ClassicEditor}
+  data={htmlFromState}                // overwrites shared HTML on every render
+  config={editorConfig}
+  onReady={(editor) => editorRef(editor)}
+  // missing onAfterDestroy={() => editorRef(null)}
+/>;
+```
+
+**Correct (React / Next.js: drop-in component):**
+
+```tsx
+import { ClassicEditor, Essentials, Paragraph, Bold, Italic, Undo } from 'ckeditor5';
+import 'ckeditor5/ckeditor5.css';
+import { CKEditorCrdtEditor } from '@veltdev/ckeditor-crdt-react';
+
+const editorConfig = {
+  licenseKey: 'GPL', // use your commercial key when required
+  plugins: [Essentials, Paragraph, Bold, Italic, Undo],
+  toolbar: ['undo', 'redo', '|', 'bold', 'italic'],
+};
+
+export function CollaborativeEditor() {
+  return (
+    <CKEditorCrdtEditor
+      editor={ClassicEditor}
+      editorId="project-brief"
+      config={editorConfig}
+      initialContent="<p>Start writing here...</p>"
+      cursorData={{ name: 'Ada', color: '#0f766e' }}
+      onError={(error) => console.error('Collaboration error:', error)}
+    />
+  );
+}
+```
+
+With `useCollaboration()`, render `<CKEditor editor={ClassicEditor} data="" config={editorConfig} onReady={(e) => editorRef(e)} onAfterDestroy={() => editorRef(null)} />`.
+
+**Correct (Other Frameworks):**
+
+```ts
+import { createCollaboration } from '@veltdev/ckeditor-crdt';
+
+const editor = await ClassicEditor.create(document.querySelector('#editor'), editorConfig);
+
+const manager = await createCollaboration({
+  editorId: 'project-brief',
+  veltClient: client,          // initialized, authenticated, document already set
+  editor,
+  initialContent: '<p>Start writing here...</p>',
+  cursorsContainer: document.querySelector('#editor-surface'),
+});
+
+// Teardown: manager first, then CKEditor
+manager.destroy();
+await editor.destroy();
+```
+
+- The React hook waits for Velt initialization, an authenticated user, the CKEditor instance, and `enabled`. It does not wait for document context, so set the document first.
+- Include a CKEditor plugin for every toolbar item and provide the correct license key.
+- For custom collaboration-aware undo buttons, use `manager.getUndoManager()`; do not trigger CKEditor's native undo and the Yjs undo from the same action.
+- The manager registers its fragment observer before the store initializes. Custom integrations must preserve that order or they miss initial server hydration.
+- `cursorsContainer: null` keeps awareness without overlay DOM; the hook also returns reactive `remoteCursors`.
+- Deduplicate `ckeditor5`, `yjs`, `y-protocols`, and `lib0` in linked or monorepo builds.
+
+---
+
+### 6.6 Create the SuperDoc Manager First and Pass Its ydoc and provider to Both Config Slots
+
+**Impact: HIGH (A separate Y.Doc or a config passed to only one slot breaks DOCX sync; two cursor renderers duplicate labels; wrong teardown order leaks the provider)**
+
+SuperDoc is the one integration where the collaboration manager is created before the editor. Obtain `{ ydoc, provider }` from the hook's `collaboration` value or `manager.getCollaborationConfig()`, and pass that same object to both the collaborative `documents[]` entry and `modules.collaboration`. Teardown is also inverted: destroy SuperDoc while it can still release the manager-owned provider, then destroy the manager.
+
+**Incorrect (own Y.Doc, one config slot, manager destroyed first):**
+
+```ts
+import * as Y from 'yjs';
+
+const superdoc = new SuperDoc({
+  selector: '#superdoc',
+  documents: [{ id: 'contract', type: 'docx' }],          // no ydoc/provider here
+  modules: { collaboration: { ydoc: new Y.Doc(), provider } }, // second Y.Doc
+});
+
+manager.destroy();  // provider released while SuperDoc still uses it
+superdoc.destroy();
+```
+
+**Correct (React / Next.js):**
+
+```css
+import { useEffect, useRef } from 'react';
+import { useCollaboration } from '@veltdev/superdoc-crdt-react';
+import { SuperDoc } from 'superdoc';
+import 'superdoc/style.css';
+
+export function SuperDocEditor() {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { collaboration, isLoading, error } = useCollaboration({ editorId: 'contract-2026-06' });
+
+  useEffect(() => {
+    if (!collaboration || !containerRef.current) return;
+    const superdoc = new SuperDoc({
+      selector: containerRef.current,
+      superdocId: 'contract-2026-06',
+      documentMode: 'editing',
+      documents: [{ id: 'contract-2026-06', type: 'docx', ...collaboration }],
+      modules: { collaboration },
+      layoutEngineOptions: { presence: { enabled: true } },
+      user: { id: 'user-1', name: 'Ada Lovelace', email: 'ada@example.com' },
+      users: [],
+      role: 'editor',
+    });
+    return () => superdoc.destroy?.(); // the hook destroys the manager itself
+  }, [collaboration]);
+
+  if (error) return <div>Error: {error.message}</div>;
+  if (isLoading || !collaboration) return <div>Connecting...</div>;
+  return <div ref={containerRef} className="superdoc-container" />;
+}
+/* React path keeps SuperDoc's presence overlay, so hide the y-prosemirror decorations */
+.ProseMirror-yjs-cursor { display: none; }
+.ProseMirror-yjs-selection { background: transparent !important; }
+```
+
+**Correct (Other Frameworks):**
+
+```ts
+import { createCollaboration } from '@veltdev/superdoc-crdt';
+import { SuperDoc } from 'superdoc';
+
+const manager = await createCollaboration({ editorId: 'contract-2026-06', veltClient: client });
+const collaboration = manager.getCollaborationConfig();
+if (!collaboration) {
+  manager.destroy(); // the factory can return a degraded manager; check before building SuperDoc
+  throw new Error('Collaboration did not initialize');
+}
+
+const superdoc = new SuperDoc({
+  selector: '#superdoc',
+  superdocId: 'contract-2026-06',
+  documentMode: 'editing',
+  documents: [{ id: 'contract-2026-06', type: 'docx', ydoc: collaboration.ydoc, provider: collaboration.provider }],
+  modules: { collaboration: { ydoc: collaboration.ydoc, provider: collaboration.provider } },
+  layoutEngineOptions: { presence: { enabled: false } }, // y-prosemirror cursors are the only renderer
+  user: { id: 'user-1', name: 'Ada Lovelace', email: 'ada@example.com' },
+  users: [],
+});
+
+// Teardown: SuperDoc first, then the manager
+superdoc.destroy();
+manager.destroy();
+```
+
+- Use exactly one cursor renderer: React keeps SuperDoc presence enabled and hides `.ProseMirror-yjs-cursor`; Other Frameworks disable `layoutEngineOptions.presence` and keep the y-prosemirror decorations visible.
+- `initialContent` is an application-level marker; SuperDoc receives DOCX data through its own configuration. `forceResetInitialContent` clears the shared state.
+- Do not write to SuperDoc's `supereditor` fragment or clear its `parts`, `meta`, or `media` maps. `manager.resetSuperDocState()` clears the document for every user; use it only for deliberate resets.
+- Install SuperDoc's peers (`superdoc`, `yjs`, `y-protocols`, `@hocuspocus/provider`, `pdfjs-dist`, `y-prosemirror`, `prosemirror-*`) and keep one copy of `yjs` and `superdoc` in the bundle.
+
+---
+
+### 6.7 Follow the Shared Lifecycle for Velt Multiplayer Editor Integrations
+
+**Impact: CRITICAL (Wrong init or teardown order causes missed initial hydration, duplicate bindings, overwritten shared content, and leaked editor listeners)**
+
+Every Velt multiplayer editor package (`@veltdev/<editor>-crdt` plus an optional `@veltdev/<editor>-crdt-react` wrapper) follows one lifecycle: initialize Velt, authenticate the user, set a stable document context, create the editor, create exactly one `CollaborationManager`, and tear down in a defined order. The manager owns the Y.Doc, sync provider, awareness, binding, and Yjs undo manager, so the application must not create its own copies or feed content into the editor from a second source.
+
+**Incorrect (second Y.Doc, controlled content, double binding, wrong teardown):**
+
+```ts
+import * as Y from 'yjs';
+import { createCollaboration } from '@veltdev/monaco-crdt';
+
+// Created before Velt is ready and before a user is identified
+const manager = await createCollaboration({ editorId: 'doc', veltClient: client, editor });
+
+// A second binding path for the same editor: never combine with `editor` above
+await manager.bindEditor(editor);
+
+// A separate Y.Doc bypasses Velt sync entirely
+const ydoc = new Y.Doc();
+
+// Disposing the editor first leaves the manager holding dead listeners
+editor.dispose();
+manager.destroy();
+```
+
+**Correct (Other Frameworks: ready, authenticated, editor first, one manager, ordered teardown):**
+
+```ts
+import { initVelt } from '@veltdev/client';
+import { createCollaboration } from '@veltdev/monaco-crdt';
+
+const DOCUMENT_ID = 'shared-file-1';
+const client = await initVelt('YOUR_API_KEY');
+await client.setDocument(DOCUMENT_ID, { documentName: 'Shared file' });
+await client.identify({ userId: 'ada', name: 'Ada', email: 'ada@example.com', organizationId: 'org-1' });
+
+let manager = null;
+const initSubscription = client.getVeltInitState().subscribe(async (isReady) => {
+  if (!isReady || manager) return;
+  const editor = createMyEditor(); // the application creates the editor first
+  manager = await createCollaboration({
+    editorId: DOCUMENT_ID,          // same editorId + document for every collaborator
+    veltClient: client,
+    editor,                         // binds once during initialization
+    initialContent: '// seed for a brand-new document only\n',
+    onError: (error) => console.error('Collaboration error:', error),
+  });
+});
+
+// Teardown: unsubscribe, destroy the manager, then dispose the editor
+function teardown(editor) {
+  initSubscription.unsubscribe();
+  manager?.destroy();
+  editor.dispose();
+}
+```
+
+**Correct (React / Next.js: authenticated provider, document set before the editor mounts):**
+
+```tsx
+import { useEffect, useState } from 'react';
+import { VeltProvider, useCurrentUser, useSetDocuments } from '@veltdev/react';
+
+function CollaborationScope() {
+  const user = useCurrentUser();
+  const { setDocuments } = useSetDocuments();
+  const [documentReady, setDocumentReady] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      setDocumentReady(false);
+      return;
+    }
+    setDocuments([{ id: 'shared-file-1', metadata: { documentName: 'Shared file' } }]);
+    setDocumentReady(true);
+  }, [user, setDocuments]);
+
+  // Mount the editor component (which calls the package's useCollaboration hook) only when ready
+  return user && documentReady ? <CollaborativeEditor /> : <p>Preparing collaboration...</p>;
+}
+
+<VeltProvider apiKey="YOUR_API_KEY" authProvider={authProvider}>
+  <CollaborationScope />
+</VeltProvider>;
+```
+
+| Concern | Rule |
+|---|---|
+| Readiness | Create the manager after Velt is initialized and a user is authenticated. Several React hooks (CKEditor, Apryse, Nutrient, Quill) do not wait for document context, so set the document before mounting the editor. |
+| Identity | Every collaborator must share the same Velt document and `editorId`. Use different `editorId` values for independent editors. |
+| Editor ownership | Create the editor or viewer first (exceptions: SuperDoc creates the manager first; ProseMirror direct setup creates the manager with `autoInitialize: false`). |
+| One binding | Passing `editor` / `instance` / `workbook` to the factory or hook binds it. Use `bindEditor()`, `attachEditor()`, `attachInstance()`, or `attachWorkbook()` only on the attach-later path, never both. |
+| Uncontrolled content | Do not pass `value`, `defaultValue`, `initialValue`, `data`, or `onEditorChange` style props. The shared Yjs state owns content. |
+| Initial content | `initialContent` seeds only a brand-new shared document. `forceResetInitialContent: true` (or `forceReset()`) replaces shared content for every collaborator; use it only for deliberate reset or template flows. |
+| History | Use the manager's Yjs-aware undo/redo (`getUndoManager()`, `undo()`/`redo()` helpers, or the package's exported commands). Do not add the editor's native history alongside it. |
+| Yjs ownership | Never create a second Y.Doc, provider, or awareness. Use `getDoc()`, `getProvider()`, `getAwareness()`, `getStore()` only as escape hatches. |
+| Dependencies | Resolve one copy of `yjs` (and `y-protocols` plus the editor package) in the bundle. |
+| Presence | Cursors and selections are awareness state: transient, not persisted, not part of versions. |
+| Cleanup (React) | Hooks and drop-in components destroy the manager on unmount; hooks also return `destroy()` and accept `enabled: false` for early teardown. |
+| Cleanup (Other Frameworks) | Unsubscribe callbacks, call `manager.destroy()`, then dispose the editor. Exceptions: SuperDoc (destroy SuperDoc, then the manager) and ProseMirror (destroy the `EditorView`, then the manager). |
+
+---
+
+### 6.8 Give Ace a Real Range Factory and Use Collaborative Undo
+
+**Impact: HIGH (Without an Ace Range factory remote markers do not render; mixing Ace local history with Yjs undo diverges from the shared text)**
+
+`@veltdev/ace-crdt` stores Ace content in one shared `Y.Text`. Remote cursors, selections, and highlights render as Ace markers, which need a real Ace `Range`, so pass a `rangeFactory` built from `ace.require('ace/range').Range` (the documented factory widens a collapsed cursor by one column so the caret stays visible). The shared text is the source of truth: do not pass `value` / `defaultValue`, and drive undo/redo through the manager's Yjs `UndoManager`.
+
+**Incorrect (controlled value, no range factory, double binding):**
+
+```tsx
+<AceCrdtEditor documentId="shared-code-file" value={code} />;
+
+const manager = await createCollaboration({ editorId: 'shared-code-file', veltClient: client, editor });
+manager.attachEditor(editor); // already attached by `editor` above
+editor.undo();                // Ace local history, not the shared history
+```
+
+**Correct (React / Next.js):**
+
+```tsx
+import ace from 'ace-builds/src-noconflict/ace';
+import 'ace-builds/src-noconflict/mode-typescript';
+import 'ace-builds/src-noconflict/theme-textmate';
+import { AceCrdtEditor } from '@veltdev/ace-crdt-react';
+
+const Range = ace.require('ace/range').Range;
+const rangeFactory = (start, end) => {
+  const visibleEnd = start.row === end.row && start.column === end.column
+    ? { row: end.row, column: end.column + 1 }
+    : end;
+  return new Range(start.row, start.column, visibleEnd.row, visibleEnd.column);
+};
+
+export function CollaborativeEditor() {
+  return (
+    <div className="ace-host">
+      <AceCrdtEditor
+        documentId="shared-code-file"
+        mode="typescript"
+        theme="textmate"
+        initialContent={'export const greeting = "Hello";\n'}
+        cursorData={{ name: 'Ada', color: '#0f766e', colorLight: '#0f766e33' }}
+        rangeFactory={rangeFactory}
+        onError={(error) => console.error('Ace collaboration:', error)}
+      />
+    </div>
+  );
+}
+```
+
+**Correct (Other Frameworks):**
+
+```ts
+import { createCollaboration } from '@veltdev/ace-crdt';
+
+const manager = await createCollaboration({
+  editorId: 'shared-code-file',
+  veltClient: client,
+  editor,                 // created with ace.edit(host) before this call
+  initialContent: '// Start writing here\n',
+  cursorData: { name: 'Ada', color: '#0f766e' },
+  rangeFactory,
+});
+
+const undoManager = manager.getUndoManager();
+undoManager?.undo();
+manager.flushEditorToStore('undo');
+
+// Teardown: manager, then Ace, then its DOM
+manager.destroy();
+editor.destroy();
+editor.container.remove();
+```
+
+- Import each `ace-builds/src-noconflict` mode and theme before selecting it, and give the host stable dimensions.
+- Do not override the injected marker borders with `border: none`; add only shape rules such as `.ace_marker-layer [class*="velt-ace-remote-marker"] { border-radius: 2px; }`.
+- In React, `collaboration.undo()` / `collaboration.redo()` are the collaborative history controls. When Ace is created later, call `collaboration.editorRef(editor)` and `collaboration.editorRef(null)` before replacing it.
+- Attach-later (`initializeWithoutEditor: true` + `attachEditor(editor, { rangeFactory })`) replaces passing `editor`; never use both.
+- Keep one copy of `@veltdev/crdt`, `yjs`, and `y-protocols` in the bundle.
+
+---
+
+### 6.9 Keep TinyMCE Uncontrolled and Destroy the Manager Before tinymce.remove()
+
+**Impact: HIGH (Controlled content props overwrite shared HTML; removing TinyMCE before manager.destroy() leaves listeners and awareness attached to a dead editor)**
+
+`@veltdev/tinymce-crdt` stores normalized HTML in a Yjs XML fragment and preserves the local selection while applying remote HTML. The CRDT manager is the only content owner: do not pass `value`, `initialValue`, or `onEditorChange`. In Other Frameworks, initialize TinyMCE first, create the manager with the editor instance, and destroy the manager before `tinymce.remove(editor)`.
+
+**Incorrect (controlled TinyMCE with the hook):**
+
+```tsx
+import { Editor } from '@tinymce/tinymce-react';
+import { useCollaboration } from '@veltdev/tinymce-crdt-react';
+
+const { editorRef } = useCollaboration({ editorId: 'proposal' });
+
+<Editor
+  value={html}                 // second content source
+  onEditorChange={setHtml}
+  onInit={(_e, editor) => editorRef(editor)}
+/>;
+```
+
+**Correct (React / Next.js: drop-in component or uncontrolled hook):**
+
+```tsx
+import { TinyMceCrdtEditor } from '@veltdev/tinymce-crdt-react';
+
+export function CollaborativeEditor() {
+  return (
+    <TinyMceCrdtEditor
+      editorId="proposal"
+      initialContent="<p>Start writing here...</p>"
+      licenseKey="gpl"
+      init={{ height: 500, menubar: false, plugins: 'autolink link lists' }}
+      cursorData={{ name: 'Ada', color: '#2563eb' }}
+      onError={(error) => console.error('Collaboration error:', error)}
+    />
+  );
+}
+```
+
+The component forwards normal `@tinymce/tinymce-react` props except `value`, `initialValue`, `onEditorChange`, and `onInit`. With the hook, render `<Editor licenseKey="gpl" onInit={(_e, editor) => editorRef(editor)} init={...} />` and nothing else that sets content.
+
+**Correct (Other Frameworks):**
+
+```ts
+import tinymce from 'tinymce/tinymce';
+import { createCollaboration } from '@veltdev/tinymce-crdt';
+
+const [editor] = await tinymce.init({ selector: '#editor', inline: true, license_key: 'gpl', plugins: 'autolink link lists' });
+
+const manager = await createCollaboration({
+  editorId: 'proposal',
+  veltClient: client,
+  editor,
+  initialContent: '<p>Start writing here...</p>',
+  cursorData: { name: 'Ada', color: '#2563eb' },
+  onError: (error) => console.error('Collaboration error:', error),
+});
+
+// Teardown: manager first, then TinyMCE
+manager.destroy();
+tinymce.remove(editor);
+```
+
+- Both inline and iframe modes are supported (omit `inline: true` for iframe mode). Remote cursor overlays work in both.
+- Self-hosted builds must import `tinymce/tinymce`, the theme, model, icons, plugins, and skin CSS; otherwise the editor stays blank. Tiny Cloud users pass `apiKey` instead.
+- Local edits reach the CRDT after `debounceMs` (default 125 ms).
+- `cursorsContainer={null}` keeps awareness active without injected cursor DOM; `manager.onRemoteCursorsChange()` feeds custom cursor UI.
+- `manager.getHtml()` / `manager.setHtml(html)` read and replace the shared HTML.
+
+---
+
+### 6.10 Pass GC.Spread.Sheets.Events and Destroy the Manager Before the Workbook
+
+**Impact: HIGH (Without the official event constants workbook changes are missed; double attachment or destroying the workbook first leaks handlers and overlays)**
+
+`@veltdev/spreadjs-crdt` serializes the whole SpreadJS workbook (`workbook.toJSON()`) into a Velt map store and applies remote snapshots with `workbook.fromJSON()`. Pass `GC.Spread.Sheets.Events` so cell, range, sheet, and selection changes use the official event names, keep serialization options identical across clients, and destroy the manager before the workbook and its host.
+
+**Incorrect (no events, double attachment, hidden host):**
+
+```ts
+// Host is display:none when the workbook is constructed
+const workbook = new GC.Spread.Sheets.Workbook(hiddenHost);
+
+const manager = await createCollaboration({ editorId: 'forecast-2026', veltClient: client, workbook });
+manager.attachWorkbook(workbook);  // already attached by `workbook` above
+workbook.destroy();                // workbook gone before the manager detaches handlers
+manager.destroy();
+```
+
+**Correct (Other Frameworks):**
+
+```ts
+import GC from '@mescius/spread-sheets';
+import '@mescius/spread-sheets/styles/gc.spread.sheets.excel2013white.css';
+import { createCollaboration } from '@veltdev/spreadjs-crdt';
+
+GC.Spread.Sheets.LicenseKey = 'YOUR_SPREADJS_LICENSE_KEY';
+const host = document.querySelector('#spread-host'); // explicit height, visible
+const workbook = new GC.Spread.Sheets.Workbook(host, { sheetCount: 2, tabEditable: true });
+
+const manager = await createCollaboration({
+  editorId: 'forecast-2026',
+  veltClient: client,
+  workbook,
+  events: GC.Spread.Sheets.Events,
+  initialContent: workbook.toJSON({ includeBindingSource: true }),
+  serializationOptions: { includeBindingSource: true },
+  deserializationOptions: { doNotRecalculateAfterLoad: false },
+});
+
+// Persist immediately after a complex multi-step operation
+await manager.flushWorkbookToStore('toolbar-action', true);
+
+// Teardown
+manager.clearRemoteSelectionOverlays();
+manager.destroy();
+workbook.destroy();
+host.remove();
+```
+
+**Correct (React / Next.js: drop-in component owns the workbook):**
+
+```tsx
+import { SpreadJSCrdtWorkbook } from '@veltdev/spreadjs-crdt-react';
+
+export function ForecastWorkbook() {
+  return (
+    <SpreadJSCrdtWorkbook
+      documentId="forecast-2026"
+      licenseKey="YOUR_SPREADJS_LICENSE_KEY"
+      className="spread-host"
+      workbookOptions={{ sheetCount: 2, tabEditable: true }}
+      serializationOptions={{ includeBindingSource: true }}
+      onError={(error) => console.error('Collaboration error:', error)}
+    />
+  );
+}
+```
+
+With `useCollaboration({ editorId, workbook, events: GC.Spread.Sheets.Events })` and an application-owned workbook, add `data-spreadjs-host` to the host and call `collaboration.destroy()` before `workbook.destroy()` in cleanup. Only `veltClient`, `editorId`, `workbook`, and `initializeWithoutWorkbook` reinitialize the hook.
+- Snapshot model: overlapping edits to the same cell resolve to the latest accepted snapshot. There is no cell-operation merge, formula conflict resolution, or locking; add a product-level policy for high-risk concurrent edits.
+- Local events are debounced before `toJSON()` (default 120 ms). Test large workbooks with production serialization options.
+- `forceResetInitialContent` (at creation) and `forceReset()` (runtime) replace the whole shared workbook.
+- Remote selections are awareness only, rendered for the active sheet, and not stored in versions.
+- Attach-later (`initializeWithoutWorkbook: true` + `attachWorkbook(workbook, { events, applyRemoteState: true })`) is an alternative path; detach before destroying a replaced workbook.
+- The wrapper peer range targets `@mescius/spread-sheets@^19.1.3`; keep one copy of `yjs` and `y-protocols`.
+
+---
+
+### 6.11 Pass overlayContainer and Unload Nutrient Only After manager.destroy()
+
+**Impact: HIGH (Missing overlayContainer misplaces remote selections; unloading the viewer before the manager or double-attaching it leaks listeners and corrupts Instant JSON sync)**
+
+`@veltdev/nutrient-crdt` synchronizes Nutrient Instant JSON (annotations, comments, form values) as debounced snapshots in a Velt map store; the PDF stays a viewer resource. Load the viewer first, pass its positioned host as `overlayContainer` so remote page-rectangle selections render in the right coordinate context, and unload Nutrient only after the manager has released its listeners and overlays.
+
+**Incorrect (no overlay host, double attach, unload first):**
+
+```ts
+const manager = await createCollaboration({ editorId: 'review-123', veltClient: client, instance });
+manager.attachInstance(instance);       // already attached by `instance` above
+NutrientViewer.unload(host);            // viewer removed while the manager is still bound
+manager.destroy();
+```
+
+**Correct (React / Next.js):**
+
+```tsx
+import { INSTANT_JSON_FORMAT, NutrientCrdtEditor } from '@veltdev/nutrient-crdt-react';
+
+const initialContent = { format: INSTANT_JSON_FORMAT, annotations: [], comments: [], formFieldValues: {} };
+
+export function CollaborativeDocument() {
+  return (
+    <NutrientCrdtEditor
+      documentId="nutrient-review-123"
+      document="/documents/contract.pdf"
+      licenseKey="YOUR_NUTRIENT_LICENSE_KEY"
+      useCDN
+      initialContent={initialContent}
+      className="nutrient-host"
+      onError={(error) => console.error('Collaboration error:', error)}
+    />
+  );
+}
+```
+
+When the application owns the viewer, call `useCollaboration({ editorId, instance, initialContent, overlayContainer: hostRef.current })` and, in cleanup, call `collaboration.destroy()` before `NutrientViewer.unload(host)`. `NutrientCrdtEditor` unloads only viewers it created.
+
+**Correct (Other Frameworks):**
+
+```ts
+import NutrientViewer from '@nutrient-sdk/viewer';
+import { createCollaboration } from '@veltdev/nutrient-crdt';
+
+const host = document.querySelector('#nutrient-viewer'); // non-zero size, position: relative
+const instance = await NutrientViewer.load({ container: host, document: '/documents/contract.pdf', useCDN: true, licenseKey: 'YOUR_NUTRIENT_LICENSE_KEY' });
+
+const manager = await createCollaboration({
+  editorId: 'nutrient-review-123',
+  veltClient: client,
+  instance,                  // binds the viewer; do not call attachInstance() too
+  overlayContainer: host,
+  initialContent: { format: 'https://pspdfkit.com/instant-json/v1', annotations: [], comments: [], formFieldValues: {} },
+});
+
+// Before navigation, wait for the latest local change to persist
+await manager.flushInstanceToStore('before-navigation', true);
+
+// Teardown: manager first, then the viewer
+manager.destroy();
+NutrientViewer.unload(host);
+```
+
+- `initialContent` seeds only a new, empty store; the manager strips `pdfId` before persistence. `forceResetInitialContent` and `forceReset()` replace annotations, comments, and form values for every collaborator.
+- Viewer events schedule debounced `exportInstantJSON()` calls (default 120 ms). `manager.getStats().lastFlushReason` helps diagnose missed writes.
+- Selections are awareness only and are excluded from Instant JSON and versions; map rectangles through the current page, zoom, and scroll transform.
+- The React hook waits for Velt initialization, an authenticated user, and `instance`; set the document before mounting.
+- Attach-later (`initializeWithoutInstance: true` + `attachInstance(instance, { applyRemoteState: true })`) is an alternative to passing `instance`, never an extra step.
+
+---
+
+### 6.12 Pick the Velt Multiplayer Package and Entry Point That Match Your Editor
+
+**Impact: HIGH (Wiring a raw Yjs binding or the wrong Velt package skips Velt sync, versions, and presence and breaks REST/webhook data shapes)**
+
+Velt ships a dedicated multiplayer package for each supported editor. Each base package (`@veltdev/<editor>-crdt`) exports `createCollaboration()` for any framework; the React package (`@veltdev/<editor>-crdt-react`) adds a hook and, for most editors, a drop-in component. Slate and Draft.js ship a single package that contains both the React hook and the factory. Use the Core store (`@veltdev/crdt`) only when no dedicated integration exists.
+
+**Incorrect (hand-rolled Yjs binding for an editor Velt already supports):**
+
+```ts
+import * as Y from 'yjs';
+import { QuillBinding } from 'y-quill';
+
+// Bypasses the Velt manager: no Velt sync provider, versions, status, or REST-compatible store
+const ydoc = new Y.Doc();
+new QuillBinding(ydoc.getText('quill'), quill, someAwareness);
+```
+
+**Correct (use the editor's Velt package):**
+
+```ts
+import { createCollaboration } from '@veltdev/quill-crdt';
+
+const manager = await createCollaboration({
+  editorId: 'shared-quill-doc',
+  veltClient: client,
+  editor: quill,
+});
+```
+
+| Editor | React package | Base package | React entry points | Shared data model |
+|---|---|---|---|---|
+| Lexical | `@veltdev/lexical-crdt-react` | `@veltdev/lexical-crdt` | `LexicalCollaborationPlugin`, `useLexicalComposerCollaboration()`, `useCollaboration()` (explicit editor) | `Y.XmlText` via `@lexical/yjs` |
+| Slate | `@veltdev/slate-crdt` (single package) | same | `useCollaboration()` (alias `useSlateCollaboration`) | `Y.XmlText` via `@slate-yjs/core` |
+| Draft.js | `@veltdev/draftjs-crdt` (single package) | same | `useCollaboration()` (alias `useDraftJsCollaboration`) | XML store with raw-content snapshots |
+| ProseMirror | `@veltdev/prosemirror-crdt-react` | `@veltdev/prosemirror-crdt` | `ProseMirrorCrdtEditor`, `useCollaboration()` | `Y.XmlFragment` (key `prosemirror`) |
+| Quill 2 | `@veltdev/quill-crdt-react` | `@veltdev/quill-crdt` | `QuillCrdtEditor`, `useCollaboration()`, `QuillCrdtProvider` | `Y.Text` Delta via `y-quill` |
+| TinyMCE | `@veltdev/tinymce-crdt-react` | `@veltdev/tinymce-crdt` | `TinyMceCrdtEditor`, `useCollaboration()` | Normalized HTML in `Y.XmlFragment` |
+| CKEditor 5 | `@veltdev/ckeditor-crdt-react` | `@veltdev/ckeditor-crdt` | `CKEditorCrdtEditor`, `useCollaboration()` | Normalized HTML in `Y.XmlFragment` |
+| SuperDoc (DOCX) | `@veltdev/superdoc-crdt-react` | `@veltdev/superdoc-crdt` | `useCollaboration()` (alias `useSuperDocCollaboration`) | XML store; `{ ydoc, provider }` handed to SuperDoc |
+| Monaco | `@veltdev/monaco-crdt-react` | `@veltdev/monaco-crdt` | `MonacoCrdtEditor`, `useCollaboration()` | `Y.Text` (text store, key `content`) via `y-monaco` |
+| Ace | `@veltdev/ace-crdt-react` | `@veltdev/ace-crdt` | `AceCrdtEditor`, `useCollaboration()`, `AceCrdtProvider` | `Y.Text` (text store) |
+| Apryse WebViewer | `@veltdev/apryse-crdt-react` | `@veltdev/apryse-crdt` | `useApryseCrdt()` (aliases `useCollaboration`, `useApryseCollaboration`), `ApryseCrdtProvider` | Map store (key `apryse`) of XFDF annotation records |
+| Nutrient Web SDK | `@veltdev/nutrient-crdt-react` | `@veltdev/nutrient-crdt` | `NutrientCrdtEditor`, `useCollaboration()`, `NutrientCrdtProvider` | Map store (key `document`) of Instant JSON snapshots |
+| SpreadJS | `@veltdev/spreadjs-crdt-react` | `@veltdev/spreadjs-crdt` | `SpreadJSCrdtWorkbook`, `useCollaboration()`, `SpreadJSCrdtProvider` | Map store (key `workbook`) of workbook JSON snapshots |
+Tiptap, BlockNote, CodeMirror, and ReactFlow have their own rule categories in this skill.
+- **Character-level merges:** Lexical, Slate, ProseMirror, Quill, Monaco, Ace (operation-level Yjs bindings).
+- **Snapshot reconciliation:** Draft.js (offline edits to the same old snapshot can supersede each other), SpreadJS (whole-workbook snapshots; no cell-level merge or formula conflict resolution), Nutrient (Instant JSON snapshots).
+- **Record-level:** Apryse stores one record per annotation with deletion tombstones; the PDF bytes are not synced.
+Choose an editor with an operation-level binding (for example Lexical or Slate) when offline character-level merging matters.
+
+---
+
+### 6.13 Register quill-cursors Before new Quill() and Use the Manager's Yjs Undo
+
+**Impact: HIGH (Registering cursors after construction hides remote cursors; a standalone Quill history stack or a second QuillBinding diverges from the shared Delta)**
+
+`@veltdev/quill-crdt` connects Quill 2 to one shared `Y.Text` (Delta operations). The base manager owns the only `y-quill` binding, provider, awareness, and Yjs `UndoManager`; `quill-cursors` renders remote cursors. Register `quill-cursors` before any custom `new Quill()` call, keep Quill history local-only (`userOnly: true`), and expose the manager's `undo()` / `redo()` as the user-facing history controls.
+
+**Incorrect (late cursor registration, own binding, Quill history in the toolbar):**
+
+```ts
+import Quill from 'quill';
+import QuillCursors from 'quill-cursors';
+import { QuillBinding } from 'y-quill';
+
+const quill = new Quill('#quill-editor', { theme: 'snow', modules: { cursors: true } });
+Quill.register('modules/cursors', QuillCursors); // too late: remote cursors never render
+
+new QuillBinding(ytext, quill, awareness);        // second binding next to the Velt manager
+undoButton.onclick = () => quill.history.undo();  // local stack, not collaborative history
+```
+
+**Correct (Other Frameworks):**
+
+```ts
+import Quill from 'quill';
+import QuillCursors from 'quill-cursors';
+import 'quill/dist/quill.snow.css';
+import { createCollaboration } from '@veltdev/quill-crdt';
+
+Quill.register('modules/cursors', QuillCursors); // before new Quill()
+
+const host = document.querySelector('#quill-editor');
+const editor = new Quill(host, {
+  theme: 'snow',
+  modules: {
+    cursors: { transformOnTextChange: true },
+    history: { userOnly: true },
+    toolbar: [['bold', 'italic', 'underline'], [{ list: 'ordered' }, { list: 'bullet' }]],
+  },
+});
+
+const manager = await createCollaboration({
+  editorId: 'shared-quill-doc',
+  veltClient: client,
+  editor,                                   // creates the y-quill binding; no attachEditor() too
+  initialContent: { ops: [{ insert: 'Collaborative Quill document\n' }] },
+  cursorData: { name: 'Ada', color: '#0f766e' },
+});
+
+undoButton.onclick = () => manager.undo();
+redoButton.onclick = () => manager.redo();
+
+// Teardown
+manager.destroy();
+host.replaceChildren();
+```
+
+**Correct (React / Next.js: drop-in component registers cursors for you):**
+
+```tsx
+'use client';
+import { QuillCrdtEditor } from '@veltdev/quill-crdt-react';
+import 'quill/dist/quill.snow.css';
+
+export function CollaborativeEditor() {
+  return (
+    <QuillCrdtEditor
+      documentId="shared-quill-doc"
+      theme="snow"
+      modules={{ cursors: { transformOnTextChange: true }, history: { userOnly: true } }}
+      cursorData={{ name: 'Ada', color: '#0f766e' }}
+      onError={(error) => console.error('Quill collaboration:', error)}
+    />
+  );
+}
+```
+
+With `useCollaboration()`, register `quill-cursors` yourself, create Quill in a client-only effect, pass it to `collaboration.editorRef(editor)`, and in cleanup call `collaboration.destroy()` before `collaboration.editorRef(null)` and clearing the host.
+- `initialContent` accepts plain text or a Quill Delta and applies only to a new document; `forceReset()` / `forceResetInitialContent` replace content for everyone and clear collaborative undo history.
+- `highlightRange()` writes a persistent Delta background; awareness selections are transient.
+- Do not hide `.ql-cursor` or `.ql-cursor-selection` in application CSS.
+- Include every used format in Quill's `formats` allowlist or the formatting is dropped.
+- Run `npm ls yjs` and deduplicate `yjs`, `@veltdev/crdt`, and `y-quill`.
+
+---
+
+### 6.14 Set Lexical editorState to null and Use the Manager's Yjs Undo
+
+**Impact: HIGH (A composer editorState or Lexical's HistoryPlugin conflicts with the shared Y.XmlText and produces duplicated or reverted content)**
+
+`@veltdev/lexical-crdt-react` and `@veltdev/lexical-crdt` bind Lexical to a shared `Y.XmlText` through the official `@lexical/yjs` binding. Collaboration owns the document state, so the composer must start with `editorState: null`, Lexical's normal history plugin must not be registered, and the manager (not your code) must own the `@lexical/yjs` binding, provider, awareness, and `Y.UndoManager`.
+
+**Incorrect (composer state, HistoryPlugin, manual binding):**
+
+```tsx
+import { LexicalComposer } from '@lexical/react/LexicalComposer';
+import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
+
+const initialConfig = {
+  namespace: 'doc',
+  editorState: JSON.stringify(savedState), // conflicts with the shared CRDT document
+  onError: console.error,
+};
+
+<LexicalComposer initialConfig={initialConfig}>
+  <HistoryPlugin /> {/* local history that does not understand remote updates */}
+  {/* no Velt collaboration plugin; @lexical/yjs wired by hand elsewhere */}
+</LexicalComposer>;
+```
+
+**Correct (React / Next.js: plugin or composer hook inside LexicalComposer):**
+
+```tsx
+import { LexicalComposer } from '@lexical/react/LexicalComposer';
+import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
+import { ContentEditable } from '@lexical/react/LexicalContentEditable';
+import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
+import { useLexicalComposerCollaboration } from '@veltdev/lexical-crdt-react';
+
+const initialConfig = {
+  namespace: 'my-collab-editor',
+  editorState: null, // collaboration owns the state
+  theme: {
+    collaboration: {
+      cursor: 'lexical-collaboration-cursor',
+      cursorName: 'lexical-collaboration-cursor-name',
+      selection: 'lexical-collaboration-selection',
+      selectionBg: 'lexical-collaboration-selection-bg',
+    },
+  },
+  onError: console.error,
+};
+
+function CollaborationBridge() {
+  const { isLoading, isSynced, status, error } = useLexicalComposerCollaboration({
+    editorId: 'my-lexical-editor',
+    cursorData: { name: 'Ada', color: '#7c3aed', awarenessData: { userId: 'ada' } },
+  });
+  if (error) return <div>Error: {error.message}</div>;
+  return <div>{isLoading ? 'loading' : status} {isSynced ? '(synced)' : ''}</div>;
+}
+
+export function LexicalEditor() {
+  return (
+    <LexicalComposer initialConfig={initialConfig}>
+      <CollaborationBridge />
+      <RichTextPlugin
+        contentEditable={<ContentEditable className="lexical-editor" />}
+        placeholder={<div>Start typing...</div>}
+        ErrorBoundary={LexicalErrorBoundary}
+      />
+    </LexicalComposer>
+  );
+}
+```
+
+Use `<LexicalCollaborationPlugin editorId="..." />` when you do not need reactive state, and `useCollaboration({ editorId, editor })` only when you hold a `LexicalEditor` instance outside the composer.
+
+**Correct (Other Frameworks: create and attach Lexical first):**
+
+```ts
+import { createEditor } from 'lexical';
+import { HeadingNode, QuoteNode, registerRichText } from '@lexical/rich-text';
+import { createCollaboration } from '@veltdev/lexical-crdt';
+
+const editor = createEditor({ namespace: 'my-collab-editor', nodes: [HeadingNode, QuoteNode], onError: console.error });
+editor.setRootElement(document.querySelector('#editor'));
+const unregisterRichText = registerRichText(editor);
+
+const manager = await createCollaboration({
+  editorId: 'my-lexical-editor',
+  editor,
+  veltClient: client,
+  cursorData: { name: 'Ada', color: '#7c3aed' },
+  onError: (error) => console.error('Collaboration error:', error),
+});
+
+// Collaboration-aware undo/redo
+manager.getUndoManager()?.undo();
+
+// Teardown: manager first, then the editor
+manager.destroy();
+unregisterRichText();
+editor.setRootElement(null);
+```
+
+- `initialContent` is a stringified serialized Lexical editor state (the React wrapper also accepts plain text). It applies only to a brand-new document unless `forceResetInitialContent` is set.
+- Remote carets render through the manager-owned cursor overlay; add the `theme.collaboration` classes and CSS for `.lexical-collaboration-cursor`, `.lexical-collaboration-cursor-name`, `.lexical-collaboration-selection`, and `.lexical-collaboration-selection-bg`.
+- The React hooks wait for the Lexical root element, Velt initialization, and an authenticated user.
+- Limitation: content written through the CRDT REST API is not materialized into the Lexical editor (browser-to-REST reads work, REST-to-browser does not).
+- Keep one copy of `lexical`, every `@lexical/*` package, and `yjs` in the bundle.
+
+---
+
+### 6.15 Sync Apryse Annotations as XFDF Around an App-Owned WebViewer
+
+**Impact: HIGH (Expecting PDF bytes to sync, seeding with non-XFDF content, or disposing WebViewer before the manager breaks annotation collaboration)**
+
+`@veltdev/apryse-crdt` synchronizes Apryse WebViewer annotations, form fields, and XFDF state through a Velt map store; the PDF file itself is not synced and stays an Apryse document input. The application creates WebViewer once (assets, license, `initialDoc`), passes the completed instance to collaboration, and disposes WebViewer only after the manager is destroyed.
+
+**Incorrect (PDF bytes as initial content, new viewer per render, wrong teardown):**
+
+```tsx
+const instance = await WebViewer({ path: '/webviewer/lib', initialDoc }, host); // inside render, every time
+
+useApryseCrdt({
+  editorId: 'contract',
+  instance,
+  initialContent: pdfArrayBuffer, // initialContent is an XFDF string, not PDF bytes or text
+});
+
+instance.UI.dispose();   // viewer gone while the manager still listens to annotationChanged
+collaboration.destroy();
+```
+
+**Correct (React / Next.js):**
+
+```tsx
+import { useApryseCrdt } from '@veltdev/apryse-crdt-react';
+
+// `instance` comes from a one-time WebViewer({ path, licenseKey, initialDoc }, host) effect
+const collaboration = useApryseCrdt({
+  editorId: 'apryse-contract-123',
+  instance,
+  initialXfdf: '<xfdf xmlns="http://ns.adobe.com/xfdf/"><annots /></xfdf>',
+  cursorData: { name: 'Ada Lovelace', color: '#2563eb' },
+  onError: (error) => console.error('Collaboration error:', error),
+});
+
+useEffect(() => {
+  return () => {
+    collaboration.destroy();            // manager first
+    viewerRef.current?.UI?.dispose?.(); // then the application-owned viewer
+  };
+}, [collaboration.destroy]);
+```
+
+**Correct (Other Frameworks):**
+
+```ts
+import WebViewer from '@pdftron/webviewer';
+import { createCollaboration } from '@veltdev/apryse-crdt';
+
+const instance = await WebViewer({ path: '/webviewer/lib', licenseKey: 'YOUR_APRYSE_LICENSE_KEY', initialDoc: '/documents/contract.pdf' }, host);
+
+const manager = await createCollaboration({
+  editorId: 'apryse-contract-123',
+  veltClient: client,           // initialized, authenticated, document set
+  instance,
+  initialXfdf: '<xfdf xmlns="http://ns.adobe.com/xfdf/"><annots /></xfdf>',
+  cursorData: { name: 'Ada', color: '#2563eb' },
+});
+
+const offAnnotations = manager.onAnnotationsChange((records) => console.log(records));
+
+// Cursors are awareness only: publish page coordinates from your interaction layer
+manager.updateCursor({ pageNumber: 1, x: 240, y: 360 });
+manager.clearCursor();
+
+// Teardown
+offAnnotations();
+manager.destroy();
+instance.UI?.dispose?.();
+```
+
+- Annotation changes are captured from Apryse's `annotationChanged` event; `fieldChanged` triggers a full XFDF snapshot so form values stay together. Deleted annotations remain as tombstone records.
+- Use `exportXfdf()`, `setXfdf()` / `importXfdf()`, and `flushAnnotationsToShared()` for imports and explicit snapshots; prefer them over direct `getMap()` mutation.
+- Convert pointer positions to Apryse page coordinates before `updateCursor()`; the cursor overlay DOM and CSS are application-owned.
+- The React hook waits for Velt initialization, an authenticated user, a non-empty `editorId`, and `instance`; it does not wait for document context.
+- Deploy WebViewer's `lib` assets and supply a valid license; the collaboration package ships neither.
 
 ---
 
@@ -4047,3 +5362,18 @@ Reference: `https://docs.velt.dev/realtime-collaboration/crdt/setup/reactflow` (
 - https://docs.velt.dev/realtime-collaboration/crdt/setup/reactflow
 - https://docs.velt.dev/get-started/quickstart
 - https://docs.yjs.dev/
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/lexical
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/slate
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/draftjs
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/prosemirror
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/quill
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/tinymce
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/ckeditor
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/superdoc
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/monaco
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/ace
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/apryse
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/nutrient
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/spreadjs
+- https://docs.velt.dev/webhooks/advanced
+- https://docs.velt.dev/api-reference/rest-apis/v2/crdt/get-crdt-data

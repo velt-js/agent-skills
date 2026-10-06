@@ -142,6 +142,6 @@ Velt applies the following CSS classes to composer attachment elements to reflec
 - [ ] Shadow DOM disabled (`shadowDom={false}`) if targeting CSS state classes with external stylesheets
 
 **Source Pointers:**
-- https://docs.velt.dev/async-collaboration/comments/customize-behavior/attachments - Attachment download control
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#attachmentdownload - Attachment download control
 - https://docs.velt.dev/api-reference/sdk/api/react-hooks - `useCommentEventCallback` hook
-- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/styling - Shadow DOM and CSS customization
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/wireframes#disable-shadowdom - Shadow DOM and CSS customization

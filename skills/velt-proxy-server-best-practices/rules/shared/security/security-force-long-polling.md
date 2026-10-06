@@ -1,12 +1,23 @@
 ---
 title: forceLongPolling for WebSocket-Incompatible Proxies
 impact: HIGH
+impactDescription: Keeps database connections working through proxies that block WebSocket upgrades, at the cost of latency
 tags: forceLongPolling, WebSocket, long-polling, proxy, database
 ---
 
 ## forceLongPolling for WebSocket-Incompatible Proxies
 
-If your reverse proxy doesn't support WebSocket upgrades (common with some load balancers, CDN edge proxies, or corporate proxies), set `forceLongPolling: true` to force database connections to use HTTP long-polling instead.
+If your reverse proxy doesn't support WebSocket upgrades (common with some load balancers, CDN edge proxies, or corporate proxies), set `forceLongPolling: true` to force the persistence and ephemeral database connections to use long-polling instead. It is a `proxyConfig` field.
+
+**Incorrect (top-level config key):**
+
+```jsx
+<VeltProvider apiKey="YOUR_API_KEY" config={{ forceLongPolling: true }}>
+  <App />
+</VeltProvider>
+```
+
+**Correct:**
 
 ### React / Next.js
 
@@ -51,3 +62,7 @@ const client = await initVelt('YOUR_API_KEY', {
 - You want the simplest possible proxy setup
 
 Default is `false` (WebSocket preferred). Only set `true` when WebSocket isn't an option.
+
+**Source Pointers:**
+- https://docs.velt.dev/security/proxy-server#force-long-polling — Force long polling
+- https://docs.velt.dev/api-reference/sdk/models/data-models#proxyconfig — ProxyConfig (`forceLongPolling`)

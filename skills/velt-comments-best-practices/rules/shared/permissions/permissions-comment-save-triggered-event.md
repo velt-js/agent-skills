@@ -99,6 +99,6 @@ interface CommentSaveTriggeredEvent {
 - [ ] Non-React usage calls `.unsubscribe()` to clean up the subscription when the listener is destroyed
 
 **Source Pointers:**
-- https://docs.velt.dev/async-collaboration/comments/customize-behavior/events - `commentSaveTriggered` event and payload reference
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#event-subscription - `commentSaveTriggered` event and payload reference
 - https://docs.velt.dev/api-reference/sdk/api/react-hooks - `useCommentEventCallback` hook
-- https://docs.velt.dev/api-reference/sdk/api/elements/comment-element - `commentElement.on()` subscription pattern
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#on - `commentElement.on()` subscription pattern

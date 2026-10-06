@@ -1,161 +1,92 @@
 ---
 title: Comments CRUD Operations via Python SDK
 impact: HIGH
-impactDescription: Incorrect request types or response handling causes silent data loss or failed queries
-tags: python, comments, crud, self-hosting
+impactDescription: Re-shaping the frontend payload or the SDK response breaks the data provider contract and silently loses comments
+tags: python, comments, crud, self-hosting, from_dict, GetCommentResolverRequest, SaveCommentResolverRequest, DeleteCommentResolverRequest, CommentResolverSaveEvent, targetComment
 ---
 
 ## Comments CRUD Operations via Python SDK
 
-The Python SDK provides methods to get, save, and delete comments through the `sdk.selfHosting.comments` namespace. Each method requires its own request type.
+`sdk.selfHosting.comments` exposes `getComments`, `saveComments`, and `deleteComment`. The pattern is always the same: parse the raw JSON body the Velt frontend sent into the typed request with `from_dict`, pass it to the SDK, and return the SDK's response dict to the client unchanged (with its `statusCode` as the HTTP status).
 
-**Incorrect (passing raw dicts instead of request objects):**
-
-```python
-# This will fail — methods require typed request objects
-comments = sdk.selfHosting.comments.getComments({
-    "organizationId": "org_123",
-    "documentId": "doc_456"
-})
-```
-
-**Correct (get comments):**
+**Incorrect (raw dict to the SDK, hand-built fields, re-wrapped response):**
 
 ```python
-from velt_py import GetCommentResolverRequest
-
-request = GetCommentResolverRequest(
-    organization_id="org_123",
-    document_id="doc_456"
-)
-
-response = sdk.selfHosting.comments.getComments(request)
-
-# response is a plain dict with camelCase keys
-if response['success']:
-    comments = response['data']
-    print(f"Retrieved {len(comments)} comments")
-else:
-    print(f"Error {response['errorCode']}: {response['error']}")
+def get_comments(request):
+    body = request.json
+    # WRONG: methods take typed request objects, not raw dicts
+    result = sdk.selfHosting.comments.getComments(body)
+    # WRONG: re-wrapping drops `success` / `statusCode`, which the frontend data provider requires
+    return {'comments': result['data']}
 ```
 
-**Correct (save comments):**
+**Correct (get, save, delete):**
 
 ```python
-from velt_py import SaveCommentResolverRequest
+from velt_py import GetCommentResolverRequest, SaveCommentResolverRequest, DeleteCommentResolverRequest
 
-request = SaveCommentResolverRequest(
-    organization_id="org_123",
-    document_id="doc_456",
-    comment_annotations=[
-        {
-            "annotationId": "annotation_1",
-            "commentData": [
-                {
-                    "commentText": "This needs review",
-                    "from": {"userId": "user_789"}
-                }
-            ]
-        }
-    ]
-)
+def get_comments(body: dict) -> dict:
+    return sdk.selfHosting.comments.getComments(GetCommentResolverRequest.from_dict(body))
 
-response = sdk.selfHosting.comments.saveComments(request)
+def save_comments(body: dict) -> dict:
+    save_request = SaveCommentResolverRequest.from_dict(body)
+    # Since v0.1.14: event may be a ResolverActions member, a CommentResolverSaveEvent member
+    # (when the frontend opted in via additionalSaveEvents), or a raw string.
+    # save_request.targetComment is request context only; saveComments never persists it.
+    return sdk.selfHosting.comments.saveComments(save_request)
 
-if response['success']:
-    print(f"Saved successfully, status: {response.get('statusCode', 200)}")
+def delete_comment(body: dict) -> dict:
+    return sdk.selfHosting.comments.deleteComment(DeleteCommentResolverRequest.from_dict(body))
 ```
 
-**Correct (delete comment):**
+**Response format.** `VeltSelfHostingResponse` is a plain dict with camelCase keys:
 
 ```python
-from velt_py import DeleteCommentResolverRequest
-
-request = DeleteCommentResolverRequest(
-    organization_id="org_123",
-    document_id="doc_456",
-    annotation_id="annotation_1",
-    comment_id=1
-)
-
-response = sdk.selfHosting.comments.deleteComment(request)
-
-if response['success']:
-    print("Comment deleted")
+{'success': True, 'statusCode': 200, 'data': {...}}
+{'success': False, 'statusCode': 400, 'error': '...', 'errorCode': 'INVALID_INPUT'}  # or NOT_FOUND / INTERNAL_ERROR
 ```
 
-**Response format:**
+Use dict access (`result['success']`, `result.get('statusCode', 200)`), not attribute access.
 
-```python
-# VeltSelfHostingResponse is a plain Python dict with camelCase keys
+**Data models you may touch in custom handlers** (`from velt_py.models import PartialCommentAnnotation, PartialComment, PartialTargetTextRange, BaseMetadata`):
+- `PartialCommentAnnotation.from_` is the author (wire key `from`; Python keyword workaround). `assignedTo`, `targetTextRange`, and `resolvedByUserId` are typed fields since v0.1.10.
+- `resolvedByUserId` is tri-state: `UNSET` (from `velt_py.models.comment`) means the field was absent and is not written; `None` means the frontend unresolved the annotation and `null` is written.
+- `BaseMetadata` keeps `sdkVersion` and `documentMetadata` since v0.1.10.
 
-# Success
-response = {'success': True, 'statusCode': 200, 'data': {...}}
-
-# Error
-response = {'success': False, 'statusCode': 500, 'error': 'Comment not found', 'errorCode': 'INTERNAL_ERROR'}
-
-# Access pattern
-if response['success']:
-    data = response['data']
-else:
-    print(f"Error {response['errorCode']}: {response['error']}")
-
-# Safe optional field access
-status = response.get('statusCode', 200)
-```
-
-**Key points:**
-
-- Always import the correct request type: `GetCommentResolverRequest`, `SaveCommentResolverRequest`, `DeleteCommentResolverRequest`.
-- `organization_id` and `document_id` are required for all comment operations.
-- `SaveCommentResolverRequest` takes `comment_annotations` (list[dict]), not `comments`.
-- `DeleteCommentResolverRequest` requires both `annotation_id` (str) and `comment_id` (int).
-- `VeltSelfHostingResponse` is a plain Python dict — use `response['success']`, `response['data']`, `response['errorCode']` (not attribute access).
-- Check `response['success']` before accessing `response['data']` — failed requests populate `response['error']` and `response['errorCode']` instead.
-
-**Verification:**
-- [ ] Request types are imported from `velt_py`
-- [ ] Typed request objects are used, not raw dicts
-- [ ] `organization_id` and `document_id` are provided
-- [ ] `SaveCommentResolverRequest` uses `comment_annotations=`, not `comments=`
-- [ ] `DeleteCommentResolverRequest` includes both `annotation_id` (str) and `comment_id` (int)
-- [ ] Response is accessed as a dict: `response['success']`, `response['data']`, `response['errorCode']`
-
-**Source Pointer:** `https://docs.velt.dev/api-reference/sdk/python/comments` (## Python SDK > ### Comments)
-
----
-
-## All Request Type Imports
-
-Every SDK method uses a typed request object. Import from the `velt` package:
+**Imports:**
 
 ```python
 from velt_py import (
-    # Comments
-    GetCommentResolverRequest,
-    SaveCommentResolverRequest,
-    DeleteCommentResolverRequest,
-    # Reactions
-    GetReactionResolverRequest,
-    SaveReactionResolverRequest,
-    DeleteReactionResolverRequest,
-    # Users
+    GetCommentResolverRequest, SaveCommentResolverRequest, DeleteCommentResolverRequest,
+    GetReactionResolverRequest, SaveReactionResolverRequest, DeleteReactionResolverRequest,
     GetUserResolverRequest,
-    # Attachments
-    SaveAttachmentResolverRequest,
-    DeleteAttachmentResolverRequest,
+    SaveAttachmentResolverRequest, DeleteAttachmentResolverRequest,
+    CommentResolverSaveEvent,
 )
+from velt_py.models.user import ResolveUserIdsByEmailRequest
 ```
 
-| Module | Request Type | SDK Method |
-|--------|-------------|------------|
-| Comments | `GetCommentResolverRequest` | `sdk.selfHosting.comments.getComments()` |
-| Comments | `SaveCommentResolverRequest` | `sdk.selfHosting.comments.saveComments()` |
-| Comments | `DeleteCommentResolverRequest` | `sdk.selfHosting.comments.deleteComment()` |
-| Reactions | `GetReactionResolverRequest` | `sdk.selfHosting.reactions.getReactions()` |
-| Reactions | `SaveReactionResolverRequest` | `sdk.selfHosting.reactions.saveReactions()` |
-| Reactions | `DeleteReactionResolverRequest` | `sdk.selfHosting.reactions.deleteReaction()` |
-| Users | `GetUserResolverRequest` | `sdk.selfHosting.users.getUsers()` |
-| Attachments | `SaveAttachmentResolverRequest` | `sdk.selfHosting.attachments.saveAttachment()` |
-| Attachments | `DeleteAttachmentResolverRequest` | `sdk.selfHosting.attachments.deleteAttachment()` |
+| Request type | SDK method |
+|---|---|
+| `GetCommentResolverRequest` | `sdk.selfHosting.comments.getComments()` |
+| `SaveCommentResolverRequest` | `sdk.selfHosting.comments.saveComments()` |
+| `DeleteCommentResolverRequest` | `sdk.selfHosting.comments.deleteComment()` |
+| `GetReactionResolverRequest` | `sdk.selfHosting.reactions.getReactions()` |
+| `SaveReactionResolverRequest` | `sdk.selfHosting.reactions.saveReactions()` |
+| `DeleteReactionResolverRequest` | `sdk.selfHosting.reactions.deleteReaction()` |
+| `GetUserResolverRequest` | `sdk.selfHosting.users.getUsers()` |
+| `ResolveUserIdsByEmailRequest` | `sdk.selfHosting.users.resolveUserIdsByEmail()` |
+| `SaveAttachmentResolverRequest` | `sdk.selfHosting.attachments.saveAttachment()` |
+| `DeleteAttachmentResolverRequest` | `sdk.selfHosting.attachments.deleteAttachment()` |
+
+**Verification:**
+- [ ] Every handler builds its request with `<RequestType>.from_dict(body)` from the unmodified frontend body
+- [ ] The SDK response dict is returned as-is, with `statusCode` as the HTTP status
+- [ ] Save handlers do not persist `targetComment`, and tolerate `event` values beyond `ResolverActions`
+- [ ] Custom code distinguishes `UNSET` from `None` for `resolvedByUserId`
+- [ ] Every route authenticates the caller first (see `backend-verify-resolver-auth`)
+
+**Source Pointers:**
+- https://docs.velt.dev/backend-sdks/python#comments - "Comments"
+- https://docs.velt.dev/backend-sdks/python#data-models - "Data Models" (PartialCommentAnnotation, UNSET Sentinel, SaveCommentResolverRequest)
+- https://docs.velt.dev/api-reference/sdk/models/data-models#veltselfhostingresponse - "VeltSelfHostingResponse"

@@ -1,107 +1,90 @@
 ---
-title: Use Vanilla JS API for Presence Data
+title: Use the PresenceElement API for Presence Data
 impact: HIGH
 impactDescription: Observable-based API for presence data access in non-React or programmatic contexts
-tags: presence, api, vanilla-js, observable, subscribe, getPresenceElement, data
+tags: presence, api, vanilla-js, observable, subscribe, getPresenceElement, getData, GetPresenceDataResponse, onPresenceUserChange
 ---
 
-## Use Vanilla JS API for Presence Data
+## Use the PresenceElement API for Presence Data
 
-For non-React applications or programmatic access, use `Velt.getPresenceElement()` (or `client.getPresenceElement()`) to obtain the `PresenceElement` instance. All data methods return Observables that require `.subscribe()` and manual `.unsubscribe()` for cleanup.
+Get the `PresenceElement` with `client.getPresenceElement()` (React) or `Velt.getPresenceElement()` (other frameworks). `getData()` and `on()` return Observables: call `.subscribe()` and keep the subscription so you can `.unsubscribe()` on cleanup.
 
 **Why this matters:**
 
-The vanilla JS API works in any JavaScript environment -- Angular, Vue, vanilla HTML, or server-triggered logic. The Observable pattern ensures you receive real-time updates as users join, leave, or change state.
+`getData()` emits a `GetPresenceDataResponse` object, not an array. Treating the emission as `PresenceUser[]` is the most common bug: `response.map` throws and the UI never renders.
 
-**Get PresenceElement**
+**Incorrect (treating the response as an array):**
 
 ```js
-// From the global Velt object
-const presenceElement = Velt.getPresenceElement();
-
-// Or from the client instance
-const presenceElement = client.getPresenceElement();
+presenceElement.getData({ statuses: ["online"] }).subscribe((users) => {
+  users.forEach((u) => console.log(u.name)); // TypeError: users.forEach is not a function
+});
 ```
 
-**Subscribe to filtered presence data**
+**Correct (read `response.data`, which is `PresenceUser[] | null`):**
 
 ```js
 const presenceElement = Velt.getPresenceElement();
 
-// Subscribe to online users only
 const subscription = presenceElement
-  .getData({ statuses: ["online"] })
+  .getData({ statuses: ["online", "away"] })
   .subscribe((response) => {
-    // response: PresenceUser[]
-    console.log("Online users:", response);
-    updateUI(response);
+    if (!response?.data) return; // null while loading
+    renderAvatars(response.data);
   });
 
-// IMPORTANT: Clean up when done (e.g., on page unload or component destroy)
-// subscription.unsubscribe();
+// On page unload / component destroy
+subscription?.unsubscribe();
 ```
 
-**Subscribe to state change events**
+**Query options (`PresenceRequestQuery`, all optional):**
+
+| Field | Type | Use |
+|---|---|---|
+| `statuses` | `string[]` | Filter by `'online'`, `'away'`, `'offline'` |
+| `documentId` | `string` | Query a specific document instead of the current one |
+| `organizationId` | `string` | Query a specific organization |
+
+Call `getData()` with no query to get all users.
+
+**Subscribe to state change events:**
 
 ```js
-const presenceElement = Velt.getPresenceElement();
-
-const subscription = presenceElement
+const subscription = Velt.getPresenceElement()
   .on("userStateChange")
-  .subscribe((data) => {
-    // data: { user: PresenceUser, state: 'online' | 'away' | 'offline' }
-    console.log(`${data.user.name} changed to ${data.state}`);
+  .subscribe((event) => {
+    // PresenceUserStateChangeEvent: { user: PresenceUser, state: 'online' | 'away' | 'offline' }
+    console.log(`${event.user.name} is now ${event.state}`);
   });
 
-// Clean up
-// subscription.unsubscribe();
+subscription?.unsubscribe();
 ```
 
-**Full lifecycle example (vanilla JS)**
+**Callback alternative on the component:**
 
-```html
-<script>
-  let presenceSubscription = null;
+`onPresenceUserChange` fires with the filtered `PresenceUser[]` (after `location` / `locationId` filtering) on load and on every change. The older `onUsersChanged` is a deprecated alias.
 
-  function initPresence() {
-    const presenceElement = Velt.getPresenceElement();
-    if (!presenceElement) return;
-
-    presenceSubscription = presenceElement
-      .getData({ statuses: ["online", "away"] })
-      .subscribe((users) => {
-        const container = document.getElementById("presence-list");
-        container.innerHTML = users
-          .map((u) => `<span class="avatar">${u.name}</span>`)
-          .join("");
-      });
-  }
-
-  function cleanup() {
-    if (presenceSubscription) {
-      presenceSubscription.unsubscribe();
-      presenceSubscription = null;
-    }
-  }
-
-  window.addEventListener("beforeunload", cleanup);
-</script>
+```jsx
+<VeltPresence onPresenceUserChange={(presenceUsers) => setUsers(presenceUsers)} />
 ```
 
 **Key patterns:**
 
-- `.getData()` and `.on()` return Observables -- always call `.subscribe()`
-- Store the subscription reference and call `.unsubscribe()` on cleanup
-- Pass `{ statuses: ['online'] }` to `.getData()` to filter by state
-- `presenceElement` may be `null` if called before SDK initialization -- guard accordingly
-- `.on('userStateChange')` emits on every state transition for any user in the document
+- `getData()` and `on()` return Observables; always `.subscribe()` and `.unsubscribe()`
+- Read `response.data`; it is `null` while loading
+- `getOnlineUsersOnCurrentDocument()` on the presence element is deprecated; use `getData()`
+- In React, prefer `usePresenceData()` and `usePresenceEventCallback()` (see `data-presence-hooks`)
 
 ### Verification Checklist
 
-- [ ] `VeltProvider` (or `Velt.init()`) has been initialized with a valid API key
-- [ ] `authProvider` has authenticated the user (via VeltProvider prop or `client.setVeltAuthProvider()`)
+- [ ] Velt is initialized and the user is authenticated (`authProvider` / `setVeltAuthProvider`)
 - [ ] `setDocuments` has been called to scope presence
-- [ ] Every `.subscribe()` has a corresponding `.unsubscribe()` on cleanup
-- [ ] Guard against `null` when calling `getPresenceElement()` before init completes
+- [ ] Subscribers read `response.data`, with a `null` check
+- [ ] Every `.subscribe()` has a matching `.unsubscribe()`
 
-> **Source:** Velt Presence Vanilla JS API -- `getPresenceElement()`, `.getData()`, `.on()`
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/presence/customize-behavior#getdata - "getData"
+- https://docs.velt.dev/realtime-collaboration/presence/customize-behavior#on - "Event Subscription"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#getpresencedataresponse - `GetPresenceDataResponse`
+- https://docs.velt.dev/api-reference/sdk/models/data-models#presencerequestquery - `PresenceRequestQuery`
+- https://docs.velt.dev/ui-customization/reference/behaviors/presence-reactions - `onPresenceUserChange` behavior

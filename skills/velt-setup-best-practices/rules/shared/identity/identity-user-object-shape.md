@@ -7,7 +7,7 @@ tags: user, userid, organizationid, authentication, identity
 
 ## Structure User Object with Required Fields
 
-The user object passed to Velt authentication must include specific required fields. Missing or incorrect fields will cause authentication failures.
+The user object passed to Velt authentication must include `userId` and `organizationId`. The quickstart also asks for `name`, `email`, and `photoUrl`: without them Velt shows a random avatar name and image, and email or Slack notifications cannot reach the user.
 
 **Incorrect (missing required fields):**
 
@@ -32,14 +32,16 @@ const user = {
 const user = {
   // Required fields
   userId: "user-123",           // Unique identifier for this user
-  organizationId: "org-abc",    // Organization/workspace scope
+  organizationId: "org-abc",    // Organization the user belongs to
+
+  // Recommended fields (quickstart user object)
   name: "John Doe",             // Display name for avatars and mentions
-  email: "john@example.com",    // Email for notifications
+  email: "john@example.com",    // Needed for email/Slack notifications
+  photoUrl: "https://example.com/avatar.jpg",  // Avatar image URL
 
   // Optional fields
-  photoUrl: "https://example.com/avatar.jpg",  // Avatar image URL
-  color: "#FF6B6B",             // Custom avatar background color
-  textColor: "#FFFFFF",         // Custom avatar text color
+  color: "#FF6B6B",             // Session color: avatar border, live cursor, selection
+  textColor: "#FFFFFF",         // Initial's text color when photoUrl is absent
 };
 ```
 
@@ -48,12 +50,15 @@ const user = {
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | userId | string | Yes | Unique user identifier (from your auth system) |
-| organizationId | string | Yes | Organization/tenant for access control |
-| name | string | Yes | Display name shown in UI |
-| email | string | Yes | Email for @mentions and notifications |
-| photoUrl | string | No | URL to user's avatar image |
-| color | string | No | Hex color for avatar background |
-| textColor | string | No | Hex color for avatar text/initials |
+| organizationId | string | Yes | Organization the user belongs to, used for access control |
+| name | string | Recommended | Display name; defaults to a random avatar name if missing |
+| email | string | Recommended | Required for email or Slack notifications about comments and mentions |
+| photoUrl | string | Recommended | Avatar image URL; defaults to a random avatar image if missing |
+| color | string | No | Hex color for avatar border, live cursor, selection |
+| textColor | string | No | Hex color for the initial when `photoUrl` is absent |
+| isAdmin | boolean | No | Admin user; the JWT you generate must also set `isAdmin: true` |
+
+Access roles (`viewer` / `editor`) are not set on the frontend `User` object. Assign them per resource in the JWT `permissions.resources[]` or with the v2 Users / Auth Permissions REST APIs.
 
 **Mapping from Common Auth Providers:**
 
@@ -132,15 +137,16 @@ await client.setVeltAuthProvider({
 |---------|-------|-----|
 | Using integer IDs | May cause type mismatches | Convert to string: `String(id)` |
 | Missing organizationId | Users see all docs | Always include organization scoping |
-| Null email | Breaks @mentions | Provide fallback: `email \|\| 'no-email@example.com'` |
+| Null email | No email/Slack notifications for that user | Pass the real email from your auth system |
 | Empty string userId | Auth fails silently | Validate userId before authentication |
 
 **Verification:**
 - [ ] userId is a non-empty string
 - [ ] organizationId is set for all users
-- [ ] name and email are provided
+- [ ] name, email, and photoUrl are provided where available
 - [ ] photoUrl is a valid URL if provided
 - [ ] User object logged to console shows all fields
 
 **Source Pointers:**
 - `https://docs.velt.dev/get-started/quickstart` - Step 5: Authenticate Users
+- `https://docs.velt.dev/api-reference/sdk/models/data-models#user` - User

@@ -106,9 +106,13 @@ function CustomNotificationsPanel() {
 **Dark Mode:**
 
 ```jsx
+<VeltNotificationsTool darkMode={true} />
+<VeltNotificationsPanel darkMode={true} />
 ```
 
 **Variants:**
+
+A `variant` selects a wireframe registered as `velt-notifications-tool-wireframe---<variant>` (tool) or `velt-notifications-panel-wireframe---<variant>` (panel). An unmatched variant silently falls back to the default markup.
 
 ```jsx
 // Use different variants for tool and panel
@@ -135,4 +139,7 @@ function CustomNotificationsPanel() {
 - [ ] shadowDom disabled if using custom CSS
 - [ ] All subcomponents properly nested
 
-**Source Pointer:** https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel - Panel wireframes
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel/wireframes - "Notifications Panel Wireframes"
+- https://docs.velt.dev/ui-customization/features/async/notifications/notifications-tool/wireframes - "Notifications Tool Wireframes" (Variant)
+- https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel/primitives - "Notifications Panel Primitives"

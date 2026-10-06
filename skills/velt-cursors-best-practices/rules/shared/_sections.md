@@ -8,35 +8,35 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 1. Core Setup (core)
 
 **Impact:** CRITICAL
-**Description:** Essential setup required for any Velt Cursors implementation. Use `authProvider` on `VeltProvider` (never `identify()`), mount `<VeltCursor />` inside the content area you want tracked (not in a toolbar), and scope cursors per document via `setDocuments`. Get these wrong and no cursors render — or they leak across documents.
+**Description:** Essential setup required for any Velt Cursors implementation. Use `authProvider` on `VeltProvider`, mount a single `<VeltCursor />` near the app root (confine it with `allowedElementIds`, not placement), include `'cursor'` in `featureAllowList` when set, and scope cursors per document via `setDocuments`. Get these wrong and no cursors render, or they show on the wrong document.
 
 ---
 
 ## 2. Data Access (data)
 
 **Impact:** HIGH
-**Description:** Patterns for reading cursor state. Includes the React hooks `useCursorUsers` and `useCursorUtils`, plus the SDK-level `getCursorElement()` Observable surface and `getOnlineUsersOnCurrentDocument()` for active-user lookup outside of React.
+**Description:** Patterns for reading cursor state. Includes the React hooks `useCursorUsers` and `useCursorUtils`, plus `getCursorElement()` and `getOnlineUsersOnCurrentDocument()` outside React. Positions live in `CursorUser.position` (`top` / `left`).
 
 ---
 
 ## 3. Configuration (config)
 
 **Impact:** HIGH-MEDIUM
-**Description:** Behavior toggles for the cursor pointer. Restrict cursor visibility to specific DOM elements (`allowedElementIds`), switch between the default name-label pointer and avatar mode, and tune the inactivity timeout that hides idle remote cursors.
+**Description:** Behavior toggles for the cursor pointer. Restrict cursor visibility to specific DOM elements (`allowedElementIds`), switch between the default name-label pointer and avatar mode (`avatarMode` prop), and set the inactivity timeout that hides idle remote cursors explicitly.
 
 ---
 
 ## 4. Events (events)
 
 **Impact:** MEDIUM
-**Description:** Subscription patterns for cursor position and user changes. Covers `onCursorUserChange` (and its unsubscribe pair) so listener lifecycles are matched.
+**Description:** Subscription patterns for cursor position and user changes. Covers `onCursorUserChange` (not the deprecated `onCursorUsersChanged`) on the component and the `onCursorUserChange` DOM event.
 
 ---
 
 ## 5. UI Wireframes (ui)
 
 **Impact:** MEDIUM
-**Description:** Structural wireframe variants for the cursor pointer — Arrow, Avatar, Default, and Huddle (audio + video) — and the `<velt-cursor-pointer-wireframe>` child tag catalog (default, default-name, default-comment, avatar, audio-huddle, audio-huddle-avatar, audio-huddle-audio, video-huddle).
+**Description:** Structural wireframe variants for the cursor pointer (Arrow, Avatar, Default, and Huddle audio + video) inside `VeltWireframe`, and the `<velt-cursor-pointer-wireframe>` child tag catalog (default, default-name, default-comment, avatar, audio-huddle, audio-huddle-avatar, audio-huddle-audio, video-huddle).
 
 ---
 

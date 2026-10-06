@@ -57,7 +57,7 @@ export default function App() {
 }
 ```
 
-> **Note:** The legacy `useIdentify()` hook is deprecated. Always use `authProvider` on `VeltProvider` for production applications.
+> **Note:** The recommended path is `authProvider` on `VeltProvider`. The `useIdentify()` hook still exists, but prefer `authProvider` so token refresh is handled for you.
 
 **Required User Object Fields:**
 

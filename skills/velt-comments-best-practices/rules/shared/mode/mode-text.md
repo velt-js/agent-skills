@@ -53,7 +53,7 @@ export default function App() {
 
 **Disable Text Mode (when using editor integrations):**
 
-When using TipTap, SlateJS, or Lexical integrations, disable native text mode:
+When using TipTap, SlateJS, Lexical, or other editor integrations, disable native text mode. Since v6.0.16-beta.1, default text and pin comments are disabled inside TipTap and other ProseMirror-based editors regardless, so use the dedicated plugin there.
 
 ```jsx
 // Disable for editor integrations
@@ -72,7 +72,25 @@ Text mode works well with Stream mode for a Google Docs-like experience:
 />
 ```
 
+**Keep highlights on their original anchor (`restrictTextSearchToAnchor`, v6.0.0-beta.3+):**
+
+When the commented text can no longer be found in its anchor element, the SDK by default searches wider (`document.body`, or the location element for location-scoped comments) before ghosting the comment. Turn this off when the same text appears in several regions and a comment must never re-bind elsewhere:
+
+```jsx
+<VeltComments restrictTextSearchToAnchor={true} />
+// or
+const commentElement = client.getCommentElement();
+commentElement.enableRestrictTextSearchToAnchor();
+```
+
+```html
+<velt-comments restrict-text-search-to-anchor="true"></velt-comments>
+```
+
+**Programmatic text comments:** `commentElement.addCommentOnSelectedText()` comments on the current selection; `addCommentOnElement({ targetElement: { elementId, targetText, occurrence } })` targets a specific occurrence. To attach a known annotation to text in your own markup, wrap it in `VeltCommentText` (see `standalone-comment-text.md`).
+
 **Verification Checklist:**
+- [ ] `restrictTextSearchToAnchor` enabled only when wider re-binding would attach comments to the wrong text
 - [ ] `textMode={true}` (or omitted - it's default)
 - [ ] Selecting text shows Comment Tool
 - [ ] Comments attach to selected text
@@ -80,3 +98,4 @@ Text mode works well with Stream mode for a Google Docs-like experience:
 
 **Source Pointers:**
 - https://docs.velt.dev/async-collaboration/comments/setup/text - Complete setup
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#restricttextsearchtoanchor - restrictTextSearchToAnchor

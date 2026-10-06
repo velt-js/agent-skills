@@ -12,17 +12,21 @@ Rules are organized into category folders under `rules/`.
 
 **Rules:**
 - `core-install` - Install correct packages
-- `core-velt-init` - Initialize Velt client
+- `core-velt-init` - Initialize Velt client, set document, authenticate; v6 `featureAllowList` / `preloadCrdt()`
 - `core-store-v2-api` - **v2** `useStore<T>` + `useAwareness` React hooks; `createVeltStore` v2 config surface (`forceResetInitialContent`, `contentKey`, `userId`, `collection`, `logLevel`); status/sync/error reactivity
 - `core-v1-to-v2-migration` - Migrate from `useVeltCrdtStore` to `useStore` (id → storeId, new status/sync/error/onError, `useAwareness` hook)
 - `core-store-create-react` - useVeltCrdtStore hook (React, v1 — deprecated; see `core-v1-to-v2-migration`)
 - `core-store-create-vanilla` - createVeltStore (non-React; entry point unchanged in v2 — new optional config fields documented in `core-store-v2-api`)
 - `core-store-types` - Choose correct store type
+- `core-store-array` - Array store (Y.Array) patterns and `Array.isArray()` guard
+- `core-store-map` - Map store (Y.Map) patterns and object guard
+- `core-store-text` - Text store (Y.Text) patterns and `?? ''` coalescing
+- `core-store-xml` - XML store: never call `update()`; mutate via `store.getXml()` and Yjs APIs
 - `core-store-subscribe` - Subscribe to changes
 - `core-store-update` - Update store values
 - `core-version-save` - Save version checkpoints
 - `core-encryption` - Custom encryption provider
-- `core-webhooks` - Webhook notifications for data changes
+- `core-webhooks` - `crdt.update_data` webhook: enableWebhook(), debounce, payload shape
 - `core-event-subscription` - Subscribe to CRDT updateData events with Observable pattern
 - `core-rest-api` - REST APIs for server-side data access (Get, Add, Update)
 - `core-activity-debounce` - Control CRDT activity flush frequency with setActivityDebounceTime()
@@ -91,3 +95,25 @@ Rules are organized into category folders under `rules/`.
 - `reactflow-handlers` - Use CRDT handlers
 - `reactflow-editor-id` - Unique editorId
 - `reactflow-testing` - Test collaboration
+
+## 6. Multiplayer Editor Integrations (editors/)
+
+**Impact:** HIGH
+**Description:** Velt multiplayer packages for Lexical, Slate, Draft.js, ProseMirror, Quill, TinyMCE, CKEditor 5, SuperDoc, Monaco, Ace, Apryse WebViewer, Nutrient, and SpreadJS. Covers the shared CollaborationManager lifecycle, package selection, and each editor's binding, history, cursor, and teardown pitfalls.
+
+**Rules:**
+- `editors-integration-lifecycle` - Shared lifecycle: Velt ready + auth + document, editor first, one manager and one binding path, uncontrolled content, ordered teardown
+- `editors-choose-package` - Package and React entry-point matrix, shared data model, and merge granularity per editor
+- `editors-lexical` - `editorState: null`, no HistoryPlugin, composer hook/plugin, REST limitation
+- `editors-slate` - Create the editor once with `useMemo()`; manager applies withYjs/withYHistory/withCursors; `Descendant[]` seed (React)
+- `editors-draftjs` - Route every change through `handleChange()` with ref-backed `EditorState`; snapshot model (React)
+- `editors-prosemirror` - `autoInitialize: false`, attach view before `initialize()`, Velt `undo`/`redo`, stable schema
+- `editors-quill` - Register `quill-cursors` before `new Quill()`; manager `undo()`/`redo()`
+- `editors-tinymce` - Uncontrolled TinyMCE; manager destroyed before `tinymce.remove()`
+- `editors-ckeditor` - Create CKEditor first, uncontrolled `data`, forward `onAfterDestroy`
+- `editors-superdoc` - Manager first; same `{ ydoc, provider }` in `documents[]` and `modules.collaboration`; one cursor renderer
+- `editors-monaco` - One binding path, uncontrolled model, y-monaco cursor CSS, client-only rendering
+- `editors-ace` - Ace `Range` factory, collaborative undo, one binding path
+- `editors-apryse` - XFDF annotation sync around an app-owned WebViewer
+- `editors-nutrient` - `overlayContainer`, Instant JSON flush, unload after `manager.destroy()`
+- `editors-spreadjs` - `GC.Spread.Sheets.Events`, snapshot model, manager destroyed before workbook

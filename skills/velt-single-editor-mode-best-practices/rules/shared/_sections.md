@@ -8,7 +8,7 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 1. Core Setup (core)
 
 **Impact:** CRITICAL
-**Description:** Essential setup for enabling Single Editor Mode. Includes initializing via useLiveStateSyncUtils() or Velt.getLiveStateSyncElement(), enabling the mode with config options (customMode, singleTabEditor), embedding the VeltSingleEditorModePanel, and enabling the default UI.
+**Description:** Essential setup for enabling Single Editor Mode. Includes initializing via useLiveStateSyncUtils() or Velt.getLiveStateSyncElement(), enabling the mode with config options (customMode, singleTabEditor) after useVeltInitState() is true, embedding the VeltSingleEditorModePanel, enabling the default UI, and listing liveStateSync in featureAllowList when set.
 
 ---
 
@@ -51,3 +51,10 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 
 **Impact:** LOW-MEDIUM
 **Description:** Troubleshooting patterns for Single Editor Mode integrations. Covers heartbeat configuration, updateUserPresence() fallback, resetUserAccess(), element attribute issues, and multi-user testing.
+
+---
+
+## 8. UI Customization (ui)
+
+**Impact:** MEDIUM
+**Description:** Customizing the default Single Editor Mode panel with VeltSingleEditorModePanelWireframe (ViewerText, EditorText, Countdown, EditHere, AcceptRequest, RejectRequest, RequestAccess, CancelRequest) inside VeltWireframe, plus the panel's shadowDom, darkMode, and variant props.

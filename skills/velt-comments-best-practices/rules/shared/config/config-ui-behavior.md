@@ -2,275 +2,262 @@
 title: UI/UX Toggle Methods — Comment Display, Interaction, and Behavior
 impact: LOW
 impactDescription: Fine-tune comment UI appearance and interaction behavior
-tags: enableCollapsedComments, enableMobileMode, enableCommentPinHighlighter, enableDialogOnHover, enableFloatingCommentDialog, enableDraftMode, enableGhostComments, enableHotkey, enableEnterKeyToSubmit, enablePersistentCommentMode, enableMinimap, enableCommentIndex, enableDeviceInfo, enableReplyAvatars, composerMode, showCommentsOnDom, showResolvedCommentsOnDom, enableCollapsedRepliesPreview, disableCollapsedRepliesPreview, collapsedRepliesPreview
+tags: enableCollapsedComments, enableMobileMode, enableCommentPinHighlighter, enableDialogOnHover, enableFloatingCommentDialog, enableDraftMode, enableDraftConfirmation, draftConfirmation, enableLazyLoadResolvedComments, lazyLoadResolvedComments, enableGhostComments, enableHotkey, enableEnterKeyToSubmit, enablePersistentCommentMode, enableForceCloseAllOnEsc, enableMinimap, enableCommentIndex, enableDeviceInfo, enableReplyAvatars, composerMode, showCommentsOnDom, hideCommentsOnDom, showResolvedCommentsOnDom, enableFilterCommentsOnDom, excludeLocationIds, enableSvgAsImg, enableMultiThread, enableCollapsedRepliesPreview, disableCollapsedRepliesPreview, collapsedRepliesPreview
 ---
 
 ## UI/UX Toggle Methods — Comment Display, Interaction, and Behavior
 
-Fine-tune comment UI appearance and user interaction patterns. All methods are on `getCommentElement()`.
+Fine-tune comment UI appearance and user interaction patterns. Most toggles exist as a `<VeltComments>` prop, a kebab-case HTML attribute on `<velt-comments>`, and an `enable*` / `disable*` pair on `getCommentElement()`. Several older shorthand calls (`showCommentsOnDom(true)`, `svgAsImg(true)`, `composerMode('inline')`) do not exist; use the exact names below.
 
-**Display & Layout:**
+**Incorrect (invented signatures):**
 
-```tsx
+```jsx
+const commentElement = client.getCommentElement();
+commentElement.showCommentsOnDom(true);          // no boolean param; use show/hide pair
+commentElement.composerMode('inline');           // composerMode is a prop, not a method
+commentElement.svgAsImg(true);                   // use enableSvgAsImg()
+commentElement.excludeLocationIds([1, 2]);       // excludeLocationIds lives on the client
+commentElement.enableMultithread();              // casing is enableMultiThread()
+```
+
+**Correct (Display & Layout):**
+
+```jsx
 const commentElement = client.getCommentElement();
 
-// Collapsed/expanded view
-commentElement.enableCollapsedComments();     // Collapse all threads
-commentElement.enableFullExpanded();          // Always show expanded
+// Collapse middle replies: first + last comment with an "N more replies" divider (default false)
+commentElement.enableCollapsedComments();
+commentElement.enableFullExpanded();             // Always render fully expanded (default false)
 
-// Floating dialog positioning
-commentElement.enableFloatingCommentDialog(); // Dialog floats near pin
+commentElement.enableFloatingCommentDialog();    // default true
+commentElement.enableDialogOnHover();            // default true
+commentElement.enableCommentPinHighlighter();    // default true
 
-// Dialog behavior
-commentElement.enableDialogOnHover();         // Open dialog on hover (not click)
-commentElement.enableCommentPinHighlighter(); // Highlight pin on hover
+// Show / hide pins on the DOM
+commentElement.showCommentsOnDom();              // default: shown
+commentElement.hideCommentsOnDom();
+commentElement.showResolvedCommentsOnDom();      // default: hidden
+commentElement.hideResolvedCommentsOnDom();
+commentElement.enableFilterCommentsOnDom();      // Mirror sidebar filters onto page pins
 
-// Show/hide comments on page
-commentElement.showCommentsOnDom(true);       // Show all comment pins
-commentElement.showResolvedCommentsOnDom(true); // Include resolved
-commentElement.filterCommentsOnDom(filterFn); // Custom filter function
-commentElement.excludeLocationIds([1, 2]);    // Hide specific locations
+// Hide comments at specific locations (client-level API, not commentElement)
+client.excludeLocationIds(['location1', 'location2']);
+client.excludeLocationIds([]);                   // reset
 
-// Custom dialog position
-commentElement.updateCommentDialogPosition({ x: 100, y: 200 });
+// Re-position the open dialog after you move a manual pin (no params)
+commentElement.updateCommentDialogPosition();
 ```
 
 **Comment Numbering & Info:**
 
-```tsx
-commentElement.enableCommentIndex();          // Show comment numbers (#1, #2, ...)
-commentElement.enableDeviceInfo();            // Show device used for comment
-commentElement.enableDeviceIndicatorOnCommentPins(); // Device icon on pins
-commentElement.enableShortUserName();         // Shorten display names
-commentElement.enableReplyAvatars();          // Show avatars on replies
-commentElement.enableSeenByUsers();           // "Seen by" indicator
+```jsx
+commentElement.enableCommentIndex();             // default false
+commentElement.enableDeviceInfo();               // default false
+commentElement.enableDeviceIndicatorOnCommentPins();
+commentElement.enableShortUserName();            // default true
+commentElement.enableReplyAvatars();             // default false
+commentElement.setMaxReplyAvatars(2);
+commentElement.enableSeenByUsers();              // default true
+commentElement.setUnreadIndicatorMode('verbose'); // 'minimal' (default) | 'verbose'
 ```
 
-**Ghost Comments (orphaned comments):**
+**Ghost Comments (comments whose target element is gone):**
 
-```tsx
-commentElement.enableGhostComments();         // Show ghost comments
-commentElement.enableGhostCommentsIndicator(); // Visual indicator for ghosts
+```jsx
+commentElement.enableGhostComments();            // default false
+commentElement.enableGhostCommentsIndicator();   // default true
 ```
 
-**Draft Mode:**
+**Draft Mode, Draft Confirmation, and Lazy-Loading Resolved Comments:**
 
-```tsx
-commentElement.enableDraftMode();             // Save drafts before submit
+```jsx
+// draftMode defaults to true: partial comments are saved with isDraft: true on close
+commentElement.enableDraftMode();
+
+// Opt-in (default false, requires draftMode): Keep Draft / Delete Draft popup with a
+// quoted preview instead of saving the draft silently
+commentElement.enableDraftConfirmation();
+commentElement.disableDraftConfirmation();
+
+// Opt-in (default false): skip fetching resolved (terminal-status) comments on initial load
+commentElement.enableLazyLoadResolvedComments();
+commentElement.disableLazyLoadResolvedComments();
 ```
+
+```jsx
+// Same flags as props
+<VeltComments draftMode={true} draftConfirmation={true} lazyLoadResolvedComments={true} />
+```
+
+```html
+<velt-comments draft-mode="true" draft-confirmation="true" lazy-load-resolved-comments="true"></velt-comments>
+```
+
+- `draftConfirmation` never fires for non-draft writes (edits, status, priority, assignment, deletes). Keep Draft, Escape, or a backdrop click saves the draft; Delete Draft discards it. The popup reuses the confirm dialog with a `velt-confirm-dialog--draft` modifier class and a `Preview` wireframe slot.
+- With `lazyLoadResolvedComments`, selecting a terminal status, Status → All, Reset filters, or the `resolved` quick filter fetches resolved comments for that document. The unlock re-locks when you navigate to another document or organization. `showResolvedCommentsOnDom()` does not unlock the fetch, and terminal status options show no count (not `0`) while withheld.
 
 **Keyboard & Input:**
 
-```tsx
-commentElement.enableHotkey();                // Enable keyboard shortcuts
-commentElement.enableEnterKeyToSubmit();      // Enter to submit (Shift+Enter for newline)
-commentElement.enableDeleteOnBackspace();     // Backspace to delete
-commentElement.enablePersistentCommentMode(); // Keep comment mode active after placing
-commentElement.forceCloseAllOnEsc();          // ESC closes all dialogs
+```jsx
+commentElement.enableHotkey();                   // 'c' toggles comment mode (default false)
+commentElement.enableEnterKeyToSubmit();         // default: Enter = newline, Shift+Enter = submit
+commentElement.enableDeleteOnBackspace();        // default enabled
+commentElement.enablePersistentCommentMode();    // Stay in comment mode after placing a pin
+commentElement.enableForceCloseAllOnEsc();       // ESC exits persistent comment mode too
 ```
 
 **Mobile & Auth:**
 
-```tsx
-commentElement.enableMobileMode();            // Mobile-optimized UI
-commentElement.enableSignInButton();          // Show sign-in button for unauthenticated
-commentElement.onSignIn((event) => {          // Auth callback
-  router.push('/login');
-});
+```jsx
+commentElement.enableMobileMode();
+commentElement.enableSignInButton();             // default false
+```
+
+```jsx
+// onSignIn is a component event, not a commentElement method
+<VeltComments signInButton={true} onSignIn={() => yourSignInMethod()} />
 ```
 
 **Minimap:**
 
-```tsx
-commentElement.enableMinimap();               // Overview minimap of all comments
+```jsx
+<VeltComments minimap={true} minimapPosition="left" />
+commentElement.enableMinimap();
 ```
 
 **Sidebar Button on Dialog:**
 
-```tsx
-commentElement.enableSidebarButtonOnCommentDialog(); // Add sidebar button to dialog header
-commentElement.onSidebarButtonOnCommentDialogClick((event) => {
-  // Open sidebar when button clicked
-});
+```jsx
+commentElement.enableSidebarButtonOnCommentDialog(); // default true
+
+const subscription = commentElement
+  .onSidebarButtonOnCommentDialogClick()
+  .subscribe((event) => openMySidebar(event));
+subscription?.unsubscribe();
 ```
 
-**Composer Mode:**
+**Composer Mode and Delete Behavior (props):**
 
-```tsx
-// Control how the composer appears
-// 'inline' — composer inline in thread
-// 'popup' — composer in popup
-// 'dialog' — composer in dialog
-commentElement.composerMode('inline');
-```
+```jsx
+// composerMode: 'default' (actions bar shows on focus) | 'expanded' (always visible)
+// deleteThreadWithFirstComment: default true
+<VeltComments composerMode="expanded" deleteThreadWithFirstComment={false} />
 
-**Delete Behavior:**
-
-```tsx
-// Delete entire thread when first comment is deleted
-commentElement.deleteThreadWithFirstComment(true);
-
-// Show confirmation before deleting replies
 commentElement.enableDeleteReplyConfirmation();
 ```
 
 **Confirm Dialog Variant CSS Classes:**
 
-The confirm dialog element automatically receives a BEM modifier class based on the `type` field in `ConfirmDialogComponentConfig`. This enables independent styling for comment-delete vs. reply-delete confirmations without additional SDK configuration. The base class `velt-confirm-dialog` is always present; the SDK sets `type` to `'comment'` or `'reply'` automatically.
+The confirm dialog host receives a BEM modifier based on its type: `velt-confirm-dialog--comment`, `velt-confirm-dialog--reply`, and `velt-confirm-dialog--draft` (draft confirmation popup). The base class `velt-confirm-dialog` is always present.
 
 ```css
-/* Base class — always present */
-.velt-confirm-dialog { }
-
-/* Automatically added when deleting a top-level comment */
 .velt-confirm-dialog--comment { border-left: 4px solid red; }
-
-/* Automatically added when deleting a reply */
 .velt-confirm-dialog--reply { border-left: 4px solid orange; }
-
-/* For a custom type string supplied via ConfirmDialogComponentConfig.type */
-.velt-confirm-dialog--archive { /* custom logic */ }
-```
-
-**Page Mode:**
-
-```tsx
-// Auto-focus page mode composer
-commentElement.focusPageModeComposer();
+.velt-confirm-dialog--draft { border-left: 4px solid gray; }
 ```
 
 **Comment Modes & Selection:**
 
-```tsx
-// Area/box comment selection
-commentElement.enableAreaComment();
-
-// Multiple threads per element
-commentElement.enableMultithread();
-
-// Detect DOM changes while in comment mode
+```jsx
+commentElement.focusPageModeComposer();
+commentElement.enableAreaComment();              // default true
+commentElement.enableMultiThread();              // default false; needs multithread wireframe if you customized the dialog
 commentElement.enableChangeDetectionInCommentMode();
-
-// Treat SVG elements as images for commenting
-commentElement.svgAsImg(true);
+commentElement.enableSvgAsImg();                 // Treat SVGs as flat images
+commentElement.enableCommentToNearestAllowedElement();
 ```
 
 **PDF & Iframe Support:**
 
-```tsx
-// Enable PDF viewer comment support
-// Add data-velt-pdf-viewer="true" attribute to your PDF container element:
+```jsx
+// data-velt-pdf-viewer is an HTML attribute, not a method
 <div data-velt-pdf-viewer="true">
   <PDFViewer />
 </div>
-
-// Iframe support — comments work inside iframes automatically
-// when VeltProvider is loaded in the iframe
 ```
 
 **AI Auto-Categorization:**
 
-```tsx
-// Auto-categorize comments (Question, Feedback, Bug, Other)
-commentElement.enableAutoCategorize();
-commentElement.disableAutoCategorize();
-
-// Define custom categories
+```jsx
+commentElement.enableAutoCategorize();           // default false
 commentElement.setCustomCategory([
-  { id: 'question', name: 'Question' },
-  { id: 'feedback', name: 'Feedback' },
-  { id: 'bug', name: 'Bug Report' },
-  { id: 'feature', name: 'Feature Request' },
+  { id: 'bug', name: 'Bug', color: 'red' },
+  { id: 'feedback', name: 'Feedback', color: 'blue' },
 ]);
 ```
 
-**Comment Aggregation & Grouping:**
+**Comment Bubble Grouping:**
 
-```tsx
-// Group comments that match by context (e.g., same row in a table)
-commentElement.enableGroupMatchedComments();
-commentElement.disableGroupMatchedComments();
+```jsx
+commentElement.enableGroupMatchedComments();     // Group bubbles matching the same context/targetElementId
 ```
 
 **Custom Lists (Autocomplete Chips):**
 
-```tsx
-// Add custom data to annotation-level autocomplete
+```jsx
+// Annotation-level dropdown (tags/categories on the thread)
 commentElement.createCustomListDataOnAnnotation({
-  listId: 'labels',
+  type: 'multi', // 'multi' | 'single'
+  placeholder: 'Select a category',
   data: [
-    { id: 'label-1', name: 'Design' },
-    { id: 'label-2', name: 'Engineering' },
+    { id: 'violent', label: 'Violent' },
+    { id: 'nsfw', label: 'NSFW' },
   ],
 });
 
-// Add custom data to comment-level autocomplete
+// Comment-level hotkey list: typing the hotkey in the composer opens a picker
 commentElement.createCustomListDataOnComment({
-  listId: 'tags',
+  hotkey: '#', // single character only
+  type: 'custom',
   data: [
-    { id: 'tag-1', name: 'Urgent' },
-    { id: 'tag-2', name: 'Nice to have' },
+    { id: '1', name: 'File 1', description: 'File Description 1' },
   ],
 });
 ```
 
 **Recording in Comments:**
 
-```tsx
-// Delete a recording from a comment
-commentElement.deleteRecording({ annotationId: 'ann-123', recordingId: 'rec-1' });
+```jsx
+await commentElement.deleteRecording({ annotationId: 'ann-123', commentId: 1, recordingId: 'rec-1' });
+const recordings = await commentElement.getRecording({ annotationId: 'ann-123', commentId: 1 });
 
-// Get recording data
-const recording = commentElement.getRecording({ annotationId: 'ann-123', recordingId: 'rec-1' });
+// Comma-separated string: 'audio' (default) | 'video' | 'screen' | 'all' | 'none'
+commentElement.setAllowedRecordings('audio,screen'); // omit 'video' to disable video recording
 
-// Restrict recording types (default: all)
-commentElement.setAllowedRecordings(['audio', 'video']); // exclude 'screen'
-
-// Show countdown before recording starts
-commentElement.enableRecordingCountdown();
-
-// Enable auto-transcription of recordings
 commentElement.enableRecordingTranscription();
-commentElement.disableRecordingTranscription();
 ```
 
 **Edit Draft Preservation (v5.0.2-beta.18+):**
 
-When a user dismisses the edit composer without submitting — via click-outside, dialog destroy, or back navigation — the in-progress edits are preserved in memory as a draft. The collapsed thread card shows the pending draft with a `(DRAFT)` badge in italic styling, and clicking it re-opens the edit composer pre-filled with the saved changes.
-
-Drafts are session-only and are cleared on:
-- Successful submit
-- Explicit Escape key press
-- Page refresh
-
-There is no API surface for this behavior — it is fully automatic. Developers should be aware of the session-only scoping: drafts do not survive a page reload.
+When a user dismisses the edit composer without submitting, the in-progress edits are kept in memory as a draft. The collapsed thread card shows a `(DRAFT)` badge, and clicking it re-opens the edit composer pre-filled. Drafts are session-only and are cleared on submit, Escape, or page refresh. There is no API surface for this behavior.
 
 **Collapsed Replies Preview (v5.0.2-beta.37+):**
 
-When enabled, a comment dialog's non-selected/preview state shows the collapsed thread teaser — first comment, a "Show N replies…" divider, and the last comment — instead of only the first comment. Clicking the divider selects and expands the dialog in one step. Defaults to disabled.
+When enabled, a non-selected dialog shows the collapsed teaser (first comment, a "Show N replies…" divider, last comment) instead of only the first comment. Defaults to disabled.
 
-```tsx
-const commentElement = client.getCommentElement();
-
-// Show the collapsed teaser in the non-selected/preview state
+```jsx
 commentElement.enableCollapsedRepliesPreview();
-
-// Revert to showing only the first comment when not selected (default)
 commentElement.disableCollapsedRepliesPreview();
 ```
 
-Also settable declaratively as a prop (`<VeltComments collapsedRepliesPreview={true} />`) or HTML attribute (`<velt-comments collapsed-replies-preview="true">`). The same flag is exposed as the `collapsedRepliesPreview` comment-dialog wireframe variable (boolean, default `false`); see `wireframe-variables-comment-dialog`. Both methods take no params and return `void`.
+Also settable as `<VeltComments collapsedRepliesPreview={true} />` or `<velt-comments collapsed-replies-preview="true"></velt-comments>`. Boolean HTML attributes need an explicit `="true"` / `="false"`; a bare attribute is treated as disabled.
 
 **Key details:**
-- All toggle methods have corresponding `disable` variants
-- Most can also be set as props on `<VeltComments>` or via HTML attributes
-- Call configuration methods after `getCommentElement()` is available (inside useEffect with client dependency)
-- `data-velt-pdf-viewer` is an HTML attribute, not a method
+- All toggle methods have corresponding `disable` variants.
+- Call configuration methods after `getCommentElement()` is available (inside a `useEffect` with `client` as a dependency in React).
+- In Other Frameworks, use `Velt.getCommentElement()` and `Velt.excludeLocationIds()`.
 
 **Verification:**
-- [ ] Toggle methods called after comment element is available
-- [ ] Mobile mode tested on actual mobile devices
+- [ ] No invented signatures (`showCommentsOnDom(true)`, `svgAsImg(true)`, `composerMode(...)`, `enableMultithread()`)
+- [ ] `excludeLocationIds()` called on `client` / `Velt`, not on the comment element
+- [ ] `draftConfirmation` only enabled together with `draftMode`
+- [ ] `lazyLoadResolvedComments` UI accounts for terminal statuses showing no count until unlocked
+- [ ] `setAllowedRecordings()` receives a comma-separated string, not an array
 - [ ] Hotkeys don't conflict with application shortcuts
-- [ ] Ghost comments behavior understood (comments from deleted elements)
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/comments/customize-behavior - UI/UX
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#uiux - UI/UX
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#draftconfirmation - draftConfirmation
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#lazyloadresolvedcomments - lazyLoadResolvedComments
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#excludelocationids - excludeLocationIds
+- https://docs.velt.dev/ui-customization/features/async/comments/confirm-dialog - Confirm dialog wireframes and modifier classes

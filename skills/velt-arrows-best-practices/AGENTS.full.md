@@ -1,8 +1,8 @@
 # Velt Arrows Best Practices
 
-**Version 1.0.0**  
+**Version 1.0.1**  
 Velt  
-May 2026
+October 2026
 
 > **Note:**  
 > This document is mainly for agents and LLMs to follow when maintaining,  
@@ -49,7 +49,16 @@ The Arrows feature is two components plus one programmatic handle:
 
 Without `<VeltArrows>` you can place a trigger but arrows never render; without `<VeltArrowTool>` users have no way to start drawing.
 
-**React / Next.js — minimal end-to-end setup:**
+**Incorrect (trigger without the root component):**
+
+```tsx
+// BUG: no <VeltArrows />, so users can start drawing but placed arrows never render
+<div className="toolbar">
+  <VeltArrowTool />
+</div>
+```
+
+**Correct (React / Next.js): minimal end-to-end setup:**
 
 ```tsx
 import { VeltArrows, VeltArrowTool } from '@veltdev/react';
@@ -71,7 +80,7 @@ export default function App() {
 }
 ```
 
-**Other Frameworks (HTML / web component) — minimal setup:**
+**Correct (Other Frameworks): minimal setup:**
 
 ```html
 <!doctype html>
@@ -153,6 +162,7 @@ function YourToolbar() {
 ```
 
 Both forms work — the plain child pattern (most common in the official `custom-button.mdx` docs) and the named-slot pattern (from the `slots.mdx` page) target the same `button` slot. Prefer the plain child form for new code; the named `slot="button"` attribute is explicit and helpful if you ever need to add additional slots in the future.
+If you pass `featureAllowList` in the Velt config, include `'arrow'`; otherwise the arrows chunk is not preloaded and the tags render inert until it loads. `client.preloadArrow()` warms the chunk ahead of first use, and calling `getArrowElement()` auto-enables the feature. Arrows have no headless React hooks; use the components, `getArrowElement()`, CSS, and props.
 
 ---
 
@@ -172,13 +182,20 @@ Three knobs cover the active configuration surface, plus one important known lim
 
 Constrain the Arrows feature to a specific set of DOM element IDs. Anywhere outside this list, the arrow tool is inert. There are two equivalent forms:
 
-**As a `<VeltArrows>` prop (React / Next.js):**
+**Incorrect (deep CSS selector into the shadow root):**
+
+```css
+/* BUG: does not cross the Shadow DOM boundary of <velt-arrow-tool> */
+velt-arrow-tool button svg { width: 1.5rem; }
+```
+
+**Correct (React / Next.js): `allowedElementIds` as a `<VeltArrows>` prop:**
 
 ```tsx
 <VeltArrows allowedElementIds={['canvas-region', 'preview-pane']} />
 ```
 
-**As a `<velt-arrows>` attribute (Other Frameworks):**
+**Correct (Other Frameworks): `allowed-element-ids` attribute:**
 
 ```html
 <velt-arrows allowed-element-ids="['canvas-region', 'preview-pane']"></velt-arrows>
@@ -199,7 +216,7 @@ arrowElement.allowedElementIds(['canvas-region', 'preview-pane']);
 ```
 
 The prop form is declarative; the method form is useful when you need to change the allowed set in response to runtime state (e.g. a route change or user permission switch).
-`darkMode` defaults to `false`.
+`darkMode` defaults to `false`. The Arrows customize-behavior page documents it on `<VeltArrows>`; the UI customization reference also lists `darkMode` as the typed prop on `VeltArrowTool`.
 
 **React / Next.js:**
 
@@ -248,7 +265,7 @@ Arrows do **not** currently expose `<velt-...-wireframe>` tags. The `velt-data` 
 - Customize visuals via CSS `::part(...)` hooks on the tool button
 - Replace the tool button entirely via the child-slot pattern
 - Style the arrow visual via the `--velt-arrow-z-index` CSS variable (and Global Styles in the docs)
-Do NOT suggest a `<velt-arrow-pin-wireframe>` or similar — those tags don't exist yet.
+Do NOT suggest a `<velt-arrow-pin-wireframe>` or similar — those tags don't exist yet. There are also no headless hooks for Arrows. Don't patch Velt's internal arrow DOM to force a layout; internal DOM can change in any release, so stick to documented parts, CSS variables, and props.
 
 **Forward-compatibility — subcomponents and `componentConfig` variables (documented, not yet wireable):**
 
@@ -282,6 +299,18 @@ The `ArrowAnnotation` data model (annotationId, from, color, targetElement, posi
 **Impact: MEDIUM (The canonical shape returned for placed arrows and stored on the document; needed for any code that subscribes to arrows, exports them, or builds custom analytics)**
 
 `ArrowAnnotation` is the canonical shape Velt persists for every placed arrow on a document. Code that subscribes to arrows, exports them, or builds custom UI on top of them types against this shape.
+
+**Incorrect (reads geometry without guards):**
+
+```typescript
+const angle = annotation.props.arrowAngle; // BUG: props is optional, and the annotation may not be an arrow
+```
+
+**Correct (narrow and use optional chaining):**
+
+```typescript
+const angle = annotation.type === 'arrow' ? annotation.props?.arrowAngle : undefined;
+```
 
 **`ArrowAnnotation` shape:**
 
@@ -342,3 +371,4 @@ The map is shared across annotation types (comments and arrows alike), keyed by 
 - https://docs.velt.dev/ui-customization/features/async/arrows/parts
 - https://docs.velt.dev/ui-customization/features/async/arrows/custom-button
 - https://docs.velt.dev/ui-customization/features/async/arrows/wireframe-variables
+- https://docs.velt.dev/ui-customization/features/annotations-tags-arrows-areas

@@ -2,12 +2,22 @@
 title: Troubleshoot Common Presence Issues
 impact: LOW-MEDIUM
 impactDescription: Quick fixes for common presence setup and runtime problems
-tags: debugging, troubleshooting, presence, issues, fixes
+tags: debugging, troubleshooting, presence, issues, fixes, featureAllowList
 ---
 
 ## Troubleshoot Common Presence Issues
 
 Common issues and solutions when integrating Velt Presence.
+
+**Incorrect (several common mistakes together):**
+
+```jsx
+<VeltProvider apiKey="API_KEY" config={{ featureAllowList: ["comment"] }}> {/* 'presence' missing */}
+  <VeltPresence />                                   {/* no authProvider, no document set */}
+</VeltProvider>
+```
+
+**Correct:** authenticate, set the document, and allow the feature (details per issue below).
 
 **Issue 1: Presence not showing**
 
@@ -15,7 +25,7 @@ Common issues and solutions when integrating Velt Presence.
 
 **Solutions:**
 ```jsx
-// 1. Ensure VeltProvider wraps all Velt components with authProvider
+// 1. VeltProvider wraps all Velt components and authenticates the user
 <VeltProvider
   apiKey="YOUR_API_KEY"
   authProvider={{
@@ -23,90 +33,80 @@ Common issues and solutions when integrating Velt Presence.
     generateToken: async () => fetchToken(),
   }}
 >
-  <VeltPresence />  {/* Must be inside provider */}
+  <DocumentScope /> {/* calls setDocuments after login */}
+  <VeltPresence />
 </VeltProvider>
 
-// 2. Ensure setDocuments is called to scope presence
-import { useSetDocuments } from "@veltdev/react";
-useSetDocuments([{ id: "my-document-id" }]);
+// 2. Set the document from a child component of VeltProvider
+const { setDocuments } = useSetDocuments();
+setDocuments([{ id: "my-document-id", metadata: { documentName: "My Doc" } }]);
 
-// 3. For Next.js, add 'use client' directive at top of file
+// 3. v6 modular SDK: if featureAllowList is set, it must include 'presence'
+<VeltProvider apiKey="YOUR_API_KEY" config={{ featureAllowList: ["presence", "comment"] }} />
+
+// 4. For Next.js, add 'use client' at the top of files that use Velt components
 ```
+
+Anonymous users never see presence; the feature requires an identified user.
 
 **Issue 2: Users stuck on "online" (never go away/offline)**
 
-**Symptoms:** User avatars show as online even after they leave or go idle.
-
 **Solutions:**
 ```jsx
-// Check inactivityTime configuration
-<VeltPresence inactivityTime={300000} />
-// Default: 5 minutes (300000ms). Set lower for faster away detection.
-
-// Ensure tab focus/blur events are not being intercepted
-// Some frameworks or iframes can block visibility change events.
-// Test in a standalone page first.
+// inactivityTime is in milliseconds (default 300000 = 5 min)
+<VeltPresence inactivityTime={60000} offlineInactivityTime={600000} />
+// offlineInactivityTime smaller than inactivityTime is rejected and ignored.
+// Frameworks or iframes that swallow focus/visibility events can delay 'away'.
 ```
 
-**Issue 3: All users showing across all documents**
-
-**Symptoms:** Users from other documents appear in your presence list.
+**Issue 3: Users from other pages appear in the presence list**
 
 **Solutions:**
 ```jsx
-// setDocuments MUST be called to scope presence to a specific document
-import { useSetDocuments } from "@veltdev/react";
-
-function DocumentPage({ docId }) {
-  // This scopes presence (and comments, cursors) to this document
-  useSetDocuments([{ id: docId }]);
-
-  return <VeltPresence />;
-}
+// Update the document on every route change; presence uses the root (first) document
+const { setDocuments } = useSetDocuments();
+useEffect(() => {
+  if (veltUser) setDocuments([{ id: docId }]);
+}, [veltUser, docId, setDocuments]);
 ```
 
-**Issue 4: Avatar click not working**
-
-**Symptoms:** Clicking on a presence avatar does nothing.
+**Issue 4: Avatar click does nothing**
 
 **Solutions:**
 ```jsx
-// Use onPresenceUserClick callback
-<VeltPresence
-  onPresenceUserClick={(user) => {
-    console.log("Clicked user:", user);
-    navigateToUserLocation(user);
-  }}
-/>
+<VeltPresence onPresenceUserClick={(user) => navigateToUserLocation(user)} />
+// Clicking an avatar only starts following when flockMode={true}
 ```
 
-**Issue 5: User count is wrong**
-
-**Symptoms:** Fewer or more users shown than expected.
+**Issue 5: User count looks wrong**
 
 **Solutions:**
 ```jsx
-// Check the 'self' prop -- controls whether current user appears
-<VeltPresence self={true} />   {/* Include self in avatar list */}
-<VeltPresence self={false} />  {/* Exclude self (default) */}
+// self defaults to true: the current user IS included and counts toward maxUsers
+<VeltPresence self={false} /> {/* exclude yourself */}
 
-// Check maxUsers -- limits visible avatars before overflow
+// maxUsers (default 5) caps visible avatars; extra users go into "+N"
 <VeltPresence maxUsers={5} />
-// Remaining users appear as "+N" count. This does not affect
-// the actual presence data, only the visible avatar count.
+// maxUsers does not change presence data returned by getData / usePresenceData.
+
+// locationId / location filter the list to one location
 ```
 
 ### Debugging Verification Checklist
 
-- [ ] `VeltProvider` renders with valid `apiKey` and `authProvider`
+- [ ] `VeltProvider` renders with a valid `apiKey` and `authProvider`
 - [ ] `authProvider.user` has `userId`, `organizationId`, and `name`
-- [ ] `useSetDocuments` (or `client.setDocuments`) is called with a document ID
-- [ ] `'use client'` directive present in Next.js components using Velt
+- [ ] `setDocuments` (via `useSetDocuments()` or `Velt.setDocuments`) is called with `{ id }`
+- [ ] `featureAllowList`, if set, includes `'presence'`
+- [ ] `'use client'` is present in Next.js components using Velt
 - [ ] Domain is safelisted in the Velt Console
-- [ ] Test with two browser tabs using different user identities
-- [ ] Check browser console for Velt SDK errors
-- [ ] `inactivityTime` is set to an appropriate value for your use case
-- [ ] `self` prop matches your expected behavior (show/hide current user)
-- [ ] `maxUsers` is not set too low (hiding users you expect to see)
+- [ ] Tested with two browsers and two different users
+- [ ] `inactivityTime` / `offlineInactivityTime` are in milliseconds and ordered correctly
+- [ ] `self` and `maxUsers` match the expected count
 
-> **Source:** Velt Presence Troubleshooting -- common integration issues and configuration checks
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/presence/setup - "Presence Setup"
+- https://docs.velt.dev/realtime-collaboration/presence/customize-behavior - "Customize Behavior"
+- https://docs.velt.dev/ui-customization/features/realtime/presence - "Limitations"
+- https://docs.velt.dev/key-concepts/overview#subscribe-to-documents - "Subscribe to Documents"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#config - `Config.featureAllowList`

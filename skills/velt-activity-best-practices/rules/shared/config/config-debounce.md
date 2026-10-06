@@ -1,58 +1,70 @@
 ---
 title: Configure CRDT Activity Debounce Time
 impact: MEDIUM
-impactDescription: Prevent noisy activity feeds by batching CRDT edits into single records
-tags: debounce, crdt, setActivityDebounceTime, batching, edits, noise
+impactDescription: Tune how CRDT keystrokes are grouped into activity records; values under the 10-second minimum are ignored
+tags: debounce, crdt, setActivityDebounceTime, useCrdtUtils, batching, edits, noise
 ---
 
 ## Configure CRDT Activity Debounce Time
 
-Without debouncing, every CRDT keystroke generates a separate activity record, flooding the activity feed. Use `setActivityDebounceTime()` to batch edits within a time window into a single record.
+CRDT editor keystrokes are batched into a single activity record per debounce window. The default window is 10 minutes, which can make a document timeline too coarse. Use `setActivityDebounceTime()` on the CRDT element to pick a window that matches your timeline. The minimum is 10 seconds (10,000 ms).
 
-**Incorrect (no debounce — every keystroke creates an activity record):**
+**Incorrect (calling it on the wrong element, and below the minimum):**
 
 ```jsx
-// Default behavior: typing "Hello" generates 5 separate activity records
-// H → record, e → record, l → record, l → record, o → record
-// This floods the activity feed with noise
+const activityElement = client.getActivityElement();
+// ActivityElement has no setActivityDebounceTime method
+activityElement.setActivityDebounceTime(5000);
+
+const crdtElement = client.getCrdtElement();
+// 5000 ms is below the 10,000 ms minimum
+crdtElement.setActivityDebounceTime(5000);
 ```
 
-**Correct (debounce CRDT edits into batched records):**
+**Correct (React / Next.js):**
 
 ```jsx
+import { useEffect } from 'react';
 import { useVeltClient } from '@veltdev/react';
 
 function EditorSetup() {
   const { client } = useVeltClient();
 
   useEffect(() => {
-    // Batch all CRDT edits within 5-second windows into single records
+    if (!client) return;
+    // One activity record per 30-second editing window
     const crdtElement = client.getCrdtElement();
-    crdtElement.setActivityDebounceTime(5000); // 5000ms = 5 seconds
+    crdtElement.setActivityDebounceTime(30000);
   }, [client]);
 
   return <YourEditor />;
 }
+
+// Hook alternative: useCrdtUtils() exposes the same method
+// const crdtUtils = useCrdtUtils();
+// crdtUtils?.setActivityDebounceTime(30000);
 ```
 
-**For non-React frameworks:**
+**Correct (Other Frameworks):**
 
 ```js
 const crdtElement = Velt.getCrdtElement();
-crdtElement.setActivityDebounceTime(5000); // 5 seconds
+crdtElement.setActivityDebounceTime(30000); // 30 seconds
 ```
 
 **Key details:**
-- Parameter is in **milliseconds** (e.g., 5000 = 5 seconds)
-- **Default: 10 minutes (600,000ms)** — without setting this, edits are batched every 10 minutes
-- **Minimum: 10 seconds (10,000ms)** — values below 10,000ms are ignored
-- Called on the **CRDT element** (`getCrdtElement()`), not the activity element
-- All edits within the debounce window are batched into a single activity record
-- Lower values = more granular records; higher values = less noise
+- Parameter is in **milliseconds**
+- **Default: 10 minutes (600,000 ms)**
+- **Minimum: 10 seconds (10,000 ms)**. The overview page's `setActivityDebounceTime(5000)` example is below this minimum; use 10,000 ms or more
+- Called on the **CRDT element** (`getCrdtElement()` / `useCrdtUtils()`), not the activity element
+- All edits within the window are flushed as one activity record (`featureType: 'crdt'`, action `crdt.editor_edit`)
+- Lower values give more granular records; higher values give less noise
 
 **Verification:**
-- [ ] `setActivityDebounceTime()` called with a reasonable value (2000-10000ms)
-- [ ] Activity feed shows batched CRDT entries instead of per-keystroke entries
-- [ ] Method called on CRDT element, not activity element
+- [ ] `setActivityDebounceTime()` called on the CRDT element
+- [ ] Value is at least 10,000 ms
+- [ ] Activity feed shows batched CRDT entries at the expected cadence
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/activity/overview - CRDT edits, setActivityDebounceTime
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#setactivitydebouncetime - "setActivityDebounceTime()" (default 10 minutes, minimum 10 seconds)
+- https://docs.velt.dev/async-collaboration/activity/overview#automatic-activity-logging - "Automatic Activity Logging"

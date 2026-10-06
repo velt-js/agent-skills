@@ -74,17 +74,17 @@ if (result?.error) {
 |------|---------|------------------|
 | `same_user_editor_current_tab` | Already editing on this tab | No action needed |
 | `same_user_editor_different_tab` | Editing on another tab | Call `editCurrentTab()` to switch |
-| `another_user_editor` | Different user is editing | Call `requestEditorAccess()` |
+| `another_user_editor` | Different user is editing | Offer `requestEditorAccess()` |
 
 **Key details:**
 - Always `await` the result — the Promise resolves to `{ error?: ErrorEvent }` or void
-- Call on explicit user action (e.g., button click, start typing) — not automatically on page load
+- The docs recommend calling it on an explicit user action (button click, start typing). If you auto-claim on load instead (see `core-setup`), gate it on `useVeltInitState()` and expect `another_user_editor` for everyone after the first user
 - Use `editCurrentTab()` to move editing to the current tab when the user is editor on a different tab
 
 **Verification:**
 - [ ] `setUserAsEditor()` awaited
 - [ ] All 3 error codes handled with appropriate UX
 - [ ] `editCurrentTab()` called for `same_user_editor_different_tab` scenario
-- [ ] Called on explicit user interaction, not page load
+- [ ] Called on explicit user interaction, or gated on `useVeltInitState()` when auto-claiming
 
-**Source Pointer:** https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - setUserAsEditor, editCurrentTab
+**Source Pointer:** https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior#setuseraseditor - setUserAsEditor, Error handling, editCurrentTab; https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup - Step 3: Set the editor

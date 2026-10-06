@@ -9,7 +9,16 @@ tags: reactions, VeltInlineReactionsSection, velt-inline-reactions-section, targ
 
 The Inline Reactions feature is one component bound to a container element by id. Add the container, give it a stable `id`, then mount `<VeltInlineReactionsSection>` inside it with `targetReactionElementId` set to that same `id`. Reactions placed on this section anchor to the container.
 
-**Minimal setup (React / Next.js):**
+**Incorrect (id mismatch, so nothing anchors):**
+
+```tsx
+<section id="article-42">
+  {/* BUG: targetReactionElementId does not match the container id */}
+  <VeltInlineReactionsSection targetReactionElementId="article42" />
+</section>
+```
+
+**Correct (React / Next.js): minimal setup:**
 
 ```tsx
 import { VeltInlineReactionsSection } from '@veltdev/react';
@@ -25,7 +34,7 @@ export function Article() {
 }
 ```
 
-**Minimal setup (Other Frameworks):**
+**Correct (Other Frameworks): minimal setup:**
 
 ```html
 <section id="article-42">
@@ -74,6 +83,10 @@ const customReactions = {
 **Custom reactions via the runtime method (React / Next.js):**
 
 ```tsx
+// Hook
+const reactionElement = useReactionElement();
+
+// API Method
 const reactionElement = client.getReactionElement();
 reactionElement.setCustomReactions({
   fire:     { url: "https://em-content.zobj.net/source/apple/391/fire_1f525.png" },
@@ -163,6 +176,10 @@ Custom variants behave identically — pick a stable name and reference it from 
 
 `setCustomReactions` also exists on `commentElement` (`client.getCommentElement().setCustomReactions(...)`) for the same map shape. If you want one custom emoji set across both inline reactions and comment reactions, set it on whichever element matches the scope of the change — for app-wide custom emojis you typically set it once on the comment element and the inline strip picks up the same set. See `velt-comments-best-practices` for the comments-specific path.
 
+### v6 modular SDK
+
+If you pass `featureAllowList` in the Velt config, include `'reaction'`, or the reactions chunk is not preloaded and the section renders inert until it loads. `client.preloadReaction()` warms it ahead of first use; calling `getReactionElement()` auto-enables the feature.
+
 **Common pitfalls:**
 - DO NOT omit `targetReactionElementId` — without it the inline strip has nothing to anchor to.
 - DO NOT use a `targetReactionElementId` value that doesn't match any element's `id` — the strip mounts but no reactions render and the misconfiguration is silent.
@@ -178,9 +195,13 @@ Custom variants behave identically — pick a stable name and reference it from 
 - [ ] `shadowDom` is only disabled when you intentionally want your own CSS to reach into the component internals
 - [ ] `darkMode` is controlled via the prop OR `enableDarkMode()` / `disableDarkMode()` — not both for the same scope
 - [ ] Inline-reactions and comment-reactions custom emojis are configured at the right scope to avoid drift
+- [ ] React code gets the element from `useReactionElement()` or `client.getReactionElement()`; other frameworks use `Velt.getReactionElement()`
+- [ ] If `featureAllowList` is set, it includes `'reaction'`
 
 **Source Pointers:**
 - https://docs.velt.dev/async-collaboration/reactions/setup — `<VeltInlineReactionsSection>` + `targetReactionElementId`
 - https://docs.velt.dev/async-collaboration/reactions/customize-behavior — `setCustomReactions` and the three entry shapes
 - https://docs.velt.dev/ui-customization/features/async/inline-reactions — `shadowDom` / `darkMode` / `variant` props + `enableDarkMode` / `disableDarkMode` runtime methods
 - https://docs.velt.dev/api-reference/sdk/api/api-methods#setcustomreactions — `setCustomReactions()` signature
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#usereactionelement — `useReactionElement()` hook
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#preloadreaction — `preloadReaction()` and `featureAllowList`

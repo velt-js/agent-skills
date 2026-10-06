@@ -2,59 +2,71 @@
 title: Restrict Comment Placement to Specific DOM Elements
 impact: LOW
 impactDescription: Control where users can place comments on the page
-tags: allowedElementIds, allowedElementClassNames, allowedElementQuerySelectors, data-velt-comment-disabled, setPinCursorImage, sourceId, commentToNearestAllowedElement, dom
+tags: allowedElementIds, allowedElementClassNames, allowedElementQuerySelectors, data-velt-comment-disabled, setPinCursorImage, sourceId, commentToNearestAllowedElement, enableCommentToNearestAllowedElement, dom
 ---
 
 ## Restrict Comment Placement to Specific DOM Elements
 
-Control which elements on the page can receive comment pins.
+Control which elements can receive comment pins. Once you provide allowed IDs, class names, or query selectors, commenting is disabled on every other element (Popover mode is not affected). Use `data-velt-comment-disabled` to block individual elements instead.
 
-**API Methods:**
+**Incorrect (boolean param on a toggle, URL cursor):**
 
-```tsx
+```jsx
+commentElement.commentToNearestAllowedElement(true);   // not a method; use the enable/disable pair
+commentElement.setPinCursorImage('https://example.com/cursor.svg'); // expects a 32x32 base64 image
+```
+
+**Correct:**
+
+```jsx
 const commentElement = client.getCommentElement();
 
-// Restrict by element IDs
-commentElement.allowedElementIds(['editor-area', 'design-canvas', 'content-panel']);
+commentElement.allowedElementIds(['some-element']);
+commentElement.allowedElementClassNames(['class-name-1', 'class-name-2']);
+commentElement.allowedElementQuerySelectors(['#id1.class-name-1']);
 
-// Restrict by CSS class names
-commentElement.allowedElementClassNames(['commentable', 'reviewable']);
+// Snap pins to the closest allowed element when the user clicks a non-allowed one (default false)
+commentElement.enableCommentToNearestAllowedElement();
 
-// Restrict by CSS selectors
-commentElement.allowedElementQuerySelectors(['[data-commentable]', '.content-area > div']);
-
-// Auto-snap pin to nearest allowed element
-commentElement.commentToNearestAllowedElement(true);
-
-// Custom cursor icon when in comment mode
-commentElement.setPinCursorImage('https://example.com/custom-cursor.svg');
+// Custom cursor in comment mode: 32 x 32 pixel image as a base64 string
+commentElement.setPinCursorImage(BASE64_IMAGE_STRING);
 ```
 
-**HTML attribute to disable comments on specific elements:**
+```jsx
+<VeltComments
+  allowedElementIds={['some-element']}
+  allowedElementClassNames={['class-name-1', 'class-name-2']}
+  allowedElementQuerySelectors={['#id1.class-name-1']}
+  commentToNearestAllowedElement={true}
+  pinCursorImage={BASE64_IMAGE_STRING}
+/>
+```
+
+**Disable comments on specific elements:**
 
 ```html
-<!-- This element cannot receive comments -->
-<div data-velt-comment-disabled="true">
-  Protected content
-</div>
+<div data-velt-comment-disabled></div>
 ```
 
-**Source ID for tracking:**
+**sourceId for duplicate DOM IDs:**
 
-```tsx
-// Identify which source element generated a comment
-<VeltCommentTool sourceId="toolbar-button" />
+When the same element ID appears more than once (for example, a data component rendered in several places), give each `VeltCommentTool` a session-unique `sourceId` so the dialog opens on the instance the user clicked.
+
+```jsx
+<VeltCommentTool sourceId="sourceId1" />
 ```
 
-**Key details:**
-- `allowedElementIds`, `allowedElementClassNames`, and `allowedElementQuerySelectors` are mutually exclusive — use one approach
-- `data-velt-comment-disabled` can be added to any HTML element
-- `commentToNearestAllowedElement` snaps pins to the closest allowed parent
-- `setPinCursorImage` accepts a URL to a custom cursor image
+```html
+<velt-comment-tool source-id="sourceId1"></velt-comment-tool>
+```
 
 **Verification:**
-- [ ] Only one restriction method used (IDs, classes, or selectors)
-- [ ] Comment pins only appear on allowed elements
-- [ ] `data-velt-comment-disabled` on sensitive elements
+- [ ] Allowed lists cover every element that should accept comments
+- [ ] `data-velt-comment-disabled` on elements that must never be commented on
+- [ ] `setPinCursorImage()` receives a 32 x 32 base64 image
+- [ ] `sourceId` is unique per instance when DOM IDs repeat
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/comments/customize-behavior - DOM Controls
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#dom-controls - DOM Controls
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#commenttonearestallowedelement - commentToNearestAllowedElement
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#setpincursorimage - setPinCursorImage

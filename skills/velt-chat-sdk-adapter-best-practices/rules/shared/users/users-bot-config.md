@@ -1,45 +1,44 @@
 ---
-title: Bot User Configuration and Feedback Loop Avoidance
+title: Give the bot a stable, unique botUserId and matching botUserName
 impact: HIGH
-tags: botUserId, botUserName, feedback loop, agent, from
+impactDescription: The adapter drops events from botUserId; changing or reusing the ID makes the bot answer itself or ignore real users
+tags: botUserId, botUserName, feedback loop, from, mention detection, userName
 ---
 
-## Bot User Configuration
+## Give the bot a stable, unique botUserId and matching botUserName
 
-The `botUserId` and `botUserName` identify the bot in Velt's system. They serve two purposes: attributing bot replies and filtering out the bot's own webhook events.
+`botUserId` and `botUserName` identify the bot. Replies posted with `thread.post()` are authored as `from: { userId: botUserId, name: botUserName }`. When Velt sends the webhook for that reply, the adapter compares the acting user with `botUserId` and ignores it, which prevents reply loops. `botUserName` is also used to detect @-mentions of the bot.
+
+**Incorrect (reuses a human user's ID):**
 
 ```typescript
 createVeltAdapter({
-  botUserId: "velt-bot",       // Unique, stable ID
-  botUserName: "Velt Bot",     // Human-readable display name
-  // ...
+  botUserId: "user-1",       // BUG: a real user's ID; their comments are now ignored as "bot" events
+  botUserName: "Assistant",
 });
 ```
 
-### Feedback Loop Prevention
+**Correct:**
 
-When the bot posts a reply via `thread.post()`, Velt fires a `comment.add` webhook for that reply. Without filtering, the bot would process its own message and potentially reply again infinitely.
+```typescript
+export const BOT_USER_ID = "velt-bot";
+export const BOT_USER_NAME = "Velt Bot";
 
-The adapter prevents this by comparing `event.actionUser.userId` against `botUserId`. If they match, the event is silently ignored. This is why `botUserId` must be consistent — if it doesn't match, the bot enters a feedback loop.
-
-### Bot Reply Attribution
-
-Bot replies are posted with the `from` field set to `{ userId: botUserId }` and are tagged with an `agent` metadata block:
-
-```json
-{
-  "from": { "userId": "velt-bot" },
-  "agent": {
-    "agentSource": "velt",
-    "agentId": "velt-bot",
-    "sourceType": "agent"
-  }
-}
+const chat = new Chat<{ velt: VeltAdapter }>({
+  userName: BOT_USER_NAME,
+  adapters: {
+    velt: createVeltAdapter({ botUserId: BOT_USER_ID, botUserName: BOT_USER_NAME, resolveUsers }),
+  },
+  state: createMemoryState(),
+});
 ```
 
-### Key Points
+Include the bot in your user lookup (`resolveUsers`) so its name renders in mentions.
 
-- `botUserId` must be a unique, stable string — never reuse an existing human user's ID
-- `botUserName` appears in the Velt comment UI as the reply author
-- If you change `botUserId`, old webhook events from the bot won't be filtered — the bot may reply to its own historical messages
-- The `userName` on the Chat constructor should match `botUserName` on the adapter
+**Verification Checklist:**
+- [ ] `botUserId` is unique and never changes between deployments
+- [ ] `Chat.userName` equals the adapter's `botUserName`
+- [ ] `resolveUsers` resolves the bot's ID too
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "Create a user database" and "Create the bot instance"

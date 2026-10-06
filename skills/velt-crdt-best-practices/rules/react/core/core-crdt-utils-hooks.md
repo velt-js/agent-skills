@@ -76,8 +76,8 @@ export function CrdtEventListener() {
 
 | Hook | Returns | Description |
 |------|---------|-------------|
-| `useCrdtUtils()` | `CrdtElement \| null` | Access CrdtElement methods (enableWebhook, setWebhookDebounceTime, setActivityDebounceTime, etc.) |
-| `useCrdtEventCallback(eventType)` | `CrdtUpdateDataEvent \| null` | Subscribe to CRDT events with automatic cleanup. Currently supports `"updateData"`. |
+| `useCrdtUtils()` | `CrdtElement \| undefined` | Access CrdtElement methods (enableWebhook, disableWebhook, setWebhookDebounceTime, setActivityDebounceTime, message-stream methods) |
+| `useCrdtEventCallback(action)` | `CrdtEventTypesMap[action]` | Latest payload for the event, with automatic cleanup. `"updateData"` yields a `CrdtUpdateDataEvent` (null until the first event). |
 
 **Verification Checklist:**
 - [ ] `useCrdtUtils()` used instead of `client.getCrdtElement()` in React components
@@ -86,4 +86,6 @@ export function CrdtEventListener() {
 - [ ] Hooks called inside components wrapped by `VeltProvider`
 
 **Source Pointers:**
-- https://docs.velt.dev/realtime-collaboration/crdt/setup/core - useCrdtUtils, useCrdtEventCallback hooks
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#usecrdtutils - useCrdtUtils() and useCrdtEventCallback()
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#usecrdtutils - CRDT utility methods
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/core#step-4-event-subscriptions-optional - Event subscriptions

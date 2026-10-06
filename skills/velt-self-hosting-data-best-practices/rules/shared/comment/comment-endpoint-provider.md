@@ -2,7 +2,7 @@
 title: Use Endpoint-Based Config for Comment Data Provider
 impact: HIGH
 impactDescription: Simplest approach for standard REST backend integrations
-tags: comment, endpoint, config, url, getConfig, saveConfig, deleteConfig, headers, automatic
+tags: comment, endpoint, config, url, getConfig, saveConfig, deleteConfig, headers, credentials, async-headers, additionalSaveEvents, automatic
 ---
 
 ## Use Endpoint-Based Config for Comment Data Provider
@@ -87,6 +87,24 @@ const commentDataProvider = {
 };
 ```
 
+**Short-lived tokens and cookies.** On any endpoint config (`getConfig`, `saveConfig`, `deleteConfig`) of any provider, `headers` can be an async function that the SDK resolves on every request, including each retry, so a short-lived token stays fresh. Static header objects are captured once. Set `credentials: 'include'` to send cookies for cross-origin session auth; when unset, `fetch()` keeps its default.
+
+```jsx
+const commentDataProvider = {
+  config: {
+    saveConfig: {
+      url: `${BACKEND_URL}/comments/save`,
+      headers: async () => ({ Authorization: `Bearer ${await getFreshToken()}` }),
+      credentials: 'include',
+    },
+    // Opt into non-core events on the same save endpoint (see comment-function-provider)
+    additionalSaveEvents: [{ event: 'comment_annotation.status_change' }],
+  },
+};
+```
+
+Verify that credential on your backend before touching the database (see `backend-verify-resolver-auth`).
+
 See the `provider-retry-timeout` rule for the full `additionalFields` vs `fieldsToRemove` comparison and the list of structural fields that must **never** appear in `fieldsToRemove` (identifiers, metadata, location, status, resolver flags, …).
 
 **Key details:**
@@ -99,7 +117,9 @@ See the `provider-retry-timeout` rule for the full `additionalFields` vs `fields
 **Verification:**
 - [ ] All three endpoint URLs configured and reachable
 - [ ] Backend returns `{ data, success, statusCode }` format
-- [ ] Headers include authentication if required
+- [ ] Headers include authentication if required; short-lived tokens use an async `headers` function
 - [ ] `fieldsToRemove` configured to strip sensitive PII
 
-**Source Pointer:** https://docs.velt.dev/self-host-data/comments - Endpoint-Based approach
+**Source Pointers:**
+- https://docs.velt.dev/self-hosting/partial/comments - "Endpoint based DataProvider", "additionalSaveEvents"
+- https://docs.velt.dev/self-hosting/partial/overview - "Async headers and credentials"

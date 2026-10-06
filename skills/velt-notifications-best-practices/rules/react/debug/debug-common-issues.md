@@ -134,6 +134,33 @@ function NotificationNavigation() {
 }
 ```
 
+**Issue 7: Unread notification missing from For You tab and badge**
+
+```jsx
+// Problem: user has an unread @mention, but the badge shows 0
+<VeltNotificationsTool />
+```
+
+**Solution:**
+- By default, For You and the unread count come from the organization's 15 most recently active documents. Notifications on older documents are not fetched.
+- Opt in to the user-scoped fetch (SDK 6.0.8+ API, 6.0.9+ prop):
+
+```jsx
+<VeltNotificationsTool enableUserScopedNotifications={true} />
+```
+
+- `enableCurrentDocumentOnly()` suppresses the user-scoped fetch, so turn it off for org-wide feeds.
+
+**Issue 8: Panel or tool stuck on the loading skeleton**
+
+**Solution:**
+- If the tool or panel mounts after notification data has already resolved (for example, rendered after `identify()` completes), SDK builds before 6.0.13 can stay on the skeleton. Upgrade to 6.0.13 or later.
+
+**Issue 9: A user does not get a notification for a private comment**
+
+**Solution:**
+- Expected behavior. A notification for a private comment only reaches the comment author and users or organizations named in its visibility, on every channel (panel tabs, webhooks, email). No redacted placeholder is sent, and Access Context filtering still applies on top. No integration change is required.
+
 **Verification:**
 - [ ] Velt Console: Notifications feature enabled
 - [ ] VeltProvider: API key correct
@@ -150,4 +177,8 @@ function NotificationNavigation() {
 <VeltProvider apiKey="API_KEY" debug={true}>
 ```
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/notifications/setup - Setup requirements
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/notifications/setup - "Setup"
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#enableuserscopednotifications - "enableUserScopedNotifications"
+- https://docs.velt.dev/async-collaboration/notifications/overview#notifications-for-private-comments - "Notifications for Private Comments"
+- https://docs.velt.dev/release-notes/version-6/sdk-changelog - 6.0.13 loading-skeleton fix

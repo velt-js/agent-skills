@@ -144,4 +144,6 @@ interface ActivityChanges {
 - [ ] Filters applied to reduce unnecessary data
 - [ ] Hook used within a component inside VeltProvider
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/activity/customize-behavior - getAllActivities (Using Hook)
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/activity/customize-behavior#getallactivities - "getAllActivities" (Using Hook)
+- https://docs.velt.dev/api-reference/sdk/models/data-models#activityrecord - "ActivityRecord"

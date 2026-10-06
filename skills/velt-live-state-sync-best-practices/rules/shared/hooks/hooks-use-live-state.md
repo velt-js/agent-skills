@@ -1,22 +1,43 @@
 ---
-title: useLiveState Hook — useState-like Shared State
+title: Use useLiveState for useState-like shared state
 impact: CRITICAL
-tags: useLiveState, hook, useState, syncDuration, resetLiveState, connectionState
+impactDescription: The simplest shared-state API; the value can be null before server data arrives, and resetLiveState wipes persisted data on init
+tags: useLiveState, hook, useState, syncDuration, resetLiveState, listenToNewChangesOnly, serverConnectionState
 ---
 
-## useLiveState Hook
+## Use useLiveState for useState-like shared state
 
-`useLiveState` is the simplest API for shared state — it works like React's `useState` but syncs across all clients viewing the same document.
+`useLiveState(id, initialValue, options?)` works like React's `useState`, but every client on the same document with the same `id` shares the value. It returns `[value, setValue, serverConnectionState]`.
 
-```tsx
+| Option | Default | Effect |
+|---|---|---|
+| `syncDuration` | `50` (ms) | Debounce before syncing |
+| `resetLiveState` | `false` | Reset server state to `initialValue` when the hook initializes |
+| `listenToNewChangesOnly` | `false` | Ignore existing data; only receive changes after subscribing |
+
+**Incorrect (no null guard, unintended reset):**
+
+```jsx
+const [counter, setCounter] = useLiveState('counter', 0, { resetLiveState: true });
+// BUG 1: resetLiveState wipes the shared counter every time any client mounts
+// BUG 2: counter can be null before data arrives, so counter + 1 yields 1 instead of the real value
+<button onClick={() => setCounter(counter + 1)}>+</button>;
+```
+
+**Correct (React / Next.js):**
+
+```jsx
 import { useLiveState } from '@veltdev/react';
+import { useEffect } from 'react';
 
-function Counter() {
-  const [counter, setCounter, serverConnectionState] = useLiveState<number>(
-    'counter',
-    0,
-    { syncDuration: 100 }
-  );
+export function Counter() {
+  const [counter, setCounter, serverConnectionState] = useLiveState('counter', 0, {
+    syncDuration: 100,
+  });
+
+  useEffect(() => {
+    console.log('serverConnectionState:', serverConnectionState);
+  }, [serverConnectionState]);
 
   return (
     <div>
@@ -28,31 +49,14 @@ function Counter() {
 }
 ```
 
-### Signature
+**Other Frameworks:** there is no `useLiveState` equivalent; use `setLiveStateData` / `getLiveStateData` on `Velt.getLiveStateSyncElement()` (see `element-get-set`).
 
-```typescript
-const [value, setValue, connectionState] = useLiveState<T>(id, initialValue, options?)
-```
+**Verification Checklist:**
+- [ ] The `id` is a meaningful, shared string (`'editor-theme'`, `'selected-row'`)
+- [ ] Reads guard against `null` before data arrives
+- [ ] `resetLiveState: true` is used only when wiping persisted state on init is intended
+- [ ] `syncDuration` is tuned for the update rate
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `id` | `string` | Unique identifier — all clients with same `id` share this state |
-| `initialValue` | `T` | Initial value before server data arrives |
-| `options.syncDuration` | `number` | Debounce delay in ms before syncing to server (default: 50ms) |
-| `options.resetLiveState` | `boolean` | Reset server state to `initialValue` on init (default: false) |
-| `options.listenToNewChangesOnly` | `boolean` | Only receive changes made after subscribing (default: false) |
-
-### Return Tuple
-
-| Index | Type | Description |
-|-------|------|-------------|
-| `[0]` value | `T` | Current state value (updates reactively) |
-| `[1]` setValue | `(value: T) => void` | Setter — updates local state immediately, syncs after `syncDuration` |
-| `[2]` connectionState | `ServerConnectionState` | `'online'` \| `'offline'` \| `'pendingInit'` \| `'pendingData'` |
-
-### Key Points
-
-- The `id` string scopes the state — use meaningful names like `'editor-theme'` or `'selected-row'`
-- `syncDuration` controls the debounce: lower = more responsive but more network traffic; higher = batches rapid changes
-- Guard against null: use `(counter || 0)` since the value can be `null` before server data arrives
-- `resetLiveState: true` clears any previously persisted value — use only when you intentionally want a fresh start
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/setup — "Alternative: useLiveState()"
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#uselivestate — `useLiveState()`

@@ -13,19 +13,20 @@ Unlike the Comment Bubble / Comment Dialog families, Autocomplete uses the **fla
 
 For the structural catalog of which wireframe tags exist and how they nest, see `ui/ui-wireframes.md`. This rule documents the *variable-binding* layer on top.
 
-Do not filter or group the mention list yourself using `useContacts`. The panel already produces `componentConfig.flattenedItems` with the correct ordering and grouping applied. Reimplementing flattening breaks the virtual-scroll contract and produces stale results.
+Do not filter or group the mention list yourself (for example from `useContactList()` data). The panel already produces `componentConfig.flattenedItems` with the correct ordering and grouping applied. Reimplementing flattening breaks the virtual-scroll contract and produces stale results.
 
 **Correct (let the wireframe iterate, read `option` / `chip` per row, gate empty-state with `componentConfig.flattenedItems.length`):**
 
 ```jsx
 import {
-  VeltAutocompletePanelWireframe,
+  VeltWireframe,
   VeltAutocompleteOptionWireframe,
   VeltAutocompleteGroupOptionWireframe,
   VeltAutocompleteEmptyWireframe,
 } from '@veltdev/react';
 
-<VeltAutocompletePanelWireframe>
+// There is no panel-level wireframe: register the slot wireframes directly under VeltWireframe
+<VeltWireframe>
   <VeltAutocompleteOptionWireframe>
     <div className="my-option" veltClass="'is-group': {option.group}">
       <img className="my-option__avatar" />
@@ -44,7 +45,7 @@ import {
   <VeltAutocompleteEmptyWireframe>
     <p>No matches.</p>
   </VeltAutocompleteEmptyWireframe>
-</VeltAutocompletePanelWireframe>
+</VeltWireframe>
 ```
 
 ### Component Config (panel-level state)
@@ -83,11 +84,11 @@ These resolve as **bare names** — only inside the iteration tag that owns them
 
 | Wireframe tag | React component | Notes |
 |---|---|---|
-| `<velt-autocomplete-panel-wireframe>` | `<VeltAutocompletePanelWireframe>` | Root menu — hosts every other tag. No extra variables at the panel level. |
+| (none) | — | The panel itself (`<velt-autocomplete-panel>`) is a live custom element, not a `-wireframe` slot. Register the slot wireframes below directly inside `VeltWireframe` / `<velt-wireframe style="display:none;">`. |
 | `<velt-autocomplete-empty-wireframe>` | `<VeltAutocompleteEmptyWireframe>` | Empty-state. `shouldShow` requires `componentConfig.flattenedItems.length === 0`. |
 | `<velt-autocomplete-option-wireframe>` | `<VeltAutocompleteOptionWireframe>` | Option row. Composes `*-option-name` / `*-option-description` / `*-option-icon` / `*-option-error-icon`. |
 | `<velt-autocomplete-group-option-wireframe>` | `<VeltAutocompleteGroupOptionWireframe>` | Group-of-users row — only when `customGroupsEnabled` is true or mention groups are present. |
-| `<velt-autocomplete-chip-wireframe>` | `<VeltAutocompleteChipWireframe>` | Inline chip in the contenteditable composer. Composes `*-chip-tooltip` / `*-chip-tooltip-name` / `*-chip-tooltip-description` / `*-chip-tooltip-icon`. |
+| `<velt-autocomplete-chip-wireframe>` | — | Inline chip in the contenteditable composer. Composes `*-chip-tooltip` / `*-chip-tooltip-name` / `*-chip-tooltip-description` / `*-chip-tooltip-icon`. The generated Wireframe components appendix lists only the `-chip-tooltip*` tags, so confirm the chip root tag renders before relying on it. |
 | `<velt-autocomplete-panel-search-icon-wireframe>` | — | Magnifying-glass icon in the panel's search input. |
 
 The `<velt-autocomplete-tool>` trigger button itself has **no** `<velt-autocomplete-tool-wireframe>` registration — its appearance is controlled by the parent composer's wireframe (e.g. the comment-dialog composer-action-button).
@@ -107,7 +108,7 @@ The `<velt-autocomplete-tool>` trigger button itself has **no** `<velt-autocompl
 
 **1. DO NOT bare-name panel-level state.** This family uses flat-config access. `<velt-data field="flattenedItems.length" />` resolves to nothing — use `<velt-data field="componentConfig.flattenedItems.length" />`. The bare-name exception is the loop-scope variables `option` and `chip`.
 
-**2. DO NOT re-implement filtering / grouping over `useContacts`.** The panel already produces `componentConfig.flattenedItems`. Read it; don't rebuild it.
+**2. DO NOT re-implement filtering / grouping over your own contact list.** The panel already produces `componentConfig.flattenedItems`. Read it; don't rebuild it.
 
 **3. DO NOT nest `<velt-autocomplete-group-option-wireframe>` inside `<velt-autocomplete-option-wireframe>`.** They are sibling iteration roots — the panel decides which to render based on `option.group` / `customGroupsEnabled`.
 

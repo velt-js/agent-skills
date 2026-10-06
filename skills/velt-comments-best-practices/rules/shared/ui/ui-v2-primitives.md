@@ -29,9 +29,9 @@ import { VeltWireframe } from '@veltdev/react';
 // Applies to all families: Comment Pin, Comment Bubble, Text Comment,
 // Inline Comments Section, Multi-Thread Comment Dialog, Sidebar Button.
 <VeltWireframe>
-  <VeltCommentPinWireframe.SomePrimitive defaultCondition={false}>
+  <VeltCommentPinWireframe.UnreadCommentIndicator defaultCondition={false}>
     <MyCustomContent />
-  </VeltCommentPinWireframe.SomePrimitive>
+  </VeltCommentPinWireframe.UnreadCommentIndicator>
 </VeltWireframe>
 ```
 
@@ -40,9 +40,9 @@ import { VeltWireframe } from '@veltdev/react';
 ```html
 <!-- Inside a <velt-wireframe style="display:none;"> wrapper -->
 <velt-wireframe style="display:none;">
-  <velt-comment-pin-primitive-wireframe default-condition="false">
+  <velt-comment-pin-unread-comment-indicator-wireframe default-condition="false">
     <!-- Custom content replaces the default primitive rendering -->
-  </velt-comment-pin-primitive-wireframe>
+  </velt-comment-pin-unread-comment-indicator-wireframe>
 </velt-wireframe>
 ```
 

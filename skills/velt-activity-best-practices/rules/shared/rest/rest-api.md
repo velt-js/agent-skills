@@ -40,10 +40,14 @@ const response = await fetch('https://api.velt.dev/v2/activities/get', {
   }),
 });
 
-const { data: activities } = await response.json();
+const { result } = await response.json();
+const activities = result.data;      // ActivityRecord[]
+const nextPage = result.pageToken;   // pass back as pageToken
 ```
 
 **Correct (Add custom activities via REST API):**
+
+Adding activities requires `activityServiceConfig` to be enabled for the workspace (Velt Console or the Update Activity Config workspace API).
 
 ```js
 // Add activities from backend (e.g., CI/CD pipeline, cron jobs)
@@ -59,7 +63,7 @@ const response = await fetch('https://api.velt.dev/v2/activities/add', {
       organizationId: 'org-123',
       documentId: 'doc-456',
       activities: [{
-        id: 'build-789-unique',       // optional: stable ID for idempotency
+        id: 'build-789-unique',       // optional: an existing record with this ID is overwritten
         featureType: 'custom',         // one of: comment | reaction | recorder | crdt | custom
         actionType: 'custom',
         actionUser: { userId: 'system', name: 'CI Bot' },
@@ -67,6 +71,29 @@ const response = await fetch('https://api.velt.dev/v2/activities/add', {
         displayMessageTemplate: '{{actionUser.name}} completed build {{buildId}}',
         displayMessageTemplateData: { buildId: '#789' },
       }]
+    }
+  }),
+});
+```
+
+**Correct (Update activities via REST API):**
+
+```js
+await fetch('https://api.velt.dev/v2/activities/update', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': authToken,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-123',
+      activities: [{
+        id: 'activity-1',                 // required
+        displayMessageTemplate: '{{actionUser.name}} completed build {{buildId}}',
+        displayMessageTemplateData: { buildId: '#790' },
+      }],
     }
   }),
 });
@@ -106,15 +133,24 @@ const response = await fetch('https://api.velt.dev/v2/activities/delete', {
 - Require `x-velt-api-key` and `x-velt-auth-token` headers
 - Delete accepts `documentId`, `targetEntityId`, or `activityIds` (at least one required)
 - Update and Delete fail for immutable records (see `config-immutability` rule)
-- Get supports pagination via `pageSize`, `pageToken`, and `order` parameters
+- Get filters: `documentId`, `targetEntityId`, `featureTypes`, `actionTypes`, `userId`, `activityIds`; pagination via `pageSize` (default 1000), `pageToken`, and `order` (default `desc`)
+- Add requires `organizationId`, `documentId`, and per activity `featureType`, `actionType`, `actionUser`
+- Update accepts `changes`, `entityData`, `entityTargetData`, `displayMessageTemplate`, `displayMessageTemplateData`, `actionIcon` per activity `id`
+- Set `isActivityResolverUsed: true` on Add when you self-host activity PII with an activity data provider
 - `featureType` is validated against `'comment' | 'reaction' | 'recorder' | 'crdt' | 'custom'` — invalid values are rejected by the API
 - `targetEntityId` is required in activity objects only when `featureType` is `'custom'`; it is optional for built-in featureTypes
-- `id` (optional) — provide a stable document ID for idempotent writes; Firestore uses this as the document key to prevent duplicate records
+- `id` (optional): provide a stable ID to control the record ID; if a record with that ID already exists it is overwritten
 
 **Verification:**
 - [ ] API key stored securely (environment variable, not client-side)
 - [ ] Auth token generated server-side
 - [ ] Correct endpoint URL and headers
 - [ ] Immutability considered before update/delete operations
+- [ ] Workspace `activityServiceConfig` enabled before calling Add
+- [ ] Response read from `result.data` / `result.pageToken`
 
-**Source Pointer:** https://docs.velt.dev/api-reference/rest-apis/v2/activities/get-activities; https://docs.velt.dev/api-reference/rest-apis/v2/activities/add-activities; https://docs.velt.dev/api-reference/rest-apis/v2/activities/update-activities; https://docs.velt.dev/api-reference/rest-apis/v2/activities/delete-activities
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/rest-apis/v2/activities/get-activities - "Get Activity Logs"
+- https://docs.velt.dev/api-reference/rest-apis/v2/activities/add-activities - "Add Activity Logs"
+- https://docs.velt.dev/api-reference/rest-apis/v2/activities/update-activities - "Update Activity Logs"
+- https://docs.velt.dev/api-reference/rest-apis/v2/activities/delete-activities - "Delete Activity Logs"

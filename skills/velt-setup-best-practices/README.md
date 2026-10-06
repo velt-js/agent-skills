@@ -5,7 +5,7 @@ Comprehensive setup guide for integrating Velt collaboration SDK into React, Nex
 ## Installation
 
 ```bash
-npx skills add https://github.com/anthropics/agent-skills/tree/main/skills/velt-setup-best-practices
+npx skills add velt-js/agent-skills
 ```
 
 ## Updating
@@ -85,7 +85,7 @@ Brief explanation of why this matters (1-2 sentences).
 - [ ] Check item 2
 
 **Source Pointers:**
-- `/docs/path/to/file.mdx` - "Section Heading"
+- `https://docs.velt.dev/<path>` - "Section Heading"
 - `/sample-apps/apps/react/path` - Pattern name
 ```
 
@@ -107,6 +107,7 @@ Brief explanation of why this matters (1-2 sentences).
 | project-structure | structure- | MEDIUM |
 | routing-surfaces | surface- | MEDIUM |
 | debugging-testing | debug- | LOW-MEDIUM |
+| components | component- | MEDIUM |
 
 ## Impact Levels
 
@@ -122,8 +123,9 @@ Brief explanation of why this matters (1-2 sentences).
 ## Source Documentation
 
 **Primary:**
-- `/docs/get-started/quickstart.mdx` - Core setup steps
-- `/docs/get-started/advanced.mdx` - JWT auth, locations
+- `https://docs.velt.dev/get-started/quickstart` - Core setup steps
+- `https://docs.velt.dev/get-started/advanced` - JWT auth, locations, client APIs
+- `https://docs.velt.dev/key-concepts/overview` - Documents, locations, users, access control
 
 **Secondary:**
 - `/sample-apps/apps/react/` - Real implementation patterns

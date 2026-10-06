@@ -61,4 +61,4 @@ store.update('Hello, collaborative world!');
 - [ ] Changes appear for other collaborators
 - [ ] No direct value assignment
 
-**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Step 4: Set or update the store value)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/core#update` (### Store Methods > #### update())

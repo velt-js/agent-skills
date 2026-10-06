@@ -24,7 +24,7 @@ import { VeltCommentDialogWireframe } from '@veltdev/react';
 function Dialog({ annotationId }) {
   const annotations = useCommentAnnotations();
   const annotation = annotations?.find(a => a.annotationId === annotationId);
-  const client = useVeltClient();
+  const { client } = useVeltClient();
   // Reimplements enableResolve + canResolveAnnotation tracking
   // and editComment state the wireframe already exposes as variables.
   const [canResolve, setCanResolve] = useState(false);
@@ -363,7 +363,6 @@ The dialog exposes roughly 110 slot tags. They are grouped here by region; the f
 | `<velt-comment-dialog-unresolve-button-wireframe>` | `{canUnresolveAnnotation}` |
 | `<velt-comment-dialog-private-button-wireframe>` | `{enablePrivateMode}` |
 | `<velt-comment-dialog-delete-button-wireframe>` | `{enableDelete}` |
-| `<velt-comment-dialog-suggestion-action-wireframe>` (+ `-accept`, `-reject` children) | `{suggestionMode} && {showSuggestionModeActions}` |
 | `<velt-comment-dialog-approve-wireframe>` | `{moderatorMode}` |
 | `<velt-comment-dialog-sign-in-wireframe>` | `{enableSignInButton} && !{isKnownUser}` |
 | `<velt-comment-dialog-upgrade-wireframe>` | `{enableUpgradeButton} && {isPlanExpired}` |
@@ -394,7 +393,7 @@ The **visibility-banner dropdown subtree** mirrors the status / priority dropdow
 | Wireframe tag | Notes |
 |---|---|
 | `<velt-comment-dialog-reply-avatars-wireframe>` (+ `-list-item-wireframe` child) | Strip of reply-author avatars. `shouldShow` requires `{replyAvatars}`. |
-| `<velt-comment-dialog-toggle-reply-wireframe>` (+ `-count`, `-icon`, `-text` children) | "View N replies" toggle. |
+| `<velt-comment-dialog-toggle-reply-wireframe>` (+ `-count`, `-icon`, `-text` children) | "View replies (N)" toggle. `shouldShow` = `!isDialogSelected` **and** `!collapsedRepliesPreview` **and** `annotation.comments.length > 0`, so it never renders next to an open composer or the "N more replies" divider (matches the default dialog since v6.0.11; no markup change needed). |
 | `<velt-comment-dialog-hide-reply-wireframe>` | "Hide replies" toggle. |
 | `<velt-comment-dialog-more-reply-wireframe>` (+ `-count-wireframe` / `-text-wireframe` children) | "Show N replies…" expander between the first comment and the rest — label composed as `Show` + `Count` + `Text`. `shouldShow` = (`isDialogSelected` **or** `collapsedRepliesPreview`) **and** `!showAllComments` **and** `annotation.comments.length > 2`. The `-count` child renders the hidden-reply count (`annotation.comments.length - 2`, clamped ≥ 0); the `-text` child renders the pluralized noun (`reply` / `replies`). Exposed in React as `VeltCommentDialogWireframe.MoreReply.Count` / `.Text`. |
 | `<velt-comment-dialog-navigation-button-wireframe>` | Inter-thread navigation. |
@@ -405,7 +404,7 @@ The **visibility-banner dropdown subtree** mirrors the status / priority dropdow
 |---|---|
 | `<velt-comment-dialog-all-comment-wireframe>` | "View all comments" link. `shouldShow` requires `{sidebarButtonOnCommentDialogVisible}`. |
 | `<velt-comment-dialog-copy-link-wireframe>` | Copy-link button. |
-| `<velt-comment-dialog-suggestion-action-accept-wireframe>` / `…-reject-wireframe` | Suggestion-mode terminal buttons (also listed under Action Buttons). |
+| Suggestion card slots | The suggestion card (Accept / Reject, header, banner) and the Progress / Actions rows are documented on the Comment Dialog wireframes page, not in the template-variables reference. See `ui-agent-suggestion-primitives.md`, `data-comment-progress.md`, and `data-comment-actions.md`. |
 
 For the *exhaustive* per-slot prose (sample markup, props, classes), see the docs source linked at the bottom.
 

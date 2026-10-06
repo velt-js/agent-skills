@@ -48,7 +48,7 @@ The recording countdown timer (enabled by default) gives users a visual cue befo
 ```jsx
 import { useVeltClient } from '@veltdev/react';
 
-const client = useVeltClient();
+const { client } = useVeltClient();
 
 // Enable/disable countdown programmatically
 client.getRecorderElement().enableRecordingCountdown();

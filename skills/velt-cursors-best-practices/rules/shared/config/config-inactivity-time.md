@@ -1,88 +1,59 @@
 ---
 title: Configure Cursor Inactivity Timeout
 impact: MEDIUM
-impactDescription: Control how long before idle cursors disappear (default 5 minutes)
-tags: inactivity, timeout, inactivityTime, idle, cursor-visibility
+impactDescription: Control how long idle cursors stay visible; set it explicitly because the docs list two different defaults
+tags: inactivity, timeout, inactivityTime, setInactivityTime, idle, cursor-visibility
 ---
 
 ## Configure Inactivity Time for Cursors
 
-Set `inactivityTime` to control how long (in milliseconds) a user's cursor remains visible after they stop moving it. The default is 300000ms (5 minutes). When a user's tab loses focus, their cursor is hidden immediately regardless of this setting.
+`inactivityTime` (milliseconds) controls how long a remote user's cursor stays visible after their last movement; after that the cursor is hidden. A user who unfocuses their tab is marked inactive immediately.
 
 **Why this matters:**
 
-Stale cursors clutter the canvas and mislead active users into thinking someone is working in an area when they have actually stepped away. Tuning the inactivity timeout balances between showing presence and reducing visual noise.
+Stale cursors mislead collaborators into thinking someone is still working in an area. The cursors feature page states a 5-minute default, while the API and component references list a 2-minute service baseline. Set the value explicitly so behavior does not depend on which default applies.
 
-**React: Set inactivity time**
-
-```jsx
-"use client";
-import { VeltCursor } from "@veltdev/react";
-
-function Canvas() {
-  return (
-    <main className="canvas">
-      <VeltCursor inactivityTime={300000} />
-      {/* 5 minutes (default). Set lower for fast-paced collaboration. */}
-    </main>
-  );
-}
-```
-
-**React: Shorter timeout for real-time canvas apps**
+**Incorrect (relying on the default, or passing minutes):**
 
 ```jsx
-<VeltCursor inactivityTime={60000} />
-{/* 1 minute — good for whiteboards and design tools */}
+<VeltCursor />                 {/* default differs between doc pages */}
+<VeltCursor inactivityTime={5} /> {/* 5 ms, not 5 minutes */}
 ```
 
-**HTML: Set inactivity time**
+**Correct (React / Next.js):**
+
+```jsx
+<VeltCursor inactivityTime={60000} /> {/* 1 minute, good for whiteboards */}
+
+// Or via API
+const cursorElement = client.getCursorElement();
+cursorElement.setInactivityTime(60000);
+```
+
+**Correct (Other Frameworks):**
 
 ```html
 <velt-cursor inactivity-time="300000"></velt-cursor>
 ```
 
-**API: Programmatic configuration**
-
-```jsx
-"use client";
-import { useCursorUtils } from "@veltdev/react";
-import { useEffect } from "react";
-
-function CursorConfig() {
-  const cursorElement = useCursorUtils();
-
-  useEffect(() => {
-    if (cursorElement) {
-      cursorElement.setInactivityTime(60000);
-    }
-  }, [cursorElement]);
-
-  return null;
-}
-```
-
-**Vanilla JS:**
-
 ```javascript
-const cursorElement = client.getCursorElement();
-cursorElement.setInactivityTime(60000);
+const cursorElement = Velt.getCursorElement();
+cursorElement.setInactivityTime(300000);
 ```
 
 **Key points:**
 
-- Default: 300000ms (5 minutes)
-- Tab unfocus hides the cursor immediately, regardless of `inactivityTime`
-- Value is in milliseconds
-- Lower values (30000-60000) work well for fast-paced canvas collaboration
-- Higher values (300000+) suit document editing where users read more than they interact
-- Setting to `0` keeps cursors visible indefinitely (not recommended)
+- Value is in milliseconds; non-numeric values are rejected
+- Lower values (30000 to 60000) suit fast-paced canvas collaboration
+- Higher values (300000+) suit document-style apps where users read more than they move
+- Tab unfocus marks the user inactive immediately, regardless of `inactivityTime`
 
 **Verification:**
-- [ ] `inactivityTime` is set to an appropriate value for the use case
+- [ ] `inactivityTime` is set explicitly, in milliseconds
 - [ ] Idle cursors disappear after the configured duration
-- [ ] Tab unfocus hides cursor immediately
 - [ ] Active cursors remain visible during interaction
 
 **Source Pointers:**
-- `https://docs.velt.dev/cursor/customize-behavior/inactivity-time` - Inactivity time configuration
+- https://docs.velt.dev/realtime-collaboration/cursors/customize-behavior#setinactivitytime - "setInactivityTime"
+- https://docs.velt.dev/ui-customization/reference/behaviors/presence-reactions - `inactivityTime` (cursor service baseline)
+- https://docs.velt.dev/ui-customization/reference/apis - `CursorElement.setInactivityTime`

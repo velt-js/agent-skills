@@ -13,7 +13,7 @@ In React, use the `useRecorderEventCallback` hook for declarative event subscrip
 
 ```jsx
 function RecorderEvents() {
-  const client = useVeltClient();
+  const { client } = useVeltClient();
 
   // Manual subscription requires cleanup and is error-prone
   useEffect(() => {
@@ -48,7 +48,7 @@ function RecorderEvents() {
 
   useEffect(() => {
     if (recordingDoneLocalData) {
-      // attachmentUrl is a blob URL (not CDN) — only fires when sourceFeature === 'recording'
+      // assets[0].url is a local blob URL (not CDN); only fires when sourceFeature === 'recording'
       console.log('Local save complete:', recordingDoneLocalData);
     }
   }, [recordingDoneLocalData]);
@@ -72,7 +72,7 @@ function RecorderEvents() {
 **Supported event types:**
 All 12 events from the lifecycle API are supported: `recordingStarted`, `recordingPaused`, `recordingResumed`, `recordingStopped`, `recordingCancelled`, `recordingDoneLocal`, `recordingDone`, `recordingSaveInitiated`, `recordingEditDone`, `transcriptionDone`, `deleteRecording`, `error`.
 
-Note: `recordingDoneLocal` fires before cloud upload completes — `attachmentUrl` is a blob URL at this stage, not a CDN URL. It only fires when `sourceFeature === 'recording'`. Use the existing `recordingDone` event when the permanent CDN URL is needed.
+Note: `recordingDoneLocal` fires before cloud upload completes, so `assets[0].url` is a local blob URL at this stage, not a CDN URL. It only fires when `sourceFeature === 'recording'`. Use the existing `recordingDone` event when the permanent CDN URL is needed.
 
 **Key details:**
 - `useRecorderEventCallback('eventType')` returns the event data or null
@@ -86,4 +86,6 @@ Note: `recordingDoneLocal` fires before cloud upload completes — `attachmentUr
 - [ ] Error events subscribed to for failure handling
 - [ ] Hook used within a component inside VeltProvider
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/recorder/customize-behavior - Event Subscription (React hook)
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/recorder/customize-behavior#on - "on" (Hook + API Method)
+- https://docs.velt.dev/api-reference/sdk/models/data-models#recordingdonelocalevent - "RecordingDoneLocalEvent"

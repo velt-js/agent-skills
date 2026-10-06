@@ -2,65 +2,71 @@
 title: Enable Immutability for Compliance Audit Trails
 impact: MEDIUM
 impactDescription: Tamper-evident activity records for SOX, SOC 2, HIPAA compliance
-tags: immutability, audit, compliance, console, immutable, SOX, SOC2, HIPAA
+tags: immutability, audit, compliance, console, immutable, activityServiceConfig, SOX, SOC2, HIPAA
 ---
 
 ## Enable Immutability for Compliance Audit Trails
 
-When immutability is enabled in the Velt Console, activity records become tamper-evident — they cannot be edited or deleted after creation. This is off by default and must be enabled for regulated workflows.
+When immutability is on, activity records cannot be edited or deleted after creation, giving you a tamper-evident audit trail. Turn it on in the Velt Console, or set `activityServiceConfig.immutable` with the Update Activity Config workspace REST API. Records carry `immutable: true`, and the Update / Delete Activities REST APIs refuse to change them.
 
-**Incorrect (assuming records are immutable by default):**
+**Incorrect (assuming records are immutable and calling SDK methods that do not exist):**
 
-```jsx
-// Immutability is OFF by default
-// These operations will succeed unless immutability is enabled:
-await activityElement.updateActivity({ id: 'activity-123', /* changes */ });
-await activityElement.deleteActivity({ activityIds: ['activity-123'] });
-
-// If you need an audit trail, records can be tampered with!
+```js
+// Immutability is a workspace setting; it is not implied by your code.
+// The client ActivityElement only exposes getAllActivities() and createActivity();
+// updates and deletes go through the REST API.
+await activityElement.updateActivity({ id: 'activity-123' }); // not an SDK method
 ```
 
-**Correct (enable immutability in Console for audit trails):**
+**Correct (turn immutability on for the workspace, server-side):**
+
+```js
+// POST https://api.velt.dev/v2/workspace/activityconfig/update
+await fetch('https://api.velt.dev/v2/workspace/activityconfig/update', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN, // API-key-level auth token
+  },
+  body: JSON.stringify({
+    data: {
+      activityServiceConfig: { immutable: true }, // deep-merged with the stored config
+    },
+  }),
+});
+```
+
+**Correct (treat records as read-only in your app):**
 
 ```jsx
-// Step 1: Enable Immutability in Velt Console
-//   console.velt.dev > Dashboard > Configuration > Activity Logs > Immutability
+const activities = useAllActivities({ documentIds: [documentId] });
 
-// Step 2: Records are now tamper-evident
-// Attempting to update or delete will fail:
-// - REST API update/delete calls return errors for immutable records
-// - SDK update/delete operations are rejected
-
-// Activity records now serve as a compliance audit trail
-const activities = useAllActivities({
-  documentIds: [documentId],
-});
-
-// Each record has immutable: true when immutability is enabled
-// activities[0].immutable === true
+// With immutability on, each record reports immutable: true
+const locked = activities?.every((a) => a.immutable);
 ```
 
 **When Immutability is ON:**
-- Records cannot be edited after creation
-- Records cannot be deleted
-- REST API update/delete calls fail for immutable records
-- Suitable for regulated workflows
+- Records cannot be edited or deleted after creation
+- Update / Delete Activities REST API calls fail for immutable records
 
-**When Immutability is OFF (default):**
-- Records can be updated via SDK and REST API
-- Records can be deleted via SDK and REST API
-- Standard behavior for non-regulated use cases
+**When Immutability is OFF:**
+- Records can be updated or removed through the REST API
 
-**Use cases for immutability:**
+**Default to know:** when activity logging is first enabled through the Update Activity Config API (`activityServiceConfig.isEnabled: true` with no stored config), Velt seeds `immutable: true` along with the default comment triggers. Send `immutable: false` in the same request if you need mutable records.
+
+**Use cases:**
 - Invoice sign-offs ("who approved what, when")
-- Legal document reviews
-- Budget approval workflows
+- Legal document reviews and budget approvals
 - Compliance audit trails (SOX, SOC 2, HIPAA)
 - AI agent action traceability
 
 **Verification:**
-- [ ] Immutability enabled in Velt Console for regulated workflows
-- [ ] Application code does not attempt to update/delete records when immutability is on
-- [ ] Audit trail requirements reviewed with compliance team
+- [ ] Immutability enabled in the Velt Console or via `activityServiceConfig.immutable` for regulated workflows
+- [ ] Application code does not plan to update or delete immutable records
+- [ ] Get Activity Config confirms the stored `immutable` value
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/activity/overview - Immutability
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/activity/overview#immutability - "Immutability"
+- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/activityconfig-update - "Update Activity Config" (`immutable`, defaults on first enable)
+- https://docs.velt.dev/api-reference/sdk/models/data-models#activityrecord - "ActivityRecord" (`immutable`)

@@ -20,14 +20,14 @@ import { useVeltClient } from '@veltdev/react';
 import { VeltCommentToolWireframe } from '@veltdev/react';
 
 function CommentToolButton() {
-  const client = useVeltClient();
+  const { client } = useVeltClient();
   const [active, setActive] = useState(false);
   const [enabled, setEnabled] = useState(true);
 
   useEffect(() => {
     // Reimplements addCommentMode + commentToolEnabled tracking
     // that the wireframe already exposes as variables.
-    const sub = client?.getCommentElement().getAddCommentModeState().subscribe(setActive);
+    const sub = client?.getCommentElement().onCommentModeChange().subscribe(setActive);
     return () => sub?.unsubscribe();
   }, [client]);
 

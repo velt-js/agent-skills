@@ -94,7 +94,8 @@ function VisibilityUpdater({ annotationId }: { annotationId: string }) {
     commentElement.updateVisibility({
       annotationId,
       type: 'organizationPrivate',
-      // organizationId is optional — auto-resolved from authenticated user
+      // organizationId is optional — defaults to the logged-in user's org.
+      // Use organizationIds: ['org-A', 'org-B'] to share with several orgs/teams.
     });
   };
 
@@ -168,7 +169,10 @@ function CreateRestrictedComment() {
     // Set visibility at creation time — no post-creation updateVisibility() call needed.
     commentElement.addComment({
       annotationId: 'annotation-id',
-      comment: { text: 'Visible only to selected users' },
+      comment: {
+        commentText: 'Visible only to selected users',
+        commentHtml: '<p>Visible only to selected users</p>',
+      },
       visibility: {
         type: 'restricted',
         userIds: ['user1', 'user2'],
@@ -188,7 +192,10 @@ const commentElement = Velt.getCommentElement();
 // Set visibility at creation time — no post-creation updateVisibility() call needed.
 commentElement.addComment({
   annotationId: 'annotation-id',
-  comment: { text: 'Visible only to selected users' },
+  comment: {
+    commentText: 'Visible only to selected users',
+    commentHtml: '<p>Visible only to selected users</p>',
+  },
   visibility: {
     type: 'restricted',
     userIds: ['user1', 'user2'],
@@ -202,8 +209,8 @@ commentElement.addComment({
 |---|---|---|
 | `enablePrivateMode` | `enablePrivateMode(config: PrivateModeConfig): void` | Sets global visibility for all new comments. |
 | `disablePrivateMode` | `disablePrivateMode(): void` | Reverts all new comments to default public visibility. |
-| `updateVisibility` | `updateVisibility(config: CommentVisibilityConfig): void` | Updates visibility of a specific annotation by ID. |
-| `addComment` | `addComment(request: AddCommentRequest): void` | Creates a comment; accepts optional `visibility` to set `CommentVisibilityConfig` at creation time. |
+| `updateVisibility` | `updateVisibility(config: CommentVisibilityConfig): Promise<any>` | Updates visibility of a specific annotation; the annotation is identified by `config.annotationId` (a single object, not two arguments). |
+| `addComment` | `addComment(request: AddCommentRequest): Promise<AddCommentEvent>` | Creates a comment; accepts optional `visibility` to set `CommentVisibilityConfig` at creation time. |
 
 **Type Definitions:**
 
@@ -212,17 +219,18 @@ type CommentVisibilityType = 'public' | 'organizationPrivate' | 'restricted';
 
 interface CommentVisibilityConfig {
   type: CommentVisibilityType;
-  annotationId?: string;   // Required for updateVisibility(); unused in enablePrivateMode()
-  organizationId?: string; // Auto-resolved from authenticated user when omitted
-  userIds?: string[];      // Current user always auto-appended for 'restricted' type, even when list is explicitly provided
+  annotationId: string;      // Identifies the annotation for updateVisibility()
+  organizationId?: string;   // 'organizationPrivate'; defaults to the logged-in user's org
+  organizationIds?: string[]; // 'organizationPrivate' across several orgs; merged + de-duplicated with organizationId
+  userIds?: string[];        // 'restricted'; current user always auto-appended
 }
 
-// PrivateModeConfig omits annotationId and organizationId (auto-resolved)
-type PrivateModeConfig = Omit<CommentVisibilityConfig, 'annotationId' | 'organizationId'>;
+// PrivateModeConfig omits only annotationId (organizationId / organizationIds are accepted)
+type PrivateModeConfig = Omit<CommentVisibilityConfig, 'annotationId'>;
 
 interface AddCommentRequest {
   annotationId?: string;
-  comment?: { text?: string; [key: string]: unknown };
+  comment?: { commentText?: string; commentHtml?: string; [key: string]: unknown };
   visibility?: CommentVisibilityConfig; // Optional: set visibility at creation time (v5.0.2-beta.4+)
   [key: string]: unknown;
 }
@@ -232,7 +240,10 @@ interface AddCommentRequest {
 
 - `enablePrivateMode()` applies to all **new** comments created after the call. It does not retroactively change existing annotations.
 - `disablePrivateMode()` resets the global default to `'public'` for subsequent new comments.
-- For `'organizationPrivate'` type, `organizationId` is auto-resolved from the authenticated user; no need to pass it explicitly.
+- For `'organizationPrivate'` type, `organizationId` defaults to the logged-in user's organization. Pass `organizationIds` to make a comment visible to several organizations or teams (pair with `contactElement.updateOrgList()` for the "Selected Teams" picker).
+- `enablePrivateMode()` called before the user is identified keeps its config, and restricted comments always carry their actual author.
+- Visibility and Access Context are independent: setting visibility keeps the comment's `access` context, and a viewer must pass both checks. See `permissions-private-comments-access-context.md`.
+- Comment notifications follow visibility: a user who cannot see a private comment gets no notification for it on any channel.
 - For `'restricted'` type, the current user is **always** auto-appended to `userIds` — even when an explicit `userIds` list is provided. If the current user is not in the list, they are automatically included. Do not assume passing `userIds: ['user-b']` restricts the comment to only `user-b`.
 - `updateVisibility()` requires `annotationId` and changes only that specific annotation.
 - `addComment()` accepts an optional `visibility: CommentVisibilityConfig` field (v5.0.2-beta.4+) to set visibility at creation time, eliminating a separate `updateVisibility()` call when visibility is known upfront.
@@ -274,5 +285,7 @@ commentElement.enablePrivateMode({ type: 'organizationPrivate' });              
 - [ ] `updateVisibility()` includes a valid `annotationId` for per-annotation changes
 
 **Source Pointers:**
-- https://docs.velt.dev/async-collaboration/comments/customize-behavior/visibility - Comment visibility and private mode API
-- https://docs.velt.dev/api-reference/sdk/api/elements/comment-element - `commentElement` method reference
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#private-comments-beta - Private Comments
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#updatevisibility - updateVisibility
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#updatevisibility - updateVisibility() reference
+- https://docs.velt.dev/api-reference/sdk/models/data-models#commentvisibilityconfig - CommentVisibilityConfig

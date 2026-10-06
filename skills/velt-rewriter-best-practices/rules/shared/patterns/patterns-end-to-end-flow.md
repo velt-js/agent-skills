@@ -20,6 +20,18 @@ In React, the whole pipeline lives inside a single `useEffect` keyed on the Velt
 
 UI choice: by default Velt renders a built-in selection toolbar. If you want your own UI, call `rewriterElement.disableDefaultUI()` — the rewriter keeps emitting events and your custom UI (or wireframe slots) renders from the same data stream. See `api-default-ui-toggle` and `wireframe-variables-rewriter`.
 
+**Incorrect (never enabled, and passes the string instead of the event):**
+
+```tsx
+const rewriterElement = client.getRewriterElement();
+// BUG 1: enableRewriter() was never called, so textSelected never fires
+rewriterElement.on('textSelected').subscribe(async (event) => {
+  const aiResponse = await rewriterElement.askAi({ model: 'gpt-4o', prompt: 'Shorten', selectedText: event.text });
+  // BUG 2: replaceText needs the full event, not event.text
+  await rewriterElement.replaceText({ text: aiResponse.text, event: event.text });
+});
+```
+
 **Correct (React / Next.js — full pipeline with replace-text apply step):**
 
 ```tsx
@@ -85,6 +97,7 @@ rewriterElement.on('textSelected').subscribe(async (event) => {
 3. **Threading `event.text` into `replaceText`** — must pass the full `event`, not just the string.
 4. **Confusing `disableDefaultUI()` with `disableRewriter()`** — the former hides the toolbar only; the latter shuts the feature off. Pick based on whether you still want events.
 5. **Not unsubscribing on unmount** — in React, leaks an Observable subscription per render of the parent.
+6. **Targeting text inside TipTap or another ProseMirror-based editor** — since v6.0.16-beta.1, `textSelected` does not fire there and `replaceText()` returns `success: false`. Use the Rewriter on plain DOM text, and handle `success: false` in step 4.
 
 **Verification Checklist:**
 - [ ] `enableRewriter()` is called before any subscription / `askAi` / `replaceText` / `addComment`
@@ -93,7 +106,9 @@ rewriterElement.on('textSelected').subscribe(async (event) => {
 - [ ] The full `event` object (not just `event.text`) is passed to `replaceText` / `addComment`
 - [ ] `response.success` is checked before reading downstream fields
 - [ ] In React, the pipeline lives in a single `useEffect` with a cleanup that disposes the subscription and disables the feature
+- [ ] The result of `replaceText` / `addComment` is checked (`success: false` is expected for TipTap / ProseMirror selections)
 
 **Source Pointers:**
 - https://docs.velt.dev/ai/rewriter/setup — full setup walkthrough
 - https://docs.velt.dev/ai/rewriter/overview — How it works (the four-step pipeline)
+- https://docs.velt.dev/ai/rewriter/customize-behavior#replacetext — TipTap / ProseMirror limitation

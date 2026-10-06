@@ -1,142 +1,116 @@
 ---
 title: Django, Flask, and FastAPI Integration Patterns
 impact: MEDIUM
-impactDescription: Incorrect framework integration causes SDK reinitialization on every request or missing CSRF handling
-tags: python, django, flask, fastapi, frameworks, integration
+impactDescription: Re-initializing per request opens a new connection pool each time, and re-wrapping SDK responses breaks the data provider contract
+tags: python, django, flask, fastapi, frameworks, integration, singleton, csrf_exempt, from_dict
 ---
 
 ## Django, Flask, and FastAPI Integration Patterns
 
-Initialize the Velt SDK once at application startup, then use it across request handlers. Each framework has its own conventions for initialization and request handling.
+Initialize the SDK once per process and reuse it in every handler. Each handler parses the frontend body with `<RequestType>.from_dict(...)`, calls `sdk.selfHosting.*`, and returns the SDK's response dict with its `statusCode` as the HTTP status. Do not re-wrap the response: the frontend data provider reads `success`, `statusCode`, and `data`.
 
-**Django — Initialize in apps.py, use in views.py:**
+**Incorrect:**
 
 ```python
-# myapp/apps.py
-import os
-from django.apps import AppConfig
+@app.route('/api/velt/comments/get', methods=['POST'])
+def get_comments():
+    sdk = VeltSDK.initialize(CONFIG)          # WRONG: a new SDK (and pool) per request
+    result = sdk.selfHosting.comments.getComments(GetCommentResolverRequest.from_dict(request.json))
+    return jsonify({'data': result['data']})  # WRONG: drops success / statusCode
+```
+
+**Django (lazy singleton + settings):**
+
+```python
+# velt_sdk.py
+from django.conf import settings
 from velt_py import VeltSDK
 
-class MyAppConfig(AppConfig):
-    name = 'myapp'
-    velt_sdk = None
+_velt_sdk = None
 
-    def ready(self):
-        MyAppConfig.velt_sdk = VeltSDK.initialize({
-            'database': {
-                'connection_string': os.environ["MONGODB_URI"]
-            }
-        })
-        # VELT_API_KEY and VELT_AUTH_TOKEN are read from environment automatically
+def get_velt_sdk():
+    global _velt_sdk
+    if _velt_sdk is None:
+        _velt_sdk = VeltSDK.initialize(settings.VELT_SDK_CONFIG)
+    return _velt_sdk
 ```
 
 ```python
-# myapp/views.py
+# settings.py
+import os
+VELT_SDK_CONFIG = {
+    'database': {'connection_string': os.environ.get('VELT_MONGODB_CONNECTION_STRING')},
+    'apiKey': os.environ.get('VELT_API_KEY'),
+    'authToken': os.environ.get('VELT_AUTH_TOKEN'),
+}
+```
+
+```python
+# views.py
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 from velt_py import GetCommentResolverRequest
-from .apps import MyAppConfig
+from .velt_sdk import get_velt_sdk
 
 @csrf_exempt
+@require_http_methods(["POST"])
 def get_comments(request):
-    if request.method != 'POST':
-        return JsonResponse({"error": "POST required"}, status=405)
-
-    body = json.loads(request.body)
-    sdk = MyAppConfig.velt_sdk
-
-    resolver_request = GetCommentResolverRequest(
-        organization_id=body["organizationId"],
-        document_id=body["documentId"]
-    )
-
-    response = sdk.selfHosting.comments.getComments(resolver_request)
-
-    # response is a plain dict with camelCase keys
-    if response['success']:
-        return JsonResponse({"data": response['data']})
-    return JsonResponse({"error": response['error']}, status=response.get('statusCode', 500))
+    try:
+        comment_request = GetCommentResolverRequest.from_dict(json.loads(request.body))
+        result = get_velt_sdk().selfHosting.comments.getComments(comment_request)
+        return JsonResponse(result, status=result.get('statusCode', 200))
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e), 'errorCode': 'INTERNAL_ERROR',
+                             'statusCode': 500}, status=500)
 ```
 
-**Flask — Initialize at module level:**
+**Flask (module-level SDK):**
 
 ```python
-import os
 from flask import Flask, request, jsonify
 from velt_py import VeltSDK, GetCommentResolverRequest
 
 app = Flask(__name__)
+sdk = VeltSDK.initialize({'database': {'connection_string': 'mongodb+srv://...'}})
 
-sdk = VeltSDK.initialize({
-    'database': {
-        'connection_string': os.environ["MONGODB_URI"]
-    }
-})
-# VELT_API_KEY and VELT_AUTH_TOKEN are read from environment automatically
-
-@app.route("/api/comments/get", methods=["POST"])
+@app.route('/api/velt/comments/get', methods=['POST'])
 def get_comments():
-    body = request.json
-
-    resolver_request = GetCommentResolverRequest(
-        organization_id=body["organizationId"],
-        document_id=body["documentId"]
-    )
-
-    response = sdk.selfHosting.comments.getComments(resolver_request)
-
-    if response['success']:
-        return jsonify({"data": response['data']})
-    return jsonify({"error": response['error']}), response.get('statusCode', 500)
+    result = sdk.selfHosting.comments.getComments(GetCommentResolverRequest.from_dict(request.json))
+    return jsonify(result), result.get('statusCode', 200)
 ```
 
-**FastAPI — Initialize at module level, use async endpoints:**
+**FastAPI (module-level SDK):**
 
 ```python
-import os
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from velt_py import VeltSDK, GetCommentResolverRequest
 
 app = FastAPI()
+sdk = VeltSDK.initialize({'database': {'connection_string': 'mongodb+srv://...'}})
 
-sdk = VeltSDK.initialize({
-    'database': {
-        'connection_string': os.environ["MONGODB_URI"]
-    }
-})
-# VELT_API_KEY and VELT_AUTH_TOKEN are read from environment automatically
-
-@app.post("/api/comments/get")
-async def get_comments(req: Request):
-    body = await req.json()
-
-    resolver_request = GetCommentResolverRequest(
-        organization_id=body["organizationId"],
-        document_id=body["documentId"]
-    )
-
-    response = sdk.selfHosting.comments.getComments(resolver_request)
-
-    if response['success']:
-        return {"data": response['data']}
-    return {"error": response['error']}
+@app.post('/api/velt/comments/get')
+async def get_comments(request: Request):
+    result = sdk.selfHosting.comments.getComments(GetCommentResolverRequest.from_dict(await request.json()))
+    return JSONResponse(content=result, status_code=result.get('statusCode', 200))
 ```
 
 **Key points:**
 
-- Initialize the SDK once at startup, not per-request. Reinitializing creates unnecessary MongoDB connections.
-- Django requires `@csrf_exempt` on Velt endpoints since they receive POST requests from your frontend or webhooks.
-- Django SDK init goes in `AppConfig.ready()` to run once when the app starts.
-- Flask and FastAPI can initialize at module level since they have simpler lifecycles.
-- All frameworks should load credentials from environment variables.
+- Install the database extra your config uses (`velt-py[mongodb]` or `velt-py[postgres]`); Django 4.2.26+ is required only for the self-hosting backend.
+- Multi-process servers (gunicorn, uWSGI) open one pool per worker; under uWSGI enable threads (`--enable-threads`).
+- Django resolver views need `@csrf_exempt` because the Velt frontend posts to them directly; authenticate them with `sdk.selfHosting.verifyToken` instead (see `backend-verify-resolver-auth`).
+- Load credentials from environment variables.
 
 **Verification:**
-- [ ] SDK is initialized once at application startup, not inside request handlers
-- [ ] Django views use `@csrf_exempt` decorator
-- [ ] Django init is in `AppConfig.ready()`, not at module level
-- [ ] Credentials come from environment variables
-- [ ] Endpoints use POST method
-- [ ] Error responses include the error message from the SDK response
+- [ ] The SDK is initialized once per process (module level or a lazy singleton), never inside a handler
+- [ ] Handlers return the SDK result dict unchanged with `status=result.get('statusCode', 200)`
+- [ ] Django resolver views use `@csrf_exempt` and `@require_http_methods(["POST"])`
+- [ ] Requests are built with `from_dict` from the raw JSON body
+- [ ] The database extra matching `database.type` is installed
 
-**Source Pointer:** `https://docs.velt.dev/api-reference/sdk/python/overview` (## Python SDK > ### Framework Integration)
+**Source Pointers:**
+- https://docs.velt.dev/backend-sdks/python#framework-examples - "Framework Examples"
+- https://docs.velt.dev/backend-sdks/python#requirements - "Requirements"

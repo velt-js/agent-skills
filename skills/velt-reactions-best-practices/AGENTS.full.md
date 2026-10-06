@@ -1,8 +1,8 @@
 # Velt Reactions Best Practices
 
-**Version 1.0.0**  
+**Version 1.0.1**  
 Velt  
-May 2026
+October 2026
 
 > **Note:**  
 > This document is mainly for agents and LLMs to follow when maintaining,  
@@ -43,7 +43,16 @@ Placement of `<VeltInlineReactionsSection>` (and its `<velt-inline-reactions-sec
 
 The Inline Reactions feature is one component bound to a container element by id. Add the container, give it a stable `id`, then mount `<VeltInlineReactionsSection>` inside it with `targetReactionElementId` set to that same `id`. Reactions placed on this section anchor to the container.
 
-**Minimal setup (React / Next.js):**
+**Incorrect (id mismatch, so nothing anchors):**
+
+```tsx
+<section id="article-42">
+  {/* BUG: targetReactionElementId does not match the container id */}
+  <VeltInlineReactionsSection targetReactionElementId="article42" />
+</section>
+```
+
+**Correct (React / Next.js): minimal setup:**
 
 ```tsx
 import { VeltInlineReactionsSection } from '@veltdev/react';
@@ -59,7 +68,7 @@ export function Article() {
 }
 ```
 
-**Minimal setup (Other Frameworks):**
+**Correct (Other Frameworks): minimal setup:**
 
 ```html
 <section id="article-42">
@@ -105,6 +114,10 @@ const customReactions = {
 **Custom reactions via the runtime method (React / Next.js):**
 
 ```tsx
+// Hook
+const reactionElement = useReactionElement();
+
+// API Method
 const reactionElement = client.getReactionElement();
 reactionElement.setCustomReactions({
   fire:     { url: "https://em-content.zobj.net/source/apple/391/fire_1f525.png" },
@@ -184,6 +197,7 @@ Inline Reactions ships with one pre-defined variant — `"inline"` — that cust
 
 Custom variants behave identically — pick a stable name and reference it from the wireframe slot to keep multiple placements in sync.
 `setCustomReactions` also exists on `commentElement` (`client.getCommentElement().setCustomReactions(...)`) for the same map shape. If you want one custom emoji set across both inline reactions and comment reactions, set it on whichever element matches the scope of the change — for app-wide custom emojis you typically set it once on the comment element and the inline strip picks up the same set. See `velt-comments-best-practices` for the comments-specific path.
+If you pass `featureAllowList` in the Velt config, include `'reaction'`, or the reactions chunk is not preloaded and the section renders inert until it loads. `client.preloadReaction()` warms it ahead of first use; calling `getReactionElement()` auto-enables the feature.
 
 ---
 
@@ -273,7 +287,16 @@ componentConfig.excludeReactionIds                string[]            Reaction i
 componentConfig.commentReactionAnnotationIds      string[]            When the pin lives next to a comment, the full list of reactions on the comment.
 ```
 
-**Custom reaction pin (React) — highlight when the local user has reacted, show a count badge when N > 1:**
+**Incorrect (bare variable names and pin-scope data in the section wireframe):**
+
+```html
+<velt-inline-reactions-section-wireframe>
+  <!-- BUG: no componentConfig. prefix, and annotation is pin-scope (the section sees annotations[]) -->
+  <velt-data field="annotation.emoji"></velt-data>
+</velt-inline-reactions-section-wireframe>
+```
+
+**Correct (React): custom reaction pin that highlights the local user's reaction and shows a count when N > 1:**
 
 ```tsx
 import { VeltWireframe, VeltReactionPinWireframe } from '@veltdev/react';
@@ -293,7 +316,7 @@ import { VeltWireframe, VeltReactionPinWireframe } from '@veltdev/react';
 </VeltWireframe>
 ```
 
-**Custom reaction pin (Other Frameworks):**
+**Correct (Other Frameworks): custom reaction pin:**
 
 ```html
 <velt-wireframe style="display:none;">
@@ -414,6 +437,23 @@ The `ReactionAnnotation` data shape (annotationId, from, reactions, commentAnnot
 
 `ReactionAnnotation` is the canonical shape Velt persists for every placed reaction. Code that subscribes to reactions, exports them, builds custom analytics, or implements a self-hosting data provider types against this shape.
 
+**Incorrect (assumes every reaction belongs to a comment):**
+
+```typescript
+function threadFor(reaction: ReactionAnnotation) {
+  return comments[reaction.commentAnnotationId!]; // BUG: undefined for inline-section reactions
+}
+```
+
+**Correct (narrow and null-guard):**
+
+```typescript
+function anchorFor(a: ReactionAnnotation) {
+  if (a.type !== 'reaction') return null;
+  return a.commentAnnotationId ?? a.targetElementId ?? null;
+}
+```
+
 **`ReactionAnnotation` shape:**
 
 ```typescript
@@ -466,8 +506,9 @@ type ReactionPinType = "timeline" | "comment" | "standalone";
 Note: there is **no** `'inline'` value — that was a common-sense guess that doesn't match the actual type. Narrow on the three documented literals (`'timeline'` / `'comment'` / `'standalone'`).
 If you're self-hosting reaction data, see two sources for the full picture:
 - **`velt-self-hosting-data-best-practices`** — Python resolver-request shapes (`SaveReactionResolverRequest`, `DeleteReactionResolverRequest`, `GetReactionResolverRequest`). None of these include `commentId`; the canonical fields are `organizationId`, `documentId`, and (for delete) `reactionId`.
-- **Velt docs `self-host-data/reactions.mdx`** — the comprehensive reactions data-provider page covering the endpoint-based vs function-based `ReactionAnnotationDataProvider`, `getConfig` / `saveConfig` / `deleteConfig` endpoint configs, `resolveTimeout` and retry configs (`getRetryConfig` / `saveRetryConfig` / `deleteRetryConfig`), the `additionalFields` option, backend examples (MongoDB / PostgreSQL), and debugging via `client.on('dataProvider')`.
+- **Velt docs `self-hosting/partial/reactions.mdx`** — the comprehensive reactions data-provider page covering the endpoint-based vs function-based `ReactionAnnotationDataProvider`, `getConfig` / `saveConfig` / `deleteConfig` endpoint configs, `resolveTimeout` and retry configs (`getRetryConfig` / `saveRetryConfig` / `deleteRetryConfig`), the `additionalFields` option, `fieldsToRemove`, backend examples (MongoDB / PostgreSQL), and debugging via `client.on('dataProvider')`.
 This skill does not duplicate those payload shapes — read the linked sources for the full schemas before implementing a provider.
+Since v6.0.0-beta.15, reactions on a private comment do not inherit the parent comment's Access Context, and they no longer reach viewers in the same Access Context. Context-scoped queries do not return them. Since v6.0.4, reactions on private comments persist after a reload and stay visible to exactly the people who can read the parent comment. Don't build visibility logic that assumes a reaction's `context` mirrors its comment's.
 When reactions are attached to comments, the comment-element event stream emits `addReaction`, `deleteReaction`, and `toggleReaction` events. Those events live in the comments skill (`velt-comments-best-practices`) — they aren't part of the inline-reactions surface but you'll encounter them if you're subscribing to comment-element events on documents that also have reactions.
 
 ---
@@ -481,3 +522,5 @@ When reactions are attached to comments, the comment-element event stream emits 
 - https://docs.velt.dev/ui-customization/features/async/reactions-wireframe-variables
 - https://docs.velt.dev/ui-customization/features/async/inline-reactions
 - https://docs.velt.dev/api-reference/sdk/models/data-models#reactionannotation
+- https://docs.velt.dev/self-hosting/partial/reactions
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#usereactionelement

@@ -1,73 +1,52 @@
 ---
-title: User Resolution Pattern (resolveUsers)
+title: Return index-aligned results from resolveUsers
 impact: HIGH
-tags: resolveUsers, userIds, name, index alignment, undefined
+impactDescription: resolveUsers results are matched by position; a filtered or reordered array attaches names to the wrong users
+tags: resolveUsers, userIds, name, index alignment, undefined, mentions
 ---
 
-## User Resolution Pattern
+## Return index-aligned results from resolveUsers
 
-The `resolveUsers` callback maps user IDs to display names. The adapter calls it when parsing mentions in messages to replace `{{userId}}` tokens with readable `@Name` text.
+`resolveUsers({ userIds })` converts Velt user IDs into display info (`{ name }`). The adapter uses it to turn mention tokens into readable `@Name` text and to fill in authors. Return one entry per input ID, in the same order, with `undefined` for unknown users. It may be synchronous or return a Promise.
 
-```typescript
-interface User {
-  name: string;
-  avatarUrl?: string;
-  email?: string;
-}
-
-function resolveUsers({ userIds }: { userIds: string[] }): (User | undefined)[] {
-  return userIds.map((id) => {
-    const user = USERS_DATABASE.find((u) => u.userId === id);
-    return user ? { name: user.name } : undefined;
-  });
-}
-```
-
-### The Index Alignment Rule
-
-The returned array must be the same length as the input `userIds` array, with matching indices. Position 0 in the output corresponds to position 0 in the input. Return `undefined` for unknown users.
+**Incorrect (filters out unknown users):**
 
 ```typescript
-// Input:  userIds = ["alice", "unknown-user", "bob"]
-// Output: [{ name: "Alice" }, undefined, { name: "Bob" }]
-```
-
-### Static vs Dynamic Resolution
-
-**Static (hardcoded users):**
-```typescript
-const USERS: Record<string, string> = {
-  "user-1": "Alice",
-  "user-2": "Bob",
-};
-
 function resolveUsers({ userIds }: { userIds: string[] }) {
-  return userIds.map((id) => {
-    const name = USERS[id];
-    return name ? { name } : undefined;
-  });
+  // BUG: dropping unknown IDs shifts every later name onto the wrong user
+  return USERS.filter((u) => userIds.includes(u.userId)).map((u) => ({ name: u.name }));
 }
 ```
 
-**Dynamic (runtime learning from the AI bot example):**
+**Correct:**
+
 ```typescript
-const knownUsers = new Map<string, string>();
+// app/database.ts
+export const BOT_USER_ID = "velt-bot";
+export const BOT_USER_NAME = "Velt Bot";
 
-export function rememberUser(userId?: string, fullName?: string) {
-  if (userId && fullName) knownUsers.set(userId, fullName);
+const USERS = [
+  { userId: "user-1", name: "Charlie Layne" },
+  { userId: "user-2", name: "Mislav Abha" },
+  { userId: BOT_USER_ID, name: BOT_USER_NAME },
+];
+
+export function getUser(userId: string) {
+  const user = USERS.find((u) => u.userId === userId);
+  return user ? { name: user.name } : undefined;
 }
 
-function resolveUsers({ userIds }: { userIds: string[] }) {
-  return userIds.map((id) => {
-    const name = knownUsers.get(id);
-    return name ? { name } : undefined;
-  });
+export function resolveUsers({ userIds }: { userIds: string[] }) {
+  return userIds.map((id) => getUser(id));
 }
 ```
 
-### Key Points
+For production, look users up in your database (batch the query, then map back in input order).
 
-- The output array length must equal the input array length — mismatched indices break mention resolution
-- Return `undefined` (not `null`) for unknown users
-- For production apps, consider fetching from your user database or Velt's REST API
-- The AI bot example demonstrates "runtime learning" — it calls `rememberUser()` with data from incoming messages, gradually building a user map without a database
+**Verification Checklist:**
+- [ ] Output length equals input length, in the same order
+- [ ] Unknown users map to `undefined`
+- [ ] The bot user is resolvable
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "Create a user database"

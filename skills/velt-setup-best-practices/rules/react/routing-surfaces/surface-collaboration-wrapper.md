@@ -163,8 +163,9 @@ export function VeltCollaborationDashboard() {
   return (
     <>
       <VeltInitializeDocument />
-      <VeltComments pageMode={true} shadowDom={false} />  {/* Page-level comments only */}
-      <VeltCommentsSidebar groupConfig={{ enable: false }} />
+      <VeltComments shadowDom={false} />
+      {/* pageMode is a sidebar prop: enables page-level comments in the sidebar */}
+      <VeltCommentsSidebar pageMode={true} groupConfig={{ enable: false }} />
     </>
   );
 }
@@ -178,4 +179,6 @@ export function VeltCollaborationDashboard() {
 - [ ] Component props are configured as needed
 
 **Source Pointers:**
-- `https://docs.velt.dev/get-started/quickstart` - Step 4: Initialize Velt
+- `https://docs.velt.dev/get-started/quickstart` - Step 7: Install Velt Feature Components
+- `https://docs.velt.dev/key-concepts/overview#sign-out-a-user` - Sign out a User
+- `https://docs.velt.dev/async-collaboration/comments-sidebar/v1/customize-behavior#pagemode` - pageMode

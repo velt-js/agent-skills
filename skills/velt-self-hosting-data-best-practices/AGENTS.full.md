@@ -1,8 +1,8 @@
 # Velt Self Hosting Data Best Practices
 
-**Version 1.0.12**  
+**Version 1.1.0**  
 Velt  
-March 2026
+October 2026
 
 > **Note:**  
 > This document is mainly for agents and LLMs to follow when maintaining,  
@@ -42,9 +42,10 @@ Comprehensive guide for Velt self-hosting data feature, enabling storage of sens
    - 4.6 [Self-Host Recording Data and Media Files](#46-self-host-recording-data-and-media-files)
 
 5. [Backend Implementation](#5-backend-implementation) — **MEDIUM**
-   - 5.1 [Implement Database Storage with Upsert and Proper Indexing](#51-implement-database-storage-with-upsert-and-proper-indexing)
-   - 5.2 [Store and Delete Attachments in S3-Compatible Object Storage](#52-store-and-delete-attachments-in-s3-compatible-object-storage)
-   - 5.3 [Structure Backend API Routes for Data Provider Endpoints](#53-structure-backend-api-routes-for-data-provider-endpoints)
+   - 5.1 [Authenticate Resolver Endpoints Before Touching Your Database](#51-authenticate-resolver-endpoints-before-touching-your-database)
+   - 5.2 [Implement Database Storage with Upsert and Proper Indexing](#52-implement-database-storage-with-upsert-and-proper-indexing)
+   - 5.3 [Store and Delete Attachments in S3-Compatible Object Storage](#53-store-and-delete-attachments-in-s3-compatible-object-storage)
+   - 5.4 [Structure Backend API Routes for Data Provider Endpoints](#54-structure-backend-api-routes-for-data-provider-endpoints)
 
 6. [Data Types](#6-data-types) — **MEDIUM**
    - 6.1 [Self-Hosting Data Type Reference — Provider Interfaces, Config, Request/Response Types](#61-self-hosting-data-type-reference-provider-interfaces-config-requestresponse-types)
@@ -53,12 +54,16 @@ Comprehensive guide for Velt self-hosting data feature, enabling storage of sens
    - 7.1 [Attachment Upload and Delete via Python SDK with S3](#71-attachment-upload-and-delete-via-python-sdk-with-s3)
    - 7.2 [Comments CRUD Operations via Python SDK](#72-comments-crud-operations-via-python-sdk)
    - 7.3 [Django, Flask, and FastAPI Integration Patterns](#73-django-flask-and-fastapi-integration-patterns)
-   - 7.4 [Generate Auth Tokens via sdk.selfHosting.token.getToken](#74-generate-auth-tokens-via-sdkselfhostingtokengettoken)
+   - 7.4 [Generate Auth Tokens via sdk.api.accessControl.generateToken](#74-generate-auth-tokens-via-sdkapiaccesscontrolgeneratetoken)
    - 7.5 [Use sdk.api.* for REST API Operations Without a Database](#75-use-sdkapi-for-rest-api-operations-without-a-database)
    - 7.6 [Users and Reactions Management via Python SDK](#76-users-and-reactions-management-via-python-sdk)
 
 8. [Debugging](#8-debugging) — **LOW-MEDIUM**
    - 8.1 [Monitor Data Provider Events for Troubleshooting](#81-monitor-data-provider-events-for-troubleshooting)
+
+9. [Full Self-Hosting](#9-full-self-hosting) — **HIGH**
+   - 9.1 [Choose Partial or Full Self-Hosting Before Writing Any Code](#91-choose-partial-or-full-self-hosting-before-writing-any-code)
+   - 9.2 [Wire the App to a Full Self-Hosted Deployment with config.selfHosted](#92-wire-the-app-to-a-full-self-hosted-deployment-with-configselfhosted)
 
 ---
 
@@ -104,7 +109,7 @@ const dataProviders = {
   comment: commentDataProvider,
   attachment: attachmentDataProvider,
   reaction: reactionDataProvider,
-  recording: recordingDataProvider,
+  recorder: recordingDataProvider, // the VeltDataProvider key is `recorder`, not `recording`
   user: userDataProvider,
 };
 
@@ -229,40 +234,36 @@ export default function DocumentPage() {
 **The API routes** follow the pattern `app/api/velt/{provider}/{operation}/route.ts` — see the `backend-api-routes` rule. Each route calls your database store and returns the standard response format.
 **The database store** (`app/api/velt/store.ts`) handles PostgreSQL connection pooling, table initialization, and UPSERT operations — see the `backend-database-patterns` rule.
 
-Reference: https://docs.velt.dev/self-host-data/overview; https://docs.velt.dev/self-host-data/comments - Important Notes
+Reference: https://docs.velt.dev/self-hosting/partial/overview; https://docs.velt.dev/self-hosting/partial/comments - Important Notes
 
 ---
 
 ### 1.2 Install and Initialize the Velt Python SDK
 
-**Impact: CRITICAL (Without proper SDK initialization, all backend operations will fail)**
+**Impact: CRITICAL (A missing database extra fails at initialize(), and a database block on a REST-only service is unnecessary)**
 
-The `velt-py` package provides two independent backends: `sdk.selfHosting.*` for self-hosting Velt data in your own MongoDB + S3, and `sdk.api.*` for calling Velt's REST APIs directly with no database required. MongoDB config is only needed for `sdk.selfHosting.*`.
+The `velt-py` package exposes two independent backends: `sdk.selfHosting.*` stores Velt data in your own MongoDB or PostgreSQL (plus S3 for attachments), and `sdk.api.*` calls Velt's REST APIs with no database. Since 0.2.0 the core install carries no database driver; install the extra for the database you self-host on.
 
-Do not use the old class-based `VeltSdk(VeltSdkConfig(...))` pattern — it no longer exists. The correct entry point is always `VeltSDK.initialize({...})` with a config dict.
+The entry point is always `VeltSDK.initialize({...})` with a config dict. The old class-based `VeltSdk(VeltSdkConfig(...))` pattern does not exist.
 
-**Install the package:**
+**Install:**
 
 ```bash
-pip install velt-py
+pip install velt-py                # REST API backend only
+pip install 'velt-py[mongodb]'     # + self-hosting on MongoDB (MongoDB 6+)
+pip install 'velt-py[postgres]'    # + self-hosting on PostgreSQL (PostgreSQL 14+)
+pip install 'velt-py[auth]'        # optional: built-in JWT/JWKS path of verifyToken
 ```
 
-**Correct (REST API only — no database needed):**
+**Incorrect (0.1.x habits):**
 
 ```python
-from velt_py import VeltSDK
-
-# Minimal config for sdk.api.* services only
-sdk = VeltSDK.initialize({
-    'apiKey': 'YOUR_VELT_API_KEY',
-    'authToken': 'YOUR_VELT_AUTH_TOKEN'
-})
-
-# All sdk.api.* services are now available
-result = sdk.api.organizations.getOrganizations(...)
+# requirements.txt
+velt-py            # WRONG for MongoDB self-hosting on 0.2.x: pymongo is no longer installed.
+                   # initialize() fails with: MongoDB support requires: pip install "velt-py[mongodb]"
 ```
 
-**Correct (self-hosting with MongoDB connection string):**
+**Correct (REST API only, no database):**
 
 ```python
 from velt_py import VeltSDK
@@ -270,135 +271,76 @@ from velt_py import VeltSDK
 sdk = VeltSDK.initialize({
     'apiKey': 'YOUR_VELT_API_KEY',
     'authToken': 'YOUR_VELT_AUTH_TOKEN',
-    'database': {
-        'connection_string': 'mongodb+srv://user:pass@cluster.mongodb.net/velt-db'
-    }
 })
+# All sdk.api.* services are available. Calling a self-hosting resolver on this
+# instance returns a clear error saying a 'database' block is required.
 ```
 
-**Correct (self-hosting with individual MongoDB fields and S3):**
-
-```python
-from velt_py import VeltSDK
-
-sdk = VeltSDK.initialize({
-    'apiKey': 'YOUR_VELT_API_KEY',
-    'authToken': 'YOUR_VELT_AUTH_TOKEN',
-    'database': {
-        'host': 'localhost:27017',
-        'username': 'db_user',
-        'password': 'db_password',
-        'auth_database': 'admin',
-        'database_name': 'velt-db'
-    },
-    'aws': {
-        'bucket_name': 'velt-attachments',
-        'region': 'us-east-1',
-        'access_key_id': 'AKIA...',
-        'secret_access_key': 'secret...'
-    }
-})
-```
-
-**Correct (production pattern using environment variables):**
+**Correct (self-hosting on MongoDB or PostgreSQL, plus S3):**
 
 ```python
 import os
 from velt_py import VeltSDK
 
-# The SDK reads VELT_API_KEY and VELT_AUTH_TOKEN automatically from the environment.
-# Pass an empty dict (or omit apiKey/authToken) when env vars are set.
-sdk = VeltSDK.initialize({})
-```
-
-**Source Pointers:**
-
-```python
-# Error response format
-{
-    'success': False,
-    'statusCode': 400,       # or 500, 404
-    'error': 'Description of what went wrong',
-    'errorCode': 'INVALID_INPUT'   # or INTERNAL_ERROR, NOT_FOUND
-}
-```
-
-| Error Code | Status Code | Description |
-|------------|-------------|-------------|
-| `INVALID_INPUT` | 400 | Malformed request data — check required fields |
-| `NOT_FOUND` | 404 | Resource not found — verify IDs |
-| `INTERNAL_ERROR` | 500 | Server-side error — retry or contact support |
-**Python exception classes for `sdk.api.*`:**
-The SDK raises typed exceptions for `sdk.api.*` calls. All exceptions extend `VeltSDKError`.
-| Exception | When raised |
-|-----------|-------------|
-| `VeltSDKError` | Base class; catch for any SDK-level error |
-| `VeltValidationError` | SDK-level validation (e.g., missing required config); `sdk.api.*` methods do not validate request payloads locally |
-| `VeltTokenError` | Token generation or authentication failure |
-| `VeltApiError` | REST API errors (network failures, unexpected responses) |
-
-**Correct (exception handling for sdk.api.* calls):**
-
-```python
-from velt_py import VeltSDK
-from velt_py.exceptions import VeltSDKError, VeltValidationError, VeltTokenError, VeltApiError
-
 sdk = VeltSDK.initialize({
-    'apiKey': 'YOUR_VELT_API_KEY',
-    'authToken': 'YOUR_VELT_AUTH_TOKEN'
-})
-
-try:
-    result = sdk.api.organizations.getOrganizations(...)
-except VeltValidationError as e:
-    # Request dataclass had invalid or missing fields
-    print('Validation error:', e)
-except VeltTokenError as e:
-    # apiKey or authToken is invalid or expired
-    print('Auth error:', e)
-except VeltApiError as e:
-    # Velt API returned a non-2xx response
-    print('API error:', e)
-except VeltSDKError as e:
-    # Catch-all for any other SDK error
-    print('SDK error:', e)
-from velt_py import VeltSDK
-
-sdk = VeltSDK.initialize({
-    'apiKey': 'YOUR_VELT_API_KEY',
-    'authToken': 'YOUR_VELT_AUTH_TOKEN',
     'database': {
-        'connection_string': 'mongodb+srv://user:pass@cluster.mongodb.net/velt-db',
+        # MongoDB (default type): connection string, or host/username/password/auth_database/database_name
+        'connection_string': os.environ['VELT_MONGODB_URI'],
+        # PostgreSQL instead:
+        # 'type': 'postgresql',
+        # 'connection_string': 'postgresql://user:pass@host:5432/velt',
+        # 'sslmode': 'verify-full', 'sslrootcert': '/path/to/ca.pem',  # for any non-local database
     },
-    'collections': {
-        'comments': 'velt_comment_annotations',
-        'reactions': 'velt_reactions',
-        'users': 'app_users',
-        'attachments': 'velt_attachments',
-    }
+    'aws': {  # only needed for attachments
+        'bucket_name': os.environ['AWS_S3_BUCKET'],
+        'region': os.environ.get('AWS_REGION', 'us-east-1'),
+        'access_key_id': os.environ['AWS_ACCESS_KEY_ID'],
+        'secret_access_key': os.environ['AWS_SECRET_ACCESS_KEY'],
+    },
+    'apiKey': os.environ['VELT_API_KEY'],
+    'authToken': os.environ['VELT_AUTH_TOKEN'],
 })
-from velt_py import VeltSDK
+```
 
+**Environment variables.** `VELT_API_KEY` and `VELT_AUTH_TOKEN` can replace `apiKey` / `authToken`; `VELT_WORKSPACE_ID` and `VELT_WORKSPACE_AUTH_TOKEN` scope workspace operations.
+**PostgreSQL notes.** Every `sdk.selfHosting.*` method behaves the same on both backends. Each collection is a table with one JSONB `data` column. With `manage_schema: True` (default) the SDK creates the schema, tables, and indexes on first connection, so the role needs `CREATE`; for locked-down roles set `'manage_schema': False` and apply DDL from `velt_py.database.connection.postgres_schema_sql(Config({...}))`. The default `sslmode: prefer` never verifies the certificate. Multi-process servers (gunicorn, uWSGI) open one pool per worker; under uWSGI use `--enable-threads`. `database_name` overrides the database in the connection string; `pool_min_size` / `pool_max_size` apply to both backends. The SDK does not migrate data between MongoDB and PostgreSQL.
+
+**Custom collection (table) names and user field mapping:**
+
+```python
 sdk = VeltSDK.initialize({
-    'apiKey': 'YOUR_VELT_API_KEY',
-    'authToken': 'YOUR_VELT_AUTH_TOKEN',
-    'database': {
-        'connection_string': 'mongodb+srv://user:pass@cluster.mongodb.net/velt-db',
+    'database': {'connection_string': os.environ['VELT_MONGODB_URI']},
+    'collections': {
+        'comments': 'comment_annotations',    # defaults shown
+        'reactions': 'reaction_annotations',
+        'attachments': 'attachments',
+        'users': 'users',
     },
     'user_schema': {
-        'userId': '_id',           # Your DB field for user ID
-        'name': 'display_name',   # Your DB field for user name
-        'email': 'email_address', # Your DB field for email
-        'photoUrl': 'avatar_url', # Your DB field for avatar
-    }
+        'userId': '_id',            # your DB field for user ID
+        'name': 'display_name',
+        'email': 'email_address',
+        'photoUrl': 'avatar_url',
+        # also: 'color', 'textColor', 'isAdmin', 'initial'
+    },
 })
+from velt_py.exceptions import VeltSDKError, VeltValidationError, VeltTokenError, VeltApiError
+
+try:
+    result = sdk.api.organizations.getOrganizations(request)
+except VeltApiError as e:
+    print(f'API error: {e.message}')
+except VeltSDKError as e:
+    print(f'SDK error: {e.message}')
 ```
 
----
-Map Velt data to custom MongoDB collection names if your database has existing naming conventions:
----
-Map your database's user fields to Velt's expected field names:
-This mapping ensures the SDK can resolve user data from your existing user collection without requiring schema changes.
+**Error handling.** `sdk.selfHosting.*` returns `{'success': False, 'statusCode': 400 | 404 | 500, 'error': '...', 'errorCode': 'INVALID_INPUT' | 'NOT_FOUND' | 'INTERNAL_ERROR'}` on failure. `sdk.api.*` returns a dict with either `result` or `error`, and raises typed exceptions that all extend `VeltSDKError`:
+| Exception | When raised |
+|-----------|-------------|
+| `VeltSDKError` | Base class for any SDK-level error |
+| `VeltValidationError` | SDK-level validation such as missing required config; `sdk.api.*` does not validate request payloads locally |
+| `VeltTokenError` | Token generation or authentication failure |
+| `VeltApiError` | REST API errors (network failures, unexpected responses) |
 
 ---
 
@@ -466,7 +408,7 @@ const fetchCommentsFromDB = async (request) => {
 
 **For function-based providers** (same format returned from the resolver):
 
-Reference: https://docs.velt.dev/self-host-data/comments; https://docs.velt.dev/self-host-data/attachments; https://docs.velt.dev/self-host-data/reactions
+Reference: https://docs.velt.dev/self-hosting/partial/comments; https://docs.velt.dev/self-hosting/partial/attachments; https://docs.velt.dev/self-hosting/partial/reactions
 
 ---
 
@@ -475,6 +417,18 @@ Reference: https://docs.velt.dev/self-host-data/comments; https://docs.velt.dev/
 **Impact: CRITICAL (Using deprecated auth methods breaks data provider initialization ordering)**
 
 VeltProvider requires the `authProvider` prop for authentication. The `useIdentify()` hook and `client.identify()` method are deprecated — they lack automatic token refresh and retry logic. For self-hosting, `dataProviders` must also be set on VeltProvider so that data providers are initialized before authentication occurs.
+
+**Incorrect (identify() after render; providers may not be registered when Velt starts fetching):**
+
+```tsx
+function AuthGate({ user }) {
+  const { client } = useVeltClient();
+  useEffect(() => {
+    if (client && user) client.identify(user); // deprecated; no token refresh or retry
+  }, [client, user]);
+  return null;
+}
+```
 
 **Correct (authProvider + dataProviders on VeltProvider):**
 
@@ -620,11 +574,22 @@ const commentDataProvider = {
     fieldsToRemove:   ['internalTicketId'],                    // move out of Velt's DB into yours
   }
 };
+const commentDataProvider = {
+  config: {
+    saveConfig: {
+      url: `${BACKEND_URL}/comments/save`,
+      headers: async () => ({ Authorization: `Bearer ${await getFreshToken()}` }),
+      credentials: 'include',
+    },
+    // Opt into non-core events on the same save endpoint (see comment-function-provider)
+    additionalSaveEvents: [{ event: 'comment_annotation.status_change' }],
+  },
+};
 ```
 
+**Short-lived tokens and cookies.** On any endpoint config (`getConfig`, `saveConfig`, `deleteConfig`) of any provider, `headers` can be an async function that the SDK resolves on every request, including each retry, so a short-lived token stays fresh. Static header objects are captured once. Set `credentials: 'include'` to send cookies for cross-origin session auth; when unset, `fetch()` keeps its default.
+Verify that credential on your backend before touching the database (see `backend-verify-resolver-auth`).
 See the `provider-retry-timeout` rule for the full `additionalFields` vs `fieldsToRemove` comparison and the list of structural fields that must **never** appear in `fieldsToRemove` (identifiers, metadata, location, status, resolver flags, …).
-
-Reference: https://docs.velt.dev/self-host-data/comments - Endpoint-Based approach
 
 ---
 
@@ -767,9 +732,32 @@ const saveCommentsToDB = async (request: CommentSaveRequest & { event?: string }
   // If you need a status/priority/assignment audit log, subscribe to the SDK event stream instead — it doesn't flow through here.
   return { success: true, statusCode: 200 };
 };
+import type { CommentResolverSaveEvent } from '@veltdev/react';
+
+const additionalSaveEvents: { event: CommentResolverSaveEvent }[] = [
+  { event: 'comment_annotation.status_change' },
+  { event: 'comment_annotation.assign' },
+];
+
+export const commentDataProvider = {
+  get: fetchCommentsFromDB,
+  save: async (request) => {
+    // request.event is a ResolverActions value for the 4 core PII events,
+    // or a CommentResolverSaveEvent string for the opted-in events.
+    // request.targetComment (when present) is the comment the action happened on: context only, do not persist it.
+    if (request.event === 'comment_annotation.status_change') {
+      await auditLog.append({ annotationIds: Object.keys(request.commentAnnotation) });
+      return { success: true, statusCode: 200 };
+    }
+    return saveCommentsToDB(request);
+  },
+  delete: deleteCommentsFromDB,
+  config: { additionalSaveEvents },
+};
 ```
 
-Reference: https://docs.velt.dev/self-host-data/comments - Function-Based approach; https://docs.velt.dev/self-host-data/field-inventory - "Comment strip rules"
+Set `config.additionalSaveEvents` (an `AdditionalSaveEventConfig[]`, each `{ event: CommentResolverSaveEvent }`) to also receive annotation-level lifecycle events on the same `save` handler or `saveConfig` endpoint. `CommentResolverSaveEvent` is a string-literal union in `@veltdev/react`, so pass the string values. Values: `comment_annotation.status_change`, `comment_annotation.priority_change`, `comment_annotation.assign`, `comment_annotation.access_mode_change`, `comment_annotation.custom_list_change`, `comment_annotation.approve`, `comment.accept`, `comment.reject`, `comment_annotation.suggestion_accept`, `comment_annotation.suggestion_reject`, `comment.reaction_add`, `comment.reaction_delete`, `comment_annotation.subscribe`, `comment_annotation.unsubscribe`.
+`comment.reaction_add` / `comment.reaction_delete` (comment-level reactions) are distinct from the reaction resolver's `reaction.add` / `reaction.delete`.
 
 ---
 
@@ -1060,7 +1048,7 @@ const saveAttachment = async (request: SaveAttachmentResolverRequest) => {
 };
 ```
 
-Reference: https://docs.velt.dev/self-host-data/attachments - Endpoint-Based, Function-Based; https://docs.velt.dev/self-host-data/overview - "Attachment & recording storage"; https://docs.velt.dev/self-host-data/field-inventory - "Attachments"
+Reference: https://docs.velt.dev/self-hosting/partial/attachments - Endpoint-Based, Function-Based; https://docs.velt.dev/self-hosting/partial/overview - "Attachment & recording storage"; https://docs.velt.dev/self-hosting/partial/field-inventory - "Attachments"
 
 ---
 
@@ -1068,7 +1056,7 @@ Reference: https://docs.velt.dev/self-host-data/attachments - Endpoint-Based, Fu
 
 **Impact: MEDIUM**
 
-User, reaction, and recording data providers. User provider is read-only (get only) for PII protection. Reaction and recording providers support full CRUD following the same pattern as comments. All providers share retry and timeout configuration options.
+User, reaction, recorder, notification, and activity data providers. User provider is read-only (get only) for PII protection. Reaction and recorder providers support full CRUD following the same pattern as comments. All providers share retry and timeout configuration options; `additionalFields` / `fieldsToRemove` support differs per provider.
 
 ### 4.1 Configure Reaction and Recording Data Providers
 
@@ -1207,17 +1195,22 @@ export const reactionDataProvider = {
 <VeltProvider apiKey="KEY" dataProviders={{
   comment: commentDataProvider,
   reaction: reactionDataProvider,
-  recording: recordingDataProvider,
+  recorder: recordingDataProvider, // the VeltDataProvider key is `recorder`, not `recording`
 }} />
 ```
 
 **What each provider stores:**
 
 ```js
-// Get: { organizationId, documentIds?, reactionAnnotationIds? }
-// Save: { annotations: Record<string, Annotation>, context: { documentId, organizationId } }
-// Delete: { annotationId, metadata: { documentId, organizationId } }
+// Reaction get:    { organizationId, reactionAnnotationIds?, documentIds?, folderId?, allDocuments? }
+// Reaction save:   { reactionAnnotation: Record<string, PartialReactionAnnotation>, metadata?, event? }
+// Reaction delete: { reactionAnnotationId, metadata?, event? }
+// Recorder get:    { organizationId, recorderAnnotationIds?, documentIds? }
+// Recorder save:   { recorderAnnotation: Record<string, PartialRecorderAnnotation>, metadata?, event? }
+// Recorder delete: { recorderAnnotationId, metadata?, event? }
 ```
+
+The `dataProviders` key for recordings is `recorder` (there is no `recording` key).
 
 **Incorrect (treating `iconUrl` as PII and writing it to your DB instead of Velt's):**
 
@@ -1249,8 +1242,8 @@ const saveReaction = async (request) => {
 - [ ] Backend uses same upsert pattern as comments
 - [ ] `save` handler treats `icon` as the only relocated field; does not strip `iconUrl` / `iconEmoji`
 - [ ] `position` is written as `null` to Velt regardless of self-hosting (do not try to round-trip its value through the resolver)
-
-Reference: https://docs.velt.dev/self-host-data/reactions; https://docs.velt.dev/self-host-data/recordings; https://docs.velt.dev/self-host-data/field-inventory - "Reaction strip rules"
+- [ ] Recordings are registered under the `recorder` key
+- [ ] `fieldsToRemove` on reaction / recorder configs lists only your own custom fields, never `icon` or structural fields
 
 ---
 
@@ -1340,11 +1333,9 @@ const commentDataProvider = {
 | Effect on Velt's DB | Removed | Kept |
 | Sent to your backend | Yes (moved) | Yes (copied) |
 | Merged back on read | Yes (restored from you) | No (already in Velt's DB) |
-| Falsy values (`0`, `""`, `false`) | Copied only if truthy | Preserved |
+| Falsy values (`0`, `""`, `false`) | Moved by reaction, recorder, and activity providers (`!== undefined`); comment fields remain truthy-gated | Preserved |
 | Processing order | First | Second |
 | If a field is in **both** lists | `fieldsToRemove` wins (removed first) | — |
-
-Reference: https://docs.velt.dev/self-host-data/overview - "Excluding & extending fields"; https://docs.velt.dev/self-host-data/comments - "Configuration Options"
 
 ---
 
@@ -1363,6 +1354,15 @@ const userDataProvider = {
   save: saveUsers,    // Ignored — user provider is read-only
   delete: deleteUsers // Ignored
 };
+const userDataProvider = {
+  config: {
+    getConfig: {
+      url: 'https://your-backend.com/api/velt/users/get',
+      headers: { Authorization: 'Bearer YOUR_TOKEN' },
+    },
+    resolveUsersConfig: { organization: false, folder: false, document: true },
+  },
+};
 ```
 
 **⚠️ CRITICAL: The user provider has a DIFFERENT interface from all other providers.**
@@ -1370,7 +1370,8 @@ const userDataProvider = {
 |---|---|---|
 | **Input** | Request object `{ organizationId, ... }` | Plain `string[]` array of userIds |
 | **Return** | `{ data, success, statusCode }` | `Record<string, User>` directly |
-DO NOT wrap the user provider's return in `{ data, success, statusCode }` — the SDK expects `Record<string, User>` directly.
+DO NOT wrap the function-based user provider's return in `{ data, success, statusCode }`; the SDK expects `Record<string, User>` directly.
+**Endpoint-based variant is different.** With `config.getConfig`, the SDK POSTs `{ organizationId, userIds }` (a `GetUserResolverRequest`, not a bare array) and your endpoint must answer with the standard `ResolverResponse<Record<string, User>>` envelope (`{ data, success, statusCode }`). Use `config.resolveUsersConfig` (`{ organization, folder, document }` booleans) to stop user-resolver requests at scopes you do not need.
 
 **Correct (get-only user resolver with TypeScript types):**
 
@@ -1447,8 +1448,6 @@ useEffect(() => {
 For production apps, persist user data when users log in:
 **Important:** The SDK only calls `get` — it never calls save/delete for users. However, your app MUST have a `users/save` route so that when users log in, their PII (name, email, photoUrl) is persisted to your database. Call `saveCurrentUserToDB()` from your auth flow. For demos, also seed users into the DB at startup.
 
-Reference: https://docs.velt.dev/self-host-data/users
-
 ---
 
 ### 4.4 Self-Host Activity Log Data for Custom Activities
@@ -1486,7 +1485,7 @@ interface ResolverConfig {
   saveRetryConfig?: RetryConfig;        // Retry behavior for `save` (supports `revertOnFailure`)
   getConfig?: ResolverEndpointConfig;   // Endpoint URL + headers for fetching activity PII
   saveConfig?: ResolverEndpointConfig;  // Endpoint URL + headers for saving stripped activity PII
-  fieldsToRemove?: string[];            // Extra fields to strip beyond defaults
+  fieldsToRemove?: string[];            // Top-level keys moved to your DB (all feature types)
 }
 
 interface ResolverEndpointConfig {
@@ -1577,23 +1576,24 @@ The SDK POSTs the same `GetActivityResolverRequest` / `SaveActivityResolverReque
 }
 ```
 
-Entity snapshots (`entityData`, `entityTargetData`), display message templates and their data, and any fields listed in `config.fieldsToRemove` are NOT stored on Velt — they live exclusively on your database and are merged back via `get` at render time.
+This `custom` sample assumes `entityData`, `entityTargetData`, `displayMessageTemplate`, and `displayMessageTemplateData` are listed in `config.fieldsToRemove`; that is why those whole fields live only on your database and are merged back via `get` at render time. A custom activity has no automatic field-level strip, so anything you do not list stays on Velt. For built-in feature types (`comment`, `reaction`, `recorder`), Velt keeps the `entityData` / `entityTargetData` objects and removes only the PII fields inside them (see the strip rules below).
 
-**Incorrect (assuming `fieldsToRemove` strips a field on every activity, including built-in ones):**
+**Incorrect (assuming a custom activity's PII is stripped automatically, or listing structural keys):**
 
 ```tsx
 const activityDataProvider: ActivityAnnotationDataProvider = {
   get: async (req) => ({ data: await db.getActivity(req), success: true, statusCode: 200 }),
   save: async (req) => ({ data: undefined, success: true, statusCode: 200 }),
   config: {
-    // BUG: This only applies to featureType === 'custom'. A 'comment' activity carrying internalTicketId
-    // will still write internalTicketId to Velt.
-    fieldsToRemove: ['internalTicketId'],
+    // BUG 1: custom activities get no automatic field-level strip. Without listing
+    // 'entityData', a custom activity's entityData (PR titles, deploy metadata) stays on Velt.
+    // BUG 2: 'featureType' and 'targetEntityId' are structural; removing them breaks querying.
+    fieldsToRemove: ['featureType', 'targetEntityId'],
   },
 };
 ```
 
-**Correct (treat `fieldsToRemove` as a custom-only knob; rely on per-feature resolvers for built-in entity PII):**
+**Correct (list only your own top-level keys; built-in entity PII is stripped by the feature-aware rules):**
 
 ```tsx
 const activityDataProvider: ActivityAnnotationDataProvider = {
@@ -1609,14 +1609,12 @@ const activityDataProvider: ActivityAnnotationDataProvider = {
   },
   config: {
     resolveTimeout: 60000,
-    // Applies only when featureType === 'custom'. Comment/recorder/reaction activities are handled
-    // by their feature resolvers, not by fieldsToRemove.
-    fieldsToRemove: ['customSensitiveField'],
+    // Applies to every feature type. For custom activities this is the only stripping that happens,
+    // so list entityData here if a custom activity's snapshot is sensitive.
+    fieldsToRemove: ['customSensitiveField', 'entityData'],
   },
 };
 ```
-
-Reference: https://docs.velt.dev/self-host-data/activity ("Implementation Approaches", "Endpoint based DataProvider", "Function based DataProvider", "Sample Data"); https://docs.velt.dev/self-host-data/field-inventory - "Activity strip rules"
 
 ---
 
@@ -1773,7 +1771,7 @@ const notificationDataProvider: NotificationDataProvider = {
 };
 ```
 
-Reference: https://docs.velt.dev/self-host-data/notifications ("Sample Data"); https://docs.velt.dev/self-host-data/field-inventory - "Notification strip rules"
+Reference: https://docs.velt.dev/self-hosting/partial/notifications ("Sample Data"); https://docs.velt.dev/self-hosting/partial/field-inventory - "Notification strip rules"
 
 ---
 
@@ -1799,18 +1797,18 @@ interface GetRecorderResolverRequest {
   organizationId: string;
   recorderAnnotationIds?: string[];
   documentIds?: string[];
-  folderId?: string;
-  allDocuments?: boolean;
 }
 
 interface SaveRecorderResolverRequest {
-  recorderAnnotations: Record<string, PartialRecorderAnnotation>;
+  recorderAnnotation: Record<string, PartialRecorderAnnotation>; // singular key
   metadata?: BaseMetadata;
   event?: ResolverActions;
 }
 
 interface SaveRecorderResolverData {
-  recorderAnnotation: Record<string, PartialRecorderAnnotation>;
+  transcription?: Transcription;       // updated transcription
+  attachment?: Attachment | null;      // deprecated; use attachments
+  attachments?: Attachment[];          // updated attachments
 }
 
 interface DeleteRecorderResolverRequest {
@@ -1897,7 +1895,7 @@ const saveRecorder = async (request) => {
   // BUG: Velt still tracks { attachmentId, name } stubs for each attachment.
   // If your DB is the only source of truth for attachment IDs, you risk orphaning bucket objects
   // because Velt no longer retains a storage path back to your bucket.
-  for (const partial of Object.values(request.recorderAnnotations)) {
+  for (const partial of Object.values(request.recorderAnnotation)) {
     await db.saveAttachments(partial.attachments); // assumes Velt has nothing — wrong
   }
   return { success: true, statusCode: 200 };
@@ -1908,7 +1906,7 @@ const saveRecorder = async (request) => {
 
 ```tsx
 const saveRecorder = async (request) => {
-  for (const [annotationId, partial] of Object.entries(request.recorderAnnotations)) {
+  for (const [annotationId, partial] of Object.entries(request.recorderAnnotation)) {
     // partial.transcription          → entire object, your DB only
     // partial.from                   → full User object (PII)
     // partial.attachments[]          → full attachment objects including url
@@ -1919,7 +1917,7 @@ const saveRecorder = async (request) => {
 };
 ```
 
-Reference: https://docs.velt.dev/self-host-data/recordings; https://docs.velt.dev/self-host-data/field-inventory - "Recorder strip rules"
+Reference: https://docs.velt.dev/self-hosting/partial/recordings; https://docs.velt.dev/self-hosting/partial/field-inventory - "Recorder strip rules"
 
 ---
 
@@ -1927,9 +1925,63 @@ Reference: https://docs.velt.dev/self-host-data/recordings; https://docs.velt.de
 
 **Impact: MEDIUM**
 
-Server-side patterns for handling data provider requests. Covers API route structure, database storage with upsert operations and indexing, and S3-compatible object storage for attachments.
+Server-side patterns for handling data provider requests. Covers API route structure and request body shapes, authenticating resolver endpoints (`verifyToken`), database storage with upsert operations and indexing, and S3-compatible object storage for attachments.
 
-### 5.1 Implement Database Storage with Upsert and Proper Indexing
+### 5.1 Authenticate Resolver Endpoints Before Touching Your Database
+
+**Impact: HIGH (Unauthenticated resolver routes let any caller read or overwrite self-hosted comments and user PII)**
+
+Endpoint-based data providers (`getConfig` / `saveConfig` / `deleteConfig`) are plain HTTPS routes called from the browser. Send a credential from the frontend with `headers`, and verify it on the backend before any read or write. Both backend SDKs ship a fail-closed verifier, `sdk.selfHosting.verifyToken`, that is authentication only: it never authorizes, so you still check the tenant yourself.
+
+**Incorrect (route trusts the request body):**
+
+```js
+app.post('/api/velt/comments/get', async (req, res) => {
+  // Anyone who can reach this URL can read any organization's comments.
+  const comments = await db.getComments(req.body);
+  res.json({ data: comments, success: true, statusCode: 200 });
+});
+```
+
+**Correct (frontend sends a fresh token; backend verifies, then authorizes):**
+
+```python
+// Frontend: async headers are resolved on every request, including retries
+const commentDataProvider = {
+  config: {
+    getConfig: {
+      url: 'https://api.example.com/api/velt/comments/get',
+      headers: async () => ({ Authorization: `Bearer ${await getFreshToken()}` }),
+    },
+  },
+};
+// Node backend (@veltdev/node): configure resolverAuth once at initialize()
+const sdk = VeltSDK.initialize({
+  database: { connection_string: process.env.VELT_DB_URL! },
+  resolverAuth: { jwt: { algorithms: ['RS256'], jwksUrl: 'https://idp.example.com/.well-known/jwks.json' } },
+});
+
+app.post('/api/velt/comments/get', async (req, res) => {
+  const auth = await sdk.selfHosting.verifyToken({ headers: req.headers });
+  if (!auth.verified) return res.status(401).json({ error: auth.error, code: auth.errorCode });
+  if (auth.claims?.org !== req.body.organizationId) return res.status(403).end(); // your authorization
+  const svc = await sdk.selfHosting.getComments();
+  res.json(await svc.getComments(req.body));
+});
+# Python backend (velt-py): 'resolver_auth' config block; pip install 'velt-py[auth]' for the JWT path
+sdk = VeltSDK.initialize({
+    'database': {'connection_string': os.environ['VELT_DB_URL']},
+    'resolver_auth': {'jwt': {'jwks_url': 'https://idp.example.com/.well-known/jwks.json', 'algorithms': ['RS256']}},
+})
+
+result = sdk.selfHosting.verifyToken(headers=request.headers)  # or token='<raw_jwt>'
+if not result.verified:
+    return HttpResponse(status=401)  # result.errorCode says why
+```
+
+---
+
+### 5.2 Implement Database Storage with Upsert and Proper Indexing
 
 **Impact: MEDIUM (Idempotent saves and fast queries at scale)**
 
@@ -2007,11 +2059,9 @@ async function saveAnnotations(client, annotations, context) {
 }
 ```
 
-Reference: https://docs.velt.dev/self-host-data/comments - Backend Example (MongoDB, PostgreSQL)
-
 ---
 
-### 5.2 Store and Delete Attachments in S3-Compatible Object Storage
+### 5.3 Store and Delete Attachments in S3-Compatible Object Storage
 
 **Impact: MEDIUM (Proper binary file storage with deterministic object keys)**
 
@@ -2091,11 +2141,11 @@ This key structure:
 - Is deterministic enough to reconstruct from metadata for deletion
 - Supports bucket lifecycle policies per organization
 
-Reference: https://docs.velt.dev/self-host-data/attachments - Backend Example
+Reference: https://docs.velt.dev/self-hosting/partial/attachments - Backend Example
 
 ---
 
-### 5.3 Structure Backend API Routes for Data Provider Endpoints
+### 5.4 Structure Backend API Routes for Data Provider Endpoints
 
 **Impact: MEDIUM (Consistent route structure for all data provider operations)**
 
@@ -2140,7 +2190,9 @@ app.post('/api/velt', async (req, res) => {
 // GET handler (comments, reactions, recordings)
 async function handleGet(req, res, collection) {
   try {
-    const { organizationId, documentIds, annotationIds } = req.body;
+    // ID filter key: commentAnnotationIds | reactionAnnotationIds | recorderAnnotationIds
+    const { organizationId, documentIds } = req.body;
+    const annotationIds = req.body.commentAnnotationIds ?? req.body.reactionAnnotationIds ?? req.body.recorderAnnotationIds;
     const query = {};
     if (annotationIds?.length) query.annotationId = { $in: annotationIds };
     if (documentIds?.length) query.documentId = { $in: documentIds };
@@ -2159,15 +2211,16 @@ async function handleGet(req, res, collection) {
 }
 
 // SAVE handler (comments, reactions, recordings)
-async function handleSave(req, res, collection) {
+// The map key depends on the provider: commentAnnotation | reactionAnnotation | recorderAnnotation
+async function handleSave(req, res, collection, mapKey) {
   try {
-    const { annotations, context } = req.body;
+    const { [mapKey]: annotations = {}, metadata } = req.body;
     for (const [id, annotation] of Object.entries(annotations)) {
       await collection.upsert(
         { annotationId: id },
         { ...annotation, annotationId: id,
-          documentId: context?.documentId,
-          organizationId: context?.organizationId }
+          documentId: metadata?.documentId,
+          organizationId: metadata?.organizationId }
       );
     }
     res.json({ success: true, statusCode: 200 });
@@ -2177,9 +2230,10 @@ async function handleSave(req, res, collection) {
 }
 
 // DELETE handler (comments, reactions, recordings)
-async function handleDelete(req, res, collection) {
+// The ID key depends on the provider: commentAnnotationId | reactionAnnotationId | recorderAnnotationId
+async function handleDelete(req, res, collection, idKey) {
   try {
-    const { annotationId } = req.body;
+    const annotationId = req.body[idKey];
     await collection.deleteOne({ annotationId });
     res.json({ success: true, statusCode: 200 });
   } catch (error) {
@@ -2187,8 +2241,6 @@ async function handleDelete(req, res, collection) {
   }
 }
 ```
-
-Reference: https://docs.velt.dev/self-host-data/comments - Backend Example; https://docs.velt.dev/self-host-data/reactions - Backend Example
 
 ---
 
@@ -2206,461 +2258,368 @@ Complete type definitions for all data provider interfaces, configuration types,
 
 ### VeltDataProvider (top-level)
 
-Reference: https://docs.velt.dev/api-reference/sdk/models/data-models - Self-Hosting Types; https://docs.velt.dev/self-host-data/field-inventory - "Complete Field Inventory"
-
 ---
 
 ## 7. Python SDK
 
 **Impact: HIGH**
 
-Patterns for implementing data-provider backends in Python using the `velt-py` SDK. Covers the `sdk.api.*` REST API backend (no database required), comments / attachments / users / reactions self-hosting handlers, framework integrations (FastAPI / Flask / Django), and the same response-format contract the JS SDK enforces. Use when your provider backend is Python rather than Node.
+Patterns for implementing data-provider backends in Python using the `velt-py` 0.2.x SDK (MongoDB or PostgreSQL). Covers the `sdk.api.*` REST API backend (no database required), token generation with `sdk.api.accessControl.generateToken`, comments / attachments / users / reactions self-hosting handlers built with `from_dict`, framework integrations (FastAPI / Flask / Django), and the same response-format contract the JS SDK enforces. Use when your provider backend is Python rather than Node.
 
 ### 7.1 Attachment Upload and Delete via Python SDK with S3
 
-**Impact: HIGH (Missing S3 configuration or incorrect file parameters cause upload failures)**
+**Impact: HIGH (Wrong aws config keys or reading the multipart body as JSON make every attachment upload fail)**
 
-Attachment operations require S3 to be configured during SDK initialization. The save method accepts file data alongside the request object, while delete removes files from both the database and S3.
+`sdk.selfHosting.attachments.saveAttachment` uploads the file to S3 and saves its metadata; `deleteAttachment` removes the S3 object and the metadata. Configure the `aws` block at `VeltSDK.initialize`. The save endpoint receives `multipart/form-data`: the file in the `file` field and the JSON request in the `request` field.
 
-Do not attempt attachment operations without providing `aws` config in `VeltSDK.initialize`. Without S3 configuration, `sdk.selfHosting.attachments.saveAttachment(...)` will raise an error at runtime.
-
-**Correct (SDK init with S3 for attachments):**
+**Incorrect:**
 
 ```python
+# WRONG aws keys: the SDK reads bucket_name / region / access_key_id / secret_access_key
+sdk = VeltSDK.initialize({'aws': {'bucket': 'b', 'access_key': '...', 'secret_key': '...'}})
+
+@app.route('/api/velt/attachments/save', methods=['POST'])
+def save_attachment():
+    body = request.json  # WRONG: attachment saves are multipart, not JSON
+    return sdk.selfHosting.attachments.saveAttachment(body)
+```
+
+**Correct (S3 config):**
+
+```python
+import os
 from velt_py import VeltSDK
 
 sdk = VeltSDK.initialize({
-    'apiKey': 'YOUR_VELT_API_KEY',
-    'authToken': 'YOUR_VELT_AUTH_TOKEN',
-    'database': {
-        'connection_string': 'mongodb+srv://user:pass@cluster.mongodb.net/velt-db'
-    },
+    'database': {'connection_string': os.environ['VELT_MONGODB_URI']},
     'aws': {
-        'bucket_name': 'velt-attachments',
-        'region': 'us-east-1',
-        'access_key_id': 'AKIA...',
-        'secret_access_key': 'secret...'
-    }
+        'bucket_name': os.environ['AWS_S3_BUCKET'],
+        'region': os.environ.get('AWS_REGION', 'us-east-1'),
+        'access_key_id': os.environ['AWS_ACCESS_KEY_ID'],
+        'secret_access_key': os.environ['AWS_SECRET_ACCESS_KEY'],
+    },
 })
 ```
 
-**Correct (upload an attachment):**
+**Correct (Flask save and delete):**
 
 ```python
-from velt_py import SaveAttachmentResolverRequest
+import json
+from flask import request, jsonify
+from velt_py import SaveAttachmentResolverRequest, DeleteAttachmentResolverRequest
 
-# Read file data as bytes
-with open("report.pdf", "rb") as f:
-    file_data = f.read()
+@app.route('/api/velt/attachments/save', methods=['POST'])
+def save_attachment():
+    file = request.files.get('file')
+    request_json = request.form.get('request')
+    if not file or not request_json:
+        return jsonify({'success': False, 'error': 'File and request JSON are required',
+                        'errorCode': 'INVALID_INPUT', 'statusCode': 400}), 400
 
-request = SaveAttachmentResolverRequest(
-    organization_id="org_123",
-    document_id="doc_456",
-    attachment_id="attachment_789"
-)
+    save_request = SaveAttachmentResolverRequest.from_dict(json.loads(request_json))
+    result = sdk.selfHosting.attachments.saveAttachment(
+        save_request,
+        file_data=file.read(),        # bytes
+        file_name=file.filename,
+        mime_type=file.content_type,
+    )
+    return jsonify(result), result.get('statusCode', 200)
 
-response = sdk.selfHosting.attachments.saveAttachment(
-    request,
-    file_data=file_data,
-    file_name="report.pdf",
-    mime_type="application/pdf"
-)
-
-if response['success']:
-    attachment_url = response['data']
-    print(f"Uploaded: {attachment_url}")
-else:
-    print(f"Upload failed: {response['error']}")
+@app.route('/api/velt/attachments/delete', methods=['POST'])
+def delete_attachment():
+    delete_request = DeleteAttachmentResolverRequest.from_dict(request.json)  # delete is JSON
+    result = sdk.selfHosting.attachments.deleteAttachment(delete_request)
+    return jsonify(result), result.get('statusCode', 200)
 ```
 
-**Correct (delete an attachment):**
-
-```python
-from velt_py import DeleteAttachmentResolverRequest
-
-request = DeleteAttachmentResolverRequest(
-    organization_id="org_123",
-    document_id="doc_456",
-    attachment_id="attachment_789"
-)
-
-response = sdk.selfHosting.attachments.deleteAttachment(request)
-
-if response['success']:
-    print("Attachment deleted from database and S3")
-```
-
-Reference: `https://docs.velt.dev/api-reference/sdk/python/attachments` (## Python SDK > ### Attachments)
+In Django read `request.FILES.get('file')` and `request.POST.get('request')`; in FastAPI declare `file: UploadFile = File(...)` and `request: str = Form(...)` and `await file.read()`.
 
 ---
 
 ### 7.2 Comments CRUD Operations via Python SDK
 
-**Impact: HIGH (Incorrect request types or response handling causes silent data loss or failed queries)**
+**Impact: HIGH (Re-shaping the frontend payload or the SDK response breaks the data provider contract and silently loses comments)**
 
-The Python SDK provides methods to get, save, and delete comments through the `sdk.selfHosting.comments` namespace. Each method requires its own request type.
+`sdk.selfHosting.comments` exposes `getComments`, `saveComments`, and `deleteComment`. The pattern is always the same: parse the raw JSON body the Velt frontend sent into the typed request with `from_dict`, pass it to the SDK, and return the SDK's response dict to the client unchanged (with its `statusCode` as the HTTP status).
 
-**Incorrect (passing raw dicts instead of request objects):**
-
-```python
-# This will fail — methods require typed request objects
-comments = sdk.selfHosting.comments.getComments({
-    "organizationId": "org_123",
-    "documentId": "doc_456"
-})
-```
-
-**Correct (get comments):**
+**Incorrect (raw dict to the SDK, hand-built fields, re-wrapped response):**
 
 ```python
-from velt_py import GetCommentResolverRequest
-
-request = GetCommentResolverRequest(
-    organization_id="org_123",
-    document_id="doc_456"
-)
-
-response = sdk.selfHosting.comments.getComments(request)
-
-# response is a plain dict with camelCase keys
-if response['success']:
-    comments = response['data']
-    print(f"Retrieved {len(comments)} comments")
-else:
-    print(f"Error {response['errorCode']}: {response['error']}")
+def get_comments(request):
+    body = request.json
+    # WRONG: methods take typed request objects, not raw dicts
+    result = sdk.selfHosting.comments.getComments(body)
+    # WRONG: re-wrapping drops `success` / `statusCode`, which the frontend data provider requires
+    return {'comments': result['data']}
 ```
 
-**Correct (save comments):**
+**Correct (get, save, delete):**
 
 ```python
-from velt_py import SaveCommentResolverRequest
+from velt_py import GetCommentResolverRequest, SaveCommentResolverRequest, DeleteCommentResolverRequest
 
-request = SaveCommentResolverRequest(
-    organization_id="org_123",
-    document_id="doc_456",
-    comment_annotations=[
-        {
-            "annotationId": "annotation_1",
-            "commentData": [
-                {
-                    "commentText": "This needs review",
-                    "from": {"userId": "user_789"}
-                }
-            ]
-        }
-    ]
-)
+def get_comments(body: dict) -> dict:
+    return sdk.selfHosting.comments.getComments(GetCommentResolverRequest.from_dict(body))
 
-response = sdk.selfHosting.comments.saveComments(request)
+def save_comments(body: dict) -> dict:
+    save_request = SaveCommentResolverRequest.from_dict(body)
+    # Since v0.1.14: event may be a ResolverActions member, a CommentResolverSaveEvent member
+    # (when the frontend opted in via additionalSaveEvents), or a raw string.
+    # save_request.targetComment is request context only; saveComments never persists it.
+    return sdk.selfHosting.comments.saveComments(save_request)
 
-if response['success']:
-    print(f"Saved successfully, status: {response.get('statusCode', 200)}")
+def delete_comment(body: dict) -> dict:
+    return sdk.selfHosting.comments.deleteComment(DeleteCommentResolverRequest.from_dict(body))
+{'success': True, 'statusCode': 200, 'data': {...}}
+{'success': False, 'statusCode': 400, 'error': '...', 'errorCode': 'INVALID_INPUT'}  # or NOT_FOUND / INTERNAL_ERROR
 ```
 
-**Correct (delete comment):**
+**Response format.** `VeltSelfHostingResponse` is a plain dict with camelCase keys:
+Use dict access (`result['success']`, `result.get('statusCode', 200)`), not attribute access.
+**Data models you may touch in custom handlers** (`from velt_py.models import PartialCommentAnnotation, PartialComment, PartialTargetTextRange, BaseMetadata`):
+- `PartialCommentAnnotation.from_` is the author (wire key `from`; Python keyword workaround). `assignedTo`, `targetTextRange`, and `resolvedByUserId` are typed fields since v0.1.10.
+- `resolvedByUserId` is tri-state: `UNSET` (from `velt_py.models.comment`) means the field was absent and is not written; `None` means the frontend unresolved the annotation and `null` is written.
+- `BaseMetadata` keeps `sdkVersion` and `documentMetadata` since v0.1.10.
 
-```python
-from velt_py import DeleteCommentResolverRequest
-
-request = DeleteCommentResolverRequest(
-    organization_id="org_123",
-    document_id="doc_456",
-    annotation_id="annotation_1",
-    comment_id=1
-)
-
-response = sdk.selfHosting.comments.deleteComment(request)
-
-if response['success']:
-    print("Comment deleted")
-```
-
-**Response format:**
-
-```python
-# VeltSelfHostingResponse is a plain Python dict with camelCase keys
-
-# Success
-response = {'success': True, 'statusCode': 200, 'data': {...}}
-
-# Error
-response = {'success': False, 'statusCode': 500, 'error': 'Comment not found', 'errorCode': 'INTERNAL_ERROR'}
-
-# Access pattern
-if response['success']:
-    data = response['data']
-else:
-    print(f"Error {response['errorCode']}: {response['error']}")
-
-# Safe optional field access
-status = response.get('statusCode', 200)
-```
-
-**Verification:**
+**Imports:**
 
 ```python
 from velt_py import (
-    # Comments
-    GetCommentResolverRequest,
-    SaveCommentResolverRequest,
-    DeleteCommentResolverRequest,
-    # Reactions
-    GetReactionResolverRequest,
-    SaveReactionResolverRequest,
-    DeleteReactionResolverRequest,
-    # Users
+    GetCommentResolverRequest, SaveCommentResolverRequest, DeleteCommentResolverRequest,
+    GetReactionResolverRequest, SaveReactionResolverRequest, DeleteReactionResolverRequest,
     GetUserResolverRequest,
-    # Attachments
-    SaveAttachmentResolverRequest,
-    DeleteAttachmentResolverRequest,
+    SaveAttachmentResolverRequest, DeleteAttachmentResolverRequest,
+    CommentResolverSaveEvent,
 )
+from velt_py.models.user import ResolveUserIdsByEmailRequest
 ```
 
-| Module | Request Type | SDK Method |
-|--------|-------------|------------|
-| Comments | `GetCommentResolverRequest` | `sdk.selfHosting.comments.getComments()` |
-| Comments | `SaveCommentResolverRequest` | `sdk.selfHosting.comments.saveComments()` |
-| Comments | `DeleteCommentResolverRequest` | `sdk.selfHosting.comments.deleteComment()` |
-| Reactions | `GetReactionResolverRequest` | `sdk.selfHosting.reactions.getReactions()` |
-| Reactions | `SaveReactionResolverRequest` | `sdk.selfHosting.reactions.saveReactions()` |
-| Reactions | `DeleteReactionResolverRequest` | `sdk.selfHosting.reactions.deleteReaction()` |
-| Users | `GetUserResolverRequest` | `sdk.selfHosting.users.getUsers()` |
-| Attachments | `SaveAttachmentResolverRequest` | `sdk.selfHosting.attachments.saveAttachment()` |
-| Attachments | `DeleteAttachmentResolverRequest` | `sdk.selfHosting.attachments.deleteAttachment()` |
-
-Reference: `https://docs.velt.dev/api-reference/sdk/python/comments` (## Python SDK > ### Comments)
+| Request type | SDK method |
+|---|---|
+| `GetCommentResolverRequest` | `sdk.selfHosting.comments.getComments()` |
+| `SaveCommentResolverRequest` | `sdk.selfHosting.comments.saveComments()` |
+| `DeleteCommentResolverRequest` | `sdk.selfHosting.comments.deleteComment()` |
+| `GetReactionResolverRequest` | `sdk.selfHosting.reactions.getReactions()` |
+| `SaveReactionResolverRequest` | `sdk.selfHosting.reactions.saveReactions()` |
+| `DeleteReactionResolverRequest` | `sdk.selfHosting.reactions.deleteReaction()` |
+| `GetUserResolverRequest` | `sdk.selfHosting.users.getUsers()` |
+| `ResolveUserIdsByEmailRequest` | `sdk.selfHosting.users.resolveUserIdsByEmail()` |
+| `SaveAttachmentResolverRequest` | `sdk.selfHosting.attachments.saveAttachment()` |
+| `DeleteAttachmentResolverRequest` | `sdk.selfHosting.attachments.deleteAttachment()` |
 
 ---
 
 ### 7.3 Django, Flask, and FastAPI Integration Patterns
 
-**Impact: MEDIUM (Incorrect framework integration causes SDK reinitialization on every request or missing CSRF handling)**
+**Impact: MEDIUM (Re-initializing per request opens a new connection pool each time, and re-wrapping SDK responses breaks the data provider contract)**
 
-Initialize the Velt SDK once at application startup, then use it across request handlers. Each framework has its own conventions for initialization and request handling.
+Initialize the SDK once per process and reuse it in every handler. Each handler parses the frontend body with `<RequestType>.from_dict(...)`, calls `sdk.selfHosting.*`, and returns the SDK's response dict with its `statusCode` as the HTTP status. Do not re-wrap the response: the frontend data provider reads `success`, `statusCode`, and `data`.
 
-**Django — Initialize in apps.py, use in views.py:**
+**Incorrect:**
 
 ```python
-# myapp/apps.py
-import os
-from django.apps import AppConfig
+@app.route('/api/velt/comments/get', methods=['POST'])
+def get_comments():
+    sdk = VeltSDK.initialize(CONFIG)          # WRONG: a new SDK (and pool) per request
+    result = sdk.selfHosting.comments.getComments(GetCommentResolverRequest.from_dict(request.json))
+    return jsonify({'data': result['data']})  # WRONG: drops success / statusCode
+```
+
+**Django (lazy singleton + settings):**
+
+```python
+# velt_sdk.py
+from django.conf import settings
 from velt_py import VeltSDK
 
-class MyAppConfig(AppConfig):
-    name = 'myapp'
-    velt_sdk = None
+_velt_sdk = None
 
-    def ready(self):
-        MyAppConfig.velt_sdk = VeltSDK.initialize({
-            'database': {
-                'connection_string': os.environ["MONGODB_URI"]
-            }
-        })
-        # VELT_API_KEY and VELT_AUTH_TOKEN are read from environment automatically
-# myapp/views.py
+def get_velt_sdk():
+    global _velt_sdk
+    if _velt_sdk is None:
+        _velt_sdk = VeltSDK.initialize(settings.VELT_SDK_CONFIG)
+    return _velt_sdk
+# settings.py
+import os
+VELT_SDK_CONFIG = {
+    'database': {'connection_string': os.environ.get('VELT_MONGODB_CONNECTION_STRING')},
+    'apiKey': os.environ.get('VELT_API_KEY'),
+    'authToken': os.environ.get('VELT_AUTH_TOKEN'),
+}
+# views.py
 import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods
 from velt_py import GetCommentResolverRequest
-from .apps import MyAppConfig
+from .velt_sdk import get_velt_sdk
 
 @csrf_exempt
+@require_http_methods(["POST"])
 def get_comments(request):
-    if request.method != 'POST':
-        return JsonResponse({"error": "POST required"}, status=405)
-
-    body = json.loads(request.body)
-    sdk = MyAppConfig.velt_sdk
-
-    resolver_request = GetCommentResolverRequest(
-        organization_id=body["organizationId"],
-        document_id=body["documentId"]
-    )
-
-    response = sdk.selfHosting.comments.getComments(resolver_request)
-
-    # response is a plain dict with camelCase keys
-    if response['success']:
-        return JsonResponse({"data": response['data']})
-    return JsonResponse({"error": response['error']}, status=response.get('statusCode', 500))
+    try:
+        comment_request = GetCommentResolverRequest.from_dict(json.loads(request.body))
+        result = get_velt_sdk().selfHosting.comments.getComments(comment_request)
+        return JsonResponse(result, status=result.get('statusCode', 200))
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e), 'errorCode': 'INTERNAL_ERROR',
+                             'statusCode': 500}, status=500)
 ```
 
-**Flask — Initialize at module level:**
+**Flask (module-level SDK):**
 
 ```python
-import os
 from flask import Flask, request, jsonify
 from velt_py import VeltSDK, GetCommentResolverRequest
 
 app = Flask(__name__)
+sdk = VeltSDK.initialize({'database': {'connection_string': 'mongodb+srv://...'}})
 
-sdk = VeltSDK.initialize({
-    'database': {
-        'connection_string': os.environ["MONGODB_URI"]
-    }
-})
-# VELT_API_KEY and VELT_AUTH_TOKEN are read from environment automatically
-
-@app.route("/api/comments/get", methods=["POST"])
+@app.route('/api/velt/comments/get', methods=['POST'])
 def get_comments():
-    body = request.json
-
-    resolver_request = GetCommentResolverRequest(
-        organization_id=body["organizationId"],
-        document_id=body["documentId"]
-    )
-
-    response = sdk.selfHosting.comments.getComments(resolver_request)
-
-    if response['success']:
-        return jsonify({"data": response['data']})
-    return jsonify({"error": response['error']}), response.get('statusCode', 500)
+    result = sdk.selfHosting.comments.getComments(GetCommentResolverRequest.from_dict(request.json))
+    return jsonify(result), result.get('statusCode', 200)
 ```
 
-**FastAPI — Initialize at module level, use async endpoints:**
+**FastAPI (module-level SDK):**
 
 ```python
-import os
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from velt_py import VeltSDK, GetCommentResolverRequest
 
 app = FastAPI()
+sdk = VeltSDK.initialize({'database': {'connection_string': 'mongodb+srv://...'}})
 
-sdk = VeltSDK.initialize({
-    'database': {
-        'connection_string': os.environ["MONGODB_URI"]
-    }
-})
-# VELT_API_KEY and VELT_AUTH_TOKEN are read from environment automatically
-
-@app.post("/api/comments/get")
-async def get_comments(req: Request):
-    body = await req.json()
-
-    resolver_request = GetCommentResolverRequest(
-        organization_id=body["organizationId"],
-        document_id=body["documentId"]
-    )
-
-    response = sdk.selfHosting.comments.getComments(resolver_request)
-
-    if response['success']:
-        return {"data": response['data']}
-    return {"error": response['error']}
+@app.post('/api/velt/comments/get')
+async def get_comments(request: Request):
+    result = sdk.selfHosting.comments.getComments(GetCommentResolverRequest.from_dict(await request.json()))
+    return JSONResponse(content=result, status_code=result.get('statusCode', 200))
 ```
-
-Reference: `https://docs.velt.dev/api-reference/sdk/python/overview` (## Python SDK > ### Framework Integration)
 
 ---
 
-### 7.4 Generate Auth Tokens via sdk.selfHosting.token.getToken
+### 7.4 Generate Auth Tokens via sdk.api.accessControl.generateToken
 
-**Impact: HIGH (Issuing auth tokens server-side with the self-hosting variant ensures token generation works within your own infrastructure without a separate REST call)**
+**Impact: HIGH (The positional getToken helpers are gone from the Python SDK docs; minting tokens with generateToken keeps frontend auth working without exposing API credentials)**
 
-The Python SDK exposes `sdk.selfHosting.token.getToken` to generate a Velt auth token for a user on the server side. This is the self-hosting variant of token generation — use it when your backend already has MongoDB + AWS configured via `sdk.selfHosting.*`. The generated token is passed to the frontend `authProvider` prop so the client can authenticate without exposing your API credentials.
+Mint the JWT that the frontend `authProvider.generateToken` returns with `sdk.api.accessControl.generateToken`. It calls `POST /v2/auth/generate_token`, takes a `GenerateTokenRequest` dataclass like every other `sdk.api.*` method, needs only `apiKey` and `authToken` (no database), and returns the raw REST envelope. The `sdk.selfHosting.token.getToken` and `sdk.api.token.getToken` sections were removed from the Python SDK docs.
 
-Do not call the Velt REST auth endpoint directly with `requests` or `httpx` and do not attempt to construct the JWT manually. Unlike other `sdk.selfHosting.*` methods, `getToken` does **not** accept a typed request dataclass — pass arguments as keyword arguments directly.
+Do not call the Velt REST auth endpoint with `requests` / `httpx`, and never build the JWT yourself.
 
-**Correct (generate token and return to frontend):**
+**Incorrect (removed keyword-argument getToken and a flat envelope):**
+
+```python
+# WRONG: no longer documented; also reads the self-hosting envelope shape
+result = sdk.selfHosting.token.getToken(organizationId='org-123', userId='user-1')
+token = result['data']['token']
+```
+
+**Correct:**
 
 ```python
 from velt_py import VeltSDK
+from velt_py.models.access_control import GenerateTokenRequest
 
 sdk = VeltSDK.initialize({
     'apiKey': 'YOUR_VELT_API_KEY',
     'authToken': 'YOUR_VELT_AUTH_TOKEN',
-    'database': {
-        'mongoURI': 'YOUR_MONGO_URI',
-        'dbName': 'YOUR_DB_NAME'
-    }
 })
 
-result = sdk.selfHosting.token.getToken(
-    organizationId='org-123',
-    userId='user-1',
-    email='user@example.com',   # optional
-    isAdmin=False                # optional, defaults to False
+result = sdk.api.accessControl.generateToken(
+    GenerateTokenRequest(
+        userId='user-1',
+        userProperties={'name': 'John Doe', 'email': 'john@example.com', 'isAdmin': False},
+        permissions={'resources': [
+            {'type': 'organization', 'id': 'org-123', 'accessRole': 'viewer'},
+            {'type': 'document', 'id': 'doc-1', 'organizationId': 'org-123', 'accessRole': 'editor'},
+        ]},
+    )
 )
 
-if result['success']:
-    token = result['data']['token']   # JWT string — pass to frontend authProvider
-else:
-    print(f"Token error {result.get('errorCode')}: {result.get('error')}")
+if 'error' in result:
+    raise RuntimeError(result['error']['message'])
+token = result['result']['data']['token']  # return this to the frontend authProvider
 ```
 
 **Response shape:**
 
 ```python
-# Success
-{'success': True, 'statusCode': 200, 'data': {'token': 'eyJhbGciOi...'}}
-
-# Error
-{'success': False, 'statusCode': 500, 'error': '...', 'errorCode': 'INTERNAL_ERROR'}
+{'result': {'status': 'success', 'message': 'Token generated successfully.',
+            'data': {'token': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'}}}
 ```
 
 ---
 
 ### 7.5 Use sdk.api.* for REST API Operations Without a Database
 
-**Impact: HIGH (Using sdk.api.* eliminates the need for MongoDB/AWS setup when calling Velt APIs directly, reducing backend complexity significantly)**
+**Impact: HIGH (sdk.api.* needs only apiKey and authToken, so REST-only Python services skip database and AWS setup entirely)**
 
-The `sdk.api.*` namespace provides direct access to Velt's REST APIs from Python. It has feature parity with the Velt Node SDK and requires no MongoDB or AWS configuration — only `apiKey` and `authToken`. Use it when you need to manage Velt data server-side without self-hosting.
+The `sdk.api.*` namespace calls Velt's REST APIs from Python with typed `@dataclass` requests and returns the raw response dict. It needs only `apiKey` and `authToken`; install plain `velt-py` (no database extra). Do not call the REST API with `requests` / `httpx` directly.
 
-Do not call the Velt REST API directly with `requests` or `httpx` — the typed request dataclasses and the `sdk.api.*` namespace handle authentication headers, serialization, and error propagation for you.
+**Incorrect:**
 
-**Correct (initialize for REST API use and call services):**
+```python
+# WRONG: raw dicts instead of request dataclasses, snake_case method names, and no error check
+sdk.api.organizations.add_organizations({'organizations': [...]})
+result = sdk.api.documents.getDocuments({'organizationId': 'org-123'})
+print(result['result']['data'])  # KeyError when the call failed
+```
+
+**Correct:**
 
 ```python
 from velt_py import VeltSDK
-from velt_py.models.organization import AddOrganizationsRequest, GetOrganizationsRequest
+from velt_py.models.organization import AddOrganizationsRequest
 from velt_py.models.document import AddDocumentsRequest
 
-sdk = VeltSDK.initialize({
-    'apiKey': 'YOUR_VELT_API_KEY',
-    'authToken': 'YOUR_VELT_AUTH_TOKEN'
-})
+sdk = VeltSDK.initialize({'apiKey': 'YOUR_VELT_API_KEY', 'authToken': 'YOUR_VELT_AUTH_TOKEN'})
 
-# Add an organization
 result = sdk.api.organizations.addOrganizations(
-    AddOrganizationsRequest(
-        organizations=[{'organizationId': 'org-123', 'organizationName': 'My Org'}]
-    )
+    AddOrganizationsRequest(organizations=[{'organizationId': 'org-123', 'organizationName': 'My Org'}])
 )
 if 'error' in result:
     print('Failed:', result['error'])
 else:
     print('Success:', result['result'])
 
-# Add documents to an organization
-result = sdk.api.documents.addDocuments(
-    AddDocumentsRequest(
-        organizationId='org-123',
-        documents=[{'documentId': 'doc-1', 'documentName': 'My Doc'}]
-    )
+sdk.api.documents.addDocuments(
+    AddDocumentsRequest(organizationId='org-123', documents=[{'documentId': 'doc-1', 'documentName': 'My Doc'}])
+)
+from velt_py.models.activity_api import AddActivitiesRequest
+
+sdk.api.activities.addActivities(
+    AddActivitiesRequest(
+        organizationId='org-123', documentId='doc-456',
+        activities=[{'featureType': 'comment', 'actionType': 'comment.add',
+                     'actionUser': {'userId': 'user-1'}, 'internalTrackingId': 'abc-123'}],
+    ),
+    filter_unknown_fields=True,  # 'internalTrackingId' is removed before sending
 )
 ```
 
-**Available services under `sdk.api.*`:**
-| Service | Namespace |
-|---------|-----------|
-| Organizations | `sdk.api.organizations` |
-| Folders | `sdk.api.folders` |
-| Documents | `sdk.api.documents` |
-| Users | `sdk.api.users` |
-| User Groups | `sdk.api.userGroups` |
-| Notifications | `sdk.api.notifications` |
-| Comment Annotations | `sdk.api.commentAnnotations` |
-| Activities | `sdk.api.activities` |
-| Access Control | `sdk.api.accessControl` |
-| CRDT | `sdk.api.crdt` |
-| Presence | `sdk.api.presence` |
-| Livestate | `sdk.api.livestate` |
-| Recordings | `sdk.api.recordings` |
-| Rewriter | `sdk.api.rewriter` |
-| GDPR | `sdk.api.gdpr` |
-| Workspace | `sdk.api.workspace` |
-| Token | `sdk.api.token` |
-| Workflow | `sdk.api.workflow` |
+**Documented services** (the docs count 19; `sdk.api.agents` and `sdk.api.memory` are hidden in commented MDX, so do not use or document them as live Python APIs):
+| Service | Namespace | Notes |
+|---------|-----------|-------|
+| Organizations | `sdk.api.organizations` | |
+| Folders | `sdk.api.folders` | |
+| Documents | `sdk.api.documents` | `getDocumentsCount` |
+| Users | `sdk.api.users` | invites: `addUserInvite`, `respondToInvite`, `getInvitedUsers`, `getUserInvitations`, `getInvitedPendingUsersCount`; also `getUsersCount`, `getDocUsers` |
+| User Groups | `sdk.api.userGroups` | |
+| Notifications | `sdk.api.notifications` | |
+| Comment Annotations | `sdk.api.commentAnnotations` | agent filters |
+| Activities | `sdk.api.activities` | |
+| Access Control | `sdk.api.accessControl` | `generateToken` (see `python-token`) |
+| CRDT | `sdk.api.crdt` | `deleteCrdtData` |
+| Presence | `sdk.api.presence` | |
+| Livestate | `sdk.api.livestate` | |
+| Recordings | `sdk.api.recordings` | |
+| Rewriter | `sdk.api.rewriter` | |
+| GDPR | `sdk.api.gdpr` | |
+| Workspace | `sdk.api.workspace` | includes `updateApiKeyMetadata`, domain requests, advanced webhooks |
+| Workflow | `sdk.api.workflow` | Approval Engine, `/v2/workflow/*`, 14 methods |
+There is no `sdk.api.token` namespace in the current docs. Python method names can differ from Node: Python uses `respondToInvite` / `getInvitedUsers` and `sdk.api.workflow` where Node uses `respondToUserInvite` / `getUserInvites` and `sdk.api.approval`.
+**`filter_unknown_fields` (opt-in allowlist).** The add/update methods on `commentAnnotations` and `activities`, and `updateNotifications`, accept `filter_unknown_fields: bool = False` (backed by `velt_py.models.field_allowlists`). When `True`, unknown top-level keys in the request entity collections are dropped before sending; open-typed fields (`context`, `metadata`, `entityData`, user objects) pass through whole. It is fail-open: if filtering errors, the original payload is sent. `addNotifications` is not affected. On `updateNotifications`, `isRead` / `isArchived` are not accepted by the endpoint, so they are dropped when the flag is on.
 
 ---
 
@@ -2668,106 +2627,48 @@ result = sdk.api.documents.addDocuments(
 
 **Impact: MEDIUM (Incorrect request types prevent user lookups and reaction sync)**
 
-The Python SDK provides methods to manage users and reactions through `sdk.selfHosting.users` and `sdk.selfHosting.reactions`. Each operation uses a typed request object.
+`sdk.selfHosting.users` exposes `getUsers` and `resolveUserIdsByEmail`; `sdk.selfHosting.reactions` exposes `getReactions`, `saveReactions`, and `deleteReaction`. As with comments, parse the frontend body with `from_dict`, call the SDK, and return its response dict unchanged.
 
-**Incorrect (missing request type imports):**
-
-```python
-# This will throw an error — request types are required
-users = sdk.selfHosting.users.getUsers({
-    "organizationId": "org_123"
-})
-```
-
-**Correct (get users):**
+**Incorrect (raw dicts and re-wrapped responses):**
 
 ```python
-from velt_py import GetUserResolverRequest
+# WRONG: methods take typed request objects built from the frontend body
+users = sdk.selfHosting.users.getUsers({"organizationId": "org_123"})
 
-request = GetUserResolverRequest(
-    organization_id="org_123"
-)
-
-response = sdk.selfHosting.users.getUsers(request)
-
-# response is a plain dict with camelCase keys
-if response['success']:
-    users = response['data']
-    for user in users:
-        print(f"User: {user['userId']} - {user['email']}")
-else:
-    print(f"Error: {response['error']}")
+# WRONG: re-shaping the SDK response drops success/statusCode that the frontend expects
+result = sdk.selfHosting.reactions.getReactions(GetReactionResolverRequest.from_dict(body))
+return {"reactions": result["data"]}
 ```
 
-**Correct (get reactions):**
-
-```python
-from velt_py import GetReactionResolverRequest
-
-request = GetReactionResolverRequest(
-    organization_id="org_123",
-    document_id="doc_456"
-)
-
-response = sdk.selfHosting.reactions.getReactions(request)
-
-if response['success']:
-    reactions = response['data']
-    print(f"Found {len(reactions)} reactions")
-```
-
-**Correct (save reactions):**
-
-```python
-from velt_py import SaveReactionResolverRequest
-
-request = SaveReactionResolverRequest(
-    organization_id="org_123",
-    document_id="doc_456",
-    reactions=[
-        {
-            "reactionId": "reaction_1",
-            "emoji": "thumbsup",
-            "userId": "user_789"
-        }
-    ]
-)
-
-response = sdk.selfHosting.reactions.saveReactions(request)
-
-if response['success']:
-    print("Reactions saved")
-```
-
-**Correct (delete reaction):**
-
-```python
-from velt_py import DeleteReactionResolverRequest
-
-request = DeleteReactionResolverRequest(
-    organization_id="org_123",
-    document_id="doc_456",
-    reaction_id="reaction_1"
-)
-
-response = sdk.selfHosting.reactions.deleteReaction(request)
-
-if response['success']:
-    print("Reaction deleted")
-```
-
-**Available request type imports:**
+**Correct:**
 
 ```python
 from velt_py import (
     GetUserResolverRequest,
-    GetReactionResolverRequest,
-    SaveReactionResolverRequest,
-    DeleteReactionResolverRequest
+    GetReactionResolverRequest, SaveReactionResolverRequest, DeleteReactionResolverRequest,
 )
+from velt_py.models.user import ResolveUserIdsByEmailRequest
+
+def get_users(body: dict) -> dict:
+    return sdk.selfHosting.users.getUsers(GetUserResolverRequest.from_dict(body))
+
+def resolve_user_ids_by_email(body: dict) -> dict:
+    # Backs the frontend anonymousUser data provider.
+    # data is {email: userId}; unmatched emails are absent, repeats de-duplicated,
+    # blank or None entries dropped, and user_schema mappings honored.
+    return sdk.selfHosting.users.resolveUserIdsByEmail(ResolveUserIdsByEmailRequest.from_dict(body))
+
+def get_reactions(body: dict) -> dict:
+    return sdk.selfHosting.reactions.getReactions(GetReactionResolverRequest.from_dict(body))
+
+def save_reactions(body: dict) -> dict:
+    return sdk.selfHosting.reactions.saveReactions(SaveReactionResolverRequest.from_dict(body))
+
+def delete_reaction(body: dict) -> dict:
+    return sdk.selfHosting.reactions.deleteReaction(DeleteReactionResolverRequest.from_dict(body))
 ```
 
-**Verification:**
+**Source Pointers:**
 
 ```python
 from velt_py.models.reaction import PartialReactionAnnotation
@@ -2824,9 +2725,7 @@ ann.from_.userId         # 'u-legacy'
 ann.to_dict()['from']    # {'userId': 'u-legacy'}  (re-serialized as `from`)
 ```
 
-References:
-- `https://docs.velt.dev/api-reference/sdk/python/users` (## Python SDK > ### Users & Reactions)
-- `https://docs.velt.dev/backend-sdks/python` (### `PartialReactionAnnotation`)
+Reference: https://docs.velt.dev/backend-sdks/python#partialreactionannotation - "PartialReactionAnnotation"
 
 ---
 
@@ -2898,21 +2797,107 @@ subscription?.unsubscribe();
 
 For non-React frameworks the subscription shape is identical — use the global `Velt` instance:
 
-Reference: https://docs.velt.dev/self-host-data/overview - "Debugging"; https://docs.velt.dev/self-host-data/comments - Debugging, Email Notifications
+Reference: https://docs.velt.dev/self-hosting/partial/overview - "Debugging"; https://docs.velt.dev/self-hosting/partial/comments - Debugging, Email Notifications
+
+---
+
+## 9. Full Self-Hosting
+
+**Impact: HIGH**
+
+Pointers for full self-hosting, where the whole Velt stack (backend, console, SDK files) runs in your own GCP project. Covers telling it apart from partial (data provider) self-hosting, its key constraints (GCP + Firebase GA, AWS and Azure closed beta, agent-driven install, required LLM keys), and wiring the app with `config.selfHosted`. Does not duplicate the install and upgrade runbooks.
+
+### 9.1 Choose Partial or Full Self-Hosting Before Writing Any Code
+
+**Impact: HIGH (Partial and full self-hosting share a name but are different products; picking the wrong one means building data providers nobody needs or an infrastructure project nobody asked for)**
+
+Velt uses "self-hosting" for two different things. **Partial self-hosting** keeps Velt's managed backend and moves only user content and PII into your storage through data providers (every other rule in this skill). **Full self-hosting** runs the entire Velt stack (backend, admin console, and SDK files) in a cloud project you own, with no runtime requests to Velt-owned hosts.
+
+| | Partial self-hosting | Full self-hosting |
+|---|---|---|
+| What moves to you | User content and PII, through data providers | Backend, console, SDK hosting, and all data |
+| Who runs the backend | Velt | You, on your own GCP project |
+| What you set up | `dataProviders` callbacks or endpoints in your app | GCP project, Terraform, Firebase, console host, CDN |
+| Requests to Velt hosts | Yes, for the collaboration backend | None |
+| App-side config | `dataProviders` on `VeltProvider` (or `Velt.setDataProviders`) | `config.selfHosted` + `proxyDomain` + pinned `version` |
+
+**Incorrect (mixing the two):**
+
+```jsx
+// WRONG: "We need zero requests to velt.dev" solved with data providers.
+// Partial self-hosting still uses Velt's backend; this app keeps calling Velt hosts.
+<VeltProvider apiKey="KEY" dataProviders={{ comment: commentDataProvider }}>
+```
+
+**Correct (pick by requirement):**
+
+```jsx
+// Requirement: comment text and user PII must not be stored by Velt.
+// -> Partial self-hosting: register data providers; Velt keeps structural, non-PII data.
+<VeltProvider apiKey="KEY" authProvider={authProvider} dataProviders={dataProviders}>
+
+// Requirement: no Velt-operated component in the runtime path at all.
+// -> Full self-hosting: deploy the stack into your GCP project, then pass the generated config.
+<VeltProvider apiKey="KEY_FROM_YOUR_DEPLOYMENT" config={{ proxyDomain, version, selfHosted }}>
+```
+
+---
+
+### 9.2 Wire the App to a Full Self-Hosted Deployment with config.selfHosted
+
+**Impact: HIGH (Without selfHosted the SDK served from your CDN still sends data to Velt SaaS; a wrong CDN path or missing CORS stops the SDK from loading)**
+
+Serving the SDK from your CDN only moves code. Runtime still defaults to Velt SaaS endpoints until you pass `selfHosted`. The install generates `velt-selfhosted-config.json` (Phase 5.1): public URLs, the web-app `firebaseConfig`, and the module list, with no secrets. Import it; do not hand-type endpoint URLs.
+
+**Incorrect:**
+
+```json
+<VeltProvider
+  apiKey="..."
+  config={{
+    proxyDomain: 'https://static.acme.com/lib/sdk@6.0.0', // WRONG: origin only; the SDK adds the path
+    // WRONG: no version and no selfHosted, so data still goes to Velt SaaS
+  }}
+>
+{ "strict": false, "deploymentProfile": ["core", "ai"] }
+```
+
+(Wrong: `strict` is off and the module list was typed by hand instead of copied from `enabledModules`.)
+
+**Correct:**
+
+```tsx
+import selfHosted from './velt-selfhosted-config.json';
+
+<VeltProvider
+  apiKey="<production key from install Phase 3>"
+  config={{
+    proxyDomain: 'https://static.acme.com', // origin only; path stays /lib/sdk@<version>/velt.js
+    version: '6.0.0',                       // must match the hosted folder (the manifest's tested SDK version)
+    selfHosted,                             // generated in install Phase 5.1
+  }}
+>
+```
+
+Vanilla and Vue use `initVelt(apiKey, { proxyDomain, version, selfHosted })`.
 
 ---
 
 ## References
 
 - https://docs.velt.dev
-- https://docs.velt.dev/self-host-data/overview
-- https://docs.velt.dev/self-host-data/comments
-- https://docs.velt.dev/self-host-data/attachments
-- https://docs.velt.dev/self-host-data/reactions
-- https://docs.velt.dev/self-host-data/recordings
-- https://docs.velt.dev/self-host-data/users
+- https://docs.velt.dev/self-hosting/partial/overview
+- https://docs.velt.dev/self-hosting/partial/comments
+- https://docs.velt.dev/self-hosting/partial/attachments
+- https://docs.velt.dev/self-hosting/partial/reactions
+- https://docs.velt.dev/self-hosting/partial/recordings
+- https://docs.velt.dev/self-hosting/partial/users
 - https://console.velt.dev
-- https://docs.velt.dev/self-host-data/activity
-- https://docs.velt.dev/self-host-data/notifications
-- https://docs.velt.dev/self-host-data/field-inventory
+- https://docs.velt.dev/self-hosting/partial/activity
+- https://docs.velt.dev/self-hosting/partial/notifications
+- https://docs.velt.dev/self-hosting/partial/field-inventory
 - https://docs.velt.dev/backend-sdks/python
+- https://docs.velt.dev/self-hosting/full/overview
+- https://docs.velt.dev/self-hosting/full/gcp/overview
+- https://docs.velt.dev/self-hosting/full/gcp/reference
+- https://docs.velt.dev/release-notes/version-5/velt-py-changelog

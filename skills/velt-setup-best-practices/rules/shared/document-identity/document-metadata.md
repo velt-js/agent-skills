@@ -55,20 +55,38 @@ setDocuments([
 **Accessing Metadata:**
 
 ```jsx
-// Access document metadata in your app
-import { useDocument } from "@veltdev/react";
+// React: subscribe via the client (there is no useDocument hook)
+import { useEffect, useState } from "react";
+import { useVeltClient } from "@veltdev/react";
 
 function DocumentHeader() {
-  const document = useDocument();
+  const { client } = useVeltClient();
+  const [documentMetadata, setDocumentMetadata] = useState(null);
+
+  useEffect(() => {
+    if (!client) return;
+    const subscription = client.getDocumentMetadata().subscribe(setDocumentMetadata);
+    return () => subscription?.unsubscribe();
+  }, [client]);
 
   return (
     <div>
-      <h1>{document?.metadata?.documentName || "Untitled"}</h1>
-      <span>Type: {document?.metadata?.projectType}</span>
+      <h1>{documentMetadata?.documentName || "Untitled"}</h1>
+      <span>Type: {documentMetadata?.projectType}</span>
     </div>
   );
 }
 ```
+
+```js
+// Other frameworks
+const subscription = Velt.getDocumentMetadata().subscribe((documentMetadata) => {
+  console.log("Current document metadata:", documentMetadata);
+});
+subscription?.unsubscribe();
+```
+
+To read or update metadata for documents that are not currently subscribed, use `fetchDocuments()` and `updateDocuments()`.
 
 **Metadata in Multi-Document Setup:**
 
@@ -131,8 +149,11 @@ async function loadDocument(docId: string) {
 **Verification:**
 - [ ] documentName is set for all documents
 - [ ] Document names appear correctly in Velt UI components
-- [ ] Custom metadata fields are accessible via useDocument()
+- [ ] Custom metadata fields are readable via `getDocumentMetadata()`
 - [ ] Metadata updates reflect in all connected clients
 
 **Source Pointers:**
 - `https://docs.velt.dev/get-started/quickstart` - Step 6: Initialize Document
+- `https://docs.velt.dev/key-concepts/overview#get-document-metadata` - Get Document Metadata
+- `https://docs.velt.dev/api-reference/sdk/models/data-models#documentmetadata` - DocumentMetadata
+- `https://docs.velt.dev/api-reference/sdk/api/api-methods#updatedocuments` - updateDocuments()

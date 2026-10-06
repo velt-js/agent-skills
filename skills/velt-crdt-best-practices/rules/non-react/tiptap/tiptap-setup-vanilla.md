@@ -82,4 +82,4 @@ store.destroy();
 - [ ] `undoRedo: false` in StarterKit config
 - [ ] `store.destroy()` called on cleanup
 
-**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (### Step 3: Initialize Velt CRDT Extension > Other Frameworks)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap#legacy-api-v1` (## Legacy API (v1)); also https://docs.velt.dev/api-reference/sdk/api/api-methods#createvelttiptapstore-deprecated

@@ -9,7 +9,14 @@ tags: view-analytics, VeltViewAnalytics, velt-view-analytics, setup, location, l
 
 The entire feature — the trigger badge, the recent-viewers dialog (desktop), and the bottom sheet (mobile) — is rendered by a single component. Place it wherever you want the badge to appear (usually a toolbar). It does not need to be at the root of the app, but the Velt client must already be initialized (`VeltProvider` wraps your tree).
 
-**Minimal setup (React / Next.js):**
+**Incorrect (location id without the location type):**
+
+```tsx
+// BUG: without type="location", the location id is ignored and counts roll up to the whole document
+<VeltViewAnalytics location-id="tab-3" />
+```
+
+**Correct (React / Next.js): minimal setup:**
 
 ```tsx
 import { VeltViewAnalytics } from '@veltdev/react';
@@ -23,7 +30,7 @@ export function Toolbar() {
 }
 ```
 
-**Minimal setup (Other Frameworks):**
+**Correct (Other Frameworks): minimal setup:**
 
 ```html
 <div class="toolbar">
@@ -52,6 +59,10 @@ The `location-id` value should match the id you use elsewhere when scoping prese
 </velt-view-analytics>
 ```
 
+### v6 modular SDK
+
+If you pass `featureAllowList` in the Velt config, include `'views'` (the modular key for View Analytics); otherwise its chunk is not preloaded and the tag renders inert until it loads. `client.preloadViews()` warms it ahead of first use, and calling `getViewsElement()` auto-enables the feature.
+
 **Common pitfalls:**
 - DO NOT mount more than one `<VeltViewAnalytics>` instance for the same scope on the same page — duplicates render twice and conflict.
 - DO NOT omit `type="location"` if you are passing `location-id` — without `type="location"` the prop is ignored and counts roll up to the whole document.
@@ -62,7 +73,9 @@ The `location-id` value should match the id you use elsewhere when scoping prese
 - [ ] Toolbar placement is inside a tree that's wrapped by `<VeltProvider>` and has a document set
 - [ ] Location scoping uses BOTH `type="location"` AND a stable `location-id`
 - [ ] The `location-id` value matches the convention used by other Velt features (presence / cursors) on the same sub-region
+- [ ] If `featureAllowList` is set, it includes `'views'`
 
 **Source Pointers:**
 - https://docs.velt.dev/async-collaboration/view-analytics/setup — component placement
 - https://docs.velt.dev/async-collaboration/view-analytics/customize-behavior — location props
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#preloadviews — `preloadViews()` and `featureAllowList`

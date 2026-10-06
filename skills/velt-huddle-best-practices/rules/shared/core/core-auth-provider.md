@@ -1,37 +1,52 @@
 ---
 title: Use authProvider for Authentication
 impact: CRITICAL
-impactDescription: authProvider is the only supported authentication method for Velt
-tags: auth, authProvider, VeltProvider, identity, authentication, huddle
+impactDescription: authProvider is the recommended authentication path and the only one with automatic token refresh
+tags: auth, authProvider, VeltProvider, setVeltAuthProvider, generateToken, identity, authentication, huddle
 ---
 
 ## Use authProvider on VeltProvider
 
-Always authenticate users via the `authProvider` prop on `VeltProvider`. The older `useIdentify` hook and `client.identify()` method are deprecated and must not be used. They lack automatic token refresh, built-in error handling, and retry logic that `authProvider` provides out of the box.
+Authenticate users with the `authProvider` prop on `VeltProvider` (React) or `Velt.setVeltAuthProvider()` (other frameworks). Velt calls your `generateToken` function whenever a token is needed, including on expiry, so the session refreshes itself. The `identify()` method and `useIdentify()` hook still exist, but they require you to refresh tokens yourself; avoid them in new code.
 
 **Why this matters:**
 
-Using deprecated authentication methods can cause silent session expiry, broken huddle state when tokens expire, and no automatic recovery from transient network failures. The `authProvider` pattern centralizes auth and keeps Velt in sync with your app's auth lifecycle. Huddles require valid authentication to establish peer-to-peer connections.
+Huddle only works for an authenticated user. With `identify()` and no manual refresh, the huddle cannot be joined when the session expires; huddles require an authenticated user to connect.
 
-Do not import `useIdentify` from `@veltdev/react`. Do not call `client.identify()` anywhere in your codebase. Both patterns are deprecated and will be removed in a future release.
+**Incorrect (invented callback names, or identify() with no token refresh):**
 
-**Correct: authProvider on VeltProvider**
+```jsx
+// getAuthToken / onAuthTokenExpire are NOT part of VeltAuthProvider
+<VeltProvider
+  apiKey={process.env.NEXT_PUBLIC_VELT_API_KEY}
+  authProvider={{ getAuthToken: fetchToken, onAuthTokenExpire: fetchToken }}
+>
+  {children}
+</VeltProvider>
+
+// identify() works, but you must handle token refresh yourself
+await client.identify(user, { authToken });
+```
+
+**Correct (React / Next.js):**
 
 ```jsx
 "use client";
 import { VeltProvider } from "@veltdev/react";
 
-function AuthenticatedApp({ children }) {
+function AuthenticatedApp({ user, children }) {
   const authProvider = {
-    getAuthToken: async () => {
-      // Fetch a fresh JWT from your backend
-      const res = await fetch("/api/velt-token");
-      const { token } = await res.json();
-      return token;
+    user: {
+      userId: user.id,
+      organizationId: user.orgId, // required for access control
+      name: user.name,
+      email: user.email,
+      photoUrl: user.avatarUrl,
     },
-    onAuthTokenExpire: async () => {
-      // Called automatically when token expires — return a new one
-      const res = await fetch("/api/velt-token");
+    retryConfig: { retryCount: 3, retryDelay: 1000 },
+    generateToken: async () => {
+      // Your backend calls POST https://api.velt.dev/v2/auth/generate_token
+      const res = await fetch("/api/velt-token", { method: "POST" });
       const { token } = await res.json();
       return token;
     },
@@ -45,38 +60,35 @@ function AuthenticatedApp({ children }) {
 }
 ```
 
-**Correct: useVeltAuthProvider hook pattern**
+**Correct (Other Frameworks):**
 
-If you need to set up the auth provider dynamically in a child component, use the `useVeltAuthProvider` hook:
-
-```jsx
-"use client";
-import { useVeltAuthProvider } from "@veltdev/react";
-
-function AuthSetup() {
-  useVeltAuthProvider({
-    getAuthToken: async () => {
-      const res = await fetch("/api/velt-token");
-      const { token } = await res.json();
-      return token;
-    },
-    onAuthTokenExpire: async () => {
-      const res = await fetch("/api/velt-token");
-      const { token } = await res.json();
-      return token;
-    },
-  });
-
-  return null;
-}
+```js
+Velt.setVeltAuthProvider({
+  user: { userId: "user-1", organizationId: "org-1", name: "Alice", email: "alice@example.com" },
+  retryConfig: { retryCount: 3, retryDelay: 1000 },
+  generateToken: async () => {
+    const res = await fetch("/api/velt-token", { method: "POST" });
+    const { token } = await res.json();
+    return token;
+  },
+});
 ```
 
+**Key details:**
+- `VeltAuthProvider` fields: `user` (required), `generateToken`, `retryConfig` (`retryCount`, `retryDelay`), `options` (`authToken`, `forceReset`)
+- `generateToken` can be omitted during local development, but provide it in production for security and automatic refresh
+- Generate the JWT on your server; never ship your Velt auth token to the browser
+- Include `organizationId` in the user object
+
 **Verification:**
-- [ ] `authProvider` prop is set on `VeltProvider` (or `useVeltAuthProvider` is used in a child)
-- [ ] No imports of `useIdentify` from `@veltdev/react` anywhere in the codebase
-- [ ] No calls to `client.identify()` anywhere in the codebase
-- [ ] `getAuthToken` returns a valid JWT from your backend
-- [ ] `onAuthTokenExpire` is implemented for automatic token refresh
+- [ ] `authProvider` prop is set on `VeltProvider` (or `Velt.setVeltAuthProvider()` is called)
+- [ ] `authProvider.user` includes `userId`, `organizationId`, and `name`
+- [ ] `generateToken` returns a Velt JWT from your backend
+- [ ] No `getAuthToken` / `onAuthTokenExpire` keys (they do not exist)
+- [ ] No `identify()` / `useIdentify()` calls unless you also implement token refresh
 
 **Source Pointers:**
-- `https://docs.velt.dev/get-started/setup/authenticate` - Authentication setup
+- https://docs.velt.dev/key-concepts/overview#authenticate-a-user - "Authenticate a User"
+- https://docs.velt.dev/get-started/quickstart - "Step 5: Authenticate Users"
+- https://docs.velt.dev/get-started/advanced#jwt-authentication-tokens - "JWT Authentication Tokens"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#veltauthprovider - `VeltAuthProvider`

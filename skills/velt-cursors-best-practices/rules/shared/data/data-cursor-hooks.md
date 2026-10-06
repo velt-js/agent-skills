@@ -2,18 +2,27 @@
 title: Use React Hooks for Cursor Data
 impact: HIGH
 impactDescription: Access cursor user data and programmatic control via React hooks
-tags: hooks, useCursorUsers, useCursorUtils, react, data
+tags: hooks, useCursorUsers, useCursorUtils, react, data, CursorUser
 ---
 
-## React Hooks for Cursor Data
+## Use React Hooks for Cursor Data
 
-Use `useCursorUsers()` to get the list of online users with active cursors, and `useCursorUtils()` to get the `CursorElement` for programmatic control.
+Use `useCursorUsers()` to get online users with cursors (the hook form of `getOnlineUsersOnCurrentDocument()`), and `useCursorUtils()` to get the `CursorElement` for programmatic configuration.
 
 **Why this matters:**
 
-Hooks provide reactive access to cursor data without manual subscriptions. Use `useCursorUsers` to build custom user lists, activity indicators, or cursor-aware UI. Use `useCursorUtils` to programmatically configure cursor behavior from any component.
+Hooks manage the subscription for you. Read positions from `user.position` (`top` / `left`), and configure behavior only through documented methods (`setInactivityTime`, `allowedElementIds`).
 
-**useCursorUsers: Get online users with cursors**
+**Incorrect (invented fields and methods):**
+
+```jsx
+const cursorUsers = useCursorUsers();
+const cursorElement = useCursorUtils();
+cursorElement?.enableAvatarMode(); // not documented; use <VeltCursor avatarMode={true} />
+cursorUsers?.map((u) => `${u.x},${u.y}`); // no x / y fields
+```
+
+**Correct (useCursorUsers):**
 
 ```jsx
 "use client";
@@ -30,7 +39,7 @@ function OnlineCursorUsers() {
     <ul>
       {cursorUsers.map((user) => (
         <li key={user.userId}>
-          {user.name} — position: ({user.x}, {user.y})
+          {user.name}: top {user.position?.top}, left {user.position?.left}
         </li>
       ))}
     </ul>
@@ -38,67 +47,40 @@ function OnlineCursorUsers() {
 }
 ```
 
-**useCursorUtils: Programmatic cursor control**
+**Correct (useCursorUtils):**
 
 ```jsx
 "use client";
-import { useCursorUtils } from "@veltdev/react";
 import { useEffect } from "react";
+import { useCursorUtils } from "@veltdev/react";
 
 function CursorController() {
   const cursorElement = useCursorUtils();
 
   useEffect(() => {
-    if (cursorElement) {
-      // Configure cursor behavior programmatically
-      cursorElement.enableAvatarMode();
-      cursorElement.setInactivityTime(60000);
-      cursorElement.allowedElementIds(["canvas"]);
-    }
+    if (!cursorElement) return;
+    cursorElement.setInactivityTime(60000);
+    cursorElement.allowedElementIds(["canvas"]); // plain array in the API
   }, [cursorElement]);
 
   return null;
 }
 ```
 
-**Combining both hooks:**
-
-```jsx
-"use client";
-import { useCursorUsers, useCursorUtils } from "@veltdev/react";
-import { useEffect } from "react";
-
-function CursorDashboard() {
-  const cursorUsers = useCursorUsers();
-  const cursorElement = useCursorUtils();
-
-  useEffect(() => {
-    if (cursorElement) {
-      cursorElement.allowedElementIds(["main-canvas"]);
-    }
-  }, [cursorElement]);
-
-  return (
-    <div className="cursor-dashboard">
-      <p>{cursorUsers?.length ?? 0} users with active cursors</p>
-    </div>
-  );
-}
-```
-
 **Key points:**
 
-- `useCursorUsers()` returns `User[]` or `null` -- always check for null
-- `useCursorUtils()` returns a `CursorElement` instance for programmatic control
-- Both hooks must be called inside a component that is a child of `VeltProvider`
-- Data updates reactively as users join, leave, or move cursors
-- Use `useCursorUtils` instead of `client.getCursorElement()` in React apps
+- `useCursorUsers()` returns the online users with cursors, or `null` before data loads
+- `useCursorUtils()` returns the `CursorElement` (may be `null` initially)
+- Both hooks must run inside a component rendered within `VeltProvider`
+- Avatar mode is a component prop (`avatarMode`), not a hook or API call
 
 **Verification:**
 - [ ] Hooks are called inside a child of `VeltProvider`
 - [ ] Null checks are in place for both hook return values
-- [ ] User list updates when users join or leave the document
-- [ ] Programmatic config via `useCursorUtils` takes effect
+- [ ] Positions are read from `position.top` / `position.left`
+- [ ] Only documented `CursorElement` methods are called
 
 **Source Pointers:**
-- `https://docs.velt.dev/cursor/customize-behavior` - Cursor hooks and API
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#usecursorusers - `useCursorUsers()`
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#usecursorutils - `useCursorUtils()`
+- https://docs.velt.dev/realtime-collaboration/cursors/customize-behavior - "Customize Behavior"

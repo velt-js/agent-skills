@@ -1,5 +1,5 @@
 # Velt Presence Best Practices
-|v1.1.0|Velt|May 2026
+|v1.2.1|Velt|October 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
 |root: ./rules
 
@@ -7,7 +7,7 @@
 |shared/core:{core-setup.md,core-document-setup.md,core-auth-provider.md}
 
 ## 2. Data Access — HIGH
-|shared/data:{data-presence-hooks.md,data-presence-api.md}
+|shared/data:{data-presence-custom-users.md,data-presence-hooks.md,data-presence-api.md}
 
 ## 3. Configuration — HIGH-MEDIUM
 |shared/config:{config-flock-mode.md,config-inactivity-time.md,config-max-users.md,config-self-visibility.md,config-location-presence.md}
@@ -18,7 +18,7 @@
 ## 5. Events — MEDIUM
 |shared/events:{events-state-change.md}
 
-## 6. UI Customization — MEDIUM-LOW
+## 6. UI Customization — MEDIUM
 |shared/ui:{ui-wireframes.md}
 
 ## 7. Wireframe Variables — MEDIUM

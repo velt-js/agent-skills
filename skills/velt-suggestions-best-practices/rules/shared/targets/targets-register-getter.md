@@ -1,14 +1,26 @@
 ---
-title: Register Getters for Complex Suggestion Targets
+title: Register a getter for multi-input targets and read live values
 impact: HIGH
-tags: registerTarget, unregisterTarget, getter, complex values, snapshot
+impactDescription: A getter that reads saved state instead of the live edit returns the same value twice, so no suggestion is ever created
+tags: registerTarget, unregisterTarget, useRegisterTarget, useUnregisterTarget, getter, complex values, snapshot
 ---
 
-## Register Getters for Complex Targets
+## Register a getter for multi-input targets and read live values
 
-When a target represents a complex value spanning multiple controls, register a getter so the SDK can snapshot and diff the whole object.
+When one target covers several inputs (for example a table row with `qty` and `price`), there is no single `.value` to read. Register a getter that returns the whole object. The SDK calls it on focus to capture `oldValue` and on commit to capture `newValue`, so it must return what the user currently sees.
 
-**React / Next.js:**
+**Incorrect (getter reads state that only updates after save):**
+
+```jsx
+registerTarget({
+  targetId: 'row.123',
+  // BUG: savedRow only changes after the user saves, so oldValue === newValue
+  getter: () => ({ qty: savedRow.qty, price: savedRow.price }),
+});
+```
+
+**Correct (React / Next.js):**
+
 ```jsx
 import { useRegisterTarget, useUnregisterTarget } from '@veltdev/react';
 import { useEffect } from 'react';
@@ -37,7 +49,8 @@ function EditableRow() {
 }
 ```
 
-**Other Frameworks:**
+**Correct (Other Frameworks):**
+
 ```js
 suggestionElement.registerTarget({
   targetId: 'row.123',
@@ -47,18 +60,18 @@ suggestionElement.registerTarget({
   }),
 });
 
-// To remove the getter:
+// Later, to remove the getter:
 suggestionElement.unregisterTarget('row.123');
 ```
 
-### The Getter Must Read Live Edit-Time State
+Read from the DOM (`input.value`), or for controlled inputs that update state on every keystroke, from that state. `registerTarget()` returns `void`; remove a registration with `unregisterTarget(targetId)`.
 
-The SDK calls your getter to snapshot `oldValue` on focus and to read `newValue` on commit. If your getter reads from app state that only updates after the user commits (common when suggestion mode is on), both reads return the same value, the diff short-circuits, and no suggestion is ever created.
+**Verification Checklist:**
+- [ ] The getter returns live, edit-time values (DOM or per-keystroke state)
+- [ ] The getter returns the same shape every time
+- [ ] React code unregisters in the `useEffect` cleanup
+- [ ] The wrapper element carries the same `data-velt-suggestion-target` as the registered `targetId`
 
-Read from the live source the user is editing — usually the DOM (`input.value`). For controlled inputs whose state updates on every keystroke, reading from that state is fine.
-
-### Key Points
-
-- `registerTarget()` returns `void` — to remove, call `unregisterTarget(targetId)`
-- Clean up registrations on unmount (React: return cleanup from `useEffect`)
-- The getter must return the same shape consistently for diff to work
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/suggestions/overview — "1. Define Suggestion Targets" (getter Warning and Note)
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#registertarget — `registerTarget()` / `unregisterTarget()`

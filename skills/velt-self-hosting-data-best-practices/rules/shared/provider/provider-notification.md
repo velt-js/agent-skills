@@ -204,4 +204,4 @@ const notificationDataProvider: NotificationDataProvider = {
 - [ ] No `save` handler is wired (the interface has none); PII is written to your DB by your REST writer, not by the SDK
 - [ ] Client-side `isUnread` / `forYou` / rendered `displayHeadlineMessage` are not persisted to either DB
 
-**Source Pointer:** https://docs.velt.dev/self-host-data/notifications ("Sample Data"); https://docs.velt.dev/self-host-data/field-inventory - "Notification strip rules"
+**Source Pointer:** https://docs.velt.dev/self-hosting/partial/notifications ("Sample Data"); https://docs.velt.dev/self-hosting/partial/field-inventory - "Notification strip rules"

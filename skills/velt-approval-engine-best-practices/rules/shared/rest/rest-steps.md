@@ -1,152 +1,86 @@
 ---
-title: Steps endpoints — recordReviewerDecision, recordAgentResolution, cancel (admin), resolve (admin)
+title: Drive steps with recordReviewerDecision, cancel, and action-based resolve (recordAgentResolution is unavailable in beta)
 impact: HIGH
-impactDescription: Steps endpoints drive forward progress on parked human/blocking-agent steps; admin-only endpoints (cancel/resolve) require admin-scoped auth tokens or they 403; the resolve action discriminator determines both permissions and loop-predicate behavior
-tags: approval-engine, rest, steps, recordReviewerDecision, recordAgentResolution, cancel, resolve, admin, PERMISSION_DENIED, decision, approve, reject, aggregatorStatus, resumeScheduled, actorId, reason, override, force-approve, force-reject, force-complete, force-fail, reviewer-approve, reviewer-reject, unknown-responder
+impactDescription: recordReviewerDecision reports most problems as recorded false instead of an error, and resolve actions differ in allowed states, node types, and whether they feed loop predicates
+tags: approval-engine, rest, steps, recordReviewerDecision, recorded, rejectionReason, unknown-responder, idempotent, already-terminal, aggregator-missing, aggregatorStatus, resumeScheduled, recordAgentResolution, responseId, cancel, resolve, actorId, force-approve, force-reject, force-complete, force-fail, reviewer-approve, reviewer-reject, step.overridden, overriddenAt
 ---
 
-## Steps endpoints — recordReviewerDecision, recordAgentResolution, cancel, resolve
+## Drive steps with recordReviewerDecision, cancel, and action-based resolve (recordAgentResolution is unavailable in beta)
 
-Four POST endpoints under `/v2/workflow/steps/*`. Two are for normal forward progress on parked steps; two are admin-only overrides.
+Four `POST` endpoints under `/v2/workflow/steps/*`. `recordReviewerDecision` is the normal path for human steps. `cancel` and `resolve` are operator overrides that today gate only on the standard auth token (workspace-admin RBAC is post-GA), so restrict who can call them inside your own application.
 
-**recordReviewerDecision — a human reviewer approves or rejects:**
+**Incorrect:**
 
-```bash
-POST https://api.velt.dev/v2/workflow/steps/recordReviewerDecision
+```javascript
+const r = await workflowApi('steps/recordReviewerDecision', {
+  executionId, stepId, reviewerId: 'someone-not-on-the-node', decision: 'APPROVED',
+}, creds);
+// assumes success because no error was thrown
 ```
 
-```json
-{
-  "data": {
-    "executionId": "exec_1777...",
-    "stepId": "step_agent-draft_...__to__human-legal",
-    "reviewerId": "u_legal_01",
-    "decision": "approve",
-    "reason": "looks good"
-  }
-}
+`decision` must be `approve` or `reject`. An undeclared `reviewerId` does not throw: the result is `recorded: false` with `rejectionReason: "unknown-responder"`, and the step keeps waiting.
 
-// Response
-// { "result": { "recorded": true, "aggregatorStatus": "resolved", "resumeScheduled": true } }
-```
+**Correct:**
 
-`decision` is `"approve"` or `"reject"` (strings, lowercase). `reviewerId` does NOT need to match a configured `reviewers[].userId` — if the caller is not in the declared reviewer list, the engine records them as an unknown responder and updates `aggregatorStatus` to reflect whether quorum shifted. No error is thrown. This means unknown-reviewer submissions are silently accepted and may affect aggregation; do NOT rely on `INVALID_ARGUMENT` to enforce reviewer identity.
+```javascript
+const r = await workflowApi('steps/recordReviewerDecision', {
+  executionId, stepId, reviewerId: 'u_legal_01', decision: 'reject', reason: 'compliance issue on line 3',
+}, creds);
 
-`aggregatorStatus` tells you whether the step is now fully resolved (all required reviewers have responded) or still waiting on others. `resumeScheduled: true` means the runtime has queued the downstream fan-out — don't poll or wait, the webhook will fire.
-
-**recordAgentResolution — external resolution for a blocking agent step:**
-
-```bash
-POST https://api.velt.dev/v2/workflow/steps/recordAgentResolution
-```
-
-```json
-{
-  "data": {
-    "executionId": "exec_1777...",
-    "stepId": "step_blocking-agent_...",
-    "resolutionId": "res-001",
-    "output": { "decision": "approve", "score": 0.95 }
-  }
+if (!r.recorded && r.rejectionReason !== 'idempotent') {
+  throw new Error(`Decision not applied: ${r.rejectionReason}`); // unknown-responder | already-terminal | aggregator-missing
 }
 ```
 
-Use this when a `blocking: true` agent step's resolution comes from outside the agent (a separate review process, a manual queue, an out-of-band system). The `resolutionId` should be stable and idempotent — calling twice with the same `resolutionId` is safe.
+**recordReviewerDecision** (`/steps/recordReviewerDecision`): `executionId`, `stepId` (a human step in `waiting`), `reviewerId` (must match a declared `userId`), `decision` (`approve` / `reject`), optional `reason` (up to 2000 chars).
+- Response `{ recorded, aggregatorStatus, resumeScheduled, rejectionReason? }`. `aggregatorStatus` is `pending`, `resolved`, or `rejected` (`null` with `aggregator-missing`). `resumeScheduled: true` means this decision triggered the resume; wait for the webhook rather than polling.
+- `recorded: false` reasons: `idempotent` (already recorded, safe to ignore), `already-terminal`, `unknown-responder`, `aggregator-missing`.
+- Errors: `FAILED_PRECONDITION` (step not `waiting`, not a human node, or the legacy comment-resolution variant), `NOT_FOUND`, `INVALID_ARGUMENT`.
+- This is the only path that sets `rejectedBy` / `rejectorMandatory`, which reject loop-backs need.
 
-For quorum-counting, the `output.decision` field is what matters — see `concepts-workflow-model`.
+**recordAgentResolution** (`/steps/recordAgentResolution`): not usable in beta. It resolves blocking agent steps, but `blocking: true` agents are rejected at run time with `agent-blocking-not-supported`, so no step ever parks for it. Documented fields for reference: `executionId`, `stepId`, `responseId` (idempotent per `(stepId, responseId)`), `resolution` (`resolved` / `rejected`), `actorId`, optional `reason`. Use a downstream `human` node and `recordReviewerDecision` instead.
 
-**cancel (admin scope required):**
+**cancel** (`/steps/cancel`): `executionId`, `stepId`, required `actorId` (1 to 256 chars, recorded on the `step.cancelled` event), optional `reason` (up to 500 chars). Returns `{ cancelled: true, executionId, stepId }`. No downstream edges fire from a cancelled step. Errors: `INVALID_ARGUMENT`, `FAILED_PRECONDITION` (already terminal), `NOT_FOUND`. To stop the whole run use `/executions/cancel`.
 
-```bash
-POST https://api.velt.dev/v2/workflow/steps/cancel
-```
+**resolve** (`/steps/resolve`): `executionId`, `stepId`, required `action`, required `actorId` (1 to 256), optional `output`, optional `reason` (up to 2000). Returns `{ resolved: true, executionId, stepId, action }`. Every resolve writes an internal `step.overridden` audit event.
 
-```json
-{
-  "data": {
-    "executionId": "exec_1777...",
-    "stepId": "step_...",
-    "reason": "escalated",
-    "actorId": "admin_jane"
-  }
-}
-// Response: { "result": { "cancelled": true, "stepId": "step_...", "executionId": "exec_1777..." } }
-```
+| `action` | Allowed step states | Result | Notes |
+|---|---|---|---|
+| `force-approve` | `waiting`, any node type | `completed`, `decision: "approve"` | Also resolves waiting agent and async webhook steps. |
+| `force-reject` | `waiting`, any node type | `completed`, `decision: "reject"` | Same scope as `force-approve`. |
+| `force-complete` | `running` or `waiting` | `completed` | Your `output` is written through plus `overriddenAt`. |
+| `force-fail` | `running` or `waiting` | `failed` | Fires edges that route on `failed` (for example `on: "always"`). |
+| `reviewer-approve` | `waiting`, human only | `completed` | `actorId` must be a declared reviewer or `PERMISSION_DENIED`. Audit-distinct from `force-approve`. |
+| `reviewer-reject` | `waiting`, human only | `completed` | Same gate; audit-distinct from `force-reject`. |
 
-Cancels a single step (not the whole execution). Requires an admin-scoped auth token. `actorId` is REQUIRED (1–256 chars) and identifies the administrator initiating the cancellation — it is surfaced on the `step.cancelled` event's `data` payload. `reason` (optional, ≤ 500 chars) is surfaced on the same event.
+- For approve / reject actions the engine computes `decision`, `approved`, and `approvalReply` (and `overriddenAt`) itself; caller-supplied keys with those names are overwritten, other `output` keys pass through.
+- `reviewer-reject` and `force-reject` do NOT set `output.rejectedBy` / `output.rejectorMandatory`, so the fixed loop predicate does not fire and a reject loop-back will not iterate.
+- Errors: `INVALID_ARGUMENT`, `PERMISSION_DENIED` (reviewer actions), `FAILED_PRECONDITION` (terminal step, disallowed state, reviewer action on a non-human step, CAS conflict, and for `force-*` also a nonexistent step: `resolveStep not applied: step-not-found`), `NOT_FOUND` (reviewer actions only).
 
-**Error matrix for `/steps/cancel`:** `INVALID_ARGUMENT` (missing required field or constraint violation) / `FAILED_PRECONDITION` (step already terminal) / `NOT_FOUND` (execution or step does not exist). Note: `PERMISSION_DENIED` is NOT in the error matrix — token-scope enforcement is handled upstream.
-
-**Post-GA note:** Workspace-admin RBAC will gate cancel access by workspace role; admin token scope is the control surface in the current release.
-
-**resolve — action-discriminated step resolution:**
-
-```bash
-POST https://api.velt.dev/v2/workflow/steps/resolve
-```
-
-The `action` field (REQUIRED) is the central discriminator. It determines both the resolution semantics and the auth requirements:
-
-| `action` value | Semantics | Auth requirement |
-|---|---|---|
-| `force-approve` | Admin sets step to approved-complete; skips aggregator | Admin-scoped token |
-| `force-reject` | Admin sets step to rejected-complete; skips aggregator | Admin-scoped token |
-| `force-complete` | Admin marks step complete without approve/reject framing | Admin-scoped token |
-| `force-fail` | Admin marks step as failed | Admin-scoped token |
-| `reviewer-approve` | Reviewer-scoped approve; routes through aggregator | `actorId` must be in `step.reviewerIds` |
-| `reviewer-reject` | Reviewer-scoped reject; routes through aggregator | `actorId` must be in `step.reviewerIds` |
-
-```json
-{
-  "data": {
-    "executionId": "exec_1777...",
-    "stepId": "step_...",
-    "action": "force-approve",
-    "output": { "note": "approved by admin in emergency" },
-    "reason": "Reviewer on PTO; emergency override",
-    "actorId": "admin_jane"
-  }
-}
-// Response: { "result": { "resolved": true, "executionId": "exec_1777...", "stepId": "step_...", "action": "force-approve" } }
-```
-
-`actorId` is REQUIRED (1–256 chars). `reason` is optional, ≤ 2000 chars.
-
-**Reviewer-scoped auth:** `reviewer-approve` and `reviewer-reject` require `actorId` to be a member of `step.reviewerIds`. If it is not, the engine returns `PERMISSION_DENIED`.
-
-**Authority-of-record:** The engine computes the canonical `decision`, `approved`, and `approvalReply` fields from the action. Any keys with those names in the caller-supplied `output` object are ignored and cannot override the engine's computed values.
-
-**Critical — reject actions do NOT populate loop-predicate fields:** `reviewer-reject` and `force-reject` do NOT populate `output.rejectedBy` or `output.rejectorMandatory` on the step output. The default loop-region predicate `decision == 'reject' && rejectorMandatory == true` will therefore NOT fire when a step is resolved via these actions. If your loop region relies on `rejectorMandatory`, you must use `recordReviewerDecision` with a configured mandatory reviewer rather than the `/steps/resolve` reject actions. See also the loop-predicate caveat in `concepts-workflow-model`.
-
-**Post-GA note:** Workspace-admin RBAC will further gate force-* actions by workspace role.
-
-### Choosing the right endpoint
+**Choosing the endpoint**
 
 | Situation | Endpoint |
 |---|---|
-| Human reviewer is acting through your UI | `recordReviewerDecision` |
-| Out-of-band system completed a `blocking: true` agent step | `recordAgentResolution` |
-| Operator escalates / aborts a single step | `cancel` (admin) |
-| Operator force-resolves a stuck step (choose action) | `resolve` with appropriate `action` value |
-| Reviewer acting via resolve endpoint (in reviewerIds) | `resolve` with `reviewer-approve` or `reviewer-reject` |
-| Operator aborts the whole workflow | `/executions/cancel` (NOT `/steps/cancel`) |
+| Reviewer acts in your UI | `recordReviewerDecision` |
+| Admin acts on a reviewer's behalf, visible as such in the audit log | `resolve` with `reviewer-approve` / `reviewer-reject` |
+| Step is hung (agent, async webhook, or human) | `resolve` with a `force-*` action |
+| Step with no approve / reject concept must finish | `resolve` with `force-complete` or `force-fail` |
+| Stop one step, leave siblings running | `/steps/cancel` |
+| Stop the whole run | `/executions/cancel` |
 
 **Verification Checklist:**
-- [ ] `decision` is the literal string `"approve"` or `"reject"` (lowercase) for `recordReviewerDecision`
-- [ ] `reviewerId` for `recordReviewerDecision` does NOT need to match configured reviewers — unknown reviewers are silently recorded; enforce identity in your own application layer if needed
-- [ ] `recordAgentResolution` is only called for `blocking: true` agent steps, with a stable idempotent `resolutionId`
-- [ ] `/steps/cancel` and `/steps/resolve` callers use admin-scoped tokens; non-admin failures are handled gracefully
-- [ ] `/steps/cancel` `actorId` (REQUIRED, 1–256 chars) is always set; it surfaces on `step.cancelled` event data
-- [ ] `/steps/resolve` `action` field is always set — one of: `force-approve`, `force-reject`, `force-complete`, `force-fail`, `reviewer-approve`, `reviewer-reject`
-- [ ] `/steps/resolve` `actorId` (REQUIRED, 1–256 chars) is set; for reviewer-scoped actions it must be in `step.reviewerIds` or `PERMISSION_DENIED` is returned
-- [ ] `/steps/resolve` `reason` is ≤ 2000 chars (not 500)
-- [ ] Code does NOT supply `decision` / `approved` / `approvalReply` in the `output` object on `/steps/resolve` — the engine computes these and ignores caller-supplied values
-- [ ] Loop regions that rely on `rejectorMandatory` use `recordReviewerDecision` (not resolve reject actions) — reject actions do NOT populate `output.rejectedBy` / `output.rejectorMandatory`
-- [ ] Cancelling the whole workflow uses `/executions/cancel`, not `/steps/cancel`
-- [ ] Code does NOT poll for completion after a step record — the webhook (or `/executions/getEvents`) is the signal
+- [ ] `decision` is lowercase `approve` or `reject`; `reviewerId` is declared on the node
+- [ ] Every `recordReviewerDecision` response checks `recorded` and `rejectionReason`
+- [ ] No production code depends on `recordAgentResolution`
+- [ ] `/steps/cancel` and `/steps/resolve` always send `actorId`; access is restricted in your app
+- [ ] `force-approve` / `force-reject` / reviewer actions only target `waiting` steps
+- [ ] Loop-back workflows never rely on `/steps/resolve` reject actions
+- [ ] `output` sent to resolve does not try to set `decision`, `approved`, or `approvalReply`
+- [ ] Missing steps on `force-*` are detected via `FAILED_PRECONDITION`, not only `NOT_FOUND`
 
 **Source Pointers:**
 - https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/steps/record-reviewer-decision
 - https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/steps/record-agent-resolution
 - https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/steps/cancel-step
 - https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/steps/resolve-step
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#cancelling-and-overriding — which endpoint to use

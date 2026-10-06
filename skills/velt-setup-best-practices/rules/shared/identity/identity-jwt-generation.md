@@ -1,44 +1,53 @@
 ---
 title: Generate JWT Tokens from Backend
 impact: CRITICAL
-impactDescription: Required for production security - tokens must be server-generated
-tags: jwt, token, backend, api, security, authentication
+impactDescription: Required for production security; tokens must be server-generated with the v2 generate_token endpoint
+tags: jwt, token, backend, api, security, authentication, generate_token, permissions, accessrole, veltdev-node, generateToken
 ---
 
 ## Generate JWT Tokens from Backend
 
-JWT tokens for Velt must be generated on your server, not in the browser. This requires calling the Velt token API with your auth token (which must remain secret).
+Velt JWT tokens must be generated on your server, never in the browser. Call `POST https://api.velt.dev/v2/auth/generate_token` with your API key and Auth Token (which must remain secret), then return the token to the client's `authProvider.generateToken`. Tokens expire after 48 hours.
 
-**Incorrect (client-side token generation):**
+**Incorrect (client-side generation, wrong endpoint, wrong body shape):**
 
 ```jsx
-// WRONG: Auth token exposed in client-side code
-const VELT_AUTH_TOKEN = "bd4d5226...";  // Never do this!
+// WRONG on three counts:
+// 1. Auth token exposed in client-side code
+// 2. /v2/auth/token/get is not a v2 endpoint (v2 is /v2/auth/generate_token)
+// 3. Body not wrapped in `data`, organizationId placed in userProperties
+const VELT_AUTH_TOKEN = "bd4d5226...";
 
 const generateToken = async () => {
   const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
-    headers: {
-      "x-velt-auth-token": VELT_AUTH_TOKEN,  // Exposed to users!
-    },
+    method: "POST",
+    headers: { "x-velt-auth-token": VELT_AUTH_TOKEN },
+    body: JSON.stringify({ userId, userProperties: { organizationId } }),
   });
 };
 ```
 
 **Correct (server-side token generation):**
 
-**Step 1: Create Backend Endpoint (Next.js API Route)**
+**Step 1: Enable JWT and get an Auth Token**
+
+1. In the Velt Console (Dashboard → Config → General), enable the "Require JWT Token" toggle. JWT tokens won't work until this is on.
+2. Generate an Auth Token in the Console's "Auth Token" section.
+3. Store it in server-side environment variables only.
+
+**Step 2: Create Backend Endpoint (Next.js API Route)**
 
 ```typescript
 // app/api/velt/token/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
-// These should be environment variables
 const VELT_API_KEY = process.env.NEXT_PUBLIC_VELT_API_KEY!;
 const VELT_AUTH_TOKEN = process.env.VELT_AUTH_TOKEN!;
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, organizationId, email, isAdmin } = await req.json();
+    // Validate the caller's app session here before issuing a token
+    const { userId, organizationId, name, email, isAdmin } = await req.json();
 
     if (!userId || !organizationId) {
       return NextResponse.json({ error: 'Missing userId or organizationId' }, { status: 400 });
@@ -48,29 +57,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Server configuration error: missing VELT_AUTH_TOKEN' }, { status: 500 });
     }
 
-    const body = {
-      userId,
-      userProperties: {
-        ...(typeof isAdmin === "boolean" ? { isAdmin } : {}),
-        ...(email ? { email } : {}),
-      },
-      ...(organizationId ? {
-        permissions: {
-          resources: [
-            { type: "organization", id: organizationId },
-          ],
-        },
-      } : {}),
-    };
-
-    const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+    const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-velt-api-key": VELT_API_KEY,
         "x-velt-auth-token": VELT_AUTH_TOKEN,
       },
-      body: JSON.stringify({ data: body }),
+      // Body must be wrapped in a top-level `data` object.
+      // organizationId belongs in permissions.resources[], not userProperties.
+      body: JSON.stringify({
+        data: {
+          userId,
+          userProperties: {
+            name,
+            email,
+            isAdmin: typeof isAdmin === "boolean" ? isAdmin : false,
+          },
+          permissions: {
+            resources: [{ type: "organization", id: organizationId }],
+          },
+        },
+      }),
     });
 
     const json = await response.json();
@@ -90,15 +98,15 @@ export async function POST(req: NextRequest) {
 }
 ```
 
-**Step 2: Set Environment Variables**
+**Step 3: Set Environment Variables**
 
 ```bash
 # .env.local (never commit this file)
-VELT_API_KEY=your-api-key-from-console
+NEXT_PUBLIC_VELT_API_KEY=your-api-key-from-console
 VELT_AUTH_TOKEN=your-auth-token-from-console
 ```
 
-**Step 3: Call from Frontend**
+**Step 4: Call from Frontend**
 
 ```jsx
 // In your authProvider.generateToken function
@@ -109,6 +117,7 @@ const generateToken = async () => {
     body: JSON.stringify({
       userId: user.userId,
       organizationId: user.organizationId,
+      name: user.name,
       email: user.email,
     }),
     cache: "no-store",
@@ -119,18 +128,42 @@ const generateToken = async () => {
 };
 ```
 
+**Alternative: Node backend SDK (`@veltdev/node` 2.x):**
+
+```typescript
+import { VeltSDK } from "@veltdev/node";
+
+// REST API mode: no database block needed
+const sdk = VeltSDK.initialize({
+  apiKey: process.env.VELT_API_KEY!,
+  authToken: process.env.VELT_AUTH_TOKEN!,
+});
+
+const res = await sdk.api.accessControl.generateToken({
+  userId: "user-123",
+  userProperties: { name: "John Doe", email: "john@example.com", isAdmin: false },
+  permissions: {
+    resources: [{ type: "organization", id: "org-abc" }],
+  },
+});
+const token = res.result.data.token;
+```
+
+`sdk.api.accessControl.generateToken` calls the same `/v2/auth/generate_token` endpoint and returns the raw `{ result: { status, message, data: { token } } }` envelope. The Python SDK (`velt-py`) exposes the same `sdk.api.accessControl.generateToken`.
+
 **Express.js Backend Example:**
 
 ```javascript
 // server.js
 const express = require("express");
 const app = express();
+app.use(express.json());
 
 const VELT_API_KEY = process.env.VELT_API_KEY;
 const VELT_AUTH_TOKEN = process.env.VELT_AUTH_TOKEN;
 
 app.post("/api/velt/token", async (req, res) => {
-  const { userId, organizationId, email, isAdmin } = req.body;
+  const { userId, organizationId, name, email, isAdmin } = req.body;
 
   if (!userId || !organizationId) {
     return res.status(400).json({ error: "Missing userId or organizationId" });
@@ -138,7 +171,7 @@ app.post("/api/velt/token", async (req, res) => {
 
   // Validate user authentication here
 
-  const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+  const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -148,10 +181,9 @@ app.post("/api/velt/token", async (req, res) => {
     body: JSON.stringify({
       data: {
         userId,
-        userProperties: {
-          ...(organizationId ? { organizationId } : {}),
-          ...(email ? { email } : {}),
-          ...(typeof isAdmin === "boolean" ? { isAdmin } : {}),
+        userProperties: { name, email, isAdmin: Boolean(isAdmin) },
+        permissions: {
+          resources: [{ type: "organization", id: organizationId }],
         },
       },
     }),
@@ -168,19 +200,10 @@ app.post("/api/velt/token", async (req, res) => {
 });
 ```
 
-**Getting the Auth Token:**
-
-1. Go to https://console.velt.dev
-2. Navigate to Dashboard → Config → General
-3. Enable "Require JWT Token" toggle
-4. Copy the Auth Token from the "Auth Token" section
-5. Store securely in server-side environment variables
-
 **API Request/Response:**
 
-```typescript
-// Request to Velt API
-POST https://api.velt.dev/v2/auth/token/get
+```text
+POST https://api.velt.dev/v2/auth/generate_token
 Headers:
   Content-Type: application/json
   x-velt-api-key: YOUR_API_KEY
@@ -191,29 +214,45 @@ Body:
   "data": {
     "userId": "user-123",
     "userProperties": {
-      "organizationId": "org-abc",
+      "name": "John Doe",
       "email": "user@example.com",
       "isAdmin": false
+    },
+    "permissions": {
+      "resources": [
+        { "type": "organization", "id": "org-abc", "accessRole": "editor" },
+        { "type": "document", "id": "doc-456", "organizationId": "org-abc", "accessRole": "viewer" }
+      ]
     }
   }
 }
 
-// Response
+Response:
 {
   "result": {
-    "data": {
-      "token": "eyJhbGciOiJS..."
-    }
+    "status": "success",
+    "message": "Token generated successfully.",
+    "data": { "token": "eyJhbGciOiJS..." }
   }
 }
 ```
 
+**Permissions in the token:**
+- `resources[].type`: `"organization"`, `"folder"`, or `"document"`. `organizationId` is required on folder and document resources.
+- `accessRole`: `"editor"` (default, read/write) or `"viewer"` (read-only). It can only be set through the token or the v2 Users / Auth Permissions REST APIs; frontend SDK methods cannot change it.
+- `expiresAt`: optional Unix timestamp for a temporary grant.
+- If you set `isAdmin: true` on the SDK `User`, the token must also carry `isAdmin: true`.
+
 **Verification:**
-- [ ] VELT_AUTH_TOKEN is only on server (not in client bundle)
+- [ ] Endpoint is `https://api.velt.dev/v2/auth/generate_token` (POST)
+- [ ] Request body is wrapped in `data`, and `organizationId` is a `permissions.resources[]` entry
+- [ ] VELT_AUTH_TOKEN is only on the server (not in the client bundle)
 - [ ] .env.local is in .gitignore
-- [ ] Token endpoint validates user session before generating token
-- [ ] API returns valid JWT token
-- [ ] No auth token visible in browser network tab
+- [ ] Token endpoint validates the user session before generating a token
+- [ ] "Require JWT Token" is enabled in the Console for production
 
 **Source Pointers:**
-- `https://docs.velt.dev/get-started/advanced` - JWT Authentication Tokens
+- `https://docs.velt.dev/get-started/advanced#jwt-authentication-tokens` - JWT Authentication Tokens (Steps 1 to 3)
+- `https://docs.velt.dev/api-reference/rest-apis/v2/auth/generate-token` - Generate Token (body, permissions, 48h expiry)
+- `https://docs.velt.dev/backend-sdks/node#generatetoken` - `sdk.api.accessControl.generateToken`
+- `https://docs.velt.dev/security/auth-tokens` - Generating Auth Tokens

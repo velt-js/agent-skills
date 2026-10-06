@@ -104,4 +104,6 @@ subscription.unsubscribe();
 - [ ] Null emissions handled (loading state)
 - [ ] Using `getActivityElement()` not `getActivityElement` (must call the function)
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/activity/customize-behavior - getAllActivities (Using API)
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/activity/customize-behavior#getallactivities - "getAllActivities"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#activitysubscribeconfig - "ActivitySubscribeConfig"

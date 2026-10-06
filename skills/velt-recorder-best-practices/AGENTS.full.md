@@ -1,8 +1,8 @@
 # Velt Recorder Best Practices
 
-**Version 1.2.0**  
+**Version 1.2.1**  
 Velt  
-March 2026
+October 2026
 
 > **Note:**  
 > This document is mainly for agents and LLMs to follow when maintaining,  
@@ -157,11 +157,14 @@ function RecorderSetup() {
       {/* 2. Floating control panel — manages active recording state */}
       <VeltRecorderControlPanel mode="floating" />
 
-// 3. Pinned recordings — appear where they were created on the page (like comment pins)
-<VeltRecorderNotes />
+      {/* 3. Pinned recordings — appear where they were created on the page (like comment pins) */}
+      <VeltRecorderNotes />
 
-// 4. Floating playback — shows latest recording in bottom-left corner
-<RecordingPlayback />
+      {/* 4. Floating playback — shows latest recording in bottom-left corner */}
+      <RecordingPlayback />
+    </>
+  );
+}
 ```
 
 **RecordingPlayback component (include in your collaboration component):**
@@ -222,67 +225,68 @@ function RecordingPlayback() {
 <velt-recorder-player recorderId="RECORDER_ID"></velt-recorder-player>
 ```
 
-Reference: https://docs.velt.dev/async-collaboration/recorder/setup - Add Velt Recorder Tool, Add Velt Recorder Control Panel, Render Velt Recorder Player
-
 ---
 
 ### 1.2 Handle the recorder.done Webhook Event for Completed Recordings
 
 **Impact: MEDIUM-HIGH (Enables server-side processing of completed recordings including assets and AI transcription)**
 
-Velt fires a `recorder.done` server-side webhook when a recording session completes. The event delivers a `RecorderPayload` containing recording assets and AI transcription data. Toggle the event via `triggers.recorder.done` (defaults to `true`).
+Velt fires `recorder.done` on advanced (V2) webhooks when a recording finishes processing, whether or not transcription was enabled. The body is a `WebhookV2Payload` (`event`, `actionType`, `source`, `webhookId`) whose `data` field is a `RecorderPayload` with the recording's assets and transcription. Basic (V1) webhooks do not carry recorder events. Toggle the event per workspace with `triggers.recorder.done`.
 
-**Incorrect (ignoring the event field before processing payload):**
+**Incorrect (reading assets from the top level or from a `payload` field):**
 
 ```typescript
-// Missing event type check — will process all webhook events as recorder.done
 app.post('/webhook', express.json(), (req, res) => {
-  const { assets, transcription } = req.body; // Wrong — payload is nested
-  processRecording(assets);
+  const { assets, transcription } = req.body;          // Wrong: undefined
+  const { payload } = req.body;                         // Wrong: there is no payload field
+  processRecording(assets ?? payload?.assets);
   res.sendStatus(200);
 });
 ```
 
-**Correct (Express webhook handler with event guard and nested payload):**
+**Correct (verify, check `event`, read `data`):**
 
 ```typescript
 import express from 'express';
 
-app.post('/webhook', express.json(), (req, res) => {
-  const { event, payload } = req.body;
+// Keep the raw body for signature verification (webhook-id, webhook-timestamp, webhook-signature)
+app.post('/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  if (!verifyVeltSignature(req.headers, req.body)) return res.sendStatus(401);
+
+  const { event, data } = JSON.parse(req.body.toString());
 
   if (event === 'recorder.done') {
-    const { assets, transcription } = payload as RecorderPayload;
+    const { recorderId, assets, transcription, from, metadata } = data as RecorderPayload;
 
-    // Process each recording asset
     for (const asset of assets ?? []) {
       console.log('Asset URL:', asset.url);
-      console.log('Format:', asset.fileFormat); // 'mp3' | 'mp4' | 'webm'
-      console.log('Transcript segments:', asset.transcription?.transcriptSegments);
+      console.log('Format:', asset.fileFormat); // e.g. 'mp3' | 'mp4' | 'webm'
+      console.log('Segments:', asset.transcription?.transcriptSegments);
     }
 
-    // Process top-level transcription data
     if (transcription) {
       console.log('VTT file:', transcription.vttFileUrl);
       console.log('Summary:', transcription.contentSummary);
     }
+
+    enqueueRecordingJob({ recorderId, documentId: metadata?.documentId, createdBy: from?.userId });
   }
 
-  res.sendStatus(200);
+  res.sendStatus(200); // Respond 2xx within 15 seconds; process asynchronously
 });
 ```
 
-**Toggling the webhook via TriggersConfig:**
+**Toggling the event:**
 
 ```typescript
-// RecorderTrigger type (added in v5.0.2-beta.11)
+// RecorderTrigger, set under triggers.recorder in the workspace webhook configuration
 type RecorderTrigger = {
-  done?: boolean; // defaults to true
+  done?: boolean; // default true
 };
-
-// Disable the recorder.done webhook
-// triggers: { recorder: { done: false } }
+// Disable: triggers: { recorder: { done: false } }
 ```
+
+The data model documents `done` as defaulting to `true`. When you first enable the webhook service through the Update Webhook Config workspace REST API, the seeded defaults turn the `recorder` triggers off, so confirm the stored value with Get Webhook Config if events do not arrive.
 
 ---
 
@@ -591,12 +595,12 @@ Reference: https://docs.velt.dev/async-collaboration/recorder/customize-behavior
 
 **Impact: HIGH (Controls what users can record (audio, video, screen, or all))**
 
-The `type` prop on VeltRecorderTool determines which recording mode is available. The default is `audio`, which may not match your use case. Set it explicitly to avoid confusion.
+The `type` prop on VeltRecorderTool determines which recording mode is available. The docs disagree on the default (the customize-behavior page says `audio`; the behaviors reference says `video`), so always set it explicitly.
 
 **Incorrect (relying on default type):**
 
 ```jsx
-// Default type is 'audio' — users may expect video or screen recording
+// Default type is ambiguous across docs; users may get a mode they did not expect
 <VeltRecorderTool />
 ```
 
@@ -616,6 +620,20 @@ The `type` prop on VeltRecorderTool determines which recording mode is available
 <VeltRecorderTool type="screen" />
 ```
 
+**Limit the picker to a subset (comma-separated):**
+
+```jsx
+{/* Renders a dropdown limited to audio and video */}
+<VeltRecorderTool type="audio, video" />
+```
+
+**Bind a tool to a specific control panel:**
+
+```jsx
+<VeltRecorderTool type="all" panelId="composer-panel" />
+<VeltRecorderControlPanel mode="thread" panelId="composer-panel" />
+```
+
 **Custom button label:**
 
 ```jsx
@@ -631,11 +649,13 @@ The `type` prop on VeltRecorderTool determines which recording mode is available
 <velt-recorder-tool type="video"></velt-recorder-tool>
 <velt-recorder-tool type="screen"></velt-recorder-tool>
 
+<!-- Subset picker and panel binding -->
+<velt-recorder-tool type="audio, video" panel-id="composer-panel"></velt-recorder-tool>
+<velt-recorder-control-panel mode="thread" panel-id="composer-panel"></velt-recorder-control-panel>
+
 <!-- With custom label -->
 <velt-recorder-tool type="all" button-label="Record Feedback"></velt-recorder-tool>
 ```
-
-Reference: https://docs.velt.dev/async-collaboration/recorder/customize-behavior - type, buttonLabel
 
 ---
 
@@ -839,7 +859,16 @@ const results = await recorderElement.deleteRecordings({
 const success = await recorderElement.downloadLatestVideo('RECORDER_ID');
 ```
 
-Reference: https://docs.velt.dev/async-collaboration/recorder/customize-behavior - deleteRecordings, downloadLatestVideo
+**Key details:**
+
+```jsx
+<VeltRecorderPlayer
+  recorderId={recorderId}
+  onDelete={({ id }) => handlePlayerDelete(id)}
+/>
+```
+
+The `deleteRecording` recorder event fires when a recording is deleted.
 
 ---
 
@@ -939,130 +968,100 @@ Reference: https://docs.velt.dev/async-collaboration/recorder/customize-behavior
 
 ### 3.4 Recorder Data Type Reference — Core Models
 
-**Impact: MEDIUM (Type definitions for recording data, annotations, queries, and configuration)**
+**Impact: MEDIUM (Correct field names for recording data, annotations, queries, and configuration prevent silent undefined reads)**
 
-Complete type definitions for recorder-related data models used across hooks, API methods, and REST endpoints.
+Use the documented field names when reading recorder data. Several fields are easy to guess wrong: segments are `transcriptSegments` with `startTimeInSeconds` / `endTimeInSeconds`, asset size is `fileSizeInBytes`, and the non-Safari browser key is `other` (not `others`).
 
-**RecordedData (recording annotation with URLs and metadata):**
+**Incorrect (guessed field names):**
 
 ```typescript
-interface RecordedData {
-  id: string;                         // Recording ID
-  type: 'audio' | 'video' | 'screen'; // Recording type
-  assets: RecorderDataAsset[];        // Recorded file versions
-  transcription?: RecorderDataTranscription; // AI transcription data
-  metadata?: RecorderMetadata;        // Associated metadata
-  createdAt?: number;                 // Creation timestamp
-  lastUpdated?: number;               // Last update timestamp
-  userId?: string;                    // User who recorded
-}
+const segments = recording.transcription.segments;        // Use transcriptSegments
+const start = segments[0].start;                          // Use startTime / startTimeInSeconds
+const size = recording.assets[0].size;                    // Use fileSizeInBytes
+recorderElement.setRecordingEncodingOptions({ others: {} }); // Use 'other'
 ```
 
-**RecorderDataAsset (individual recorded file):**
+**Correct (documented shapes):**
 
 ```typescript
-interface RecorderDataAsset {
-  url: string;                        // Playback URL
-  mimeType: string;                   // MIME type (e.g., 'video/mp4')
-  size?: number;                      // File size in bytes
-  duration?: number;                  // Duration in seconds
-  format?: RecorderFileFormat;        // 'mp3' | 'mp4' | 'webm'
-  version?: number;                   // Version number (for edited recordings)
-}
-```
-
-**RecorderAnnotation (annotation for a recorded item):**
-
-```typescript
-interface RecorderAnnotation {
-  recorderId: string;                 // Recording ID
-  recorderData: RecordedData;         // Full recording data
-  location?: Location;                // Where recording was pinned
-  metadata?: Record<string, any>;     // Custom metadata
-}
-```
-
-**RecorderRequestQuery (query parameters for fetch/get/delete):**
-
-```typescript
+// RecorderRequestQuery: fetchRecordings / getRecordings / deleteRecordings
 interface RecorderRequestQuery {
-  recorderIds?: string[];             // Filter by specific recording IDs
-  documentId?: string;                // Filter by document
-  organizationId?: string;            // Filter by organization
-  pageSize?: number;                  // Items per page
-  pageToken?: string;                 // Pagination token
-}
-```
-
-**RecorderQualityConstraints (quality settings per browser):**
-
-```typescript
-interface RecorderQualityConstraints {
-  safari?: RecorderQualityConstraintsOptions;
-  others?: RecorderQualityConstraintsOptions;
+  recorderIds: string[];
 }
 
-interface RecorderQualityConstraintsOptions {
-  video?: MediaTrackConstraints;      // Video constraints
-  audio?: MediaTrackConstraints;      // Audio constraints
+// Items returned by fetchRecordings(), getRecordings(), deleteRecordings()
+// (GetRecordingDataResponse / DeleteRecordingsResponse), and recordingDone-style events
+interface GetRecordingDataResponse {
+  recorderId: string;
+  from?: User | null;
+  metadata?: RecorderMetadata;
+  assets: RecorderDataAsset[];            // latest version
+  assetsAllVersions: RecorderDataAsset[]; // every edited version
+  transcription: RecorderDataTranscription;
 }
 
-// MediaTrackConstraints supports:
-// width, height, frameRate, aspectRatio (video)
-// echoCancellation, noiseSuppression, autoGainControl, sampleRate (audio)
-// Each can be a number or { min, max, ideal, exact }
-```
-
-**RecorderEncodingOptions (output quality/size):**
-
-```typescript
-interface RecorderEncodingOptions {
-  safari?: MediaRecorderOptions;
-  others?: MediaRecorderOptions;
+interface RecorderDataAsset {
+  version?: number;
+  url: string;
+  mimeType?: string;
+  fileName?: string;
+  fileSizeInBytes?: number;
+  fileFormat?: RecorderFileFormat;        // e.g. 'mp3' | 'mp4' | 'webm'
+  thumbnailUrl?: string;
+  transcription?: RecorderDataTranscription;
 }
 
-interface MediaRecorderOptions {
-  videoBitsPerSecond?: number;        // Video bitrate (Safari default: 2.5 Mbps, others: 1 Mbps)
-  audioBitsPerSecond?: number;        // Audio bitrate (default: 128 kbps)
-}
-```
-
-**RecorderDevicePermissionOptions:**
-
-```typescript
-interface RecorderDevicePermissionOptions {
-  audio?: boolean;                    // Request microphone access
-  video?: boolean;                    // Request camera access
-}
-```
-
-**MediaPreviewConfig:**
-
-```typescript
-interface MediaPreviewConfig {
-  audio?: boolean;                    // Show audio preview
-  video?: boolean;                    // Show video preview
-  screen?: boolean;                   // Show screen preview
-}
-```
-
-**RecorderDataTranscription:**
-
-```typescript
 interface RecorderDataTranscription {
-  segments: RecorderDataTranscriptSegment[];
-  vttFileUrl?: string;                // VTT format transcription file
-  contentSummary?: string;            // AI-generated summary
+  transcriptSegments?: RecorderDataTranscriptSegment[];
+  vttFileUrl?: string;
+  contentSummary?: string;
 }
 
 interface RecorderDataTranscriptSegment {
-  text: string;                       // Transcribed text
-  start: number;                      // Start time in seconds
-  end: number;                        // End time in seconds
+  startTime: string;
+  endTime: string;
+  startTimeInSeconds: number;
+  endTimeInSeconds: number;
+  text: string;
+}
+
+// RecordedData: legacy onRecordedData callback payload
+interface RecordedData {
+  id: string;                    // recorder annotation ID
+  tag: string;                   // recorder player tag you can place in the DOM
+  type: string;                  // 'audio' | 'video' | 'screen'
+  thumbnailUrl?: string;
+  thumbnailWithPlayIconUrl?: string;
+  videoUrl?: string;
+  audioUrl?: string;
+  videoPlayerUrl?: string;
+  getThumbnailTag: Function;     // returns thumbnail HTML linking to the player
+}
+
+// Quality and encoding: keys are 'safari' and 'other'
+interface RecorderQualityConstraints {
+  safari?: { video?: MediaTrackConstraints; audio?: MediaTrackConstraints };
+  other?: { video?: MediaTrackConstraints; audio?: MediaTrackConstraints };
+}
+interface RecorderEncodingOptions {
+  safari?: { videoBitsPerSecond?: number; audioBitsPerSecond?: number };
+  other?: { videoBitsPerSecond?: number; audioBitsPerSecond?: number };
+}
+
+interface RecorderDevicePermissionOptions {
+  audio?: boolean;
+  video?: boolean;
+}
+
+interface MediaPreviewConfig {
+  audio?: { enabled?: boolean; deviceId?: string };
+  video?: { enabled?: boolean; deviceId?: string };
+  screen?: { enabled?: boolean; stream?: MediaStream };
 }
 ```
 
-Reference: https://docs.velt.dev/api-reference/sdk/models/data-models - Recorder
+**RecorderAnnotation (stored recorder annotation, also returned by the Get Recordings REST API):** `annotationId`, `from`, `color`, `lastUpdated`, `locationId`, `location`, `type`, `recordingType`, `mode` (`'floating' | 'thread'`), `approved`, `attachments` (the deprecated single `attachment` also exists), `annotationIndex`, `pageInfo`, `recordedTime`, `transcription`, `isRecorderResolverUsed` (true while self-hosted PII is being fetched), and `isUrlAvailable` (true once the URL is no longer a local blob).
+**Defaults:** encoding defaults are `videoBitsPerSecond` 2,500,000 (Safari) / 1,000,000 (other) and `audioBitsPerSecond` 128,000. Quality defaults target 1280x720 at up to 30 fps with echo cancellation, noise suppression, and auto gain control.
 
 ---
 
@@ -1070,22 +1069,21 @@ Reference: https://docs.velt.dev/api-reference/sdk/models/data-models - Recorder
 
 **Impact: MEDIUM (Enables server-side retrieval of recording data without the client SDK)**
 
-Use the `POST https://api.velt.dev/v2/recordings/get` REST endpoint to retrieve recordings server-side without the client SDK. This is distinct from the client-side `fetchRecordings()` / `getRecordings()` methods (see `data-fetch-subscribe` rule). The endpoint supports pagination and filtering by document or specific recording IDs.
+Use `POST https://api.velt.dev/v2/recordings/get` to retrieve recorder annotations server-side without the client SDK. This is distinct from the client-side `fetchRecordings()` / `getRecordings()` methods (see `data-fetch-subscribe`). Like other v2 REST APIs, the parameters go inside a top-level `data` object, and the response is wrapped in `result`.
 
-**Incorrect (using GET method — endpoint uses POST):**
+**Incorrect (GET method, unwrapped body, wrong pagination field):**
 
 ```typescript
-// Wrong HTTP method — this endpoint requires POST
 const response = await fetch('https://api.velt.dev/v2/recordings/get', {
-  method: 'GET',
+  method: 'GET',                                   // Must be POST
+  body: JSON.stringify({ organizationId: 'org-123' }), // Must be wrapped in { data: { ... } }
 });
+const { nextPageToken } = await response.json();   // Not a field; use result.pageToken
 ```
 
-**Correct (server-side fetch with required headers and body):**
+**Correct (server-side POST with headers and `data` body):**
 
 ```typescript
-// Server-side REST call to retrieve recordings
-// Authentication: x-velt-api-key + x-velt-auth-token headers
 const response = await fetch('https://api.velt.dev/v2/recordings/get', {
   method: 'POST',
   headers: {
@@ -1094,21 +1092,24 @@ const response = await fetch('https://api.velt.dev/v2/recordings/get', {
     'x-velt-auth-token': process.env.VELT_AUTH_TOKEN!,
   },
   body: JSON.stringify({
-    organizationId: 'YOUR_ORG_ID',   // required
-    documentId: 'YOUR_DOC_ID',       // optional
-    recordingIds: ['RECORDER_ID_1'], // optional — filter by specific recording IDs
-    pageSize: 20,                    // optional
-    pageToken: undefined,            // optional — pass nextPageToken from previous response
+    data: {
+      organizationId: 'org-123',          // required
+      documentId: 'doc-456',              // optional
+      recordingIds: ['rec-1', 'rec-2'],   // optional
+      pageSize: 10,                       // optional, minimum 1
+      // pageToken: previousResult.pageToken,
+    },
   }),
 });
 
-const data = await response.json();
-// data.nextPageToken present when more results are available
+const { result } = await response.json();
+for (const recording of result.data) {
+  // recorder annotation: annotationId, recordingType, mode, recordedTime, displayName,
+  // attachments[] (url, mimeType, name, type, size), latestVersion, metadata
+  console.log(recording.annotationId, recording.attachments?.[0]?.url);
+}
+const nextPageToken = result.pageToken; // present when more results exist
 ```
-
-<!-- TODO (v5.0.2-beta.11): Verify exact response shape for POST /v2/recordings/get. Release note confirms the endpoint path and pagination support but does not specify the response schema (field names, nesting, error format). Validate against official Velt REST API documentation before relying on field names. -->
-<!-- TODO (v5.0.2-beta.11): Verify authentication mechanism. x-velt-api-key and x-velt-auth-token headers follow the pattern used by other Velt v2 REST endpoints, but this should be confirmed against the recordings endpoint documentation specifically. -->
-<!-- TODO (v5.0.2-beta.11): Verify whether recordingIds is the correct filter parameter name. The release note names it but does not confirm the exact JSON body field name for filtering. -->
 
 ---
 
@@ -1116,7 +1117,7 @@ const data = await response.json();
 
 **Impact: MEDIUM-HIGH**
 
-Subscription patterns for recorder lifecycle events. Covers all 11 event types including recording state changes, completion events, transcription completion, and error handling via both API subscriptions and React hooks.
+Subscription patterns for recorder lifecycle events. Covers all 12 event types including recording state changes, completion events, transcription completion, and error handling via both API subscriptions and React hooks.
 
 ### 4.1 Use useRecorderEventCallback for React Event Handling
 
@@ -1128,7 +1129,7 @@ In React, use the `useRecorderEventCallback` hook for declarative event subscrip
 
 ```jsx
 function RecorderEvents() {
-  const client = useVeltClient();
+  const { client } = useVeltClient();
 
   // Manual subscription requires cleanup and is error-prone
   useEffect(() => {
@@ -1163,7 +1164,7 @@ function RecorderEvents() {
 
   useEffect(() => {
     if (recordingDoneLocalData) {
-      // attachmentUrl is a blob URL (not CDN) — only fires when sourceFeature === 'recording'
+      // assets[0].url is a local blob URL (not CDN); only fires when sourceFeature === 'recording'
       console.log('Local save complete:', recordingDoneLocalData);
     }
   }, [recordingDoneLocalData]);
@@ -1183,8 +1184,6 @@ function RecorderEvents() {
   return <VeltRecorderTool type="all" />;
 }
 ```
-
-Reference: https://docs.velt.dev/async-collaboration/recorder/customize-behavior - Event Subscription (React hook)
 
 ---
 
@@ -1234,7 +1233,7 @@ recorderElement.on('recordingCancelled').subscribe((event) => {
 // Completion events
 recorderElement.on('recordingDoneLocal').subscribe((event) => {
   // Fires immediately after local save, before cloud upload/transcription
-  // event.attachmentUrl is a blob URL (not CDN) — only fires when event.sourceFeature === 'recording'
+  // event.assets[0].url is a local blob URL (not CDN); only fires when event.sourceFeature === 'recording'
   console.log('Local save complete:', event);
 });
 
@@ -1265,15 +1264,18 @@ recorderElement.on('error').subscribe((event) => {
 
 ```js
 const recorderElement = Velt.getRecorderElement();
-recorderElement.on('recordingDone').subscribe((event) => {
+const doneSub = recorderElement.on('recordingDone').subscribe((event) => {
   console.log('Recording completed:', event);
 });
-recorderElement.on('error').subscribe((event) => {
-  console.error('Recorder error:', event);
+const errorSub = recorderElement.on('error').subscribe((event) => {
+  // event: { type: 'editFailed' | 'recordingFailed' | 'transcriptionFailed', message, recorderId? }
+  console.error('Recorder error:', event.type, event.message);
 });
-```
 
-Reference: https://docs.velt.dev/async-collaboration/recorder/customize-behavior - Event Subscription, on
+// Clean up when done
+doneSub?.unsubscribe();
+errorSub?.unsubscribe();
+```
 
 ---
 
@@ -1330,8 +1332,6 @@ import { VeltVideoEditor } from '@veltdev/react';
   variant="compact"
 ></velt-video-editor>
 ```
-
-Reference: https://docs.velt.dev/async-collaboration/recorder/setup - Embed Velt Video Editor
 
 ---
 
@@ -1527,11 +1527,13 @@ import { useRecorderUtils } from '@veltdev/react';
 function TranscriptionConfig() {
   const recorderUtils = useRecorderUtils();
 
-  // Disable transcription (recording won't be sent to LLMs)
-  recorderUtils.disableRecordingTranscription();
+  useEffect(() => {
+    // Disable transcription (recording won't be sent to LLMs)
+    recorderUtils?.disableRecordingTranscription();
+    // Re-enable later with recorderUtils.enableRecordingTranscription();
+  }, [recorderUtils]);
 
-  // Re-enable transcription
-  recorderUtils.enableRecordingTranscription();
+  return null;
 }
 ```
 
@@ -1562,8 +1564,6 @@ recorderElement.disableRecordingMic();
 ```
 
 Use `disableRecordingMic()` for screen-only recordings where audio is not needed.
-
-Reference: https://docs.velt.dev/async-collaboration/recorder/customize-behavior - recordingTranscription, summary
 
 ---
 
@@ -1620,7 +1620,7 @@ Control how recordings are played back by enabling fullscreen mode for better vi
 ```jsx
 import { useVeltClient } from '@veltdev/react';
 
-const client = useVeltClient();
+const { client } = useVeltClient();
 
 // Enable/disable click-to-play programmatically
 client.getRecorderElement().enablePlaybackOnPreviewClick();
@@ -1686,7 +1686,7 @@ The recording countdown timer (enabled by default) gives users a visual cue befo
 ```jsx
 import { useVeltClient } from '@veltdev/react';
 
-const client = useVeltClient();
+const { client } = useVeltClient();
 
 // Enable/disable countdown programmatically
 client.getRecorderElement().enableRecordingCountdown();
@@ -1713,7 +1713,37 @@ Reference: https://docs.velt.dev/async-collaboration/recorder/customize-behavior
 
 **Impact: LOW (Full structural customization of all recorder UI elements)**
 
-The recorder exposes 9 wireframe component hierarchies for full structural customization. Each sub-component accepts `defaultCondition?: boolean` to control visibility.
+The recorder exposes 9 wireframe component hierarchies for full structural customization. Each sub-component accepts `defaultCondition?: boolean` to control visibility. Wireframes are templates: place them inside `VeltWireframe` (React) or `<velt-wireframe style="display:none;">` (HTML), separate from the live recorder components.
+
+**Incorrect (wireframe rendered on its own):**
+
+```jsx
+// Outside VeltWireframe the SDK never registers the template
+<VeltRecorderAllToolWireframe>
+  <span>Record</span>
+</VeltRecorderAllToolWireframe>
+```
+
+**Correct (inside VeltWireframe):**
+
+```html
+import { VeltWireframe, VeltRecorderAllToolMenuWireframe } from '@veltdev/react';
+
+<VeltWireframe>
+  <VeltRecorderAllToolMenuWireframe>
+    <VeltRecorderAllToolMenuWireframe.Audio>Audio note</VeltRecorderAllToolMenuWireframe.Audio>
+    <VeltRecorderAllToolMenuWireframe.Video>Camera</VeltRecorderAllToolMenuWireframe.Video>
+    <VeltRecorderAllToolMenuWireframe.Screen>Screen</VeltRecorderAllToolMenuWireframe.Screen>
+  </VeltRecorderAllToolMenuWireframe>
+</VeltWireframe>
+<velt-wireframe style="display:none;">
+  <velt-recorder-all-tool-menu-wireframe>
+    <velt-recorder-all-tool-menu-audio-wireframe>Audio note</velt-recorder-all-tool-menu-audio-wireframe>
+    <velt-recorder-all-tool-menu-video-wireframe>Camera</velt-recorder-all-tool-menu-video-wireframe>
+    <velt-recorder-all-tool-menu-screen-wireframe>Screen</velt-recorder-all-tool-menu-screen-wireframe>
+  </velt-recorder-all-tool-menu-wireframe>
+</velt-wireframe>
+```
 
 **Control Panel Wireframe:**
 
@@ -1813,8 +1843,6 @@ VeltSubtitlesWireframe
     └── .Panel → .CloseButton, .Text
 ```
 
-Reference: https://docs.velt.dev/ui-customization/features/async/recorder/
-
 ---
 
 ## 7. Debugging & Testing
@@ -1830,8 +1858,6 @@ Troubleshooting patterns and verification checklists for Velt recorder integrati
 Common issues when integrating the Velt Recorder and how to resolve them.
 
 **Issue 1: Recording does not start**
-
-Reference: https://docs.velt.dev/async-collaboration/recorder/setup; https://docs.velt.dev/async-collaboration/recorder/customize-behavior
 
 ---
 
@@ -1856,21 +1882,22 @@ For the structural catalog of which recorder wireframe tags exist, see `ui/ui-wi
 **Incorrect (rebuilding recorder state from hooks and gating slots from the host component):**
 
 ```jsx
-import { useRecorderEventCallback, useVeltClient } from '@veltdev/react';
-import { VeltRecorderButtonWireframe } from '@veltdev/react';
+import { useRecorderEventCallback, VeltWireframe, VeltRecorderAllToolWireframe } from '@veltdev/react';
 
 function RecordButton() {
-  const [isRecording, setIsRecording] = useState(false);
   // Reimplements recordingInProgress + screen-sharing capability the wireframe already exposes.
-  useRecorderEventCallback('RECORDING_STARTED', () => setIsRecording(true));
-  useRecorderEventCallback('RECORDING_ENDED', () => setIsRecording(false));
+  const started = useRecorderEventCallback('recordingStarted');
+  const stopped = useRecorderEventCallback('recordingStopped');
+  const isRecording = !!started && !stopped;
   const canScreen = !!navigator.mediaDevices?.getDisplayMedia;
   return (
-    <VeltRecorderButtonWireframe>
-      <button className={isRecording ? 'rec on' : 'rec'}>
-        {isRecording ? 'Stop' : (canScreen ? 'Record screen' : 'Record')}
-      </button>
-    </VeltRecorderButtonWireframe>
+    <VeltWireframe>
+      <VeltRecorderAllToolWireframe>
+        <button className={isRecording ? 'rec on' : 'rec'}>
+          {isRecording ? 'Stop' : (canScreen ? 'Record screen' : 'Record')}
+        </button>
+      </VeltRecorderAllToolWireframe>
+    </VeltWireframe>
   );
 }
 ```
@@ -1878,56 +1905,64 @@ function RecordButton() {
 **Correct (read the slot's injected variables via `velt-data` / `velt-if` / `velt-class`):**
 
 ```jsx
-import { VeltRecorderButtonWireframe } from '@veltdev/react';
+import { VeltWireframe, VeltRecorderAllToolWireframe, VeltData } from '@veltdev/react';
 
-<VeltRecorderButtonWireframe>
-  <button
-    className="rec"
-    veltClass="'is-recording': {componentConfigSignal.recordingInProgress}, 'is-disabled': {componentConfigSignal.disabled}, 'theme-dark': {componentConfigSignal.darkMode}">
-    <span veltIf="!{componentConfigSignal.recordingInProgress}">
-      <VeltData field="componentConfigSignal.buttonLabel" />
-    </span>
-    <span veltIf="{componentConfigSignal.recordingInProgress}">Recording…</span>
-  </button>
-</VeltRecorderButtonWireframe>
+<VeltWireframe>
+  <VeltRecorderAllToolWireframe>
+    <button
+      className="rec"
+      veltClass="'is-recording': {componentConfigSignal.recordingInProgress}, 'is-disabled': {componentConfigSignal.disabled}, 'theme-dark': {componentConfigSignal.darkMode}">
+      <span veltIf="!{componentConfigSignal.recordingInProgress}">
+        <VeltData field="componentConfigSignal.buttonLabel" />
+      </span>
+      <span veltIf="{componentConfigSignal.recordingInProgress}">Recording…</span>
+    </button>
+  </VeltRecorderAllToolWireframe>
+</VeltWireframe>
 ```
 
 **HTML / web-component equivalent:**
 
 ```jsx
-<velt-recorder-button-wireframe>
-  <button class="rec"
-          velt-class="'is-recording': {componentConfigSignal.recordingInProgress}">
-    <span velt-if="!{componentConfigSignal.recordingInProgress}">
-      <velt-data field="componentConfigSignal.buttonLabel"></velt-data>
-    </span>
-    <span velt-if="{componentConfigSignal.recordingInProgress}">Recording…</span>
-  </button>
-</velt-recorder-button-wireframe>
-<VeltRecorderButtonWireframe>
-  <button className="my-record"
-          veltClass="'is-recording': {componentConfigSignal.recordingInProgress}">
-    <span veltIf="!{componentConfigSignal.recordingInProgress}">
-      <VeltData field="componentConfigSignal.buttonLabel" />
-    </span>
-    <span veltIf="{componentConfigSignal.recordingInProgress}">Stop</span>
-  </button>
-</VeltRecorderButtonWireframe>
+<velt-wireframe style="display:none;">
+  <velt-recorder-all-tool-wireframe>
+    <button class="rec"
+            velt-class="'is-recording': {componentConfigSignal.recordingInProgress}">
+      <span velt-if="!{componentConfigSignal.recordingInProgress}">
+        <velt-data field="componentConfigSignal.buttonLabel"></velt-data>
+      </span>
+      <span velt-if="{componentConfigSignal.recordingInProgress}">Recording…</span>
+    </button>
+  </velt-recorder-all-tool-wireframe>
+</velt-wireframe>
+<VeltWireframe>
+  <VeltRecorderAllToolWireframe>
+    <button className="my-record"
+            veltClass="'is-recording': {componentConfigSignal.recordingInProgress}">
+      <span veltIf="!{componentConfigSignal.recordingInProgress}">
+        <VeltData field="componentConfigSignal.buttonLabel" />
+      </span>
+      <span veltIf="{componentConfigSignal.recordingInProgress}">Stop</span>
+    </button>
+  </VeltRecorderAllToolWireframe>
 
-<VeltRecorderPlayerWireframe>
-  <VeltRecorderPlayerVideoWireframe><video /></VeltRecorderPlayerVideoWireframe>
-  <VeltRecorderPlayerOverlayWireframe>
-    <VeltRecorderPlayerTimeWireframe>
-      <VeltData field="componentConfigSignal.currentTimeValue" />
-      /
-      <VeltData field="componentConfigSignal.totalTimeValue" />
-    </VeltRecorderPlayerTimeWireframe>
-    <VeltRecorderPlayerTimelineWireframe />
-    <VeltRecorderPlayerDeleteWireframe />
-  </VeltRecorderPlayerOverlayWireframe>
-</VeltRecorderPlayerWireframe>
+  <VeltRecorderPlayerWireframe>
+    <VeltRecorderPlayerWireframe.VideoContainer>
+      <VeltRecorderPlayerWireframe.VideoContainer.Video />
+      <VeltRecorderPlayerWireframe.VideoContainer.Overlay />
+      <VeltRecorderPlayerWireframe.VideoContainer.Time>
+        <VeltData field="componentConfigSignal.currentTimeValue" />
+        /
+        <VeltData field="componentConfigSignal.totalTimeValue" />
+      </VeltRecorderPlayerWireframe.VideoContainer.Time>
+      <VeltRecorderPlayerWireframe.VideoContainer.Timeline />
+      <VeltRecorderPlayerWireframe.VideoContainer.Delete />
+    </VeltRecorderPlayerWireframe.VideoContainer>
+  </VeltRecorderPlayerWireframe>
+</VeltWireframe>
 ```
 
+The `recorder-button` element has no direct wireframe slot of its own; customize it through its per-type tool tags (`recorder-audio-tool`, `recorder-video-tool`, `recorder-screen-tool`, `recorder-all-tool`).
 Six names collide with mappings used elsewhere. Inside a Recorder wireframe, prefer the explicit `componentConfigSignal.<name>` path for these — the short form resolves to the wrong namespace:
 | Conflicting name | Short form resolves to | Use this for Recorder |
 |---|---|---|
@@ -1938,7 +1973,7 @@ Six names collide with mappings used elsewhere. Inside a Recorder wireframe, pre
 | `user` | `componentConfigSignal.appState.user` | `componentConfigSignal.user` |
 | `annotation` | `componentConfigSignal.data.annotation` | `componentConfigSignal.annotation` |
 The recorder injects a single flat config object; the variables exposed depend on which wireframe tag the slot lives inside.
-**Recorder Button** (`<velt-recorder-button-wireframe>` and its per-type children — `recorder-audio-tool`, `recorder-video-tool`, `recorder-screen-tool`, `recorder-all-tool`):
+**Recorder Button** (no direct slot; bind inside its per-type tool tags `recorder-audio-tool`, `recorder-video-tool`, `recorder-screen-tool`, `recorder-all-tool`):
 | Variable | Type | Notes |
 |---|---|---|
 | `componentConfigSignal.buttonLabel` | `string` | Custom label text (e.g. `"Record"`). |
@@ -1985,7 +2020,6 @@ The recorder feature has a large set of overridable surfaces. They are grouped h
 **Root + per-type tool variants** — gate per-type variants on `types.includes(...)` and the `screen` variant additionally on `screenSharingSupported`:
 | Wireframe tag | Notes |
 |---|---|
-| `<velt-recorder-button-wireframe>` | Root trigger. |
 | `<velt-recorder-audio-tool-wireframe>` | Audio-only variant. |
 | `<velt-recorder-video-tool-wireframe>` | Video-only variant. |
 | `<velt-recorder-screen-tool-wireframe>` | Screen-only variant. Gate on `{componentConfigSignal.screenSharingSupported}`. |
@@ -2054,20 +2088,19 @@ This feature uses **flat-config** access. Use the explicit `componentConfig.<nam
 **Incorrect (rebuilding transcript state and segment-active styling from hooks):**
 
 ```jsx
-import { useRecorderEventCallback } from '@veltdev/react';
-import { VeltTranscriptionWireframe } from '@veltdev/react';
+import { useRecorderEventCallback, VeltWireframe, VeltTranscriptionWireframe } from '@veltdev/react';
 
-function Transcript({ recording }) {
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(-1);
+function Transcript({ recording, active }) {
   // Reimplements transcriptionVisible + highlightedTextIndex the wireframe already exposes.
-  useRecorderEventCallback('TRANSCRIPTION_COMPLETED', () => setOpen(true));
+  const transcriptionDone = useRecorderEventCallback('transcriptionDone');
   return (
-    <VeltTranscriptionWireframe>
-      {open && recording.transcription?.segments.map((s, i) => (
-        <p className={i === active ? 'on' : ''}>{s.text}</p>
-      ))}
-    </VeltTranscriptionWireframe>
+    <VeltWireframe>
+      <VeltTranscriptionWireframe.FloatingMode.Panel>
+        {transcriptionDone && recording.transcription?.transcriptSegments?.map((seg, i) => (
+          <p key={i} className={i === active ? 'on' : ''}>{seg.text}</p>
+        ))}
+      </VeltTranscriptionWireframe.FloatingMode.Panel>
+    </VeltWireframe>
   );
 }
 ```
@@ -2075,40 +2108,44 @@ function Transcript({ recording }) {
 **Correct (read the slot's injected variables via `velt-data` / `velt-if` / `velt-class`):**
 
 ```jsx
-import {
-  VeltTranscriptionPanelWireframe,
-  VeltTranscriptionSummaryWireframe,
-  VeltTranscriptionContentItemWireframe,
-} from '@veltdev/react';
+import { VeltWireframe, VeltTranscriptionWireframe, VeltData } from '@veltdev/react';
 
-<VeltTranscriptionPanelWireframe
-  veltClass="'visible': {componentConfig.transcriptionVisible}, 'mode-{componentConfig.mode}': true">
-  <VeltTranscriptionSummaryWireframe>
-    <p veltIf="{componentConfig.showMoreSummary}">
-      <VeltData field="componentConfig.transcription.summary" />
-    </p>
-  </VeltTranscriptionSummaryWireframe>
-
-  <VeltTranscriptionContentItemWireframe
-    veltClass="'is-active': '{segment.startTimeInSeconds} <= {currentTime} && {segment.endTimeInSeconds} > {currentTime}'">
-    <time><VeltData field="segment.startTime" /></time>
-    <p><VeltData field="segment.text" /></p>
-  </VeltTranscriptionContentItemWireframe>
-</VeltTranscriptionPanelWireframe>
+<VeltWireframe>
+  <VeltTranscriptionWireframe.FloatingMode veltClass="'visible': {componentConfig.transcriptionVisible}">
+    <VeltTranscriptionWireframe.FloatingMode.Panel>
+      <VeltTranscriptionWireframe.FloatingMode.Panel.Summary>
+        <p veltIf="{componentConfig.showMoreSummary}">
+          <VeltData field="componentConfig.transcription.summary" />
+        </p>
+      </VeltTranscriptionWireframe.FloatingMode.Panel.Summary>
+      <VeltTranscriptionWireframe.FloatingMode.Panel.Content>
+        <VeltTranscriptionWireframe.FloatingMode.Panel.Content.Item
+          veltClass="'is-active': '{segment.startTimeInSeconds} <= {currentTime} && {segment.endTimeInSeconds} > {currentTime}'">
+          <time><VeltData field="segment.startTime" /></time>
+          <p><VeltData field="segment.text" /></p>
+        </VeltTranscriptionWireframe.FloatingMode.Panel.Content.Item>
+      </VeltTranscriptionWireframe.FloatingMode.Panel.Content>
+    </VeltTranscriptionWireframe.FloatingMode.Panel>
+  </VeltTranscriptionWireframe.FloatingMode>
+</VeltWireframe>
 ```
 
 **HTML / web-component equivalent:**
 
 ```html
-<velt-transcription-panel-wireframe
-  velt-class="'visible': {componentConfig.transcriptionVisible}">
-  <velt-transcription-content-item-wireframe
-    velt-class="'is-active': '{segment.startTimeInSeconds} <= {currentTime} && {segment.endTimeInSeconds} > {currentTime}'">
-    <p><velt-data field="segment.text"></velt-data></p>
-  </velt-transcription-content-item-wireframe>
-</velt-transcription-panel-wireframe>
+<velt-wireframe style="display:none;">
+  <velt-transcription-floating-mode-wireframe velt-class="'visible': {componentConfig.transcriptionVisible}">
+    <velt-transcription-panel-wireframe>
+      <velt-transcription-content-item-wireframe
+        velt-class="'is-active': '{segment.startTimeInSeconds} <= {currentTime} && {segment.endTimeInSeconds} > {currentTime}'">
+        <p><velt-data field="segment.text"></velt-data></p>
+      </velt-transcription-content-item-wireframe>
+    </velt-transcription-panel-wireframe>
+  </velt-transcription-floating-mode-wireframe>
+</velt-wireframe>
 ```
 
+The transcription feature has no root wireframe slot. Register your wireframe on a mode-specific tag: `<velt-transcription-floating-mode-wireframe>` or `<velt-transcription-embed-mode-wireframe>` (`VeltTranscriptionWireframe.FloatingMode` / `.EmbedMode` in React).
 State on `<velt-transcription>` and children. Bind via `componentConfig.<name>`:
 | Variable | Type | Notes |
 |---|---|---|
@@ -2155,7 +2192,7 @@ Dialog-only — these back the popover variant's CDK overlay. Treat as **interna
 |---|---|---|
 | `segment` | `{ startTime, endTime, startTimeInSeconds, endTimeInSeconds, text }` | Per-iteration row from `vttFileTextArray`. |
 | `currentTime` | `number` | Current playback time — compare to `segment.startTimeInSeconds` / `endTimeInSeconds` for active styling. |
-**Transcription:** `<velt-transcription-wireframe>` (root), `-button-wireframe`, `-tooltip-wireframe`, `-panel-wireframe`, `-panel-container-wireframe`, `-content-item-wireframe` (iterates `vttFileTextArray`; injects `segment` / `currentTime`), `-summary-wireframe` (+ `-expand-toggle-wireframe` / `-on-wireframe` / `-off-wireframe`), `-copy-link-wireframe` (+ `-button-wireframe` / `-tooltip-wireframe`), `-close-button-wireframe`, `-floating-mode-wireframe`, `-embed-mode-wireframe`.
+**Transcription:** no root slot; start from `-floating-mode-wireframe` or `-embed-mode-wireframe`, then `-button-wireframe`, `-tooltip-wireframe`, `-panel-wireframe`, `-panel-container-wireframe`, `-content-item-wireframe` (iterates `vttFileTextArray`; injects `segment` / `currentTime`), `-summary-wireframe` (+ `-expand-toggle-wireframe` / `-on-wireframe` / `-off-wireframe`), `-copy-link-wireframe` (+ `-button-wireframe` / `-tooltip-wireframe`), `-close-button-wireframe`.
 **Subtitles:** `<velt-subtitles-wireframe>` (root), `-button-wireframe`, `-tooltip-wireframe`, `-panel-wireframe`, `-close-button-wireframe`, `-floating-mode-wireframe`, `-embed-mode-wireframe`, plus `<velt-subtitles-dialog-wireframe>` (popover variant gated on `dialogVisible`).
 **1. DO NOT use the short `{var}` form here.** Transcription / subtitles wireframes use explicit `componentConfig.<name>` paths. Unlike the recorder root, the short form is not aliased on these primitives.
 **2. DO NOT confuse `transcriptionVisible` with `subtitlesVisible`.** They gate different panels — transcription is the full transcript with summary; subtitles is the live overlay during playback. Bind each to its own panel/button.
@@ -2173,3 +2210,7 @@ Dialog-only — these back the popover variant's CDK overlay. Treat as **interna
 - https://console.velt.dev
 - https://docs.velt.dev/ui-customization/features/async/recorder/wireframe-variables
 - https://docs.velt.dev/ui-customization/features/async/recorder/transcription-wireframe-variables
+- https://docs.velt.dev/webhooks/advanced
+- https://docs.velt.dev/api-reference/rest-apis/v2/recordings/get-recordings
+- https://docs.velt.dev/ui-customization/reference/behaviors/recorder-huddle
+- https://docs.velt.dev/ui-customization/features/async/recorder/recorder-tool

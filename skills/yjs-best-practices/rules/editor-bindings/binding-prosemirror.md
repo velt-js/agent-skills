@@ -64,17 +64,40 @@ provider.awareness.setLocalStateField('user', {
 
 ### Cursor Styling
 
+`yCursorPlugin` renders remote carets as `.ProseMirror-yjs-cursor` elements (with the user's name in a child label) and remote selections as `.ProseMirror-yjs-selection` decorations. The `.yRemoteSelection*` classes belong to y-monaco and y-codemirror, not y-prosemirror.
+
 ```css
-/* Remote cursor line */
-.yRemoteSelection {
-  background-color: var(--user-color-light, rgba(0, 0, 0, 0.1));
+/* Remote caret rendered by yCursorPlugin */
+.ProseMirror-yjs-cursor {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 2px solid;
+  pointer-events: none;
+  word-break: normal;
 }
 
-/* Remote cursor caret */
-.yRemoteSelectionHead::after {
-  border-color: var(--user-color, #000);
+/* Name label inside the caret */
+.ProseMirror-yjs-cursor > div {
+  position: absolute;
+  top: -1.4em;
+  left: -1px;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.65rem;
+  color: #fff;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Remote selection highlight */
+.ProseMirror-yjs-selection {
+  background-color: rgba(124, 58, 237, 0.2);
 }
 ```
+
+### Schema Compatibility
+
+All clients must use a compatible ProseMirror schema. Node and mark names are part of the shared document contract: a client that does not know a node or mark type cannot render it. Create the schema once (not per render) and roll out schema changes as explicit migrations while older clients may still be connected.
 
 ### Cleanup
 
@@ -92,7 +115,10 @@ ydoc.destroy()
 - [ ] `Y.XmlFragment` is used (not `Y.Text`) for ProseMirror content
 - [ ] Awareness user is set with `name` and `color` for cursor rendering
 - [ ] Undo/redo keybindings use `undo`/`redo` from y-prosemirror
+- [ ] Cursor CSS targets `.ProseMirror-yjs-cursor` and `.ProseMirror-yjs-selection`
+- [ ] Every client uses the same schema; `yjs`, `y-prosemirror`, and `prosemirror-*` packages resolve to one copy each
 
 ## Source
 
 - https://docs.yjs.dev/ecosystem/editor-bindings/prosemirror
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/prosemirror - "Step 3: Create a Schema" and "Step 7: Style Remote Cursors" (for Velt-hosted sync, use `@veltdev/prosemirror-crdt`, which re-exports Yjs-aware `undo`/`redo`; see velt-crdt-best-practices)

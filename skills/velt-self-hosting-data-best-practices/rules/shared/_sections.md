@@ -29,14 +29,14 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 4. Additional Providers (provider)
 
 **Impact:** MEDIUM
-**Description:** User, reaction, and recording data providers. User provider is read-only (get only) for PII protection. Reaction and recording providers support full CRUD following the same pattern as comments. All providers share retry and timeout configuration options.
+**Description:** User, reaction, recorder, notification, and activity data providers. User provider is read-only (get only) for PII protection. Reaction and recorder providers support full CRUD following the same pattern as comments. All providers share retry and timeout configuration options; `additionalFields` / `fieldsToRemove` support differs per provider.
 
 ---
 
 ## 5. Backend Implementation (backend)
 
 **Impact:** MEDIUM
-**Description:** Server-side patterns for handling data provider requests. Covers API route structure, database storage with upsert operations and indexing, and S3-compatible object storage for attachments.
+**Description:** Server-side patterns for handling data provider requests. Covers API route structure and request body shapes, authenticating resolver endpoints (`verifyToken`), database storage with upsert operations and indexing, and S3-compatible object storage for attachments.
 
 ---
 
@@ -50,14 +50,15 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 7. Python SDK (python-sdk)
 
 **Impact:** HIGH
-**Description:** Patterns for implementing data-provider backends in Python using the `velt-py` SDK. Covers the `sdk.api.*` REST API backend (no database required), comments / attachments / users / reactions self-hosting handlers, framework integrations (FastAPI / Flask / Django), and the same response-format contract the JS SDK enforces. Use when your provider backend is Python rather than Node.
+**Description:** Patterns for implementing data-provider backends in Python using the `velt-py` 0.2.x SDK (MongoDB or PostgreSQL). Covers the `sdk.api.*` REST API backend (no database required), token generation with `sdk.api.accessControl.generateToken`, comments / attachments / users / reactions self-hosting handlers built with `from_dict`, framework integrations (FastAPI / Flask / Django), and the same response-format contract the JS SDK enforces. Use when your provider backend is Python rather than Node.
 
 **Rules:**
-- `python-rest-api-backend` — Use sdk.api.* for REST API operations without a database
-- `python-comments` — Comments CRUD via sdk.selfHosting.comments
-- `python-attachments` — Attachment upload and delete via sdk.selfHosting.attachments with S3
-- `python-users-reactions` — Users and reactions management via sdk.selfHosting.users/reactions
-- `python-frameworks` — Django, Flask, and FastAPI integration patterns
+- `python-rest-api-backend` - Use sdk.api.* for REST API operations without a database
+- `python-comments` - Comments CRUD via sdk.selfHosting.comments
+- `python-attachments` - Attachment upload and delete via sdk.selfHosting.attachments with S3
+- `python-users-reactions` - Users and reactions management via sdk.selfHosting.users/reactions
+- `python-frameworks` - Django, Flask, and FastAPI integration patterns
+- `python-token` - Generate frontend auth tokens via sdk.api.accessControl.generateToken
 
 ---
 
@@ -65,3 +66,10 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 
 **Impact:** LOW-MEDIUM
 **Description:** Monitoring and troubleshooting data provider events using the SDK subscription API.
+
+---
+
+## 9. Full Self-Hosting (full)
+
+**Impact:** HIGH
+**Description:** Pointers for full self-hosting, where the whole Velt stack (backend, console, SDK files) runs in your own GCP project. Covers telling it apart from partial (data provider) self-hosting, its key constraints (GCP + Firebase GA, AWS and Azure closed beta, agent-driven install, required LLM keys), and wiring the app with `config.selfHosted`. Does not duplicate the install and upgrade runbooks.

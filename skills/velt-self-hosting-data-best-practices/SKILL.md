@@ -1,27 +1,27 @@
 ---
 name: velt-self-hosting-data-best-practices
-description: Velt self-hosting data implementation patterns and best practices for React, Next.js, and web applications. Use when storing sensitive user-generated content (comments, attachments, reactions, recordings, user PII) on your own infrastructure instead of Velt servers, implementing data providers (endpoint-based or function-based), building backend API routes, or debugging data provider events.
+description: Velt self-hosting patterns. Partial self-hosting keeps comments, attachments, reactions, recordings, notifications, activity, and user PII on your infrastructure through VeltProvider dataProviders (endpoint or function based), with backend routes, resolver auth, and the velt-py Python SDK on MongoDB or PostgreSQL. Also distinguishes full self-hosting (the whole Velt stack on your own GCP project) and its config.selfHosted wiring. Use for data providers, resolvers, or self-hosted Velt.
 license: MIT
 metadata:
   author: velt
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Velt Self-Hosting Data Best Practices
 
-Comprehensive implementation guide for Velt's self-hosting data feature in React and Next.js applications. Contains 24 rules across 8 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt self-hosting. Most rules cover **partial self-hosting** (data providers that keep user content and PII on your infrastructure while Velt runs the backend); the Full Self-Hosting category covers running the entire Velt stack in your own cloud project. Contains 27 rules across 9 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
 Reference these guidelines when:
 - Storing sensitive user-generated content on your own infrastructure
-- Configuring VeltProvider dataProviders prop for comments, attachments, reactions, recordings, or users
+- Configuring VeltProvider `dataProviders` (or `Velt.setDataProviders`) for comments, attachments, reactions, recordings, notifications, activity, anonymous users, or users
 - Choosing between endpoint-based (config) and function-based (custom) data providers
-- Building backend API routes to handle Velt data provider requests
-- Implementing database storage patterns (MongoDB, PostgreSQL) for Velt data
+- Building and authenticating backend API routes that handle Velt data provider requests
+- Implementing database storage patterns (MongoDB, PostgreSQL) for Velt data, by hand or with the `velt-py` Python SDK
 - Uploading attachments to S3 or other object storage via multipart/form-data
 - Debugging data provider events with the dataProvider subscription
-- Migrating from Velt-hosted storage to self-hosted storage
+- Deciding between partial and full self-hosting, or wiring an app to a full self-hosted deployment with `config.selfHosted`
 
 ## Rule Categories by Priority
 
@@ -35,56 +35,63 @@ Reference these guidelines when:
 | 6 | Data Types | MEDIUM | `data-` |
 | 7 | Python SDK | HIGH | `python-` |
 | 8 | Debugging | LOW-MEDIUM | `debug-` |
+| 9 | Full Self-Hosting | HIGH | `full-` |
 
 ## Quick Reference
 
 ### 1. Core Setup (CRITICAL)
 
-- `core-provider-setup` — Configure VeltProvider dataProviders prop with correct initialization order
-- `core-response-format` — Return the required response shape from all data provider handlers
-- `core-auth-provider` — Use authProvider on VeltProvider with dataProviders; never call identify()
-- `core-python-sdk-setup` — Install and initialize the Velt Python SDK (velt-py)
+- `core-provider-setup` - Configure VeltProvider dataProviders prop with correct initialization order and provider keys (`recorder`, not `recording`)
+- `core-response-format` - Return the required response shape from all data provider handlers
+- `core-auth-provider` - Use authProvider on VeltProvider with dataProviders; never call identify()
+- `core-python-sdk-setup` - Install `velt-py` with the right extra (`[mongodb]` / `[postgres]`) and initialize REST-only or self-hosting
 
 ### 2. Comment Data Provider (HIGH)
 
-- `comment-endpoint-provider` — Use endpoint-based config for comment data provider
-- `comment-function-provider` — Use function-based comment data provider for full control
+- `comment-endpoint-provider` - Use endpoint-based config for the comment data provider, with async `headers` and `credentials`
+- `comment-function-provider` - Use function-based comment data provider for full control; opt into non-core save events with `additionalSaveEvents`
 
 ### 3. Attachment Data Provider (HIGH)
 
-- `attachment-multipart-provider` — Handle attachment uploads with multipart/form-data
+- `attachment-multipart-provider` - Handle attachment uploads with multipart/form-data
 
 ### 4. Additional Providers (MEDIUM)
 
-- `provider-user-resolver` — Implement read-only user data provider for PII protection
-- `provider-reaction-recording` — Configure reaction and recording data providers
-- `provider-recorder` — Self-host recording data and media files
-- `provider-notification` — Self-host notification data for custom notifications
-- `provider-activity` — Self-host activity log data for custom activities (function-based and endpoint-based DataProvider)
-- `provider-retry-timeout` — Configure retry policies and timeouts per data provider
+- `provider-user-resolver` - Implement read-only user data provider for PII protection (function vs endpoint contracts differ)
+- `provider-reaction-recording` - Configure reaction and recorder data providers and their request shapes
+- `provider-recorder` - Self-host recording data and media files
+- `provider-notification` - Self-host notification data for custom notifications
+- `provider-activity` - Self-host activity log data; `fieldsToRemove` applies to all feature types
+- `provider-retry-timeout` - Configure retry policies and timeouts per data provider; `additionalFields` vs `fieldsToRemove` support matrix
 
 ### 5. Backend Implementation (MEDIUM)
 
-- `backend-api-routes` — Structure backend API routes for data provider endpoints
-- `backend-database-patterns` — Implement database storage with upsert and proper indexing
-- `backend-s3-attachments` — Store and delete attachments in S3-compatible object storage
+- `backend-api-routes` - Structure backend API routes for data provider endpoints with the correct body shapes
+- `backend-verify-resolver-auth` - Authenticate resolver endpoints with `sdk.selfHosting.verifyToken` (Node or Python) before touching data
+- `backend-database-patterns` - Implement database storage with upsert and proper indexing
+- `backend-s3-attachments` - Store and delete attachments in S3-compatible object storage
 
 ### 6. Data Types (MEDIUM)
 
-- `data-types-reference` — Self-hosting provider interfaces, config, and request/response type reference (the SDK ↔ backend contract)
+- `data-types-reference` - Self-hosting provider interfaces, config, and request/response type reference (the SDK to backend contract)
 
 ### 7. Python SDK (HIGH)
 
-- `python-rest-api-backend` — Use sdk.api.* for REST API operations without a database (no MongoDB). Covers the REST services — documents `getDocumentsCount`, users invitation lifecycle, crdt `deleteCrdtData`, workspace extensions (domain requests, API key copy/update, advanced webhooks, `getApiKeyMetadata`), workflow definitions/executions — and the opt-in `filter_unknown_fields` flag on add/update methods
-- `python-comments` — Comments CRUD via sdk.selfHosting.comments
-- `python-attachments` — Attachment upload and delete via sdk.selfHosting.attachments with S3
-- `python-users-reactions` — Users and reactions management via sdk.selfHosting.users/reactions, PartialReactionAnnotation model, and the v0.1.12 `user` → `from_` rename
-- `python-frameworks` — Django, Flask, and FastAPI integration patterns
-- `python-token` — Generate user auth tokens via sdk.selfHosting.token.getToken for frontend authProvider
+- `python-rest-api-backend` - Use sdk.api.* for REST API operations without a database: documented services, Python method names, `filter_unknown_fields`, agent filters, workflow edges
+- `python-comments` - Comments CRUD via sdk.selfHosting.comments with `from_dict` and pass-through responses
+- `python-attachments` - Attachment upload (multipart) and delete via sdk.selfHosting.attachments with S3
+- `python-users-reactions` - Users (`getUsers`, `resolveUserIdsByEmail`) and reactions via sdk.selfHosting, and the v0.1.12 `user` to `from_` rename
+- `python-frameworks` - Django, Flask, and FastAPI integration patterns
+- `python-token` - Generate frontend auth tokens via sdk.api.accessControl.generateToken
 
 ### 8. Debugging (LOW-MEDIUM)
 
-- `debug-data-provider-events` — Monitor data provider events for troubleshooting
+- `debug-data-provider-events` - Monitor data provider events for troubleshooting
+
+### 9. Full Self-Hosting (HIGH)
+
+- `full-vs-partial-self-hosting` - Pick partial (data providers) or full (whole stack on your GCP project) self-hosting first; key full self-hosting constraints
+- `full-selfhosted-sdk-config` - Wire the app with the generated `selfHosted` config, `strict: true`, `proxyDomain`, and a pinned `version`
 
 ## How to Use
 
@@ -93,6 +100,7 @@ Read individual rule files for detailed explanations and code examples:
 ```
 rules/shared/core/core-provider-setup.md
 rules/shared/comment/comment-endpoint-provider.md
+rules/shared/full/full-vs-partial-self-hosting.md
 ```
 
 Each rule file contains:
@@ -103,5 +111,5 @@ Each rule file contains:
 
 ## Compiled Documents
 
-- `AGENTS.md` — Compressed index of all rules with file paths (start here)
-- `AGENTS.full.md` — Full verbose guide with all rules expanded inline
+- `AGENTS.md` - Compressed index of all rules with file paths (start here)
+- `AGENTS.full.md` - Full verbose guide with all rules expanded inline

@@ -219,6 +219,8 @@ export default {
 </html>
 ```
 
+**SDK-wide options:** `initVelt(apiKey, config)` (and `Velt.init(apiKey, config)`) accept the same config object React passes as `VeltProvider`'s `config` prop, for example `{ featureAllowList: ['comment', 'presence'], proxyConfig: { ... } }`.
+
 **Framework Comparison:**
 
 | Framework | Init Method | Component Syntax | Config Required |
@@ -235,4 +237,5 @@ export default {
 - [ ] No "unknown element" warnings in browser console
 
 **Source Pointers:**
-- `https://docs.velt.dev/get-started/quickstart` - Step 4: Initialize Velt (Angular, Vue.js, HTML tabs)
+- `https://docs.velt.dev/get-started/quickstart` - Step 4: Initialize Velt (Angular, Vue.js, HTML tabs); Step 5: Authenticate Users
+- `https://docs.velt.dev/api-reference/sdk/api/api-methods#initconfig` - initConfig() / get Velt Client

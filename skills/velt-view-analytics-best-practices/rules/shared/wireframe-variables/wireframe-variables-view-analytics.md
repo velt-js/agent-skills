@@ -40,7 +40,16 @@ componentConfig.customButtonAdded      boolean                       A custom tr
 componentConfig.isPhone                boolean                       Mobile-layout flag.
 ```
 
-**Custom trigger badge (React):**
+**Incorrect (misspelled flag and missing prefix):**
+
+```html
+<velt-view-analytics-wireframe>
+  <!-- BUG: threadsVisible does not exist (it is treadsVisible), and todayViewsCount needs the componentConfig. prefix -->
+  <span velt-class="'open': {componentConfig.threadsVisible}"><velt-data field="todayViewsCount"></velt-data></span>
+</velt-view-analytics-wireframe>
+```
+
+**Correct (React): custom trigger badge:**
 
 ```tsx
 import { VeltViewAnalyticsWireframe } from '@veltdev/react';
@@ -57,7 +66,7 @@ import { VeltViewAnalyticsWireframe } from '@veltdev/react';
 </VeltViewAnalyticsWireframe>
 ```
 
-**Custom trigger badge (Other Frameworks):**
+**Correct (Other Frameworks): custom trigger badge:**
 
 ```html
 <velt-view-analytics-wireframe>

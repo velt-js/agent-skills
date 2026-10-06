@@ -1,91 +1,82 @@
 ---
-title: Add VeltCursor Component for Real-Time Cursor Tracking
+title: Add VeltCursor Once Near the App Root
 impact: CRITICAL
-impactDescription: VeltCursor must be placed inside the collaborative content area, not in the toolbar
-tags: cursor, setup, VeltCursor, canvas, whiteboard, placement
+impactDescription: VeltCursor is Velt-positioned and mount-once; extra instances are inert and placement does not confine cursors
+tags: cursor, setup, VeltCursor, placement, mount-once, allowedElementIds, featureAllowList
 ---
 
-## Add VeltCursor Inside the Content Area
+## Add VeltCursor Once Near the App Root
 
-`VeltCursor` enables real-time cursor tracking so users can see each other's mouse positions. Place it inside the collaborative content area where users interact spatially -- not in the toolbar or header (that is where `VeltPresence` goes).
+`VeltCursor` renders the live cursors of other users on the same document and location. Add it once, at the root of your app inside `VeltProvider`. Velt positions every remote cursor as an overlay and adapts it to each viewer's screen size and content. To limit cursors to a region (a canvas, not the toolbar), use `allowedElementIds`, not placement.
 
 **Why this matters:**
 
-Cursor tracking is essential for spatial collaboration apps like whiteboards, canvas editors, design tools, and ReactFlow diagrams. Without `VeltCursor`, users cannot see where others are pointing or working. Placing it in the wrong container (e.g., toolbar) causes cursors to render in a non-interactive area.
+Only the first `velt-cursor` element in the DOM subscribes to the live-cursor stream; additional instances are inert. Mounting `VeltCursor` inside a container does not confine cursors to it.
 
-**React: Basic cursor setup**
+**Incorrect (one cursor per container, expecting placement to scope cursors):**
 
 ```jsx
-"use client";
-import { VeltCursor } from "@veltdev/react";
-
-function CanvasArea() {
-  return (
-    <main className="canvas-container">
-      <VeltCursor />
-      {/* Your collaborative content here */}
-    </main>
-  );
-}
+<aside className="toolbar"><VeltCursor /></aside>
+<main className="canvas"><VeltCursor /></main>
+{/* Second instance does nothing; cursors still show over the toolbar */}
 ```
 
-**React: Full layout with presence in toolbar and cursor in canvas**
+**Correct (React / Next.js):**
 
 ```jsx
 "use client";
-import { VeltPresence, VeltCursor } from "@veltdev/react";
+import { VeltProvider, VeltCursor, VeltPresence } from "@veltdev/react";
 
-function CollaborativeApp() {
+export default function App({ authProvider, children }) {
   return (
-    <>
+    <VeltProvider apiKey={process.env.NEXT_PUBLIC_VELT_API_KEY} authProvider={authProvider}>
+      <VeltCursor allowedElementIds={JSON.stringify(["canvas"])} />
       <header className="toolbar">
-        <h1>My Whiteboard</h1>
         <VeltPresence />
       </header>
-      <main className="canvas">
-        <VeltCursor />
-        {/* Canvas content, ReactFlow, design surface */}
-      </main>
-    </>
+      <main id="canvas">{children}</main>
+    </VeltProvider>
   );
 }
 ```
 
-**HTML: Basic cursor setup**
+**Correct (Other Frameworks):**
 
 ```html
-<div class="canvas-container">
-  <velt-cursor></velt-cursor>
-  <!-- Your collaborative content here -->
-</div>
+<body>
+  <velt-cursor allowed-element-ids='["canvas"]'></velt-cursor>
+  <header class="toolbar"><velt-presence></velt-presence></header>
+  <main id="canvas"></main>
+</body>
 ```
 
-**HTML: Full layout**
+**Modular SDK (v6) note:**
 
-```html
-<header class="toolbar">
-  <velt-presence></velt-presence>
-</header>
-<main class="canvas">
-  <velt-cursor></velt-cursor>
-</main>
+If you pass `featureAllowList` in the init config, include `'cursor'`; otherwise `VeltCursor` can be suppressed. Calling `getCursorElement()` or `preloadCursor()` auto-enables an omitted feature, but listing it is the reliable fix.
+
+```jsx
+<VeltProvider apiKey="API_KEY" config={{ featureAllowList: ["cursor", "presence"] }}>
+  {/* ... */}
+</VeltProvider>
 ```
 
 **Placement guidelines:**
 
-- Place `VeltCursor` inside the content area where users interact spatially (canvas, whiteboard, editor)
-- Place `VeltPresence` in the toolbar or header -- never in the same container as `VeltCursor`
-- `VeltCursor` works with default config (no props needed for basic usage)
-- Best for: canvas apps, whiteboards, design tools, ReactFlow diagrams, collaborative documents
-- `VeltCursor` requires `VeltProvider` as an ancestor and a valid authenticated user
+- Mount exactly one `VeltCursor`, near the root
+- Use `allowedElementIds` to confine cursors to collaborative regions
+- `VeltCursor` needs no props for basic usage
+- Cursors require an identified (non-anonymous) user; your own cursor is not shown back to you
+- Best for canvas apps, whiteboards, design tools, and ReactFlow diagrams; text editors use CRDT carets instead
 
 **Verification:**
-- [ ] `VeltCursor` is rendered inside the collaborative content area (not toolbar)
-- [ ] `VeltPresence` is in the toolbar/header, separate from cursor area
-- [ ] `VeltProvider` wraps the entire app with valid `apiKey` and `authProvider`
-- [ ] Multiple users see each other's cursors in the content area
+- [ ] Exactly one `VeltCursor` / `<velt-cursor>` is mounted, inside `VeltProvider`
+- [ ] `allowedElementIds` (stringified on the component) is set when cursors should stay in one region
+- [ ] `featureAllowList`, if set, includes `'cursor'`
+- [ ] Two different users on the same document see each other's cursors
 - [ ] `'use client'` directive is present in Next.js components
 
 **Source Pointers:**
-- `https://docs.velt.dev/cursor/setup` - Cursor setup guide
-- `https://docs.velt.dev/presence/setup` - Presence setup guide
+- https://docs.velt.dev/realtime-collaboration/cursors/setup - "Cursors Setup"
+- https://docs.velt.dev/realtime-collaboration/cursors/customize-behavior#allowedelementids - "allowedElementIds"
+- https://docs.velt.dev/ui-customization/reference/behaviors/presence-reactions - "VeltCursor" (positioning, mount-once)
+- https://docs.velt.dev/api-reference/sdk/models/data-models#config - `Config.featureAllowList`

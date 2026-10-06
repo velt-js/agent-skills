@@ -13,13 +13,20 @@ Three knobs cover the active configuration surface, plus one important known lim
 
 Constrain the Arrows feature to a specific set of DOM element IDs. Anywhere outside this list, the arrow tool is inert. There are two equivalent forms:
 
-**As a `<VeltArrows>` prop (React / Next.js):**
+**Incorrect (deep CSS selector into the shadow root):**
+
+```css
+/* BUG: does not cross the Shadow DOM boundary of <velt-arrow-tool> */
+velt-arrow-tool button svg { width: 1.5rem; }
+```
+
+**Correct (React / Next.js): `allowedElementIds` as a `<VeltArrows>` prop:**
 
 ```tsx
 <VeltArrows allowedElementIds={['canvas-region', 'preview-pane']} />
 ```
 
-**As a `<velt-arrows>` attribute (Other Frameworks):**
+**Correct (Other Frameworks): `allowed-element-ids` attribute:**
 
 ```html
 <velt-arrows allowed-element-ids="['canvas-region', 'preview-pane']"></velt-arrows>
@@ -43,7 +50,7 @@ The prop form is declarative; the method form is useful when you need to change 
 
 ### 2. `darkMode` — enable dark theme
 
-`darkMode` defaults to `false`.
+`darkMode` defaults to `false`. The Arrows customize-behavior page documents it on `<VeltArrows>`; the UI customization reference also lists `darkMode` as the typed prop on `VeltArrowTool`.
 
 **React / Next.js:**
 
@@ -102,7 +109,7 @@ Arrows do **not** currently expose `<velt-...-wireframe>` tags. The `velt-data` 
 - Replace the tool button entirely via the child-slot pattern
 - Style the arrow visual via the `--velt-arrow-z-index` CSS variable (and Global Styles in the docs)
 
-Do NOT suggest a `<velt-arrow-pin-wireframe>` or similar — those tags don't exist yet.
+Do NOT suggest a `<velt-arrow-pin-wireframe>` or similar — those tags don't exist yet. There are also no headless hooks for Arrows. Don't patch Velt's internal arrow DOM to force a layout; internal DOM can change in any release, so stick to documented parts, CSS variables, and props.
 
 **Forward-compatibility — subcomponents and `componentConfig` variables (documented, not yet wireable):**
 
@@ -144,3 +151,4 @@ Treat this list as forward-compat reference only — you cannot read these varia
 - https://docs.velt.dev/ui-customization/features/async/arrows/variables — redirects to Global Styles
 - https://docs.velt.dev/ui-customization/styling — `--velt-arrow-z-index` CSS variable
 - https://docs.velt.dev/ui-customization/features/async/arrows/slots — named `slot="button"` form
+- https://docs.velt.dev/ui-customization/features/annotations-tags-arrows-areas — Tags / Arrows / Areas customization surface (no wireframe slots, no hooks; CSS and props)

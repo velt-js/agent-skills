@@ -18,21 +18,22 @@ For the structural catalog of which recorder wireframe tags exist, see `ui/ui-wi
 **Incorrect (rebuilding recorder state from hooks and gating slots from the host component):**
 
 ```jsx
-import { useRecorderEventCallback, useVeltClient } from '@veltdev/react';
-import { VeltRecorderButtonWireframe } from '@veltdev/react';
+import { useRecorderEventCallback, VeltWireframe, VeltRecorderAllToolWireframe } from '@veltdev/react';
 
 function RecordButton() {
-  const [isRecording, setIsRecording] = useState(false);
   // Reimplements recordingInProgress + screen-sharing capability the wireframe already exposes.
-  useRecorderEventCallback('RECORDING_STARTED', () => setIsRecording(true));
-  useRecorderEventCallback('RECORDING_ENDED', () => setIsRecording(false));
+  const started = useRecorderEventCallback('recordingStarted');
+  const stopped = useRecorderEventCallback('recordingStopped');
+  const isRecording = !!started && !stopped;
   const canScreen = !!navigator.mediaDevices?.getDisplayMedia;
   return (
-    <VeltRecorderButtonWireframe>
-      <button className={isRecording ? 'rec on' : 'rec'}>
-        {isRecording ? 'Stop' : (canScreen ? 'Record screen' : 'Record')}
-      </button>
-    </VeltRecorderButtonWireframe>
+    <VeltWireframe>
+      <VeltRecorderAllToolWireframe>
+        <button className={isRecording ? 'rec on' : 'rec'}>
+          {isRecording ? 'Stop' : (canScreen ? 'Record screen' : 'Record')}
+        </button>
+      </VeltRecorderAllToolWireframe>
+    </VeltWireframe>
   );
 }
 ```
@@ -40,33 +41,39 @@ function RecordButton() {
 **Correct (read the slot's injected variables via `velt-data` / `velt-if` / `velt-class`):**
 
 ```jsx
-import { VeltRecorderButtonWireframe } from '@veltdev/react';
+import { VeltWireframe, VeltRecorderAllToolWireframe, VeltData } from '@veltdev/react';
 
-<VeltRecorderButtonWireframe>
-  <button
-    className="rec"
-    veltClass="'is-recording': {componentConfigSignal.recordingInProgress}, 'is-disabled': {componentConfigSignal.disabled}, 'theme-dark': {componentConfigSignal.darkMode}">
-    <span veltIf="!{componentConfigSignal.recordingInProgress}">
-      <VeltData field="componentConfigSignal.buttonLabel" />
-    </span>
-    <span veltIf="{componentConfigSignal.recordingInProgress}">Recording…</span>
-  </button>
-</VeltRecorderButtonWireframe>
+<VeltWireframe>
+  <VeltRecorderAllToolWireframe>
+    <button
+      className="rec"
+      veltClass="'is-recording': {componentConfigSignal.recordingInProgress}, 'is-disabled': {componentConfigSignal.disabled}, 'theme-dark': {componentConfigSignal.darkMode}">
+      <span veltIf="!{componentConfigSignal.recordingInProgress}">
+        <VeltData field="componentConfigSignal.buttonLabel" />
+      </span>
+      <span veltIf="{componentConfigSignal.recordingInProgress}">Recording…</span>
+    </button>
+  </VeltRecorderAllToolWireframe>
+</VeltWireframe>
 ```
 
 **HTML / web-component equivalent:**
 
 ```html
-<velt-recorder-button-wireframe>
-  <button class="rec"
-          velt-class="'is-recording': {componentConfigSignal.recordingInProgress}">
-    <span velt-if="!{componentConfigSignal.recordingInProgress}">
-      <velt-data field="componentConfigSignal.buttonLabel"></velt-data>
-    </span>
-    <span velt-if="{componentConfigSignal.recordingInProgress}">Recording…</span>
-  </button>
-</velt-recorder-button-wireframe>
+<velt-wireframe style="display:none;">
+  <velt-recorder-all-tool-wireframe>
+    <button class="rec"
+            velt-class="'is-recording': {componentConfigSignal.recordingInProgress}">
+      <span velt-if="!{componentConfigSignal.recordingInProgress}">
+        <velt-data field="componentConfigSignal.buttonLabel"></velt-data>
+      </span>
+      <span velt-if="{componentConfigSignal.recordingInProgress}">Recording…</span>
+    </button>
+  </velt-recorder-all-tool-wireframe>
+</velt-wireframe>
 ```
+
+The `recorder-button` element has no direct wireframe slot of its own; customize it through its per-type tool tags (`recorder-audio-tool`, `recorder-video-tool`, `recorder-screen-tool`, `recorder-all-tool`).
 
 ### Naming conflicts — use the full path
 
@@ -85,7 +92,7 @@ Six names collide with mappings used elsewhere. Inside a Recorder wireframe, pre
 
 The recorder injects a single flat config object; the variables exposed depend on which wireframe tag the slot lives inside.
 
-**Recorder Button** (`<velt-recorder-button-wireframe>` and its per-type children — `recorder-audio-tool`, `recorder-video-tool`, `recorder-screen-tool`, `recorder-all-tool`):
+**Recorder Button** (no direct slot; bind inside its per-type tool tags `recorder-audio-tool`, `recorder-video-tool`, `recorder-screen-tool`, `recorder-all-tool`):
 
 | Variable | Type | Notes |
 |---|---|---|
@@ -143,7 +150,6 @@ The recorder feature has a large set of overridable surfaces. They are grouped h
 
 | Wireframe tag | Notes |
 |---|---|
-| `<velt-recorder-button-wireframe>` | Root trigger. |
 | `<velt-recorder-audio-tool-wireframe>` | Audio-only variant. |
 | `<velt-recorder-video-tool-wireframe>` | Video-only variant. |
 | `<velt-recorder-screen-tool-wireframe>` | Screen-only variant. Gate on `{componentConfigSignal.screenSharingSupported}`. |
@@ -205,28 +211,31 @@ The recorder feature has a large set of overridable surfaces. They are grouped h
 A custom record button paired with a custom playback overlay (scrubber + delete):
 
 ```jsx
-<VeltRecorderButtonWireframe>
-  <button className="my-record"
-          veltClass="'is-recording': {componentConfigSignal.recordingInProgress}">
-    <span veltIf="!{componentConfigSignal.recordingInProgress}">
-      <VeltData field="componentConfigSignal.buttonLabel" />
-    </span>
-    <span veltIf="{componentConfigSignal.recordingInProgress}">Stop</span>
-  </button>
-</VeltRecorderButtonWireframe>
+<VeltWireframe>
+  <VeltRecorderAllToolWireframe>
+    <button className="my-record"
+            veltClass="'is-recording': {componentConfigSignal.recordingInProgress}">
+      <span veltIf="!{componentConfigSignal.recordingInProgress}">
+        <VeltData field="componentConfigSignal.buttonLabel" />
+      </span>
+      <span veltIf="{componentConfigSignal.recordingInProgress}">Stop</span>
+    </button>
+  </VeltRecorderAllToolWireframe>
 
-<VeltRecorderPlayerWireframe>
-  <VeltRecorderPlayerVideoWireframe><video /></VeltRecorderPlayerVideoWireframe>
-  <VeltRecorderPlayerOverlayWireframe>
-    <VeltRecorderPlayerTimeWireframe>
-      <VeltData field="componentConfigSignal.currentTimeValue" />
-      /
-      <VeltData field="componentConfigSignal.totalTimeValue" />
-    </VeltRecorderPlayerTimeWireframe>
-    <VeltRecorderPlayerTimelineWireframe />
-    <VeltRecorderPlayerDeleteWireframe />
-  </VeltRecorderPlayerOverlayWireframe>
-</VeltRecorderPlayerWireframe>
+  <VeltRecorderPlayerWireframe>
+    <VeltRecorderPlayerWireframe.VideoContainer>
+      <VeltRecorderPlayerWireframe.VideoContainer.Video />
+      <VeltRecorderPlayerWireframe.VideoContainer.Overlay />
+      <VeltRecorderPlayerWireframe.VideoContainer.Time>
+        <VeltData field="componentConfigSignal.currentTimeValue" />
+        /
+        <VeltData field="componentConfigSignal.totalTimeValue" />
+      </VeltRecorderPlayerWireframe.VideoContainer.Time>
+      <VeltRecorderPlayerWireframe.VideoContainer.Timeline />
+      <VeltRecorderPlayerWireframe.VideoContainer.Delete />
+    </VeltRecorderPlayerWireframe.VideoContainer>
+  </VeltRecorderPlayerWireframe>
+</VeltWireframe>
 ```
 
 ### Common mistakes — DO NOT

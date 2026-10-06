@@ -8,25 +8,25 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 1. Core Setup (core)
 
 **Impact:** CRITICAL
-**Description:** Foundational requirements for every server-side Velt integration. Covers JWT token generation for frontend authentication (signing key, 48h expiry, refresh flow) and the mandatory REST API auth contract — every request must include both `x-velt-api-key` and `x-velt-auth-token` headers. Get these wrong and every subsequent call fails.
+**Description:** Foundational requirements for every server-side Velt integration. Covers the REST auth contract (API-key-level `x-velt-api-key` + `x-velt-auth-token` vs. workspace-level `x-velt-workspace-id` + `x-velt-workspace-auth-token`, the `{ data }` request wrapper, and the `result` / `error` response envelope) and JWT generation with `/v2/auth/generate_token` (permissions resources, `accessRole`, 48h expiry, `authProvider` refresh) plus the permissions endpoints. Get these wrong and every subsequent call fails.
 
 ---
 
 ## 2. REST API Endpoints (rest-api)
 
 **Impact:** HIGH
-**Description:** CRUD patterns for the Velt REST API v2 surface — comment annotations and comments, notifications and notification config, users (add / get / update / delete plus GDPR data operations), documents / organizations / folders, activity logs / CRDT documents, agent execution listing, Memory judgments / knowledge / alerts, and the Approval Engine pointer. All endpoints are POST and use the `https://api.velt.dev/v2` base URL; endpoint identity is verbatim (path and version prefix matter). Includes request and response shape guidance, including the GET response envelope (annotation-level fields, expanded `reactionAnnotations` objects vs. `reactionAnnotationIds`, timestamp formats), idempotency guidance, and webhook signature verification patterns.
+**Description:** CRUD patterns for the Velt REST API v2 surface: comment annotations and comments, notifications and per-user notification config, users and GDPR data operations, organizations / documents / folders / user groups / domains (with per-item `code` partial-failure handling), activity logs / CRDT data / live state, workspace and API key provisioning (production keys, data residency regions), advanced webhook management, review agents (CRUD and versions, async executions with page lists and multi-agent runs, built-in agents and per-run options, groups and prompt tools), and Memory (search / ask / suggest / judgments, knowledge ingestion, insights and alerts), plus the Approval Engine pointer. All endpoints are POST under `https://api.velt.dev/v2`; endpoint paths and payload shapes are verbatim.
 
 ---
 
 ## 3. Webhooks (webhooks)
 
 **Impact:** MEDIUM
-**Description:** Inbound webhook event handlers for comment events, huddle events, and CRDT updates. Covers v1 webhook setup (basic) and v2 / Svix enterprise webhooks (advanced) with retries, transformations, and signature verification. Payload shape is versioned — never silently upgrade a v1 example to v2 prose.
+**Description:** Inbound webhook handling for comment, huddle, CRDT, recorder, and workflow events. Covers basic webhooks (`Basic` auth token header, action types, base64 encoding, RSA-wrapped AES payload encryption, private-comment `accessDeniedUsers`) and advanced Svix webhooks (dot-notation event types, HMAC-SHA256 signature verification, retries, transformations). Payload shape is versioned; never silently upgrade a basic example to the advanced format.
 
 ---
 
 ## 4. Debugging (debug)
 
 **Impact:** LOW-MEDIUM
-**Description:** Troubleshooting for common backend integration failures — missing or swapped auth headers, expired JWT tokens, wrong endpoint version prefix, webhook signature mismatch, and response-shape drift after API updates.
+**Description:** Troubleshooting for common backend integration failures: mismatched auth header pairs, missing advanced-queries prerequisite, bulk document partial failures, expired JWT tokens, agent status misreads, Memory response-shape and scoping mistakes, and webhooks that never arrive.

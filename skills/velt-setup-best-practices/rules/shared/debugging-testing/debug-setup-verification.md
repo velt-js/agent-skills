@@ -16,7 +16,7 @@ Use this checklist to systematically verify your Velt setup. Check each item in 
 ```jsx
 // Check packages are installed correctly
 // In terminal:
-npm list @veltdev/react  // Should show version ^4.x.x
+npm list @veltdev/react  // Should show the installed version (v6.x for the modular SDK)
 
 // In your code, this import should work:
 import { VeltProvider, VeltComments, useVeltClient } from "@veltdev/react";
@@ -132,7 +132,41 @@ export function VeltInitializeDocument() {
 - [ ] No React errors in console about Velt components
 - [ ] Comments sidebar appears (if VeltCommentsSidebar is used)
 
-### 7. Full Setup Debug Component
+### 7. Use Velt's Built-in Diagnostics
+
+```jsx
+// React: inside a child component of VeltProvider
+import { useEffect } from "react";
+import { useVeltClient, useVeltInitState } from "@veltdev/react";
+
+export function VeltDiagnostics() {
+  const { client } = useVeltClient();
+  const veltInitState = useVeltInitState(); // true once user AND document are initialized
+
+  useEffect(() => {
+    if (!client) return;
+    client.fetchDebugInfo().then((info) => console.log("Velt debug info:", info));
+    const errorSub = client.on("error").subscribe((error) => console.log("Velt error:", error));
+    return () => errorSub?.unsubscribe();
+  }, [client]);
+
+  return null;
+}
+```
+
+```js
+// Browser console or other frameworks
+await Velt.getMetadata();                    // Currently set organization, document, location
+const info = await Velt.fetchDebugInfo();    // SDK version, apiKey, user, organizationId, documentId, ...
+Velt.getVeltInitState().subscribe((ready) => console.log("Velt ready:", ready));
+```
+
+- `getMetadata()` returns the organization, document, and location you set. An error or `null` means initialization failed.
+- `fetchDebugInfo()` (one-time) and `getDebugInfo()` (subscription) return `VeltDebugInfo`. The Velt DevTools Chrome extension shows the same data.
+- Subscribe to the `error` event to see `token_expired` and other auth errors.
+- `disableLogs()` controls SDK console verbosity; do not suppress logs while debugging setup.
+
+### 8. Full Setup Debug Component
 
 ```jsx
 // components/velt/VeltDebug.tsx - Add temporarily to debug
@@ -176,4 +210,7 @@ export function VeltDebug() {
 - [ ] Presence shows other users
 
 **Source Pointers:**
-- `https://docs.velt.dev/get-started/quickstart` - Setup steps to verify
+- `https://docs.velt.dev/get-started/quickstart` - Step 8: Verify Setup
+- `https://docs.velt.dev/get-started/advanced#getveltinitstate` - getVeltInitState()
+- `https://docs.velt.dev/get-started/advanced#fetchdebuginfo` - fetchDebugInfo() / getDebugInfo()
+- `https://docs.velt.dev/get-started/advanced#event-subscriptions` - Event Subscriptions (`error`, `initUpdate`)

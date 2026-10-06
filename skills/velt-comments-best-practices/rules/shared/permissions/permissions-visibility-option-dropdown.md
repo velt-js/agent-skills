@@ -150,6 +150,8 @@ interface VisibilityOptionClickedEvent {
 
 **Key Behaviors:**
 
+- Enable **Private Comments** in the Velt Console first. Without it, the "Visible to" dropdown does not filter the audience: comments stay visible to everyone on the document even after a user picks a non-public option.
+- Users can also change visibility after submission from the thread options menu. Supply the "Selected Teams" options with `contactElement.updateOrgList({ orgList })`.
 - The visibility banner is hidden by default (`visibilityOptions={false}`). It must be explicitly enabled via the prop or `enableVisibilityOptions()`.
 - The `visibilityOptionClicked` event fires each time the user selects an option — not on submission.
 - When `visibility === 'restrictedSelectedPeople'`, the event includes a `users` array with the selected user objects. For other visibility types, `users` is `undefined`.
@@ -178,6 +180,6 @@ interface VisibilityOptionClickedEvent {
 - [ ] Non-React subscriptions call `.unsubscribe()` when the listener is destroyed
 
 **Source Pointers:**
-- https://docs.velt.dev/async-collaboration/comments/customize-behavior/visibility - Comment visibility options and banner
-- https://docs.velt.dev/api-reference/sdk/api/elements/comment-element - `commentElement` method reference
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#visibilityoptions - visibilityOptions banner
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#getcommentelement - `getCommentElement()` reference
 - https://docs.velt.dev/api-reference/sdk/api/react-hooks - `useCommentEventCallback` hook

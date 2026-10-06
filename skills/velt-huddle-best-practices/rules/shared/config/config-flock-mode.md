@@ -13,7 +13,13 @@ Flock mode enables a "Follow Me" experience where clicking a user's avatar durin
 
 Without flock mode, huddle participants must manually navigate to stay in sync with a presenter. Flock mode automates this, ensuring all followers see exactly what the presenter sees as they move through the document.
 
-**React: Enable via prop**
+**Incorrect (expecting avatar clicks to follow without enabling it):**
+
+```jsx
+<VeltHuddle /> {/* flockModeOnAvatarClick defaults to false; avatar clicks do nothing special */}
+```
+
+**Correct (React: enable via prop):**
 
 ```jsx
 "use client";
@@ -52,10 +58,18 @@ function FlockModeToggle() {
 }
 ```
 
-**HTML: Flock mode configuration**
+**Other Frameworks: Flock mode configuration**
 
 ```html
-<velt-huddle flock-mode-on-avatar-click="true"></velt-huddle>
+<!-- Attribute spelling as documented on the huddle Customize Behavior page -->
+<velt-huddle flock-mode-onavatar-click="true"></velt-huddle>
+```
+
+```js
+// API alternative (avoids attribute-spelling issues)
+const huddleElement = Velt.getHuddleElement();
+huddleElement.enableFlockModeOnAvatarClick();
+huddleElement.disableFlockModeOnAvatarClick();
 ```
 
 **Key behaviors:**
@@ -63,8 +77,9 @@ function FlockModeToggle() {
 - When enabled, clicking a participant's avatar in the huddle UI will follow their navigation
 - The follower's view automatically scrolls or navigates to match the leader's position
 - Any participant can become the leader — simply click their avatar to follow them
-- Click your own avatar or use a control to stop following
-- Works with document locations and page navigation
+- Default is `false`
+- To stop following, call `stopFollowingUser()` on the presence element (see the flock mode docs)
+- For SPA routing of followers, configure `onNavigate` / `defaultFlockNavigation` on `VeltPresence` (see `velt-presence-best-practices`)
 
 **Use cases:**
 
@@ -76,7 +91,9 @@ function FlockModeToggle() {
 - [ ] `flockModeOnAvatarClick={true}` is set on `VeltHuddle`
 - [ ] Clicking a participant's avatar during huddle follows their navigation
 - [ ] Followers see the same document section as the leader
-- [ ] Following stops when the user clicks their own avatar or navigates independently
+- [ ] Following can be stopped (e.g. a button calling `stopFollowingUser()`)
 
 **Source Pointers:**
-- `https://docs.velt.dev/huddle/customize-behavior` - Huddle flock mode
+- https://docs.velt.dev/realtime-collaboration/huddle/customize-behavior#flockmodeonavatarclick - "flockModeOnAvatarClick"
+- https://docs.velt.dev/realtime-collaboration/flock-mode/customize-behavior#stopfollowinguser - "stopFollowingUser()"
+- https://docs.velt.dev/ui-customization/reference/behaviors/recorder-huddle - "VeltHuddle" (`flockModeOnAvatarClick` default)

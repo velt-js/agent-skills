@@ -1,103 +1,95 @@
 ---
-title: Use VeltCommentDialogAgentSuggestion Primitives for Custom AI Suggestion UIs
+title: Customize the Suggestion Card with Exported Primitives and Wireframes Only
 impact: MEDIUM
-impactDescription: Agent suggestion primitives enable fully custom accept/reject UIs for AI-generated suggestions within comment dialogs
-tags: agent-suggestion, VeltCommentDialogAgentSuggestion, primitives, accept, reject, banner, resolution, AI, suggestions
+impactDescription: Importing a primitive that @veltdev/react does not export breaks the build; use the shipped suggestion action primitives and wireframe slots instead
+tags: agent-suggestion, suggestion, VeltCommentDialogSuggestionActions, VeltCommentDialogSuggestionActionAccept, VeltCommentDialogSuggestionActionReject, VeltCommentDialogAgentSuggestion, wireframe, primitives, accept, reject, banner, acceptSuggestion, rejectSuggestion, beta
 ---
 
-## Use VeltCommentDialogAgentSuggestion Primitives for Custom AI Suggestion UIs
+## Customize the Suggestion Card with Exported Primitives and Wireframes Only
 
-The `VeltCommentDialogAgentSuggestion*` primitive family provides 21 composable components for building custom UIs around AI agent suggestions within comment dialogs. These are used when suggestions are created via the Velt Suggestions API and rendered in comment threads.
+Suggestion annotations (`type: 'suggestion'`, from agents or humans) render as a suggestion card with Accept / Reject controls and, once resolved, a resolution banner. The generated primitives catalog is the source of truth for what exists: the `VeltCommentDialogAgentSuggestion*` family (29 components) is **Beta and not exported by `@veltdev/react` yet**, so importing one today fails. Earlier names such as `VeltCommentDialogAgentSuggestionActionsActionAccept` or `VeltCommentDialogAgentSuggestionHeaderMenu` never existed.
 
-**Component hierarchy:**
-
-```
-VeltCommentDialogAgentSuggestionBanner          — resolution banner (after accept/reject)
-├── VeltCommentDialogAgentSuggestionBannerAvatar
-│   ├── VeltCommentDialogAgentSuggestionBannerAvatarUserImage
-│   └── VeltCommentDialogAgentSuggestionBannerAvatarStatusIcon
-├── VeltCommentDialogAgentSuggestionBannerLabel
-├── VeltCommentDialogAgentSuggestionBannerSeparator
-├── VeltCommentDialogAgentSuggestionBannerResolverUserName
-└── VeltCommentDialogAgentSuggestionBannerTimestamp
-
-VeltCommentDialogAgentSuggestionHeaderTimestamp  — relative time in suggestion header
-VeltCommentDialogAgentSuggestionHeaderMenu       — overflow menu (3-dot)
-├── VeltCommentDialogAgentSuggestionHeaderMenuTrigger
-└── VeltCommentDialogAgentSuggestionHeaderMenuContent
-    └── VeltCommentDialogAgentSuggestionHeaderMenuContentItem
-        ├── VeltCommentDialogAgentSuggestionHeaderMenuContentItemIcon
-        └── VeltCommentDialogAgentSuggestionHeaderMenuContentItemLabel
-
-VeltCommentDialogAgentSuggestionBody             — suggestion title + content
-VeltCommentDialogAgentSuggestionFooter           — footer container
-└── VeltCommentDialogAgentSuggestionFooterOpenComment  — navigate to full thread
-
-VeltCommentDialogAgentSuggestionActions          — accept/reject button group
-├── VeltCommentDialogAgentSuggestionActionsActionAccept
-└── VeltCommentDialogAgentSuggestionActionsActionReject
-```
-
-**Usage pattern — Context Wrapper (recommended):**
-
-All primitives accept `annotationId` either directly or inherit it from `VeltCommentDialogContextWrapper`:
+**Incorrect (importing the unexported Beta family or invented names):**
 
 ```jsx
-<VeltCommentDialogContextWrapper annotationId="abc123">
-  <VeltCommentDialogAgentSuggestionBody />
-  <VeltCommentDialogAgentSuggestionActions>
-    <VeltCommentDialogAgentSuggestionActionsActionAccept />
-    <VeltCommentDialogAgentSuggestionActionsActionReject />
-  </VeltCommentDialogAgentSuggestionActions>
-  <VeltCommentDialogAgentSuggestionBanner />
-</VeltCommentDialogContextWrapper>
+import {
+  VeltCommentDialogAgentSuggestionBody,               // Beta: not exported yet
+  VeltCommentDialogAgentSuggestionActionsActionAccept, // never existed
+} from '@veltdev/react';
 ```
 
-**Usage pattern — Standalone (ID-based):**
+**Correct (exported suggestion action primitives):**
 
 ```jsx
-<VeltCommentDialogAgentSuggestionBody annotationId="abc123" />
-<VeltCommentDialogAgentSuggestionActions annotationId="abc123" />
+import {
+  VeltCommentDialogSuggestionActions,
+  VeltCommentDialogSuggestionActionAccept,
+  VeltCommentDialogSuggestionActionReject,
+} from '@veltdev/react';
+
+function SuggestionControls({ annotationId }) {
+  return (
+    <VeltCommentDialogSuggestionActions annotationId={annotationId}>
+      <VeltCommentDialogSuggestionActionAccept annotationId={annotationId} />
+      <VeltCommentDialogSuggestionActionReject annotationId={annotationId} />
+    </VeltCommentDialogSuggestionActions>
+  );
+}
 ```
 
-**Common inputs (inherited by all primitives):**
-
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `annotationId` | `string` | - | Required in standalone mode; inherited from context wrapper |
-| `defaultCondition` | `boolean` | `undefined` | When false, always shows (bypasses SDK show/hide logic) |
-| `inlineCommentSectionMode` | `boolean` | `false` | Inline comment section mode |
-| `commentPinSelected` | `boolean` | `false` | Comment pin selected state |
-| `fullExpanded` | `boolean` | `false` | Full expansion state |
-
-**Custom resolution banner example:**
+**Correct (custom buttons that resolve the suggestion through the API):**
 
 ```jsx
-<VeltCommentDialogAgentSuggestionBanner annotationId="abc123">
-  <VeltCommentDialogAgentSuggestionBannerAvatar>
-    <VeltCommentDialogAgentSuggestionBannerAvatarUserImage />
-    <VeltCommentDialogAgentSuggestionBannerAvatarStatusIcon />
-  </VeltCommentDialogAgentSuggestionBannerAvatar>
-  <VeltCommentDialogAgentSuggestionBannerLabel />
-  <VeltCommentDialogAgentSuggestionBannerSeparator />
-  <VeltCommentDialogAgentSuggestionBannerResolverUserName />
-  <VeltCommentDialogAgentSuggestionBannerTimestamp />
-</VeltCommentDialogAgentSuggestionBanner>
+const commentElement = client.getCommentElement();
+
+// Same action as the built-in buttons: sets suggestion.status, flips annotation.type to 'comment',
+// and emits suggestionAccepted / suggestionRejected
+await commentElement.acceptSuggestion({ annotationId });
+await commentElement.rejectSuggestion({ annotationId });
 ```
 
-**Custom suggestion header with overflow menu:**
-
-```jsx
-<VeltCommentDialogAgentSuggestionHeaderTimestamp annotationId="abc123" />
-<VeltCommentDialogAgentSuggestionHeaderMenu annotationId="abc123">
-  <VeltCommentDialogAgentSuggestionHeaderMenuTrigger />
-  <VeltCommentDialogAgentSuggestionHeaderMenuContent>
-    <VeltCommentDialogAgentSuggestionHeaderMenuContentItem>
-      <VeltCommentDialogAgentSuggestionHeaderMenuContentItemIcon />
-      <VeltCommentDialogAgentSuggestionHeaderMenuContentItemLabel />
-    </VeltCommentDialogAgentSuggestionHeaderMenuContentItem>
-  </VeltCommentDialogAgentSuggestionHeaderMenuContent>
-</VeltCommentDialogAgentSuggestionHeaderMenu>
+```js
+// Other Frameworks
+const commentElement = Velt.getCommentElement();
+await commentElement.acceptSuggestion({ annotationId: 'ANNOTATION_ID' });
 ```
 
-**HTML equivalents:** All components have kebab-case HTML custom element counterparts (e.g., `<velt-comment-dialog-agent-suggestion-banner>`). HTML uses string attributes (`annotation-id`, `default-condition="true"`), React uses camelCase props with actual booleans/objects.
+**Wireframe slots for the suggestion card:**
+
+The registered wireframe slot elements for the card are the `velt-comment-dialog-agent-suggestion-*-wireframe` family. The slot tree under the Comment Dialog wireframe is:
+
+```
+AgentSuggestion
+├── Body / Header / Footer(.OpenComment) / Actions(.Accept, .Reject)
+├── Header → Agent(.Avatar, .Name) / Author(.Avatar, .Name) / Timestamp
+│            Menu(.Trigger, .Content → Item(.Icon, .Label))
+└── Banner → Avatar(.UserImage, .StatusIcon) / Label / Separator / Timestamp / ResolverUserName
+```
+
+```html
+<velt-wireframe style="display:none;">
+  <velt-comment-dialog-agent-suggestion-actions-wireframe>
+    <velt-comment-dialog-agent-suggestion-action-accept-wireframe></velt-comment-dialog-agent-suggestion-action-accept-wireframe>
+    <velt-comment-dialog-agent-suggestion-action-reject-wireframe></velt-comment-dialog-agent-suggestion-action-reject-wireframe>
+  </velt-comment-dialog-agent-suggestion-actions-wireframe>
+</velt-wireframe>
+```
+
+The Comment Dialog wireframes feature page shows the same card under `VeltCommentDialogWireframe.Suggestion.*` (`Header`, `Body`, `Footer`, `Actions.ActionAccept` / `Actions.ActionReject`, `Banner`). Before shipping wireframe markup, confirm the exact slot name against the Wireframe components reference, which lists every registered slot element.
+
+**Replacing the Accept / Reject row with your own chips:**
+
+Set `actions` on the comment or annotation to render customer-defined chips in place of the built-in Accept / Reject row, then handle `commentActionClicked`. See `data-comment-actions.md`.
+
+**Verification Checklist:**
+- [ ] No imports from the `VeltCommentDialogAgentSuggestion*` family until it ships in `@veltdev/react`
+- [ ] Custom Accept / Reject controls use `VeltCommentDialogSuggestionAction*` primitives or call `acceptSuggestion()` / `rejectSuggestion()`
+- [ ] Wireframe slot names checked against the Wireframe components reference
+- [ ] HTML wireframe wrapper uses `style="display:none;"` and no self-closing custom elements
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/reference/primitives - Primitives catalog (Beta note on `VeltCommentDialogAgentSuggestion*`)
+- https://docs.velt.dev/ui-customization/reference/wireframe-components - Wireframe slot elements (agent suggestion sub-family)
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/wireframes#suggestion - Suggestion wireframes
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/primitives#veltcommentdialogsuggestionactionaccept - VeltCommentDialogSuggestionActionAccept
+- https://docs.velt.dev/async-collaboration/suggestions/overview - Suggestions lifecycle

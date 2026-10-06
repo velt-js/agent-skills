@@ -19,8 +19,8 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 
 **Rules:**
 - `rest-agent-comments-api` - Agent comment annotations — create with `agent` block (agentSource/agentId/executionId/agentName/reason), read with agent-specific filters (agentId, executionId, agentType, agentSource, agentSuggestions, agentComments), handle suggestionAccepted/suggestionRejected events, `sourceType: "agent"` UI rendering
-- `rest-comment-annotations-api` - Annotation CRUD (add, get, update, delete, count)
-- `rest-comments-api` - Individual comment CRUD within annotations (add, get, update, delete)
+- `rest-comment-annotations-api` - Annotation CRUD (add, get, update with `updatedData`, delete, count), per-annotation response map, status authorship, suggestion / visibility / progress / actions payloads
+- `rest-comments-api` - Individual comment CRUD under `/v2/commentannotations/comments/*` (add, get, update, delete), `triggerNotification`, progress and actions
 
 ---
 
@@ -34,7 +34,13 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 4. Standalone Components (standalone)
 
 **Impact:** MEDIUM-HIGH
-**Description:** Individual comment components for building custom implementations. Includes Comment Pin, Comment Thread, and Comment Composer for DIY comment interfaces.
+**Description:** Individual comment components for building custom implementations. Includes Comment Pin, Comment Thread, Comment Composer, and Comment Text for DIY comment interfaces.
+
+**Rules:**
+- `standalone-comment-pin` - Manual comment pin positioning
+- `standalone-comment-thread` - Render existing comment threads
+- `standalone-comment-composer` - Standalone composer for adding comments
+- `standalone-comment-text` - Wrap your own text in `VeltCommentText` to attach a known annotation
 
 ---
 
@@ -45,8 +51,9 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 
 **Rules:**
 - `surface-sidebar` - Comments sidebar component (VeltCommentsSidebar)
-- `surface-sidebar-v2` - Primitive-architecture V2 sidebar (VeltCommentsSidebarV2) with 27+ composable primitives, unified filter model, CDK virtual scroll, and focused-thread view
-- `surface-sidebar-button` - Toggle sidebar button
+- `surface-sidebar-setup` - Sidebar setup and display modes (embed, floating, page, focused thread, fullscreen)
+- `surface-sidebar-v2` - Primitive-architecture V2 sidebar (VeltCommentsSidebarV2) with declarative filters, event-bus navigation (`commentClick`, `sidebarOpen`, `sidebarClose`), virtual scroll, and focused-thread view
+- `surface-sidebar-button` - Toggle sidebar button, badge count types, and button wireframe
 
 ---
 
@@ -60,6 +67,7 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 - `ui-comment-bubble` - Customize comment bubble appearance
 - `ui-wireframes` - Use wireframe components for custom UI
 - `ui-autocomplete-primitives` - Use standalone autocomplete primitive components to build custom autocomplete UIs without requiring the full VeltAutocomplete panel
+- `ui-agent-suggestion-primitives` - Customize the suggestion card with the exported `VeltCommentDialogSuggestionAction*` primitives and wireframe slots; the `VeltCommentDialogAgentSuggestion*` family is Beta and not exported yet
 - `ui-v2-primitives` - Set defaultCondition on V2 primitive sub-components (Comment Pin, Comment Bubble, Text Comment, Inline Comments Section, Multi-Thread Comment Dialog, Sidebar Button) to bypass SDK default show/hide logic in wireframe compositions
 
 ---
@@ -79,6 +87,8 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 - `data-comment-crud` - Individual comment CRUD — add, update, delete, get comments within threads
 - `data-read-status` - Mark comments as read/unread
 - `data-composer-api` - Programmatic composer control — submit, clear, read state
+- `data-comment-progress` - Stream multi-step work into a comment with `Comment.progress` and `commentProgressStaleAfter`
+- `data-comment-actions` - Custom action chips via `Comment.actions` / `CommentAnnotation.actions` and the `commentActionClicked` event
 - `data-types-reference` - Core data type reference — CommentAnnotation, Comment, Status, Priority, Attachment, Location, TargetElement
 
 ---
@@ -97,6 +107,9 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 
 **Rules:**
 - `permissions-private-mode` - Control global comment visibility with enablePrivateMode/disablePrivateMode and update per-annotation visibility with updateVisibility
+- `permissions-private-comments-access-context` - Combine private comments with Access Context as two independent checks; reserved `organizationPrivate` field name
+- `permissions-visibility-routing` - Treat both legacy `iam.accessMode` and `visibilityConfig.type` as private, the way the SDK's `isAnnotationPrivate()` does
+- `permissions-submit-in-flight` - Guard custom-actions submit flows with `CommentDialogActionService.isSubmitInFlight()`
 - `permissions-comment-saved-event` - Subscribe to the commentSaved event for reliable post-persist side-effects (webhooks, analytics, external sync)
 - `permissions-visibility-option-dropdown` - Enable the visibility dropdown in the comment composer to let users select public or private before submitting, and subscribe to visibilityOptionClicked events
 - `permissions-comment-save-triggered-event` - Use commentSaveTriggered for immediate UI feedback (spinners, disabled states) on save button click — before the async database write completes
@@ -126,8 +139,9 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 - `config-navigation` - Navigation, deep linking, scroll-to-comment, shareable links
 - `config-dom-controls` - Restrict comment placement to specific DOM elements
 - `config-sidebar-management` - Programmatic sidebar data, filtering, and configuration
-- `config-ui-behavior` - UI/UX toggle methods — display, interaction, behavior (20+ methods)
-- `config-moderation` - Moderation workflows — approve, accept, reject, read-only
+- `config-sidebar-access-modes` - Use the `accessModes` filter for privacy-based sidebar filtering
+- `config-ui-behavior` - UI/UX toggle methods: display, interaction, draft confirmation, lazy-loaded resolved comments (20+ methods)
+- `config-moderation` - Moderation workflows: approve, read-only, admin-only resolve; resolve suggestions with acceptSuggestion / rejectSuggestion
 - `config-component-props` - Typed props interfaces for VeltComments, VeltCommentDialog, VeltCommentsSidebar, and VeltInlineCommentsSection — placeholder overrides (including edit-mode variants), assignToType, focus behavior
 
 ---
@@ -138,19 +152,7 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 **Description:** Comment lifecycle event subscriptions for custom workflows.
 
 **Rules:**
-- `events-comment-lifecycle` - Pin clicks, add events with addContext, custom button clicks, autocomplete search
-- `events-agent-suggestion-lifecycle` - Subscribe to `suggestionAccepted` / `suggestionRejected` on the comment element to handle reviewer accept/reject of agent findings (with optional `rejectReason`)
-
----
-
-## 12. REST API (rest)
-
-**Impact:** HIGH
-**Description:** Server-side comment management via REST API.
-
-**Rules:**
-- `rest-comment-annotations-api` - Annotation CRUD (add, get, update, delete, count)
-- `rest-comments-api` - Individual comment CRUD within annotations (add, get, update, delete)
+- `events-comment-lifecycle` - Pin clicks, `addCommentAnnotation` + addContext, `isAssigneeChanged`, sidebar events, client-level `veltButtonClick`, `suggestionAccepted` / `suggestionRejected`, `addCommentDraft`, `fullscreenClick`
 
 ---
 

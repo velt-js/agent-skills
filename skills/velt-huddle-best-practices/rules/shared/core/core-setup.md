@@ -2,18 +2,26 @@
 title: Add VeltHuddle and VeltHuddleTool Components
 impact: CRITICAL
 impactDescription: Two components required — VeltHuddle at app root and VeltHuddleTool in toolbar
-tags: huddle, setup, VeltHuddle, VeltHuddleTool, audio, video, screen
+tags: huddle, setup, VeltHuddle, VeltHuddleTool, audio, video, screen, featureAllowList
 ---
 
 ## Add VeltHuddle and VeltHuddleTool
 
-Huddle requires two components working together. `VeltHuddle` renders the huddle UI and participant list — place it inside `VeltProvider` at the root level. `VeltHuddleTool` is the button users click to start or join a huddle — place it in your toolbar alongside `VeltPresence`.
+Huddle needs two components. `VeltHuddle` renders the huddle UI and participants; add it once at the root of your app inside `VeltProvider`. `VeltHuddleTool` is the button that starts or joins a huddle; place it wherever you want the button, usually the toolbar.
 
 **Why this matters:**
 
-Without `VeltHuddle` at the root, no huddle UI will render even if `VeltHuddleTool` is present. Without `VeltHuddleTool`, users have no way to initiate a huddle. Both components must be present within the `VeltProvider` tree.
+Without `VeltHuddle`, no huddle UI renders even if the tool button is present. Without `VeltHuddleTool`, users have no way to start a huddle.
 
-**React: Full huddle setup**
+**Incorrect (tool without the root component):**
+
+```jsx
+<header className="toolbar">
+  <VeltHuddleTool type="all" /> {/* clicking it starts a huddle nobody can see */}
+</header>
+```
+
+**Correct (React / Next.js):**
 
 ```jsx
 "use client";
@@ -33,48 +41,44 @@ function App({ children, authProvider }) {
 }
 ```
 
-**React: VeltHuddleTool with specific type**
-
-```jsx
-"use client";
-import { VeltHuddleTool } from "@veltdev/react";
-
-function Toolbar() {
-  return (
-    <div className="toolbar">
-      {/* type="all" shows dropdown with audio, video, and screen options */}
-      <VeltHuddleTool type="all" />
-    </div>
-  );
-}
-```
-
-**HTML: Basic huddle setup**
+**Correct (Other Frameworks):**
 
 ```html
-<!-- Place at app root inside Velt-initialized container -->
-<velt-huddle></velt-huddle>
-
-<!-- Place in toolbar -->
-<div class="toolbar">
-  <velt-presence></velt-presence>
-  <velt-huddle-tool type="all"></velt-huddle-tool>
-</div>
+<body>
+  <velt-huddle></velt-huddle>
+  <div class="toolbar">
+    <velt-presence></velt-presence>
+    <velt-huddle-tool type="all"></velt-huddle-tool>
+  </div>
+</body>
 ```
 
-**Placement guidelines:**
+**Modular SDK (v6) note:**
 
-- Place `VeltHuddle` at the root level inside `VeltProvider`, before or after main content
-- Place `VeltHuddleTool` in the toolbar or header alongside other collaboration tools
-- `VeltHuddleTool` with `type="all"` enables audio, video, and screen sharing options via dropdown
-- `VeltHuddle` renders the participant bubbles and huddle overlay — it has no visual output until a huddle is active
+If you pass `featureAllowList` in the init config, include `'huddle'`; otherwise the huddle components can be suppressed. Calling `getHuddleElement()` or `preloadHuddle()` auto-enables an omitted feature and warms its chunk, but listing it is the reliable fix.
+
+```jsx
+<VeltProvider apiKey="API_KEY" config={{ featureAllowList: ["huddle", "presence"] }}>
+  {/* ... */}
+</VeltProvider>
+```
+
+**Runtime behavior to know:**
+
+- `VeltHuddle` shows nothing until a user joins; media starts only after joining through the tool
+- If a huddle is already running, clicking the tool joins it with the existing huddle's type
+- A user who was in a huddle rejoins automatically after a page reload
+- Set `type` explicitly; the docs disagree on its default (see `config-huddle-types`)
 
 **Verification:**
-- [ ] `VeltHuddle` is rendered at the root level inside `VeltProvider`
-- [ ] `VeltHuddleTool` is rendered in the toolbar or header area
-- [ ] Both components are within the `VeltProvider` tree
-- [ ] `type` prop is set on `VeltHuddleTool` (typically `"all"` for full functionality)
-- [ ] Clicking the huddle tool button initiates a huddle session
+- [ ] `VeltHuddle` is rendered once at the root inside `VeltProvider`
+- [ ] `VeltHuddleTool` is rendered where users expect the button
+- [ ] `type` is set explicitly on `VeltHuddleTool`
+- [ ] `featureAllowList`, if set, includes `'huddle'`
+- [ ] Two different users on the same document can join the same huddle
 
 **Source Pointers:**
-- `https://docs.velt.dev/huddle/setup` - Huddle setup guide
+- https://docs.velt.dev/realtime-collaboration/huddle/setup - "Huddle Setup"
+- https://docs.velt.dev/ui-customization/reference/behaviors/recorder-huddle - "VeltHuddle", "VeltHuddleTool (sibling)"
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#preloadhuddle - `preloadHuddle()`
+- https://docs.velt.dev/api-reference/sdk/models/data-models#config - `Config.featureAllowList`

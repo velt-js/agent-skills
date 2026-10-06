@@ -1,8 +1,8 @@
 # Velt Rewriter Best Practices
 
-**Version 1.2.0**  
+**Version 1.2.1**  
 Velt  
-May 2026
+October 2026
 
 > **Note:**  
 > This document is mainly for agents and LLMs to follow when maintaining,  
@@ -97,6 +97,20 @@ const result = await rewriterElement.addComment({ text: aiResponse.text, event }
 The reason `event` is required (not just the original `event.text` string) is robustness: the event carries Velt-managed anchor metadata that survives DOM changes and concurrent edits in ways a raw string match wouldn't. Pass the event through; don't reconstruct it.
 
 The response is a success/failure shape with `originalText` and `replacedText` on success — useful for showing a before/after diff or for undo.
+
+Since v6.0.16-beta.1, `replaceText()` returns `success: false` for a selection inside TipTap or another ProseMirror-based editor (writing into those editors caused a page freeze). The Rewriter does not apply text inside these editors, so always branch on `result.success` instead of assuming the DOM changed.
+
+**Incorrect (assumes the replacement always lands):**
+
+```tsx
+rewriterElement.on('textSelected').subscribe(async (event) => {
+  const aiResponse = await rewriterElement.askAi({ model: 'gpt-4o', prompt: 'Shorten', selectedText: event.text });
+  await rewriterElement.replaceText({ text: aiResponse.text, event });
+  // BUG: shows "Applied!" even when replaceText returned success: false
+  // (for example, a selection inside a TipTap / ProseMirror editor)
+  showToast('Applied!');
+});
+```
 
 **Correct (React / Next.js — apply askAi output):**
 
@@ -251,6 +265,15 @@ A common mistake is using `disableDefaultUI()` when you wanted to turn the featu
 
 `enableRewriter()` is the first call in the canonical setup flow (enable → subscribe to `textSelected` → call `askAi` → call `replaceText` or `addComment`).
 
+In React you can also get the element with the `useAIRewriterUtils()` hook (returns `RewriterElement`, `undefined` until the client is ready). If you pass `featureAllowList` to the SDK config, include `'rewriter'`, or the Rewriter chunk is not preloaded; `client.preloadRewriter()` warms it on demand.
+
+**Incorrect (hides the toolbar but never turns the feature on):**
+
+```tsx
+const rewriterElement = client.getRewriterElement();
+rewriterElement.disableDefaultUI(); // BUG: enableRewriter() was never called, so no textSelected events fire
+```
+
 **Correct (React / Next.js — enable on mount, disable on unmount):**
 
 ```tsx
@@ -266,6 +289,25 @@ function RewriterBootstrap() {
     rewriterElement.enableRewriter();
     return () => rewriterElement.disableRewriter();
   }, [client]);
+
+  return null;
+}
+```
+
+**Correct (React / Next.js — hook form):**
+
+```tsx
+import { useAIRewriterUtils } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function RewriterBootstrap() {
+  const rewriterElement = useAIRewriterUtils();
+
+  useEffect(() => {
+    if (!rewriterElement) return;
+    rewriterElement.enableRewriter();
+    return () => rewriterElement.disableRewriter();
+  }, [rewriterElement]);
 
   return null;
 }
@@ -292,7 +334,19 @@ if (Velt) {
 
 The event is what stitches the rest of the flow together. Without subscribing, you have no entry point for `askAi` (which needs `selectedText`) or `replaceText` / `addComment` (which need the event itself to identify the DOM target).
 
-The Observable is hot — multiple subscribers all receive the same events. In React, subscribe inside `useEffect` and unsubscribe in the cleanup to avoid stale handlers after re-render.
+The Observable is hot — multiple subscribers all receive the same events. In React, subscribe inside `useEffect` and unsubscribe in the cleanup to avoid stale handlers after re-render. The Rewriter has no `use…EventCallback` hook; get the element with `useAIRewriterUtils()` (or `client.getRewriterElement()`) and subscribe to `on('textSelected')` directly.
+
+Since v6.0.16-beta.1, `textSelected` does **not** fire for a selection inside TipTap or another ProseMirror-based editor. If your rewriter UI never appears inside such an editor, that is expected behavior, not a subscription bug.
+
+**Incorrect (reads the browser selection instead of the event):**
+
+```tsx
+document.addEventListener('mouseup', async () => {
+  const text = window.getSelection()?.toString();
+  // BUG: no Velt anchor metadata, so replaceText / addComment cannot target this range
+  const aiResponse = await rewriterElement.askAi({ model: 'gpt-4o', prompt: 'Shorten', selectedText: text });
+});
+```
 
 **Correct (React / Next.js — subscribe and dispatch):**
 
@@ -356,6 +410,18 @@ The `event` object from step 2 must be threaded into steps 3 and 4. Step 3 needs
 In React, the whole pipeline lives inside a single `useEffect` keyed on the Velt client. Activate `enableRewriter` and the subscription on mount, dispose both on unmount.
 
 UI choice: by default Velt renders a built-in selection toolbar. If you want your own UI, call `rewriterElement.disableDefaultUI()` — the rewriter keeps emitting events and your custom UI (or wireframe slots) renders from the same data stream. See `api-default-ui-toggle` and `wireframe-variables-rewriter`.
+
+**Incorrect (never enabled, and passes the string instead of the event):**
+
+```tsx
+const rewriterElement = client.getRewriterElement();
+// BUG 1: enableRewriter() was never called, so textSelected never fires
+rewriterElement.on('textSelected').subscribe(async (event) => {
+  const aiResponse = await rewriterElement.askAi({ model: 'gpt-4o', prompt: 'Shorten', selectedText: event.text });
+  // BUG 2: replaceText needs the full event, not event.text
+  await rewriterElement.replaceText({ text: aiResponse.text, event: event.text });
+});
+```
 
 **Correct (React / Next.js — full pipeline with replace-text apply step):**
 
@@ -535,3 +601,4 @@ import { VeltRewriterDialogWireframe } from '@veltdev/react';
 - https://docs.velt.dev/api-reference/sdk/models/data-models#textselectedevent
 - https://docs.velt.dev/ui-customization/features/async/rewriter/wireframe-variables
 - https://console.velt.dev
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#useairewriterutils

@@ -1,8 +1,8 @@
 # Velt Setup Best Practices
 
-**Version 1.0.3**  
+**Version 1.3.0**  
 Velt  
-January 2026
+October 2026
 
 > **Note:**  
 > This document is mainly for agents and LLMs to follow when maintaining,  
@@ -22,7 +22,8 @@ Comprehensive setup guide for integrating Velt collaboration SDK into web applic
 
 1. [Installation](#1-installation) — **CRITICAL**
    - 1.1 [Install Velt React Packages](#11-install-velt-react-packages)
-   - 1.2 [Install Velt Client Package or CDN](#12-install-velt-client-package-or-cdn)
+   - 1.2 [Install Velt AI Tooling for the Editor in Use (Claude Code or Cursor)](#12-install-velt-ai-tooling-for-the-editor-in-use-claude-code-or-cursor)
+   - 1.3 [Install Velt Client Package or CDN](#13-install-velt-client-package-or-cdn)
 
 2. [Provider Wiring](#2-provider-wiring) — **CRITICAL**
    - 2.1 [Add 'use client' Directive for Next.js](#21-add-use-client-directive-for-nextjs)
@@ -40,13 +41,16 @@ Comprehensive setup guide for integrating Velt collaboration SDK into web applic
    - 4.2 [Attach Metadata to Documents](#42-attach-metadata-to-documents)
    - 4.3 [Generate and Manage Document IDs](#43-generate-and-manage-document-ids)
    - 4.4 [Initialize Documents with setDocuments API](#44-initialize-documents-with-setdocuments-api)
+   - 4.5 [Use Locations for Sub-Areas Within a Document](#45-use-locations-for-sub-areas-within-a-document)
 
 5. [Config](#5-config) — **HIGH**
    - 5.1 [Call enableFirestorePersistentCache Before Authentication to Enable Offline and Multi-Tab Sync](#51-call-enablefirestorepersistentcache-before-authentication-to-enable-offline-and-multi-tab-sync)
    - 5.2 [Configure API Key from Console](#52-configure-api-key-from-console)
-   - 5.3 [Configure Firebase Reverse Proxy via proxyConfig](#53-configure-firebase-reverse-proxy-via-proxyconfig)
-   - 5.4 [Secure Auth Tokens on Server Side](#54-secure-auth-tokens-on-server-side)
-   - 5.5 [Whitelist Domains in Velt Console](#55-whitelist-domains-in-velt-console)
+   - 5.3 [Configure Reverse Proxy Routing via proxyConfig](#53-configure-reverse-proxy-routing-via-proxyconfig)
+   - 5.4 [Scope Feature Loading with featureAllowList and preload Methods (v6 Modular SDK)](#54-scope-feature-loading-with-featureallowlist-and-preload-methods-v6-modular-sdk)
+   - 5.5 [Secure Auth Tokens on Server Side](#55-secure-auth-tokens-on-server-side)
+   - 5.6 [Use setUnstyledMode for Headless Styling Instead of Overriding Every Velt Style](#56-use-setunstyledmode-for-headless-styling-instead-of-overriding-every-velt-style)
+   - 5.7 [Whitelist Domains in Velt Console](#57-whitelist-domains-in-velt-console)
 
 6. [Project Structure](#6-project-structure) — **MEDIUM**
    - 6.1 [Organize Velt Files in components/velt](#61-organize-velt-files-in-componentsvelt)
@@ -61,13 +65,16 @@ Comprehensive setup guide for integrating Velt collaboration SDK into web applic
    - 8.2 [Troubleshoot Common Configuration Errors](#82-troubleshoot-common-configuration-errors)
    - 8.3 [Verify Velt Setup is Correct](#83-verify-velt-setup-is-correct)
 
+9. [Components](#9-components) — **MEDIUM**
+   - 9.1 [Add Share & Invite with VeltUserInviteTool](#91-add-share-invite-with-veltuserinvitetool)
+
 ---
 
 ## 1. Installation
 
 **Impact: CRITICAL**
 
-Package installation for Velt SDK. Without the correct packages installed, no other Velt functionality will work. Covers @veltdev/react for React/Next.js and @veltdev/client for Angular/Vue/vanilla.
+Package installation for Velt SDK. Without the correct packages installed, no other Velt functionality will work. Covers @veltdev/react for React/Next.js, @veltdev/client for Angular/Vue/vanilla, and the Velt AI tooling (Installation Plugin, Docs MCP, MCP Installer, UI Customization Plugin) for Claude Code and Cursor.
 
 ### 1.1 Install Velt React Packages
 
@@ -106,7 +113,73 @@ pnpm add -D @veltdev/types
 
 ---
 
-### 1.2 Install Velt Client Package or CDN
+### 1.2 Install Velt AI Tooling for the Editor in Use (Claude Code or Cursor)
+
+**Impact: MEDIUM (Each Velt plugin has a separate Claude Code and Cursor repository with different install commands; using the wrong one leaves skills, rules, and MCP servers unloaded)**
+
+Velt ships AI tooling for coding agents: the Installation Plugin (skills, rules, a `velt-expert` agent, and the `velt-installer` + `velt-docs` MCP servers), the Velt Docs MCP server, the MCP Installer, and the UI Customization Plugin (`velt-customize`). Each plugin has a separate repository per editor, so match the install path to the editor. Install the Installation Plugin first; the UI Customization Plugin needs Velt already installed and rendering.
+
+**Incorrect (mixing editors):**
+
+```text
+# Cursor plugin repo loaded into Claude Code: Claude Code looks for
+# .claude-plugin/plugin.json and guides/velt-rules.md, which this repo does not have
+git clone https://github.com/velt-js/velt-plugin-cursor.git
+claude --plugin-dir velt-plugin-cursor
+# Cursor command syntax typed in Claude Code (Claude Code uses /velt-customize:run)
+/velt-customize-run <figma-loop-node-url> <app-url>
+```
+
+**Correct (Installation Plugin):**
+
+```bash
+# Claude Code
+git clone https://github.com/velt-js/velt-plugin-claude.git
+claude --plugin-dir velt-plugin-claude
+# Cursor: clone, then add the repo root in Cursor Settings → Plugins and restart Cursor
+git clone https://github.com/velt-js/velt-plugin-cursor.git
+# Or, from within Cursor: /plugin marketplace add <path-to-repo>/velt-plugin-cursor
+```
+
+Verify in either editor by typing `/velt-help` in the AI chat. Requires Node.js 18+ and a Velt API key.
+
+**Correct (Velt Docs MCP only, endpoint `https://velt.dev/docs/mcp`):**
+
+```json
+# Claude Code
+claude mcp add --transport http Velt https://velt.dev/docs/mcp
+claude mcp list
+{
+  "mcpServers": {
+    "Velt": {
+      "url": "https://velt.dev/docs/mcp"
+    }
+  }
+}
+```
+
+Cursor: open the Command Palette, run "Open MCP settings", choose **Add custom MCP**, and add to `mcp.json`:
+
+**Correct (MCP Installer only, guided setup with codebase scan):**
+
+```json
+# Claude Code
+claude mcp add velt-installer -- npx -y @velt-js/mcp-installer
+{
+  "mcpServers": {
+    "velt-installer": {
+      "command": "npx",
+      "args": ["-y", "@velt-js/mcp-installer"]
+    }
+  }
+}
+```
+
+Cursor: add to `.cursor/mcp.json` in your project (or the global config):
+
+---
+
+### 1.3 Install Velt Client Package or CDN
 
 **Impact: CRITICAL (Required for any Velt functionality in Angular, Vue, or vanilla HTML apps)**
 
@@ -160,10 +233,10 @@ npm install --save-dev @veltdev/types
 
 ```html
 <!-- Latest version (recommended for development) -->
-<script src="https://cdn.velt.dev/lib/sdk@latest/velt.js"></script>
+<script type="module" src="https://cdn.velt.dev/lib/sdk@latest/velt.js"></script>
 
-<!-- Specific version (recommended for production) -->
-<script src="https://cdn.velt.dev/lib/sdk@4.6.10/velt.js"></script>
+<!-- Specific version (recommended for production); replace VERSION with a published SDK version -->
+<script type="module" src="https://cdn.velt.dev/lib/sdk@VERSION/velt.js"></script>
 ```
 
 ---
@@ -558,6 +631,8 @@ export default {
 </html>
 ```
 
+**SDK-wide options:** `initVelt(apiKey, config)` (and `Velt.init(apiKey, config)`) accept the same config object React passes as `VeltProvider`'s `config` prop, for example `{ featureAllowList: ['comment', 'presence'], proxyConfig: { ... } }`.
+
 ---
 
 ## 3. Identity
@@ -568,11 +643,24 @@ User authentication and identity mapping. Velt requires authenticated users with
 
 ### 3.1 Configure authProvider on VeltProvider
 
-**Impact: CRITICAL (Recommended authentication method for production apps)**
+**Impact: CRITICAL (Recommended authentication method; Velt calls generateToken on sign-in and whenever the 48-hour JWT expires)**
 
-The authProvider prop on VeltProvider is the recommended way to authenticate users. It provides automatic token refresh and proper error handling for production applications.
+The `authProvider` prop on `VeltProvider` is the recommended way to authenticate users. You pass the user plus a `generateToken` function, and Velt calls it automatically during the initial sign-in and whenever the token expires (Velt JWTs expire after 48 hours).
 
-**Do not use the deprecated `useIdentify` hook.** It lacks token refresh, error handling, and retry logic. Always use `authProvider` on VeltProvider instead.
+`identify()` / `useIdentify()` still exist, but with them you must pass the JWT yourself and re-authenticate on the `token_expired` error event. Prefer `authProvider` unless you need that manual control.
+
+**Incorrect (identify without token refresh):**
+
+```jsx
+"use client";
+import { useIdentify } from "@veltdev/react";
+
+function AuthComponent({ user, token }) {
+  // Works until the token expires (48h); nothing re-generates it
+  useIdentify(user, { authToken: token });
+  return null;
+}
+```
 
 **Correct (authProvider on VeltProvider):**
 
@@ -711,25 +799,30 @@ export default function Home() {
 }
 ```
 
+**Switching users:** to change the signed-in user in the same tab, call `client.signOutUser()` first, then authenticate the new user. This cleans up the previous session.
+
 ---
 
 ### 3.2 Generate JWT Tokens from Backend
 
-**Impact: CRITICAL (Required for production security - tokens must be server-generated)**
+**Impact: CRITICAL (Required for production security; tokens must be server-generated with the v2 generate_token endpoint)**
 
-JWT tokens for Velt must be generated on your server, not in the browser. This requires calling the Velt token API with your auth token (which must remain secret).
+Velt JWT tokens must be generated on your server, never in the browser. Call `POST https://api.velt.dev/v2/auth/generate_token` with your API key and Auth Token (which must remain secret), then return the token to the client's `authProvider.generateToken`. Tokens expire after 48 hours.
 
-**Incorrect (client-side token generation):**
+**Incorrect (client-side generation, wrong endpoint, wrong body shape):**
 
 ```jsx
-// WRONG: Auth token exposed in client-side code
-const VELT_AUTH_TOKEN = "bd4d5226...";  // Never do this!
+// WRONG on three counts:
+// 1. Auth token exposed in client-side code
+// 2. /v2/auth/token/get is not a v2 endpoint (v2 is /v2/auth/generate_token)
+// 3. Body not wrapped in `data`, organizationId placed in userProperties
+const VELT_AUTH_TOKEN = "bd4d5226...";
 
 const generateToken = async () => {
   const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
-    headers: {
-      "x-velt-auth-token": VELT_AUTH_TOKEN,  // Exposed to users!
-    },
+    method: "POST",
+    headers: { "x-velt-auth-token": VELT_AUTH_TOKEN },
+    body: JSON.stringify({ userId, userProperties: { organizationId } }),
   });
 };
 ```
@@ -740,13 +833,13 @@ const generateToken = async () => {
 // app/api/velt/token/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
-// These should be environment variables
 const VELT_API_KEY = process.env.NEXT_PUBLIC_VELT_API_KEY!;
 const VELT_AUTH_TOKEN = process.env.VELT_AUTH_TOKEN!;
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, organizationId, email, isAdmin } = await req.json();
+    // Validate the caller's app session here before issuing a token
+    const { userId, organizationId, name, email, isAdmin } = await req.json();
 
     if (!userId || !organizationId) {
       return NextResponse.json({ error: 'Missing userId or organizationId' }, { status: 400 });
@@ -756,29 +849,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Server configuration error: missing VELT_AUTH_TOKEN' }, { status: 500 });
     }
 
-    const body = {
-      userId,
-      userProperties: {
-        ...(typeof isAdmin === "boolean" ? { isAdmin } : {}),
-        ...(email ? { email } : {}),
-      },
-      ...(organizationId ? {
-        permissions: {
-          resources: [
-            { type: "organization", id: organizationId },
-          ],
-        },
-      } : {}),
-    };
-
-    const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+    const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "x-velt-api-key": VELT_API_KEY,
         "x-velt-auth-token": VELT_AUTH_TOKEN,
       },
-      body: JSON.stringify({ data: body }),
+      // Body must be wrapped in a top-level `data` object.
+      // organizationId belongs in permissions.resources[], not userProperties.
+      body: JSON.stringify({
+        data: {
+          userId,
+          userProperties: {
+            name,
+            email,
+            isAdmin: typeof isAdmin === "boolean" ? isAdmin : false,
+          },
+          permissions: {
+            resources: [{ type: "organization", id: organizationId }],
+          },
+        },
+      }),
     });
 
     const json = await response.json();
@@ -797,7 +889,7 @@ export async function POST(req: NextRequest) {
   }
 }
 # .env.local (never commit this file)
-VELT_API_KEY=your-api-key-from-console
+NEXT_PUBLIC_VELT_API_KEY=your-api-key-from-console
 VELT_AUTH_TOKEN=your-auth-token-from-console
 // In your authProvider.generateToken function
 const generateToken = async () => {
@@ -807,6 +899,7 @@ const generateToken = async () => {
     body: JSON.stringify({
       userId: user.userId,
       organizationId: user.organizationId,
+      name: user.name,
       email: user.email,
     }),
     cache: "no-store",
@@ -817,8 +910,31 @@ const generateToken = async () => {
 };
 ```
 
-**Step 2: Set Environment Variables**
-**Step 3: Call from Frontend**
+**Step 3: Set Environment Variables**
+**Step 4: Call from Frontend**
+
+**Alternative: Node backend SDK (`@veltdev/node` 2.x):**
+
+```typescript
+import { VeltSDK } from "@veltdev/node";
+
+// REST API mode: no database block needed
+const sdk = VeltSDK.initialize({
+  apiKey: process.env.VELT_API_KEY!,
+  authToken: process.env.VELT_AUTH_TOKEN!,
+});
+
+const res = await sdk.api.accessControl.generateToken({
+  userId: "user-123",
+  userProperties: { name: "John Doe", email: "john@example.com", isAdmin: false },
+  permissions: {
+    resources: [{ type: "organization", id: "org-abc" }],
+  },
+});
+const token = res.result.data.token;
+```
+
+`sdk.api.accessControl.generateToken` calls the same `/v2/auth/generate_token` endpoint and returns the raw `{ result: { status, message, data: { token } } }` envelope. The Python SDK (`velt-py`) exposes the same `sdk.api.accessControl.generateToken`.
 
 **Express.js Backend Example:**
 
@@ -826,12 +942,13 @@ const generateToken = async () => {
 // server.js
 const express = require("express");
 const app = express();
+app.use(express.json());
 
 const VELT_API_KEY = process.env.VELT_API_KEY;
 const VELT_AUTH_TOKEN = process.env.VELT_AUTH_TOKEN;
 
 app.post("/api/velt/token", async (req, res) => {
-  const { userId, organizationId, email, isAdmin } = req.body;
+  const { userId, organizationId, name, email, isAdmin } = req.body;
 
   if (!userId || !organizationId) {
     return res.status(400).json({ error: "Missing userId or organizationId" });
@@ -839,7 +956,7 @@ app.post("/api/velt/token", async (req, res) => {
 
   // Validate user authentication here
 
-  const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+  const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -849,10 +966,9 @@ app.post("/api/velt/token", async (req, res) => {
     body: JSON.stringify({
       data: {
         userId,
-        userProperties: {
-          ...(organizationId ? { organizationId } : {}),
-          ...(email ? { email } : {}),
-          ...(typeof isAdmin === "boolean" ? { isAdmin } : {}),
+        userProperties: { name, email, isAdmin: Boolean(isAdmin) },
+        permissions: {
+          resources: [{ type: "organization", id: organizationId }],
         },
       },
     }),
@@ -871,9 +987,8 @@ app.post("/api/velt/token", async (req, res) => {
 
 **API Request/Response:**
 
-```typescript
-// Request to Velt API
-POST https://api.velt.dev/v2/auth/token/get
+```text
+POST https://api.velt.dev/v2/auth/generate_token
 Headers:
   Content-Type: application/json
   x-velt-api-key: YOUR_API_KEY
@@ -884,19 +999,25 @@ Body:
   "data": {
     "userId": "user-123",
     "userProperties": {
-      "organizationId": "org-abc",
+      "name": "John Doe",
       "email": "user@example.com",
       "isAdmin": false
+    },
+    "permissions": {
+      "resources": [
+        { "type": "organization", "id": "org-abc", "accessRole": "editor" },
+        { "type": "document", "id": "doc-456", "organizationId": "org-abc", "accessRole": "viewer" }
+      ]
     }
   }
 }
 
-// Response
+Response:
 {
   "result": {
-    "data": {
-      "token": "eyJhbGciOiJS..."
-    }
+    "status": "success",
+    "message": "Token generated successfully.",
+    "data": { "token": "eyJhbGciOiJS..." }
   }
 }
 ```
@@ -1014,19 +1135,21 @@ function Page({ params }) {
 ```typescript
 // In your JWT token generation endpoint
 const body = {
-  userId,
-  userProperties: {
-    isAdmin: false,
-  },
-  permissions: {
-    resources: [
-      { type: "organization", id: organizationId },
-      // Add cross-org access if needed
-      { type: "document", id: "shared-doc-123" },
-    ],
+  data: {
+    userId,
+    userProperties: { name, email, isAdmin: false },
+    permissions: {
+      resources: [
+        { type: "organization", id: organizationId },
+        // Cross-org access to one document, read-only
+        { type: "document", id: "shared-doc-123", organizationId: "partner-org", accessRole: "viewer" },
+      ],
+    },
   },
 };
 ```
+
+On the client, subscribe to documents in another organization by passing `organizationId` in the `setDocuments()` options.
 
 ---
 
@@ -1034,7 +1157,7 @@ const body = {
 
 **Impact: CRITICAL (Authentication will fail without correct user object structure)**
 
-The user object passed to Velt authentication must include specific required fields. Missing or incorrect fields will cause authentication failures.
+The user object passed to Velt authentication must include `userId` and `organizationId`. The quickstart also asks for `name`, `email`, and `photoUrl`: without them Velt shows a random avatar name and image, and email or Slack notifications cannot reach the user.
 
 **Incorrect (missing required fields):**
 
@@ -1059,14 +1182,16 @@ const user = {
 const user = {
   // Required fields
   userId: "user-123",           // Unique identifier for this user
-  organizationId: "org-abc",    // Organization/workspace scope
+  organizationId: "org-abc",    // Organization the user belongs to
+
+  // Recommended fields (quickstart user object)
   name: "John Doe",             // Display name for avatars and mentions
-  email: "john@example.com",    // Email for notifications
+  email: "john@example.com",    // Needed for email/Slack notifications
+  photoUrl: "https://example.com/avatar.jpg",  // Avatar image URL
 
   // Optional fields
-  photoUrl: "https://example.com/avatar.jpg",  // Avatar image URL
-  color: "#FF6B6B",             // Custom avatar background color
-  textColor: "#FFFFFF",         // Custom avatar text color
+  color: "#FF6B6B",             // Session color: avatar border, live cursor, selection
+  textColor: "#FFFFFF",         // Initial's text color when photoUrl is absent
 };
 ```
 
@@ -1147,15 +1272,15 @@ await client.setVeltAuthProvider({
 
 **Impact: CRITICAL**
 
-Document initialization with setDocuments API. Documents define collaborative spaces where users can interact. SDK will not function without calling setDocument.
+Document initialization with setDocuments API. Documents define collaborative spaces where users can interact. SDK will not function without calling setDocuments. Covers document IDs, metadata, locations, and custom page info.
 
 ### 4.1 Attach Custom Page Info to Newly Created Data
 
 **Impact: MEDIUM (Apps with client-side routing or custom URL schemes otherwise record browser-derived page info on comments, reactions, recordings, presence, and cursors)**
 
-By default Velt derives page info (URL, title, path) from the browser and stamps it onto newly created data — comments, reactions, recordings, presence, and cursors. In apps with client-side routing or custom URL schemes the browser URL may not be the identity you want recorded. `setPageInfo()` opts into supplying your own `PageInfo`; it affects **only newly created data** (existing records are untouched). `clearPageInfo()` reverts to the automatic browser-derived behavior.
+By default Velt derives page info (URL, title, path) from the browser and stamps it onto newly created data: comments, reactions, recordings, presence, and cursors. In apps with client-side routing or custom URL schemes the browser URL may not be the identity you want recorded. `setPageInfo()` opts into supplying your own `PageInfo`; it affects **only newly created data** (existing records are untouched). `clearPageInfo()` reverts to the automatic browser-derived behavior.
 
-**Incorrect (relying on browser-derived URL in a client-side-routed app — created data records the wrong page):**
+**Incorrect (relying on browser-derived URL in a client-side-routed app: created data records the wrong page):**
 
 ```jsx
 // SPA route is /doc/42 but the browser URL/title may lag or use a hash scheme;
@@ -1166,17 +1291,26 @@ By default Velt derives page info (URL, title, path) from the browser and stamps
 **Correct (stamp your own page info via the hook or the client API):**
 
 ```jsx
+import { useEffect } from 'react';
 import { useSetPageInfo, useClearPageInfo } from '@veltdev/react';
 
-const { setPageInfo } = useSetPageInfo();
-setPageInfo({ url: 'https://app.example.com/doc/42', title: 'Design Doc' });
+function DocPageInfo({ docId, title }) {
+  // Hook: returns memoized callbacks that wait until the client is ready
+  const { setPageInfo } = useSetPageInfo();
+  const { clearPageInfo } = useClearPageInfo();
 
-// Or via the client API
+  useEffect(() => {
+    setPageInfo({ url: `https://app.example.com/doc/${docId}`, title });
+    // Revert to automatic browser-derived page info on unmount
+    return () => clearPageInfo();
+  }, [docId, title]);
+
+  return null;
+}
+
+// API Method
 client.setPageInfo({ url: 'https://app.example.com/doc/42', title: 'Design Doc' });
-
-// Revert to automatic browser-derived page info
-const { clearPageInfo } = useClearPageInfo();
-clearPageInfo();
+client.clearPageInfo();
 ```
 
 **For HTML/Vanilla JS:**
@@ -1243,21 +1377,36 @@ setDocuments([
 
 **Accessing Metadata:**
 
-```jsx
-// Access document metadata in your app
-import { useDocument } from "@veltdev/react";
+```js
+// React: subscribe via the client (there is no useDocument hook)
+import { useEffect, useState } from "react";
+import { useVeltClient } from "@veltdev/react";
 
 function DocumentHeader() {
-  const document = useDocument();
+  const { client } = useVeltClient();
+  const [documentMetadata, setDocumentMetadata] = useState(null);
+
+  useEffect(() => {
+    if (!client) return;
+    const subscription = client.getDocumentMetadata().subscribe(setDocumentMetadata);
+    return () => subscription?.unsubscribe();
+  }, [client]);
 
   return (
     <div>
-      <h1>{document?.metadata?.documentName || "Untitled"}</h1>
-      <span>Type: {document?.metadata?.projectType}</span>
+      <h1>{documentMetadata?.documentName || "Untitled"}</h1>
+      <span>Type: {documentMetadata?.projectType}</span>
     </div>
   );
 }
+// Other frameworks
+const subscription = Velt.getDocumentMetadata().subscribe((documentMetadata) => {
+  console.log("Current document metadata:", documentMetadata);
+});
+subscription?.unsubscribe();
 ```
+
+To read or update metadata for documents that are not currently subscribed, use `fetchDocuments()` and `updateDocuments()`.
 
 **Metadata in Multi-Document Setup:**
 
@@ -1444,6 +1593,8 @@ function Dashboard() {
 }
 ```
 
+**Billing note:** Velt bills on Monthly Active Documents (MADs): a document counts once it receives at least one CRUD operation from a Velt feature in the calendar month. Documents that only initialize (connect without any comment, CRDT, reaction, recorder, or notification write) do not count. Stable, reused document IDs keep MAD counts predictable; random per-load IDs inflate them.
+
 ---
 
 ### 4.4 Initialize Documents with setDocuments API
@@ -1545,31 +1696,55 @@ useSetDocument("my-document-id", { documentName: "My Document" });
 
 **setDocuments API Reference:**
 
-```typescript
+```jsx
 // Method signature
-client.setDocuments(documents: DocumentConfig[]): void;
+client.setDocuments(documents: Document[], options?: SetDocumentsRequestOptions): Promise<void>;
 
-// DocumentConfig shape
-interface DocumentConfig {
-  id: string;              // Required: unique document identifier
-  metadata?: {             // Optional: document metadata
+// Document shape
+interface Document {
+  id: string;                  // Unique document identifier
+  metadata: {                  // Document metadata (documentName shows in Velt UI)
     documentName?: string;
-    [key: string]: any;    // Custom metadata fields
+    [key: string]: any;        // Custom metadata fields
   };
-  folderId?: string;       // Optional: attach document to a folder
 }
-// PermissionRequest.resource shape (received by your Permission Provider)
+
+// Common SetDocumentsRequestOptions
+interface SetDocumentsRequestOptions {
+  organizationId?: string;     // Organization for the documents
+  folderId?: string;           // Subscribe to documents in this folder
+  allDocuments?: boolean;      // With folderId: subscribe to all documents in the folder
+  locationId?: string;         // Filter to one location
+  rootDocumentId?: string;     // Root document when several are subscribed
+  context?: SetDocumentsContext; // Filter comments by Access Context fields
+  debounceTime?: number;       // Per-call debounce override (ms)
+  optimisticPermissions?: boolean; // false = wait for permission validation
+}
+// Wrong: folderId inside the document object is not part of the Document type
+setDocuments([{ id: "doc-1", folderId: "folder-1", metadata: { documentName: "Doc 1" } }]);
+
+// Correct: pass folderId in options
+setDocuments(
+  [{ id: "doc-1", metadata: { documentName: "Doc 1" } }],
+  { folderId: "folder-1" }
+);
+```
+
+`folderId` is an **option** (second argument), not a field on each document:
+
+**Behavior to rely on:**
+
+```typescript
+// PermissionQuery.resource shape (received by your Permission Provider)
 {
   type: PermissionResourceType;
   id: string;
   source: PermissionSource;
   organizationId: string;
   context?: Context;
-  parentFolderId?: string;   // present when folderId was set in setDocuments()
+  parentFolderId?: string;   // only on document requests whose document has a folder
 }
 ```
-
-**Folder context in permissions:** When `folderId` is set, the SDK forwards it as `parentFolderId` in the `PermissionRequest.resource` sent to your Permission Provider. This lets the provider enforce folder-level access control when creating documents inside folders.
 
 **Multiple Documents:**
 
@@ -1598,19 +1773,86 @@ await Velt.setDocuments([
 
 ---
 
+### 4.5 Use Locations for Sub-Areas Within a Document
+
+**Impact: MEDIUM (Locations partition a document (slides, video timestamps, dashboard filters) so comments and presence group correctly without creating extra documents)**
+
+A location is an optional subspace inside a document. Use it for slides in a deck, timestamps in a video, or filters on a dashboard. Do not create a separate document per sub-area: everyone with access to the document can access all its locations, and access control cannot be set per location. The sidebar groups comments by location automatically.
+
+**Incorrect (one document per slide):**
+
+```jsx
+// Splits one presentation into many documents: separate presence, separate access
+setDocuments([{ id: `deck-42-slide-${slideIndex}`, metadata: { documentName: `Slide ${slideIndex}` } }]);
+```
+
+**Correct (React / Next.js):**
+
+```jsx
+import { useEffect } from "react";
+import { useSetLocations, useVeltClient } from "@veltdev/react";
+
+function SlideLocation({ slideId, slideTitle }) {
+  // Hook
+  const { setLocations } = useSetLocations();
+
+  useEffect(() => {
+    setLocations([{ id: slideId, locationName: slideTitle }]);
+  }, [slideId, slideTitle]);
+
+  return null;
+}
+
+// API Method
+const { client } = useVeltClient();
+await client.setLocations(
+  [
+    { id: "slide-1", locationName: "Slide 1" },
+    { id: "slide-2", locationName: "Slide 2" },
+  ],
+  { rootLocationId: "slide-2" }
+);
+```
+
+**Correct (Other Frameworks):**
+
+```js
+await Velt.setLocations(
+  [
+    { id: "slide-1", locationName: "Slide 1" },
+    { id: "slide-2", locationName: "Slide 2" },
+  ],
+  { rootLocationId: "slide-2" }
+);
+
+// Append more locations without replacing the current ones
+await Velt.setLocations([{ id: "slide-3", locationName: "Slide 3" }], { appendLocation: true });
+```
+
+**Location object:**
+
+```html
+<div data-velt-location-id="slide-1">...</div>
+<div data-velt-location-id="slide-2">...</div>
+```
+
+**Cleanup:** `unsetLocationsIds()` with no arguments removes all locations; pass ids to remove specific ones. Since v6.0.0-beta.9, `removeLocations()` with no arguments clears the current location.
+
+---
+
 ## 5. Config
 
 **Impact: HIGH**
 
-API keys, environment variables, and security configuration. Includes console.velt.dev setup, domain whitelisting, auth token security practices, and Firestore persistent cache configuration.
+API keys, environment variables, and SDK-wide configuration. Includes console.velt.dev setup, domain whitelisting, auth token security practices, Firestore persistent cache, proxy routing, unstyled mode, and v6 modular feature loading.
 
 ### 5.1 Call enableFirestorePersistentCache Before Authentication to Enable Offline and Multi-Tab Sync
 
-**Impact: HIGH (Enables offline reads and multi-tab sync via Firestore persistent local cache)**
+**Impact: HIGH (Enables offline reads and multi-tab sync via Firestore persistent local cache; calling it after sign-in has no effect)**
 
-`client.enableFirestorePersistentCache()` initializes Firestore with `persistentLocalCache` and `persistentMultipleTabManager`, enabling offline reads and cross-tab data sync. It **must** be called before authentication — calling it after the VeltProvider mounts with `authProvider` has no effect because the SDK initializes Firestore during auth.
+`enableFirestorePersistentCache()` enables Firestore offline persistence and multi-tab synchronization. Call it before the user is authenticated (before `identify()` / `setVeltAuthProvider()`). Once the user is signed in, enabling it no longer activates offline reads. There is no `VeltProvider` config key for this; it is a client method only.
 
-**Incorrect (called after VeltProvider with authProvider):**
+**Incorrect (called after VeltProvider already authenticated via authProvider):**
 
 ```jsx
 import { useVeltClient } from '@veltdev/react';
@@ -1621,43 +1863,61 @@ function MyComponent() {
 
   useEffect(() => {
     if (!client) return;
-    // Wrong: VeltProvider already authenticated via authProvider,
-    // so Firestore is already initialized without persistent cache
-    client.enableFirestorePersistentCache({ ha: true }); // Too late — ignored
+    // Wrong: the authProvider prop already signed the user in,
+    // so this call comes too late to activate offline reads
+    client.enableFirestorePersistentCache({ ha: true });
   }, [client]);
 }
 ```
 
-**Correct (React — called before VeltProvider mounts):**
+**Correct (React: enable the cache, then authenticate from a child component):**
 
 ```jsx
-import { useVeltClient } from '@veltdev/react';
-import { useEffect, useState } from 'react';
+// app/page.tsx
+"use client";
 import { VeltProvider } from '@veltdev/react';
-import { useVeltAuthProvider } from '@/components/velt/VeltInitializeUser';
+import { VeltAuthWithCache } from '@/components/velt/VeltAuthWithCache';
 
-// Option 1: Configure cache in a component that renders before VeltProvider
-function AppWithVelt() {
-  const { authProvider } = useVeltAuthProvider();
-  const [cacheReady, setCacheReady] = useState(false);
-
-  // Enable cache before VeltProvider mounts
-  useEffect(() => {
-    // Cache config happens at the client level before provider auth
-    setCacheReady(true);
-  }, []);
-
-  if (!authProvider || !cacheReady) return <div>Loading...</div>;
-
+export default function Page() {
   return (
-    <VeltProvider
-      apiKey="YOUR_API_KEY"
-      authProvider={authProvider}
-      config={{ firestorePersistentCache: { enabled: true, ha: true } }}
-    >
+    <VeltProvider apiKey="YOUR_VELT_API_KEY">
+      <VeltAuthWithCache />
       {/* App content */}
     </VeltProvider>
   );
+}
+// components/velt/VeltAuthWithCache.tsx
+"use client";
+import { useEffect } from 'react';
+import { useVeltClient } from '@veltdev/react';
+import { useAppUser } from '@/app/userAuth/AppUserContext';
+
+export function VeltAuthWithCache() {
+  const { client } = useVeltClient();
+  const { user } = useAppUser();
+
+  useEffect(() => {
+    if (!client || !user) return;
+
+    // 1. Enable the cache first
+    client.enableFirestorePersistentCache({ ha: true });
+
+    // 2. Then authenticate
+    client.setVeltAuthProvider({
+      user,
+      generateToken: async () => {
+        const resp = await fetch("/api/velt/token", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ userId: user.userId, organizationId: user.organizationId }),
+        });
+        const { token } = await resp.json();
+        return token;
+      },
+    });
+  }, [client, user]);
+
+  return null;
 }
 ```
 
@@ -1666,7 +1926,7 @@ function AppWithVelt() {
 ```js
 import { initVelt } from '@veltdev/client';
 
-const client = await initVelt('YOUR_API_KEY');
+const client = await initVelt('YOUR_VELT_API_KEY');
 
 // Call before setting auth provider
 client.enableFirestorePersistentCache({ ha: true });
@@ -1688,7 +1948,7 @@ await client.setVeltAuthProvider({
 **Disabling the cache:**
 
 ```js
-// Also must be called before authentication
+// Revert to the default non-persistent mode
 client.disableFirestorePersistentCache({ ha: true });
 ```
 
@@ -1777,25 +2037,25 @@ NEXT_PUBLIC_VELT_API_KEY=prod-api-key
 
 ---
 
-### 5.3 Configure Firebase Reverse Proxy via proxyConfig
+### 5.3 Configure Reverse Proxy Routing via proxyConfig
 
-**Impact: HIGH (Enables routing all Velt SDK traffic through a Firebase reverse proxy for enterprise network control)**
+**Impact: HIGH (Routes Velt SDK traffic through your own proxy hosts for enterprise network control; replaces the deprecated apiProxyDomain)**
 
-Use the `proxyConfig` field on the `VeltProvider` config prop (React) or the second argument to `initVelt()` (non-React) to route all Velt SDK traffic through a Firebase reverse proxy. This replaces the deprecated `apiProxyDomain` top-level field added in earlier versions.
+Use the `proxyConfig` field on the `VeltProvider` `config` prop (React) or the second argument to `initVelt()` (other frameworks) to route Velt SDK traffic through reverse proxies on your own domain. It replaces the deprecated top-level `apiProxyDomain` field. For deploying the proxy servers themselves (Cloudflare Workers, nginx), use the `velt-proxy-server-best-practices` skill.
 
 **Incorrect (deprecated top-level apiProxyDomain field):**
 
 ```jsx
-// DEPRECATED — still functional but will be removed in a future version
+// DEPRECATED: use proxyConfig.apiHost instead
 <VeltProvider
-  apiKey="YOUR_API_KEY"
+  apiKey="YOUR_VELT_API_KEY"
   config={{ apiProxyDomain: 'https://proxy.example.com/api' }}
 >
   {/* app */}
 </VeltProvider>
 ```
 
-**Correct (React — nested proxyConfig object):**
+**Correct (React: nested proxyConfig object):**
 
 ```jsx
 import { VeltProvider } from '@veltdev/react';
@@ -1803,16 +2063,16 @@ import { VeltProvider } from '@veltdev/react';
 function App() {
   return (
     <VeltProvider
-      apiKey="YOUR_API_KEY"
+      apiKey="YOUR_VELT_API_KEY"
       config={{
         proxyConfig: {
-          cdnHost: 'https://proxy.example.com/cdn',
-          apiHost: 'https://proxy.example.com/api',
-          v2DbHost: 'https://proxy.example.com/rtdb-v2',
-          v1DbHost: 'https://proxy.example.com/rtdb-v1',
-          storageHost: 'https://proxy.example.com/storage',
-          authHost: 'https://proxy.example.com/auth',
-          forceLongPolling: true,
+          cdnHost: 'https://cdn-proxy.yourdomain.com',
+          apiHost: 'https://api-proxy.yourdomain.com',
+          v2DbHost: 'https://v2db-proxy.yourdomain.com',
+          v1DbHost: 'https://v1db-proxy.yourdomain.com',
+          storageHost: 'https://storage-proxy.yourdomain.com',
+          authHost: 'https://auth-proxy.yourdomain.com',
+          forceLongPolling: false,
         },
       }}
     >
@@ -1822,43 +2082,113 @@ function App() {
 }
 ```
 
-**Correct (non-React — Angular, Vue, HTML):**
+**Correct (non-React: Angular, Vue, HTML):**
 
 ```typescript
 import { initVelt } from '@veltdev/client';
 
-const client = await initVelt('YOUR_API_KEY', {
+const client = await initVelt('YOUR_VELT_API_KEY', {
   proxyConfig: {
-    cdnHost: 'https://proxy.example.com/cdn',
-    apiHost: 'https://proxy.example.com/api',
-    v2DbHost: 'https://proxy.example.com/rtdb-v2',
-    v1DbHost: 'https://proxy.example.com/rtdb-v1',
-    storageHost: 'https://proxy.example.com/storage',
-    authHost: 'https://proxy.example.com/auth',
-    forceLongPolling: true,
+    cdnHost: 'https://cdn-proxy.yourdomain.com',
+    apiHost: 'https://api-proxy.yourdomain.com',
+    v2DbHost: 'https://v2db-proxy.yourdomain.com',
+    v1DbHost: 'https://v1db-proxy.yourdomain.com',
+    storageHost: 'https://storage-proxy.yourdomain.com',
+    authHost: 'https://auth-proxy.yourdomain.com',
+    forceLongPolling: false,
   },
 });
 ```
 
-**Migrating from apiProxyDomain (v5.0.2-beta.11+):**
+**ProxyConfig interface (v5.0.2-beta.11+):**
 
 ```jsx
-// BEFORE — deprecated (still functional, removal timeline not yet announced)
-<VeltProvider config={{ apiProxyDomain: 'https://proxy.example.com/api' }} />
-
-// AFTER — use proxyConfig.apiHost
-<VeltProvider config={{ proxyConfig: { apiHost: 'https://proxy.example.com/api' } }} />
+<VeltProvider
+  apiKey="YOUR_VELT_API_KEY"
+  config={{ integrity: true, proxyConfig: { cdnHost: 'https://cdn-proxy.yourdomain.com' } }}
+>
+  {/* app */}
+</VeltProvider>
 ```
 
-All seven `ProxyConfig` fields are optional. Configure only the hosts you need to proxy; omitted fields use Velt's default endpoints.
+**Migrating from apiProxyDomain:**
+
+```jsx
+// BEFORE: deprecated
+<VeltProvider apiKey="YOUR_VELT_API_KEY" config={{ apiProxyDomain: 'https://proxy.example.com/api' }} />
+
+// AFTER: use proxyConfig.apiHost
+<VeltProvider apiKey="YOUR_VELT_API_KEY" config={{ proxyConfig: { apiHost: 'https://proxy.example.com/api' } }} />
+```
 
 ---
 
-### 5.4 Secure Auth Tokens on Server Side
+### 5.4 Scope Feature Loading with featureAllowList and preload Methods (v6 Modular SDK)
+
+**Impact: MEDIUM-HIGH (In the v6 modular SDK, featureAllowList controls which feature chunks preload and which features may run; a missing key leaves tag-only features inert)**
+
+Since v6.0.0-beta.1 each Velt feature is its own lazy chunk. Pass `featureAllowList` at init to preload only the features you use. Omit it to keep the default: every feature chunk preloads in the background. When set, it is also an allow-list: features not listed are suppressed unless something enables them on demand.
+
+**Incorrect (allow-list omits a feature that is rendered):**
+
+```jsx
+// VeltNotificationsTool and VeltUserInviteTool are rendered,
+// but only comments and presence are allowed
+<VeltProvider apiKey="YOUR_VELT_API_KEY" config={{ featureAllowList: ['comment', 'presence'] }}>
+  <VeltComments />
+  <VeltNotificationsTool />
+  <VeltUserInviteTool />
+</VeltProvider>
+```
+
+**Correct (React / Next.js):**
+
+```jsx
+"use client";
+import { VeltProvider, VeltComments, VeltPresence, VeltNotificationsTool } from "@veltdev/react";
+
+export default function Page() {
+  return (
+    <VeltProvider
+      apiKey="YOUR_VELT_API_KEY"
+      config={{ featureAllowList: ['comment', 'presence', 'notification'] }}
+    >
+      <VeltComments />
+      <VeltPresence />
+      <VeltNotificationsTool />
+    </VeltProvider>
+  );
+}
+```
+
+**Correct (Other Frameworks):**
+
+```js
+import { initVelt } from '@veltdev/client';
+
+const client = await initVelt('YOUR_VELT_API_KEY', {
+  featureAllowList: ['comment', 'presence', 'notification'],
+});
+// React: from a child component of VeltProvider
+const { client } = useVeltClient();
+
+const openSidebar = async () => {
+  await client.preloadComment();
+  client.getCommentElement().openCommentSidebar();
+};
+// Other frameworks
+await Velt.preloadUserInvite();
+```
+
+**Warm or load a chunk on demand with `preload*()`:**
+
+---
+
+### 5.5 Secure Auth Tokens on Server Side
 
 **Impact: HIGH (Auth token exposure enables unauthorized JWT generation)**
 
-The Velt Auth Token is used to generate JWT tokens and must NEVER be exposed to the client. Store it in server-side environment variables only.
+The Velt Auth Token authorizes backend calls to Velt's REST APIs, including JWT generation. It must NEVER be exposed to the client. Store it in server-side environment variables only and send it as the `x-velt-auth-token` header from your server.
 
 **Incorrect (auth token in client code):**
 
@@ -1870,7 +2200,8 @@ const VELT_AUTH_TOKEN = "bd4d5226050470b6c658054fcdf1092a";
 
 async function generateToken() {
   // This code runs in the browser - token is visible!
-  const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+  const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
+    method: "POST",
     headers: {
       "x-velt-auth-token": VELT_AUTH_TOKEN,  // Exposed!
     },
@@ -1889,18 +2220,19 @@ NEXT_PUBLIC_VELT_AUTH_TOKEN=bd4d5226050470b6c658054fcdf1092a
 
 ```typescript
 # .env.local - No NEXT_PUBLIC_ prefix = server-only
-VELT_API_KEY=your-api-key
+NEXT_PUBLIC_VELT_API_KEY=your-api-key
 VELT_AUTH_TOKEN=your-auth-token-from-console
 // app/api/velt/token/route.ts - Server-side only
 import { NextRequest, NextResponse } from "next/server";
 
-// These are only accessible on the server
+// The API key is client-safe; the auth token is only readable on the server
 const VELT_API_KEY = process.env.NEXT_PUBLIC_VELT_API_KEY!;
 const VELT_AUTH_TOKEN = process.env.VELT_AUTH_TOKEN!;
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, organizationId, email, isAdmin } = await req.json();
+    // Validate the caller's app session here before issuing a token
+    const { userId, organizationId, name, email, isAdmin } = await req.json();
 
     if (!userId || !organizationId) {
       return NextResponse.json({ error: 'Missing userId or organizationId' }, { status: 400 });
@@ -1910,18 +2242,22 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Server configuration error: missing VELT_AUTH_TOKEN' }, { status: 500 });
     }
 
+    // Body must be wrapped in `data`; organizationId goes in permissions.resources
     const body = {
       data: {
         userId,
         userProperties: {
-          ...(organizationId ? { organizationId } : {}),
-          ...(typeof isAdmin === 'boolean' ? { isAdmin } : {}),
-          ...(email ? { email } : {}),
+          name,
+          email,
+          isAdmin: typeof isAdmin === "boolean" ? isAdmin : false,
+        },
+        permissions: {
+          resources: [{ type: "organization", id: organizationId }],
         },
       },
     };
 
-    const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+    const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -1963,7 +2299,61 @@ REACT_APP_VELT_API_KEY=key      # Client-accessible (OK for API key)
 
 ---
 
-### 5.5 Whitelist Domains in Velt Console
+### 5.6 Use setUnstyledMode for Headless Styling Instead of Overriding Every Velt Style
+
+**Impact: MEDIUM (Removes Velt's built-in visual styling in one call while keeping layout and positioning, so custom CSS does not fight default styles)**
+
+When you style Velt components entirely with your own CSS, call `setUnstyledMode(true)` (v6.0.0-beta.10+). It removes Velt's visual styling from styles in the page head and inside shadow roots, including styles injected after the call. By default it keeps layout and positioning styles so components still work. It is reversible at any time.
+
+**Incorrect (fighting every default style with !important overrides):**
+
+```css
+/* Brittle: each Velt release can add new visual rules you must override again */
+velt-comment-dialog * {
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  font-family: inherit !important;
+}
+```
+
+**Correct (React / Next.js):**
+
+```jsx
+"use client";
+import { useEffect } from "react";
+import { useVeltClient } from "@veltdev/react";
+
+export function VeltHeadlessStyles() {
+  const { client } = useVeltClient();
+
+  useEffect(() => {
+    if (!client) return;
+    // Remove Velt's visual styling; keep layout/positioning (default)
+    client.setUnstyledMode(true);
+  }, [client]);
+
+  return null;
+}
+
+// Strip everything down to raw browser defaults
+// client.setUnstyledMode(true, { keepFunctionalStyles: false });
+
+// Restore all Velt styling
+// client.setUnstyledMode(false);
+```
+
+**Correct (Other Frameworks):**
+
+```js
+Velt.setUnstyledMode(true);
+Velt.setUnstyledMode(true, { keepFunctionalStyles: false });
+Velt.setUnstyledMode(false);
+```
+
+---
+
+### 5.7 Whitelist Domains in Velt Console
 
 **Impact: HIGH (Requests from non-whitelisted domains will be rejected)**
 
@@ -1978,18 +2368,18 @@ The app is running on https://myapp.com but that domain
 is not added to Velt Console's Managed Domains list.
 ```
 
-**Wildcard Patterns:**
+**Wildcard Patterns and Automation:**
 
-```typescript
-# If supported:
-*.vercel.app
-*.netlify.app
-*.railway.app
-
-# If not supported, add specific URLs as needed:
-my-app-abc123.vercel.app
-my-app-def456.vercel.app
+```bash
+# Server-side only: requires x-velt-auth-token
+curl -X POST https://api.velt.dev/v2/workspace/domains/add \
+  -H "Content-Type: application/json" \
+  -H "x-velt-api-key: $VELT_API_KEY" \
+  -H "x-velt-auth-token: $VELT_AUTH_TOKEN" \
+  -d '{ "data": { "domains": ["staging.myapp.com", "*.vercel.app"] } }'
 ```
+
+The API strips the protocol and `www` prefix and stores bare domains. Up to 100 domains per request.
 
 **Development Setup:**
 
@@ -2070,10 +2460,13 @@ components/
     ├── VeltInitializeDocument.tsx # Document setup component
     ├── VeltCollaboration.tsx     # Main collaboration wrapper
     ├── VeltTools.tsx             # Optional: tool buttons
-    └── ui-customization/
-        ├── VeltCustomization.tsx # CSS variable customization
-        └── styles.css            # Velt component styling
+    └── ui-customization/         # ALL Velt UI customization lives here
+        ├── VeltCustomization.tsx # The single <VeltWireframe> root (if wireframing)
+        ├── VeltCommentDialogWf.tsx # One file per customized surface
+        └── styles.css            # ONE stylesheet for all Velt CSS
 ```
+
+Keep exactly one `<VeltWireframe>` in the whole app (in `VeltCustomization.tsx`). Extra roots merge in an order-dependent way and conflict. For CSS-only or primitives-only customization, a single stylesheet plus the components in `VeltCollaboration.tsx` is enough; adopt the full `ui-customization/` folder when you start wireframing. The Velt UI Customization Plugin also writes its generated code under `components/velt/ui-customization/`.
 
 **app/layout.tsx (Server Component):**
 
@@ -2477,8 +2870,9 @@ export function VeltCollaborationDashboard() {
   return (
     <>
       <VeltInitializeDocument />
-      <VeltComments pageMode={true} shadowDom={false} />  {/* Page-level comments only */}
-      <VeltCommentsSidebar groupConfig={{ enable: false }} />
+      <VeltComments shadowDom={false} />
+      {/* pageMode is a sidebar prop: enables page-level comments in the sidebar */}
+      <VeltCommentsSidebar pageMode={true} groupConfig={{ enable: false }} />
     </>
   );
 }
@@ -2510,7 +2904,7 @@ export default function App() {
 }
 ```
 
-**Incorrect (auth hooks in same component as VeltProvider):** Do not call auth hooks or document setup hooks in the same component that renders VeltProvider — the provider isn't mounted yet when those hooks run. Use child components for authentication (via `authProvider` prop) and document setup.
+**Incorrect (auth hooks in same component as VeltProvider):** Do not call auth hooks or document setup hooks in the same component that renders VeltProvider: the provider isn't mounted yet when those hooks run. Use child components for authentication (via `authProvider` prop) and document setup.
 
 **Correct (components in VeltCollaboration wrapper):**
 
@@ -2601,19 +2995,7 @@ function VeltCollaboration({ showSidebar = true, showPresence = true }) {
 <VeltCollaboration showSidebar={false} showPresence={false} />
 ```
 
-**Z-Index Considerations:**
-
-```css
-/* Ensure Velt components are above your content */
-.velt-comments-sidebar {
-  z-index: 1000;
-}
-
-/* Or use Velt's CSS variables */
-:root {
-  --velt-sidebar-z-index: 1000;
-}
-```
+**Visibility:** if a Velt component renders but is hidden behind your layout, check stacking context and `z-index` on your own containers first. To restyle Velt components, follow the UI customization setup (CSS variables cross the shadow DOM; class selectors need `shadowDom={false}` or `client.injectCustomCss()`).
 
 ---
 
@@ -2629,7 +3011,7 @@ Setup verification and troubleshooting common configuration errors. Helps identi
 
 Collaboration features (presence, cursors, CRDT sync, comments) require at least two users to test. The generated app must have a built-in mechanism for signing in as different users.
 
-**Common pitfall — auto-login bypasses sign-in screen:**
+**Common pitfall: auto-login bypasses sign-in screen:**
 
 ```tsx
 // WRONG: Defaults to user-1, sign-in page never renders
@@ -2643,7 +3025,7 @@ useEffect(() => {
 // CORRECT: Only login via explicit URL param or button click
 useEffect(() => {
   const params = new URLSearchParams(window.location.search);
-  const uid = params.get("user"); // No default — sign-in page renders
+  const uid = params.get("user"); // No default: sign-in page renders
   if (uid) {
     const found = DEMO_USERS[uid];
     if (found) setUser(found);
@@ -2664,8 +3046,6 @@ if (!isLoggedIn) {
   );
 }
 ```
-
-Reference: `https://docs.velt.dev/get-started/quickstart`
 
 ---
 
@@ -2729,6 +3109,8 @@ useEffect(() => {
 // Both users should see the same documentId in their URL/logs
 
 // 3. Check document is set AFTER user authentication
+//    (Since v6.0.5 an identical repeat setDocuments() call is ignored,
+//     so calling it again with the same input will not "refresh" anything)
 const veltUser = useCurrentUser();
 useEffect(() => {
   if (!veltUser) return;  // Wait for auth
@@ -2745,7 +3127,7 @@ Console: "Invalid token" or "Token expired"
 Network tab: 401 errors to /api/velt/token
 ```
 
-**Cause:** Token generation endpoint issues or invalid auth token.
+**Cause:** Token generation endpoint issues, an invalid auth token, "Require JWT Token" not enabled in the Console, or a request body that is not wrapped in `data` (returns `INVALID_ARGUMENT`). Tokens expire after 48 hours: `authProvider.generateToken` is re-called automatically, but with `identify()` you must handle the `token_expired` error event yourself.
 
 **Solution:**
 
@@ -2755,8 +3137,9 @@ Network tab: 401 errors to /api/velt/token
 const VELT_AUTH_TOKEN = process.env.VELT_AUTH_TOKEN;
 console.log("Auth token defined:", !!VELT_AUTH_TOKEN);  // Should be true
 
-// 2. Check API response format
-const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+// 2. Check the endpoint and body shape (v2: /v2/auth/generate_token)
+//    Body must be wrapped in `data`; organizationId goes in permissions.resources
+const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
@@ -2766,9 +3149,9 @@ const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
   body: JSON.stringify({
     data: {
       userId,
-      userProperties: {
-        ...(organizationId ? { organizationId } : {}),
-        ...(email ? { email } : {}),
+      userProperties: { name, email },
+      permissions: {
+        resources: [{ type: "organization", id: organizationId }],
       },
     },
   }),
@@ -2793,12 +3176,12 @@ if (!authProvider) {
 
 return <VeltProvider apiKey="KEY" authProvider={authProvider}>...</VeltProvider>;
 
-// 2. Check user object has all required fields
+// 2. Check user object has the required fields
 const user = {
   userId: "...",           // Required - must not be empty
   organizationId: "...",   // Required - must not be empty
-  name: "...",             // Required
-  email: "...",            // Required
+  name: "...",             // Recommended: shown on avatars and mentions
+  email: "...",            // Recommended: needed for email/Slack notifications
 };
 console.log("User object:", user);
 ```
@@ -2916,7 +3299,7 @@ Use this checklist to systematically verify your Velt setup. Check each item in 
 ```jsx
 // Check packages are installed correctly
 // In terminal:
-npm list @veltdev/react  // Should show version ^4.x.x
+npm list @veltdev/react  // Should show the installed version (v6.x for the modular SDK)
 
 // In your code, this import should work:
 import { VeltProvider, VeltComments, useVeltClient } from "@veltdev/react";
@@ -3002,6 +3385,27 @@ export function VeltInitializeDocument() {
 **Verification:**
 
 ```jsx
+// React: inside a child component of VeltProvider
+import { useEffect } from "react";
+import { useVeltClient, useVeltInitState } from "@veltdev/react";
+
+export function VeltDiagnostics() {
+  const { client } = useVeltClient();
+  const veltInitState = useVeltInitState(); // true once user AND document are initialized
+
+  useEffect(() => {
+    if (!client) return;
+    client.fetchDebugInfo().then((info) => console.log("Velt debug info:", info));
+    const errorSub = client.on("error").subscribe((error) => console.log("Velt error:", error));
+    return () => errorSub?.unsubscribe();
+  }, [client]);
+
+  return null;
+}
+// Browser console or other frameworks
+await Velt.getMetadata();                    // Currently set organization, document, location
+const info = await Velt.fetchDebugInfo();    // SDK version, apiKey, user, organizationId, documentId, ...
+Velt.getVeltInitState().subscribe((ready) => console.log("Velt ready:", ready));
 // components/velt/VeltDebug.tsx - Add temporarily to debug
 "use client";
 import { useVeltClient, useCurrentUser } from "@veltdev/react";
@@ -3027,6 +3431,118 @@ export function VeltDebug() {
 }
 ```
 
+- `getMetadata()` returns the organization, document, and location you set. An error or `null` means initialization failed.
+- `fetchDebugInfo()` (one-time) and `getDebugInfo()` (subscription) return `VeltDebugInfo`. The Velt DevTools Chrome extension shows the same data.
+- Subscribe to the `error` event to see `token_expired` and other auth errors.
+- `disableLogs()` controls SDK console verbosity; do not suppress logs while debugging setup.
+
+---
+
+## 9. Components
+
+**Impact: MEDIUM**
+
+Drop-in Velt components that complete a basic setup, such as VeltUserInviteTool for share and invite flows. Includes loading tag-only features under the v6 modular SDK.
+
+### 9.1 Add Share & Invite with VeltUserInviteTool
+
+**Impact: MEDIUM (VeltUserInviteTool provides a ready-made invite widget for sharing documents with collaborators; without it, developers build custom invite flows that miss Velt's built-in access control integration)**
+
+`VeltUserInviteTool` is a drop-in widget that lets users invite others to collaborate on the current document. It handles the invite flow (email input, role selection, sending) and integrates with Velt's access control system automatically.
+
+### Setup
+
+**React / Next.js:**
+
+```jsx
+import { VeltUserInviteTool } from '@veltdev/react';
+
+function Toolbar() {
+  return (
+    <div className="toolbar">
+      <VeltUserInviteTool />
+    </div>
+  );
+}
+```
+
+**HTML:**
+
+```html
+<velt-user-invite-tool></velt-user-invite-tool>
+```
+
+Place the component wherever you want the invite button to appear, typically in a toolbar or header alongside other collaboration controls like `VeltPresence` and `VeltSidebarButton`.
+In the v6 modular SDK each feature loads as its own chunk. `userInvite` is a tag-only feature: it has no `getXElement()` accessor that would auto-load it. If you set `featureAllowList`, include `'userInvite'` or call `preloadUserInvite()`, otherwise the tag renders inert.
+
+**Incorrect:**
+
+```jsx
+// featureAllowList omits 'userInvite'; nothing loads the invite chunk
+<VeltProvider apiKey="YOUR_VELT_API_KEY" config={{ featureAllowList: ['comment', 'presence'] }}>
+  <VeltUserInviteTool />
+</VeltProvider>
+```
+
+**Correct:**
+
+```js
+// Option 1: allow-list it
+<VeltProvider apiKey="YOUR_VELT_API_KEY" config={{ featureAllowList: ['comment', 'presence', 'userInvite'] }}>
+  <VeltUserInviteTool />
+</VeltProvider>
+
+// Option 2: preload it from a child component
+const { client } = useVeltClient();
+useEffect(() => {
+  client?.preloadUserInvite();
+}, [client]);
+// Other frameworks
+await Velt.preloadUserInvite();
+```
+
+If you omit `featureAllowList`, all feature chunks preload in the background and no extra step is needed.
+Replace the default invite button with your own template using the `button` slot:
+
+**React:**
+
+```jsx
+<VeltUserInviteTool>
+  <button slot="button">Share & Invite</button>
+</VeltUserInviteTool>
+```
+
+**HTML:**
+
+```css
+<velt-user-invite-tool>
+  <button slot="button">Share & Invite</button>
+</velt-user-invite-tool>
+velt-user-invite-tool::part(button-icon) {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+velt-user-invite-tool::part(button-container) {
+  border-radius: 8px;
+  background: #2563eb;
+  color: white;
+}
+```
+
+The slot replaces only the trigger button; the invite dialog UI is still managed by Velt.
+The component uses Shadow DOM. Target internal elements with `::part()`:
+| Part | Description |
+|------|-------------|
+| `container` | The invite tool outer container |
+| `button-container` | The button wrapper |
+| `button-icon` | The SVG icon inside the button |
+- [ ] `VeltUserInviteTool` is placed inside the VeltProvider tree
+- [ ] A document is set via `setDocument()` before the invite tool is used
+- [ ] Clicking the button opens the invite dialog
+- [ ] Invited users receive access to the document
+- [ ] If `featureAllowList` is set, it includes `'userInvite'` (or `preloadUserInvite()` is called)
+
 ---
 
 ## References
@@ -3035,3 +3551,12 @@ export function VeltDebug() {
 - https://docs.velt.dev/get-started/advanced
 - https://console.velt.dev
 - https://docs.velt.dev/api-reference/sdk/api/api-methods
+- https://docs.velt.dev/key-concepts/overview
+- https://docs.velt.dev/api-reference/rest-apis/v2/auth/generate-token
+- https://docs.velt.dev/api-reference/sdk/models/data-models
+- https://docs.velt.dev/security/proxy-server
+- https://docs.velt.dev/get-started/agentic-overview
+- https://docs.velt.dev/get-started/installation-plugin
+- https://docs.velt.dev/get-started/docs-mcp
+- https://docs.velt.dev/get-started/ui-customization-plugin
+- https://docs.velt.dev/ui-customization/setup

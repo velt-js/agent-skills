@@ -31,7 +31,7 @@ function Bell({ panelOpen }) {
 **Correct (read the injected variables via `velt-data` / `velt-if` / `velt-class`):**
 
 ```jsx
-import { VeltNotificationsToolWireframe } from '@veltdev/react';
+import { VeltWireframe, VeltNotificationsToolWireframe } from '@veltdev/react';
 
 <VeltWireframe>
   <VeltNotificationsToolWireframe veltClass="'panel-open': {notificationsPanelVisible}">
@@ -48,7 +48,7 @@ import { VeltNotificationsToolWireframe } from '@veltdev/react';
 **HTML / web-component equivalent:**
 
 ```html
-<velt-wireframe>
+<velt-wireframe style="display:none;">
   <velt-notifications-tool-wireframe>
     <button class="my-bell" velt-class="'panel-open': {notificationsPanelVisible}">
       <velt-notifications-tool-icon-wireframe></velt-notifications-tool-icon-wireframe>

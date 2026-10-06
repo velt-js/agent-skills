@@ -50,14 +50,18 @@ const response = await fetch('https://api.velt.dev/v2/notifications/add', {
       // Optional body message
       displayBodyMessage: 'The task has been marked as complete.',
 
-      // Who to notify
+      // Who to notify (required)
       notifyUsers: [
         { userId: 'user-456', email: 'jane@example.com' },
         { userId: 'user-789', email: 'bob@example.com' }
       ],
 
-      // Or notify all users on document
+      // notifyAll defaults to true (everyone in the organization).
+      // Set false to notify only notifyUsers.
       notifyAll: false,
+
+      // Optional: your own ID (only _ and - special characters) to prevent duplicates
+      notificationId: 'task-42-completed',
 
       // Check document access before notifying
       verifyUserPermissions: true
@@ -82,13 +86,13 @@ const response = await fetch('https://api.velt.dev/v2/notifications/add', {
   },
   body: JSON.stringify({
     data: {
-      apiKey: 'YOUR_API_KEY',
       organizationId: 'org-abc',
       documentId: 'doc-789',
       notificationSource: 'custom',
       isNotificationResolverUsed: true,
       actionUser: { userId: 'user-123' },
-      notifyUsers: [{ userId: 'user-456' }]
+      notifyUsers: [{ userId: 'user-456', email: 'recipient@example.com' }],
+      notifyAll: false
       // displayHeadlineMessageTemplate and displayBodyMessage omitted
     }
   })
@@ -113,9 +117,13 @@ Custom variables can be any string value in `displayHeadlineMessageTemplateData`
 | `displayHeadlineMessageTemplate` | string | Main message with variables. Optional when `isNotificationResolverUsed: true` |
 | `displayHeadlineMessageTemplateData` | object | Variable values |
 | `displayBodyMessage` | string | Secondary message text. Optional when `isNotificationResolverUsed: true` |
-| `notifyUsers` | User[] | Specific users to notify |
-| `notifyAll` | boolean | Notify all document users |
-| `verifyUserPermissions` | boolean | Check document access (default: false) |
+| `notifyUsers` | User[] | Required. Users to notify |
+| `notifyAll` | boolean | Default `true`: notifies all users in the organization. Set `false` to notify only `notifyUsers` |
+| `verifyUserPermissions` | boolean | Only create notifications for users with access to the document (default: false) |
+| `notificationId` | string | Optional custom ID (only `_` and `-` special characters); Velt generates one if omitted |
+| `createOrganization` / `createDocument` | boolean | Create the organization / document first if it does not exist |
+| `notificationSourceData` | object | Custom data stored with the notification and returned in the click callback |
+| `context` | Context | `{ access: { ... } }` key-value pairs for Access Context filtering |
 | `isNotificationResolverUsed` | boolean | Optional. When `true`, marks this notification as resolver-eligible. `displayHeadlineMessageTemplate` and `displayBodyMessage` are not required; the notification resolver supplies PII content at read time via the registered data provider |
 | `notificationSource` | string | Optional. Must be `'custom'` for resolver routing. Only custom-source notifications are routed through the resolver pipeline |
 
@@ -155,10 +163,15 @@ Custom variables can be any string value in `displayHeadlineMessageTemplateData`
 }
 ```
 
+Custom notifications carry no comment, so the private-comment visibility filter does not apply to them.
+
 **Verification:**
 - [ ] API key and auth token configured
-- [ ] Required fields (organizationId, documentId, actionUser) provided
+- [ ] Required fields (organizationId, documentId, actionUser, notifyUsers) provided
+- [ ] `notifyAll: false` set when only `notifyUsers` should be notified (it defaults to `true`)
 - [ ] Template variables match templateData keys
-- [ ] notifyUsers or notifyAll specified
+- [ ] Resolver-backed writes set both `notificationSource: 'custom'` and `isNotificationResolverUsed: true`
 
-**Source Pointer:** https://docs.velt.dev/api-reference/rest-apis/v2/notifications/add-notifications - Add Notifications API
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/rest-apis/v2/notifications/add-notifications - "Add Notifications"
+- https://docs.velt.dev/self-hosting/partial/notifications#writing-resolver-eligible-notifications - "Writing Resolver-Eligible Notifications"

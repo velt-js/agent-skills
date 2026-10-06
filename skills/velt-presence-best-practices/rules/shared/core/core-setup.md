@@ -2,89 +2,87 @@
 title: Add VeltPresence and VeltCursor Components
 impact: CRITICAL
 impactDescription: VeltPresence shows user avatars and VeltCursor enables cursor tracking
-tags: presence, cursor, avatars, setup, VeltPresence, VeltCursor
+tags: presence, cursor, avatars, setup, VeltPresence, VeltCursor, featureAllowList
 ---
 
 ## Add VeltPresence for User Avatars
 
-`VeltPresence` renders a row of avatars showing who is currently viewing the document. It works out of the box with no props required for basic usage. Place it in your toolbar or header area, separate from the main content region.
+`VeltPresence` renders a row of avatars for users who are online on the same document. It needs no props for basic usage. It is statically placed: it renders exactly where you mount it, so put it in your toolbar or header.
 
-`VeltCursor` enables real-time cursor tracking so users can see each other's mouse positions. It is covered in detail in a separate rule and is most relevant for canvas or spatial apps.
+`VeltCursor` is different: it is Velt-positioned. Mount it once near the app root and Velt paints every remote cursor as an overlay. See the `cursor-setup` rule.
 
 **Why this matters:**
 
-Without presence indicators, users have no way of knowing who else is active in the same document. This leads to conflicting edits, duplicated work, and a poor collaborative experience.
+Without presence indicators, users cannot tell who else is active in the same document. This leads to conflicting edits and duplicated work.
 
-**React: Basic presence setup**
+**Incorrect (presence inside scrolling content, cursor mounted per section):**
 
 ```jsx
-"use client";
-import { VeltPresence } from "@veltdev/react";
-
-function Toolbar() {
-  return (
-    <div className="toolbar">
-      <h1>Document Title</h1>
-      <VeltPresence />
-    </div>
-  );
-}
+<main className="scroll-area">
+  <VeltPresence /> {/* scrolls away with the content */}
+  <section><VeltCursor /></section>
+  <section><VeltCursor /></section> {/* only the first velt-cursor subscribes; the rest are inert */}
+</main>
 ```
 
-**React: With VeltCursor for cursor tracking**
+**Correct (React / Next.js):**
 
 ```jsx
 "use client";
-import { VeltPresence, VeltCursor } from "@veltdev/react";
+import { VeltProvider, VeltPresence, VeltCursor } from "@veltdev/react";
 
-function CollaborativeEditor() {
+function App({ authProvider, children }) {
   return (
-    <>
+    <VeltProvider apiKey={process.env.NEXT_PUBLIC_VELT_API_KEY} authProvider={authProvider}>
+      <VeltCursor /> {/* once, near the root */}
       <header className="toolbar">
+        <h1>Document Title</h1>
         <VeltPresence />
       </header>
-      <main className="editor-canvas">
-        <VeltCursor />
-        {/* Your editor content */}
-      </main>
-    </>
+      <main>{children}</main>
+    </VeltProvider>
   );
 }
 ```
 
-**HTML: Basic presence setup**
+**Correct (Other Frameworks):**
 
 ```html
-<div class="toolbar">
-  <h1>Document Title</h1>
-  <velt-presence></velt-presence>
-</div>
+<body>
+  <velt-cursor></velt-cursor>
+  <div class="toolbar">
+    <h1>Document Title</h1>
+    <velt-presence></velt-presence>
+  </div>
+</body>
 ```
 
-**HTML: With cursor tracking**
+**Modular SDK (v6) note:**
 
-```html
-<div class="toolbar">
-  <velt-presence></velt-presence>
-</div>
-<div class="editor-canvas">
-  <velt-cursor></velt-cursor>
-</div>
+If you pass `featureAllowList` in the init config, only the listed features are allowed to run and preload. Include `'presence'` (and `'cursor'` if you use `VeltCursor`); otherwise the components can be suppressed. Calling `getPresenceElement()` or `preloadPresence()` auto-enables an omitted feature, but listing it is the reliable fix.
+
+```jsx
+<VeltProvider apiKey="API_KEY" config={{ featureAllowList: ["presence", "cursor", "comment"] }}>
+  {/* ... */}
+</VeltProvider>
 ```
 
 **Placement guidelines:**
 
-- Place `VeltPresence` in the toolbar, header, or navigation bar — not inside scrollable content
-- Place `VeltCursor` inside the content area where cursor tracking is needed
-- `VeltPresence` requires no props for basic usage; it automatically displays all active users
-- `VeltCursor` is most useful in canvas, whiteboard, or spatial applications
+- Place `VeltPresence` in the toolbar, header, or navigation bar, not inside scrollable content
+- Mount `VeltCursor` once near the root; use `allowedElementIds` to confine cursors to a region
+- Presence requires an identified (non-anonymous) user
+- Test by opening the page in two browsers with two different users
 
 **Verification:**
-- [ ] `VeltPresence` is rendered inside the app (within `VeltProvider`)
+- [ ] `VeltPresence` is rendered inside `VeltProvider`
 - [ ] Presence avatars appear in the toolbar or header area
-- [ ] Multiple users see each other's avatars when viewing the same document
-- [ ] `VeltCursor` is added if cursor tracking is needed (canvas/spatial apps)
+- [ ] Two different users on the same document see each other's avatars
+- [ ] `VeltCursor` is mounted once (if cursor tracking is needed)
+- [ ] `featureAllowList`, if set, includes `'presence'` (and `'cursor'`)
 
 **Source Pointers:**
-- `https://docs.velt.dev/presence/setup` - Presence setup guide
-- `https://docs.velt.dev/cursor/setup` - Cursor setup guide
+- https://docs.velt.dev/realtime-collaboration/presence/setup - "Presence Setup"
+- https://docs.velt.dev/realtime-collaboration/cursors/setup - "Cursors Setup"
+- https://docs.velt.dev/ui-customization/reference/behaviors/presence-reactions - "Presence, Cursors & Reactions" (positioning and mount-once behavior)
+- https://docs.velt.dev/api-reference/sdk/models/data-models#config - `Config.featureAllowList`

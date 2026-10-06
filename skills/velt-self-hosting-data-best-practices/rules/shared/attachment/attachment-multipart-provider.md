@@ -332,4 +332,4 @@ const saveAttachment = async (request: SaveAttachmentResolverRequest) => {
 - [ ] Save handler only reads `attachmentId`, `name`, `mimeType` from `request.attachment` — does not assume `size` / `thumbnail` / `previewImages` etc. are present (Velt populates those from the returned `url` and the binary)
 - [ ] `event` is treated as one of `ResolverActions` (`ATTACHMENT_ADD` / `ATTACHMENT_DELETE`); handlers gate side effects on it rather than HTTP method alone
 
-**Source Pointer:** https://docs.velt.dev/self-host-data/attachments - Endpoint-Based, Function-Based; https://docs.velt.dev/self-host-data/overview - "Attachment & recording storage"; https://docs.velt.dev/self-host-data/field-inventory - "Attachments"
+**Source Pointer:** https://docs.velt.dev/self-hosting/partial/attachments - Endpoint-Based, Function-Based; https://docs.velt.dev/self-hosting/partial/overview - "Attachment & recording storage"; https://docs.velt.dev/self-hosting/partial/field-inventory - "Attachments"

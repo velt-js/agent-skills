@@ -1,38 +1,82 @@
 ---
-title: Use authProvider for Authentication — Never useIdentify
+title: Wrap Live State Sync in VeltProvider with the authProvider object
 impact: CRITICAL
-tags: authProvider, useIdentify, identify, authentication, VeltProvider
+impactDescription: Live State Sync APIs do nothing without an authenticated user and a set document; a wrong authProvider shape leaves the SDK unauthenticated
+tags: authProvider, user, generateToken, retryConfig, setVeltAuthProvider, useIdentify, authentication, VeltProvider, setDocuments
 ---
 
-## Use authProvider for Authentication
+## Wrap Live State Sync in VeltProvider with the authProvider object
 
-When setting up Velt Live State Sync, authentication must use the `authProvider` callback on `VeltProvider`. The deprecated `useIdentify` hook and `client.identify()` method must never be used.
+Live state is scoped to the authenticated user's organization and the current document. The recommended authentication path is the `authProvider` **object** on `VeltProvider` (`user`, `generateToken`, optional `retryConfig`), or `Velt.setVeltAuthProvider(...)` outside React. Prefer it over the older `useIdentify()` / `client.identify()` calls in new code. Every Live State Sync example you produce, even one focused on a Redux store or a single component, should show this provider setup and a document being set.
+
+**Incorrect (callback shape that the SDK does not accept):**
 
 ```jsx
-import { VeltProvider } from '@veltdev/react';
+// BUG: authProvider is an object, not a callback that receives veltUser
+<VeltProvider
+  apiKey="YOUR_API_KEY"
+  authProvider={async ({ veltUser }) => veltUser({ userId: 'u1', organizationId: 'org-1' })}
+>
+  <App />
+</VeltProvider>
+```
 
-function App() {
-  const authProvider = async ({ veltUser }) => {
-    const user = await getAuthenticatedUser();
-    veltUser({
-      userId: user.uid,
-      name: user.displayName,
-      email: user.email,
-      photoUrl: user.photoURL,
-      organizationId: 'your-org-id',
-    });
-  };
+**Correct (React / Next.js):**
 
+```jsx
+import { VeltProvider, useVeltClient } from '@veltdev/react';
+import { useEffect } from 'react';
+
+const user = {
+  userId: 'user-123',
+  organizationId: 'org-abc',
+  name: 'John Doe',
+  email: 'john.doe@example.com',
+  photoUrl: 'https://i.pravatar.cc/300',
+};
+
+function DocumentScope({ children }) {
+  const { client } = useVeltClient();
+  useEffect(() => {
+    if (client) client.setDocuments([{ id: 'whiteboard-42' }]);
+  }, [client]);
+  return children;
+}
+
+export default function Root() {
   return (
-    <VeltProvider apiKey="YOUR_API_KEY" authProvider={authProvider}>
-      <YourApp />
+    <VeltProvider
+      apiKey="YOUR_VELT_API_KEY"
+      authProvider={{
+        user,
+        retryConfig: { retryCount: 3, retryDelay: 1000 },
+        generateToken: async () => fetchVeltTokenFromYourBackend(),
+      }}
+    >
+      <DocumentScope>
+        <App />
+      </DocumentScope>
     </VeltProvider>
   );
 }
 ```
 
-The `authProvider` pattern is the only supported authentication method — `useIdentify` is deprecated and will be removed.
+**Correct (Other Frameworks):**
 
-### Always Include VeltProvider Setup
+```js
+Velt.setVeltAuthProvider({
+  user,
+  retryConfig: { retryCount: 3, retryDelay: 1000 },
+  generateToken: async () => fetchVeltTokenFromYourBackend(),
+});
+Velt.setDocuments([{ id: 'whiteboard-42' }]);
+```
 
-Every Live State Sync implementation must include the `VeltProvider` wrapper with `authProvider` in the output — even when the primary task is about store setup, middleware configuration, or component logic. Without `VeltProvider`, none of the Live State Sync APIs will function. Always show the full App component with `VeltProvider` and `authProvider` as part of your implementation.
+**Verification Checklist:**
+- [ ] `authProvider` is an object with `user` (and `generateToken` for production), not a callback
+- [ ] A document is set (`setDocuments` / `useSetDocument`) before reading or writing live state
+- [ ] The full `VeltProvider` setup appears in generated examples, not only the store or component code
+
+**Source Pointers:**
+- https://docs.velt.dev/get-started/quickstart — "Authenticate Users" and "Initialize Document"
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/setup — Live State Sync APIs

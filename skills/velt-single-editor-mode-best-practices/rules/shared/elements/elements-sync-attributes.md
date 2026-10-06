@@ -7,7 +7,7 @@ tags: data-velt-sync-access, data-velt-sync-access-disabled, native HTML, React 
 
 ## Apply Sync Access Attributes to Native HTML Elements Only
 
-When using `customMode: true`, fine-tune which elements are controlled by Single Editor Mode using `data-velt-sync-access` and `data-velt-sync-access-disabled` attributes. These attributes only work on **native HTML elements**, not React components.
+Fine-tune which elements Single Editor Mode controls with `data-velt-sync-access` and `data-velt-sync-access-disabled`. The attributes work in both modes, and are **required** with `customMode: true` because the SDK then no longer makes elements read-only on its own. They only work on **native HTML elements**, not React components.
 
 **Incorrect (attributes on React components):**
 
@@ -51,12 +51,13 @@ When using `customMode: true`, fine-tune which elements are controlled by Single
 </div>
 ```
 
-**Setup requirement:**
+**Custom mode:**
 
 ```jsx
-// customMode must be true for manual element control
+// With customMode: true the SDK won't auto-manage read-only state,
+// so every element you want locked for viewers needs data-velt-sync-access="true"
 liveStateSyncElement.enableSingleEditorMode({
-  customMode: true,  // SDK won't auto-manage read-only state
+  customMode: true,
 });
 ```
 
@@ -69,13 +70,14 @@ liveStateSyncElement.enableSingleEditorMode({
 
 **Key details:**
 - Both attributes only work on **native HTML elements** (div, button, input, etc.)
-- Set `customMode: true` when using these attributes — the SDK won't auto-manage read-only state
+- With `customMode: false` (default) the SDK manages read-only state and the attributes refine it; with `customMode: true` you must mark controlled elements yourself
+- Give elements with sync attributes an `id` for more robust syncing
 - Use `data-velt-sync-access-disabled` to exclude elements like help buttons, navigation, or always-on controls
 - Wrap React components in native elements if you need SEM control over them
 
 **Verification:**
 - [ ] Attributes applied only to native HTML elements, not React components
-- [ ] `customMode: true` set in `enableSingleEditorMode()` config
+- [ ] With `customMode: true`, every element that viewers must not edit has `data-velt-sync-access="true"`
 - [ ] Elements that should always be interactive have `data-velt-sync-access-disabled`
 - [ ] React components wrapped in native elements when SEM control needed
 

@@ -98,5 +98,5 @@ The same `get?`, `save?`, `delete?` optionality applies to `ReactionAnnotationDa
 - [ ] `setDataProviders` is called after the Velt client is initialized
 
 **Source Pointers:**
-- https://docs.velt.dev/async-collaboration/comments/customize-behavior/data/overview - Data Providers overview
-- https://docs.velt.dev/api-reference/sdk/velt-client - setDataProviders API reference
+- https://docs.velt.dev/self-hosting/partial/comments - Comments data provider (endpoint and function based)
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#setdataproviders - setDataProviders()

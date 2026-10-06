@@ -17,21 +17,26 @@ interface CommentAnnotation {
   documentId?: string;                 // Document this thread belongs to
   organizationId?: string;             // Organization scope
   location?: Location;                 // Location within document
-  targetElement?: TargetElement;       // DOM element being commented on
-  commentData: Comment[];              // Array of comments in this thread
-  status?: Status;                     // Thread status (open, resolved, etc.)
+  targetElementId?: string;            // DOM element being commented on
+  comments: Comment[];                 // Comments in this thread (REST create payloads call this `commentData`)
+  from: User;                          // Thread author
+  status: Status;                      // Thread status (open, resolved, etc.)
   priority?: Priority;                 // Priority level
-  assignedTo?: User[];                 // Assigned users
-  context?: Record<string, any>;       // Custom metadata
+  assignedTo?: User;                   // Assigned user (single User)
+  context?: Record<string, any>;       // Custom metadata (Access Context lives under context.access)
+  type?: 'comment' | 'suggestion';     // Annotation kind; 'suggestion' renders the suggestion card
+  actions?: CommentAction[];           // Per-row default action chips (see data-comment-actions.md)
   visibilityConfig?: {                 // Privacy settings
     type: 'public' | 'organizationPrivate' | 'restricted';
+    organizationId?: string;
+    organizationIds?: string[];
     userIds?: string[];
   };
   createdAt?: number;                  // Creation timestamp (ms)
   lastUpdated?: number;                // Last update timestamp (ms)
-  resolved?: boolean;                  // Whether thread is resolved
+  resolvedByUserId?: string;           // Who resolved it (matched by REST `resolvedBy` filter)
   resolvedByUser?: User;               // Who resolved it
-  commentType?: string;                // Secondary discriminator, e.g. 'suggestion' for agent suggestions
+  commentType?: string;                // Secondary discriminator; legacy 'suggestion' value no longer drives classification
   sourceType?: string;                 // Origin of annotation — selects agent-identity vs human-author header
   agent?: CommentAnnotationAgent;      // Present when annotation was authored by an AI agent
   suggestion?: CommentAnnotationSuggestion; // Suggestion state for typed-suggestion annotations
@@ -50,9 +55,13 @@ interface CommentAnnotation {
 ```typescript
 interface Comment {
   commentId: number;                   // Unique comment ID (number, not string)
+  type: 'text' | 'voice';              // Content type (default 'text')
   commentText: string;                 // Plain text content
   commentHtml?: string;                // Rich text HTML content
   from: User;                          // Author
+  isDraft: boolean;                    // Draft state
+  progress?: CommentProgress;          // Live progress row while state is 'active' (see data-comment-progress.md)
+  actions?: CommentAction[];           // Row-level action chips, override the annotation default
   context?: Record<string, any>;       // Custom metadata per comment
   attachments?: Attachment[];           // File attachments
   taggedUserContacts?: TaggedContact[]; // @mentioned users
@@ -60,7 +69,6 @@ interface Comment {
   createdAt?: number;                  // Creation timestamp
   lastUpdated?: number;                // Last update timestamp
   isEdited?: boolean;                  // Whether comment was edited
-  type?: string;                       // Comment type
   sourceType?: string;                 // Origin of the comment; 'agent' indicates AI-agent-authored. Read-only
   agent?: AgentData;                   // AI agent identity + output for an agent-authored comment. Read-only. See data-agent-fields-query.md
   metadata?: any;                      // Customer-supplied metadata bag, persisted as-is when provided
@@ -114,8 +122,10 @@ interface Attachment {
 
 ```typescript
 interface Location {
-  id: number;                          // Unique location ID (number)
-  locationName?: string;               // Display name for the location
+  id?: string | number;                // Unique location ID; 0 is valid; optional when locationName is set
+  locationName?: string;               // Non-empty name identifies the location when id is omitted
+  version?: Version;
+  [key: string]: any;                  // Additional dynamic properties
 }
 ```
 
@@ -198,7 +208,7 @@ interface CommentAnnotationSuggestion {
 }
 ```
 
-Suggestion state is mutated by `acceptSuggestion()` / `rejectSuggestion()` API methods. The `commentType` field on the parent annotation is `'suggestion'` for agent suggestion comments. The `sourceType` field selects the agent-identity vs human-author header variant rendered in the UI.
+Suggestion state is mutated by `acceptSuggestion()` / `rejectSuggestion()`, which also flip `annotation.type` from `'suggestion'` to `'comment'`. Annotations created through the V2 REST API may carry a richer proposed-change payload on `suggestion` (`targetId`, `targetType`, `oldValue`, `newValue`, `summary`, `driftDetected`, plus custom fields). The annotation `type` is the source of truth for suggestion classification; the legacy `commentType: 'suggestion'` value no longer drives it. The `sourceType` field selects the agent-identity vs human-author header variant rendered in the UI.
 
 **FullscreenClickEvent (payload for the `fullscreenClick` sidebar event):**
 
@@ -214,7 +224,7 @@ Emitted by the Comment Sidebar V2 `fullscreenClick` event when the header fullsc
 **Verification:**
 - [ ] Using correct types for all comment-related data
 - [ ] commentId is number, annotationId is string
-- [ ] Location.id is number, not string
+- [ ] `Location` has an `id` (string or number) or a non-empty `locationName`
 - [ ] Status.type is one of 'default', 'ongoing', 'terminal'
 - [ ] Agent-authored annotations check `annotation.agent` for identity, not custom fields
 - [ ] `CommentAnnotation.involvedUserIds` / `mentionedUserIds` and `ReactionAnnotation.involvedUserIds` are treated as read-only server-derived fields (never written from the client)
@@ -222,5 +232,8 @@ Emitted by the Comment Sidebar V2 `fullscreenClick` event when the header fullsc
 - [ ] `Comment.metadata` is opaque to Velt — application code owns its schema
 - [ ] `FullscreenClickEvent.fullScreen` is read as the post-toggle state (`true` = now fullscreen)
 
-**Source Pointer:** https://docs.velt.dev/api-reference/sdk/models/data-models - Comments
-**Source Pointer:** https://docs.velt.dev/api-reference/sdk/models/data-models#fullscreenclickevent
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/sdk/models/data-models#commentannotation - CommentAnnotation
+- https://docs.velt.dev/api-reference/sdk/models/data-models#comment - Comment
+- https://docs.velt.dev/api-reference/sdk/models/data-models#location - Location
+- https://docs.velt.dev/api-reference/sdk/models/data-models#fullscreenclickevent - FullscreenClickEvent

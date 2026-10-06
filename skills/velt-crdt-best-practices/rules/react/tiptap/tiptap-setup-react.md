@@ -73,4 +73,4 @@ In Next.js, the Tiptap editor component must be loaded with `next/dynamic` and `
 - [ ] Connection status shows "Connected"
 - [ ] In Next.js: editor loaded via `next/dynamic` with `ssr: false`
 
-**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap` (### Step 3: Initialize Velt CRDT Extension > React / Next.js)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap#legacy-api-v1` (## Legacy API (v1) > React: useVeltTiptapCrdtExtension() (deprecated))

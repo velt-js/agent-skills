@@ -1,10 +1,10 @@
 ---
 name: velt-recorder-best-practices
-description: Velt Recorder implementation patterns and best practices for React, Next.js, and web applications. Use when adding audio, video, or screen recording features, recording playback, video editing, recording transcription, managing recording lifecycle events, or binding Recorder wireframe slots with template variables (velt-data / velt-if / velt-class).
+description: Velt Recorder implementation patterns and best practices for React, Next.js, and web applications. Use when adding audio, video, or screen recording (VeltRecorderTool, VeltRecorderControlPanel, VeltRecorderPlayer, VeltRecorderNotes), recording playback, the video editor, AI transcription, recorder lifecycle events, the recorder.done webhook, the Get Recordings REST API, or binding Recorder and Transcription wireframe slots with template variables (velt-data / velt-if / velt-class).
 license: MIT
 metadata:
   author: velt
-  version: "1.2.0"
+  version: "1.2.1"
 ---
 
 # Velt Recorder Best Practices
@@ -26,6 +26,7 @@ Reference these guidelines when:
 - Configuring Picture-in-Picture mode for screen recordings
 - Setting max recording duration limits
 - Choosing between floating and thread control panel modes
+- Handling the `recorder.done` advanced webhook or fetching recordings with the Get Recordings REST API
 - Binding Recorder wireframe slots with template variables (`velt-data`, `velt-if`, `velt-class`)
 
 ## Rule Categories by Priority
@@ -45,13 +46,14 @@ Reference these guidelines when:
 
 ### 1. Core Setup (CRITICAL)
 
-- `core-setup` — Add VeltRecorderTool, VeltRecorderControlPanel, and VeltRecorderPlayer
+- `core-setup` — Add VeltRecorderTool, VeltRecorderControlPanel, VeltRecorderNotes, and VeltRecorderPlayer; component props and shared recorder flags
+- `core-auth-provider` — Use authProvider on VeltProvider instead of identify() / useIdentify()
 - `core-permissions` — Request device permissions for camera, microphone, and screen capture
-- `core-webhooks` — Handle the recorder.done server-side webhook event (RecorderPayload, RecorderTrigger)
+- `core-webhooks` — Handle the recorder.done advanced webhook (WebhookV2Payload `data` = RecorderPayload, RecorderTrigger)
 
 ### 2. Recording Configuration (HIGH)
 
-- `config-type-and-mode` — Select recording type (all, audio, video, screen) and customize tool button
+- `config-type-and-mode` — Select recording type (all, audio, video, screen, or a comma-separated subset), panelId binding, and button label
 - `config-max-length` — Set maximum recording duration
 - `config-picture-in-picture` — Enable PiP for screen recordings (Chrome only)
 - `config-quality-encoding` — Configure recording quality constraints and encoding options
@@ -61,11 +63,12 @@ Reference these guidelines when:
 - `data-hooks` — Use React hooks (useRecordings, useRecorderAddHandler) for reactive data
 - `data-fetch-subscribe` — Fetch or subscribe to recording data via API
 - `data-delete-download` — Delete recordings and download latest video version
-- `data-rest-api` — Retrieve recordings via REST API (server-side, with pagination)
+- `data-rest-api` — Retrieve recordings via REST API (server-side, `data` body, `result.pageToken` pagination)
+- `data-types-reference` — Documented field names for recorder data models (transcriptSegments, fileSizeInBytes, `safari` / `other` keys)
 
 ### 4. Event Handling (MEDIUM-HIGH)
 
-- `events-lifecycle` — Subscribe to all 11 recorder events via API
+- `events-lifecycle` — Subscribe to all 12 recorder events via API
 - `events-hooks` — Use useRecorderEventCallback hook for React event subscriptions
 
 ### 5. Video Editor (MEDIUM)
@@ -79,6 +82,7 @@ Reference these guidelines when:
 - `ui-playback-options` — Configure fullscreen playback and click-to-play behavior
 - `ui-countdown-settings` — Control countdown timer and embedded settings
 - `ui-ai-transcription` — Configure AI transcription and summary display
+- `ui-wireframes` — Customize recorder UI with the wireframe component hierarchies inside VeltWireframe
 
 ### 7. Debugging & Testing (LOW-MEDIUM)
 

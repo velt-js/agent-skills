@@ -1,83 +1,72 @@
 ---
 title: Scope Huddle with setDocuments
 impact: CRITICAL
-impactDescription: Without setDocuments, huddle is scoped to root document across all pages
-tags: documents, setDocuments, scope, useSetDocuments, huddle-scope
+impactDescription: Without a document set after login, the huddle has no document to attach to and users on different pages are not separated
+tags: documents, setDocuments, useSetDocuments, useSetDocument, root-document, scope, huddle-scope
 ---
 
 ## Scope Huddle to the Current Document
 
-You must call `setDocuments` (or use the `useSetDocuments` hook) to scope the huddle to a specific document. Without it, the huddle is scoped to the root document, meaning all users across all pages of your application will be in the same huddle context.
+Call `setDocuments` (React: the `setDocuments` function returned by `useSetDocuments()`) after the user is authenticated, and update it whenever the user navigates to a different document. Huddle is scoped to the current document, so users viewing "Project Alpha" never see participants from "Project Beta".
 
 **Why this matters:**
 
-If you skip document scoping, starting a huddle on "Project Alpha" will pull in users viewing "Project Beta" and every other page. This creates confusion and defeats per-document collaboration. Huddle sessions should be isolated to the document or page context where they are initiated.
+You can subscribe to up to 30 documents at once, but realtime features like the huddle default to the **root document** (the first entry, or `rootDocumentId` in options). Pass the document the user is actually viewing first, or set `rootDocumentId`.
 
-**Important rules:**
+**Incorrect (wrong document key, set before login, not reactive to navigation):**
 
-- Call `useSetDocuments` in a child component of `VeltProvider`, never in the same component
-- Wait until the current user is authenticated before setting documents
-- Update the document ID whenever the user navigates to a different document
+```jsx
+// The document key is `id`, not `documentId`, and this runs before the user is authenticated.
+const { setDocuments } = useSetDocuments();
+setDocuments([{ documentId, metadata: {} }]);
+```
 
-**React: useSetDocuments with auth check**
+**Correct (React / Next.js):**
 
 ```jsx
 "use client";
+import { useEffect } from "react";
 import { useSetDocuments, useCurrentUser } from "@veltdev/react";
 
-function DocumentScope({ documentId }) {
-  const currentUser = useCurrentUser();
+// Render this as a CHILD of VeltProvider, never in the component that renders VeltProvider
+function DocumentScope({ documentId, documentName }) {
+  const { setDocuments } = useSetDocuments();
+  const veltUser = useCurrentUser();
 
-  useSetDocuments(
-    currentUser ? [{ documentId, metadata: {} }] : null
-  );
+  useEffect(() => {
+    if (!veltUser || !documentId) return; // wait for authentication
+    setDocuments([{ id: documentId, metadata: { documentName } }]);
+  }, [veltUser, documentId, documentName, setDocuments]);
 
   return null;
 }
 ```
 
-**React: Full layout with document scoping and huddle**
+**Correct (Other Frameworks):**
 
-```jsx
-"use client";
-import { VeltProvider, VeltHuddle, VeltHuddleTool, VeltPresence } from "@veltdev/react";
-
-function App({ documentId, authProvider }) {
-  return (
-    <VeltProvider apiKey={process.env.NEXT_PUBLIC_VELT_API_KEY} authProvider={authProvider}>
-      <VeltHuddle />
-      <DocumentScope documentId={documentId} />
-      <header>
-        <VeltPresence />
-        <VeltHuddleTool type="all" />
-      </header>
-      <main>{/* Document content */}</main>
-    </VeltProvider>
-  );
-}
+```js
+// After Velt.init() and authentication complete
+await Velt.setDocuments([
+  { id: "project-alpha", metadata: { documentName: "Project Alpha" } },
+]);
 ```
 
-**HTML / Vanilla JS:**
+**Common mistakes to avoid:**
 
-```javascript
-const client = await Velt.init("YOUR_API_KEY");
-// After authentication completes:
-client.setDocuments([{ documentId: "project-alpha", metadata: {} }]);
-```
-
-**Common mistakes to avoid (do not do these):**
-
-- Calling `useSetDocuments` inside the same component that renders `VeltProvider` — the hook requires `VeltProvider` context to be available as a parent
-- Setting the document before the user is authenticated — huddle will not register correctly
-- Forgetting to update the document ID on route changes — stale document scope causes cross-document huddle leaks
+- Calling `useSetDocuments` in the same component that renders `VeltProvider` (the hook needs the provider as a parent)
+- Using `documentId` as the key inside the document object (the key is `id`)
+- Setting the document before the user is authenticated
+- Forgetting to update the document on route changes, which leaves the huddle attached to the previous document
+- Passing several documents and expecting the huddle to span all of them (it uses the root document only)
 
 **Verification:**
-- [ ] `useSetDocuments` is called in a child component of `VeltProvider`
-- [ ] Document ID is set only after `useCurrentUser` returns a valid user
-- [ ] Document ID updates when the user navigates to a different document
-- [ ] Huddle sessions are isolated to the current document
-- [ ] No cross-document huddle leakage in multi-document apps
+- [ ] `setDocuments` is called from a child component of `VeltProvider` (or via `Velt.setDocuments`)
+- [ ] Document objects use `{ id, metadata }`
+- [ ] The document is set only after `useCurrentUser()` returns a user
+- [ ] The document updates when the user navigates
+- [ ] With multiple documents, the one the user is viewing is the root document
 
 **Source Pointers:**
-- `https://docs.velt.dev/documents/setup` - Document setup
-- `https://docs.velt.dev/huddle/setup` - Huddle setup guide
+- https://docs.velt.dev/key-concepts/overview#subscribe-to-documents - "Subscribe to Documents"
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#usesetdocuments - `useSetDocuments()`
+- https://docs.velt.dev/realtime-collaboration/huddle/setup - "Huddle Setup"

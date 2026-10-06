@@ -1,19 +1,29 @@
 ---
-title: Executions endpoints — dispatch (idempotencyKey, webhookUrl), get, list, cancel, getEvents
+title: Dispatch executions with idempotencyKey and use get, list, cancel, and getEvents with sinceSeq correctly
 impact: HIGH
-impactDescription: Missing idempotencyKey on dispatch creates duplicate executions on retry; missing sinceSeq recovery after a webhook outage leaves your state permanently behind
-tags: approval-engine, rest, executions, dispatch, idempotencyKey, webhookUrl, webhookSecret, get, list, cancel, getEvents, sinceSeq, deduplicated
+impactDescription: Missing idempotencyKey on dispatch duplicates runs on retry; list items carry no steps and cancel is a no-op on terminal runs, so code written for the old shapes misreads both
+tags: approval-engine, rest, executions, dispatch, idempotencyKey, correlationId, triggerContext, organizationId, documentId, folderId, webhookUrl, webhookSecret, get, list, cursor, cancel, getEvents, sinceSeq, pageSize, deduplicated, tombstoned
 ---
 
-## Executions endpoints — dispatch, get, list, cancel, getEvents
+## Dispatch executions with idempotencyKey and use get, list, cancel, and getEvents with sinceSeq correctly
 
-An **execution** is a single run of a definition. Five POST endpoints under `/v2/workflow/executions/*`. The two operations that have non-obvious failure modes are **dispatch** (always supply `idempotencyKey`) and **getEvents** (use `sinceSeq` to recover missed webhooks).
+An execution is one run of a definition. Five `POST` endpoints under `/v2/workflow/executions/*`. Always dispatch with an `idempotencyKey`, and use `getEvents` with `sinceSeq` to catch up after missed webhooks.
 
-**Dispatch — always supply `idempotencyKey`:**
+**Incorrect:**
 
-```bash
-POST https://api.velt.dev/v2/workflow/executions/dispatch
+```json
+{
+  "data": {
+    "definitionId": "marketing-copy-approval",
+    "triggerContext": { "assetId": "asset_8f3" },
+    "webhookUrl": "https://hooks.acme.com/velt/approvals"
+  }
+}
 ```
+
+No `idempotencyKey` (a network retry starts a second run), and `webhookUrl` without `webhookSecret` is rejected with `webhookUrl and webhookSecret must be provided together`.
+
+**Correct:**
 
 ```json
 {
@@ -21,78 +31,61 @@ POST https://api.velt.dev/v2/workflow/executions/dispatch
     "definitionId": "marketing-copy-approval",
     "idempotencyKey": "campaign-42-dispatch",
     "correlationId": "corr_campaign_42",
-    "triggerContext": { "assetId": "asset_8f3" },
+    "triggerContext": { "assetId": "asset_8f3", "documentUrl": "https://app.acme.com/assets/8f3" },
+    "organizationId": "org_acme",
     "webhookUrl": "https://hooks.acme.com/velt/approvals",
-    "webhookSecret": "whsec_9a8fS2l..."
+    "webhookSecret": "whsec_9a8fS2l0b3x7k1qz"
   }
 }
-
-// Response
-// { "result": { "executionId": "exec_1777...", "correlationId": "...", "deduplicated": false } }
+// { "result": { "executionId": "exec_1777374504255_xzy43k9q", "correlationId": "corr_campaign_42", "deduplicated": false } }
 ```
 
-**Idempotency rules:**
-- Replaying with the same `idempotencyKey` (including in concurrent races) returns the original `executionId` rather than spawning a duplicate.
-- `deduplicated: true` means the key was already used — treat it as success, do **not** re-dispatch.
-- Omitting `idempotencyKey` is technically allowed but unsafe: any retry on a 5xx or network error risks duplicate workflows. Always set it to something derived from your trigger (campaign ID, asset ID + version, etc.).
+**Dispatch** (`/executions/dispatch`):
 
-**Webhook config rules:**
-- `webhookUrl` and `webhookSecret` are paired — provide both or neither. Just `webhookUrl` is rejected.
-- The URL must be `https://`. Private, loopback, or link-local IPs are rejected at delivery time (not at dispatch time).
-- The secret is used by Velt to sign each delivery; your receiver verifies with HMAC-SHA256 (see `webhooks-delivery`).
+| Field | Notes |
+|---|---|
+| `definitionId` | Required. Must be `active`. |
+| `idempotencyKey` | `^[A-Za-z0-9:_\-.]{1,200}$`. Replays (including concurrent races) return the original `executionId` with `deduplicated: true`; treat that as success. |
+| `correlationId` | Same pattern. Server-generated if omitted. |
+| `triggerContext` | Free-form; read as `execution.input.*` in predicates, by agent `urlPath`, and by notification templates as `execution.triggerContext`. |
+| `organizationId` / `documentId` | Used by agent nodes when they call the agent. Not validated against `scope` and never returned by a read (write-only). |
+| `folderId` | Optional folder association. |
+| `webhookUrl` + `webhookSecret` | Paired. `https` only, secret 16 to 512 chars. Validated at the schema boundary and re-checked at delivery (DNS re-resolved, no redirects). Overrides the definition's `webhookConfig` for this run. |
 
-**Get:**
+Errors: `NOT_FOUND` (no such definition), `FAILED_PRECONDITION` (definition tombstoned, or it has no root nodes), `INVALID_ARGUMENT` (schema, including an unpaired webhook field). A soft-deleted definition returns `FAILED_PRECONDITION`, not `NOT_FOUND`.
 
-```bash
-POST https://api.velt.dev/v2/workflow/executions/get
-{ "data": { "executionId": "exec_1777..." } }
-// Response: { "result": ExecutionView }   // includes steps[]
+**Get** (`/executions/get`): `{ executionId }` returns `ExecutionView` with every step's view model (`steps[]`). Use it to find waiting steps and to read `steps[].error`.
+
+**List (`/executions/list`):**
+
+```json
+{ "data": { "definitionId": "marketing-copy-approval", "status": "running", "pageSize": 50, "cursor": "1777374504364" } }
+// { "result": { "items": [ /* ExecutionView, each with steps: [] */ ], "nextCursor": "1777374504364" } }
 ```
 
-**List — cursor pagination:**
+Filters: `definitionId`, `status` (`pending` / `running` / `completed` / `failed` / `cancelled`). `pageSize` 1 to 500 (default 50). `cursor` is the previous `nextCursor` string, passed back unchanged; `nextCursor` is `null` when the page is not full. No `organizationId` / `documentId` filters. List items return `steps: []`; call `/executions/get` for step detail.
 
-```bash
-POST https://api.velt.dev/v2/workflow/executions/list
-{ "data": { "definitionId": "marketing-copy-approval", "status": "running", "pageSize": 50 } }
-// Response: { "result": { "items": ExecutionView[], "nextCursor": "...", "hasMore": true } }
+**Cancel** (`/executions/cancel`): `{ executionId, reason? }` (`reason` up to 500 chars, surfaced on `execution.cancelled`). Returns `{ cancelled: true, executionId }`. Cancelling a run that is already terminal is a no-op. Successors of cancelled steps are never scheduled. Errors: `NOT_FOUND`, `INVALID_ARGUMENT`.
+
+**Get events (`/executions/getEvents`):**
+
+```json
+{ "data": { "executionId": "exec_1777374504255_xzy43k9q", "sinceSeq": 5, "pageSize": 100 } }
+// { "result": { "executionId": "...", "events": [ApprovalEventView], "nextCursor": 12, "hasMore": false } }
 ```
 
-**v1 filter limitation:** `/executions/list` does NOT accept `organizationId` or `documentId` as filter parameters. To fetch executions scoped to an organization or document, filter client-side after paginating all results by `definitionId`. Cross-scope filtering is not supported in the current release.
+Returns external events with `seq > sinceSeq` (default 0), `pageSize` 1 to 500 (default 100). Page while `hasMore` is true. Only the 12 external event types are returned (see `webhooks-delivery`); internal events consume `seq` numbers, so gaps are normal. The run is done when you see `execution.completed`, `execution.failed`, or `execution.cancelled`.
 
-**Cancel:**
-
-```bash
-POST https://api.velt.dev/v2/workflow/executions/cancel
-{ "data": { "executionId": "exec_1777...", "reason": "campaign paused" } }
-```
-
-Rejected with `FAILED_PRECONDITION` if the execution is already terminal (`completed`, `failed`, `cancelled`). Idempotent for already-cancelled executions in the same sense — re-cancelling a terminal one is rejected, not silently no-op'd.
-
-**Get events — recover missed webhooks with `sinceSeq`:**
-
-```bash
-POST https://api.velt.dev/v2/workflow/executions/getEvents
-{ "data": { "executionId": "exec_1777...", "sinceSeq": 5 } }
-// Response: { "result": { "events": ApprovalEventView[] } }
-```
-
-Returns all externally-visible events with `seq > sinceSeq`, in order. The recovery pattern:
-
-1. Your webhook receiver durably stores the last `seq` it processed per execution.
-2. After an outage, call `/executions/getEvents` with that `seq` to fetch the gap.
-3. Re-apply the events idempotently using `(executionId, seq)` as the dedup key.
-
-**`seq` values can be non-contiguous** — internal-only events (`step.scheduled`, `step.started`, `step.retried`, `step.resumed`, `step.response-recorded`, `step.overridden`, `parallel-group.completed`, `idempotency.suppressed`) fill gaps but are never delivered externally. Do not treat a missing seq as a problem; treat the externally-visible events as the source of truth.
-
-**Externally-visible event types returned by `getEvents`:** the complete catalog of types that appear in the stream matches the webhook event catalog (see `webhooks-delivery`), including the loop events `loop.iteration-started` and `loop.exhausted`. Any type not in that catalog is an internal-only event and is filtered out of this endpoint's response. Use the `webhooks-delivery` rule as the authoritative enumeration — `getEvents` and the webhook stream emit the same externally-visible event set.
+**Recovery pattern:** store the highest processed `seq` per execution; after an outage call `getEvents` with it and feed the events through the same idempotent handler as your webhook receiver, keyed on `(executionId, seq)`.
 
 **Verification Checklist:**
-- [ ] Every `/executions/dispatch` call includes an `idempotencyKey` derived from a stable upstream identifier
-- [ ] `deduplicated: true` responses are treated as success (NOT retried)
-- [ ] `webhookUrl` and `webhookSecret` are provided together; URL is `https://`, not a private host
-- [ ] `/executions/cancel` callers handle `FAILED_PRECONDITION` for already-terminal executions
-- [ ] Webhook receivers store the last processed `seq` per execution and use `/executions/getEvents?sinceSeq=N` after outages
-- [ ] Receivers do NOT treat non-contiguous `seq` values as an error — internal events fill the gaps
+- [ ] Every dispatch sends an `idempotencyKey` derived from a stable upstream id; `deduplicated: true` is success
+- [ ] `webhookUrl` and `webhookSecret` (16+ chars) are sent together, or neither
+- [ ] Dispatch passes `organizationId` / `documentId` when agent nodes need them, and nothing reads them back
+- [ ] `FAILED_PRECONDITION` on dispatch is handled as "definition tombstoned or has no roots"
+- [ ] List callers read `result.items`, pass `nextCursor` back as a string, stop at `null`, and call get for steps
+- [ ] Cancel callers do not expect an error for already-terminal runs
+- [ ] Event catch-up pages with `pageSize` / `hasMore` and tolerates `seq` gaps
 
 **Source Pointers:**
 - https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/executions/dispatch-execution
@@ -100,3 +93,4 @@ Returns all externally-visible events with `seq > sinceSeq`, in order. The recov
 - https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/executions/list-executions
 - https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/executions/cancel-execution
 - https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/executions/get-execution-events
+- https://docs.velt.dev/ai/approval-engine/setup#step-2-dispatch-an-execution — dispatch walkthrough

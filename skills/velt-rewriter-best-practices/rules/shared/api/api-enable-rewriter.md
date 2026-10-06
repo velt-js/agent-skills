@@ -19,6 +19,15 @@ A common mistake is using `disableDefaultUI()` when you wanted to turn the featu
 
 `enableRewriter()` is the first call in the canonical setup flow (enable → subscribe to `textSelected` → call `askAi` → call `replaceText` or `addComment`).
 
+In React you can also get the element with the `useAIRewriterUtils()` hook (returns `RewriterElement`, `undefined` until the client is ready). If you pass `featureAllowList` to the SDK config, include `'rewriter'`, or the Rewriter chunk is not preloaded; `client.preloadRewriter()` warms it on demand.
+
+**Incorrect (hides the toolbar but never turns the feature on):**
+
+```tsx
+const rewriterElement = client.getRewriterElement();
+rewriterElement.disableDefaultUI(); // BUG: enableRewriter() was never called, so no textSelected events fire
+```
+
 **Correct (React / Next.js — enable on mount, disable on unmount):**
 
 ```tsx
@@ -39,6 +48,25 @@ function RewriterBootstrap() {
 }
 ```
 
+**Correct (React / Next.js — hook form):**
+
+```tsx
+import { useAIRewriterUtils } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function RewriterBootstrap() {
+  const rewriterElement = useAIRewriterUtils();
+
+  useEffect(() => {
+    if (!rewriterElement) return;
+    rewriterElement.enableRewriter();
+    return () => rewriterElement.disableRewriter();
+  }, [rewriterElement]);
+
+  return null;
+}
+```
+
 **Correct (Other Frameworks):**
 
 ```js
@@ -54,8 +82,11 @@ if (Velt) {
 - [ ] `enableRewriter()` is called before subscribing to `textSelected` or calling `askAi` / `replaceText` / `addComment`
 - [ ] Feature toggle (`enableRewriter` / `disableRewriter`) is not confused with toolbar toggle (`enableDefaultUI` / `disableDefaultUI`)
 - [ ] In React, the call lives inside a `useEffect` guarded on `client`, with `disableRewriter()` in the cleanup
-- [ ] `getRewriterElement()` is called after the Velt client is initialized
+- [ ] `getRewriterElement()` / `useAIRewriterUtils()` is used only after the Velt client is initialized
+- [ ] If `featureAllowList` is set, it includes `'rewriter'`
 
 **Source Pointers:**
 - https://docs.velt.dev/ai/rewriter/setup — Step 1: Enable Rewriter
 - https://docs.velt.dev/ai/rewriter/customize-behavior#enablerewriter — API reference
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#useairewriterutils — `useAIRewriterUtils()` hook
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#preloadrewriter — `preloadRewriter()` and `featureAllowList`

@@ -9,6 +9,18 @@ tags: arrows, ArrowAnnotation, AnnotationProperty, annotationId, targetElement, 
 
 `ArrowAnnotation` is the canonical shape Velt persists for every placed arrow on a document. Code that subscribes to arrows, exports them, or builds custom UI on top of them types against this shape.
 
+**Incorrect (reads geometry without guards):**
+
+```typescript
+const angle = annotation.props.arrowAngle; // BUG: props is optional, and the annotation may not be an arrow
+```
+
+**Correct (narrow and use optional chaining):**
+
+```typescript
+const angle = annotation.type === 'arrow' ? annotation.props?.arrowAngle : undefined;
+```
+
 **`ArrowAnnotation` shape:**
 
 ```typescript

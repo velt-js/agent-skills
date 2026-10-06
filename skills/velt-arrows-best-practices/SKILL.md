@@ -1,10 +1,10 @@
 ---
 name: velt-arrows-best-practices
-description: "Best practices for Velt Arrows — the directional arrow annotation feature that lets users draw arrows pinned to DOM elements for visual feedback, design review, or collaborative pointing. Use whenever the user is adding Velt Arrows to their app, placing the VeltArrows or VeltArrowTool components, restricting arrows to specific DOM regions via allowedElementIds, enabling dark mode, customizing the arrow tool button (CSS ::part hooks or full custom-button slot replacement), reading the ArrowAnnotation data model (annotationId, from, targetElement, position, props.arrowLength / props.arrowAngle), or working with the ArrowElement API (client.getArrowElement). Triggers on any task involving Velt Arrows, drawn arrow pins, arrow annotations, directional pointing UI, design-review arrows, the VeltArrows / VeltArrowTool / velt-arrows / velt-arrow-tool web components, or ArrowAnnotation — even when the user does not explicitly say 'Velt' or 'arrows'."
+description: "Best practices for Velt Arrows, the directional arrow annotations users draw on DOM elements for design review and collaborative pointing. Use when placing VeltArrows and VeltArrowTool (or velt-arrows / velt-arrow-tool), restricting arrows with allowedElementIds, enabling darkMode, replacing or styling the tool button (custom button slot, ::part), calling getArrowElement, or typing ArrowAnnotation (arrowLength, arrowAngle). Triggers on Velt arrows or arrow annotations, even without the word Velt."
 license: MIT
 metadata:
   author: velt
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # Velt Arrows Best Practices
@@ -22,6 +22,7 @@ Reference these guidelines when:
 - Styling the arrow tool via CSS `::part(...)` hooks
 - Typing against `ArrowAnnotation` and `AnnotationProperty` (including `arrowLength` / `arrowAngle`) from the data model
 - Calling `client.getArrowElement()` to get the `ArrowElement` handle
+- Including `'arrow'` in a v6 `featureAllowList` (or warming the chunk with `preloadArrow()`)
 
 For general SDK setup (`VeltProvider`, auth, document identity) see `velt-setup-best-practices`. For UI-customization concepts that overlap with other Velt features, see `velt-comments-best-practices`.
 
@@ -40,10 +41,10 @@ Arrows do NOT currently expose `<velt-...-wireframe>` registrations, so the `vel
 ## Quick Reference
 
 ### API & Setup (HIGH)
-- `api-setup` — `VeltArrows` (root) + `VeltArrowTool` (toolbar trigger); `client.getArrowElement()`; custom-button child slot pattern
+- `api-setup` — `VeltArrows` (root) + `VeltArrowTool` (toolbar trigger); `client.getArrowElement()`; custom-button child slot pattern; `featureAllowList` key `'arrow'`
 
 ### Configuration (HIGH)
-- `config-customize` — `allowedElementIds` (prop and method form), `darkMode`, CSS `::part(container | button-container | button-icon)` hooks; wireframe-tag limitation
+- `config-customize` — `allowedElementIds` (prop and method form), `darkMode`, CSS `::part(container | button-container | button-icon)` hooks; wireframe-tag limitation; no headless hooks
 
 ### Types (MEDIUM)
 - `types-arrow-annotation` — `ArrowAnnotation` shape (annotationId, from, color, targetElement, position, locationId, location, props, annotationIndex, pageInfo) and `AnnotationProperty` (viewport dimensions, `arrowLength`, `arrowAngle`)

@@ -8,7 +8,7 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 1. Core Setup (core)
 
 **Impact:** CRITICAL
-**Description:** Essential setup required for any Velt activity log implementation. Activity Logs must be enabled in the Velt Console before any SDK or REST API calls will work. Includes the VeltActivityLog drop-in UI component for displaying activity feeds.
+**Description:** Essential setup required for any Velt activity log implementation: an authenticated user via authProvider, the VeltActivityLog drop-in UI component or a subscription, and the workspace-level activityServiceConfig (enablement, immutability, triggers) that the REST Add API depends on.
 
 ---
 
@@ -29,7 +29,7 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 4. REST API (rest)
 
 **Impact:** LOW-MEDIUM
-**Description:** Server-side activity log management via REST API. Covers Get, Add, Update, and Delete endpoints for programmatic access from backend services.
+**Description:** Server-side activity log management via REST API. Covers Get, Add, Update, and Delete endpoints (result.data / result.pageToken responses) for programmatic access from backend services.
 
 ---
 

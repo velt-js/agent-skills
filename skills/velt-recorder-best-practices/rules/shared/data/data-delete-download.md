@@ -63,13 +63,28 @@ const success = await recorderElement.downloadLatestVideo('RECORDER_ID');
 ```
 
 **Key details:**
-- `deleteRecordings()` accepts `{ recorderIds: string[] }` and returns `Promise<DeleteRecordingsResponse[]>`
+- `deleteRecordings()` accepts a `RecorderRequestQuery` (`{ recorderIds: string[] }`) and returns `Promise<DeleteRecordingsResponse[]>`
 - `downloadLatestVideo()` accepts a single `recorderId` string and returns `Promise<boolean>`
 - `downloadLatestVideo` downloads the latest edited version if the video was edited
 
+**Player delete control:** `VeltRecorderPlayer` accepts an `onDelete` callback that receives `{ id }` (the `recorderId`). The docs differ on what happens without it: the props reference says it fires when the recording is deleted, while the behaviors reference says the delete control only emits the event and your handler owns the deletion. Wire `onDelete`, check in your build whether the recording is already gone (for example with `fetchRecordings({ recorderIds: [id] })`), and only call `deleteRecordings()` if it is not.
+
+```jsx
+<VeltRecorderPlayer
+  recorderId={recorderId}
+  onDelete={({ id }) => handlePlayerDelete(id)}
+/>
+```
+
+The `deleteRecording` recorder event fires when a recording is deleted.
+
 **Verification:**
 - [ ] Delete functionality available for user-created recordings
+- [ ] `onDelete` wired on `VeltRecorderPlayer` and deletion behavior confirmed in your SDK build
 - [ ] Download triggers browser download of the latest video version
 - [ ] Error cases handled (failed delete, failed download)
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/recorder/customize-behavior - deleteRecordings, downloadLatestVideo
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/recorder/customize-behavior#deleterecordings - "deleteRecordings"
+- https://docs.velt.dev/async-collaboration/recorder/customize-behavior#downloadlatestvideo - "downloadLatestVideo"
+- https://docs.velt.dev/ui-customization/reference/behaviors/recorder-huddle - "VeltRecorderPlayer" (`onDelete`)

@@ -1,108 +1,101 @@
 ---
-title: Webhook v2 (Enterprise) with Svix
+title: Verify and Handle Advanced (Svix) Webhooks
 impact: MEDIUM
-impactDescription: Enterprise webhooks provide reliability guarantees and debugging tools essential for production integrations
-tags: webhooks, svix, enterprise, retries, transformations
+impactDescription: Advanced webhooks are signed and retried; skipping signature checks or slow responses lets forged or duplicate events through
+tags: webhooks, advanced, v2, svix, signature, webhook-signature, retries, transformations, event-types, enterprise
 ---
 
-## Webhook v2 (Enterprise) with Svix
+## Verify and Handle Advanced (Svix) Webhooks
 
-Velt Webhook v2 is an enterprise feature powered by Svix. It provides multiple endpoints, event filtering, retries, transformations, and a testing playground.
+Advanced webhooks (Enterprise) deliver `WebhookV2Payload` messages with dot-notation event types to multiple endpoints, with per-endpoint filters, rate limits, retries, transformations, and signatures. Every delivery carries `webhook-id`, `webhook-timestamp`, and `webhook-signature` headers. Verify the signature against the **raw request body** with the endpoint's `whsec_` secret, then return 2xx within 15 seconds. Manage endpoints and secrets with the REST endpoints in `rest-advanced-webhooks`.
 
-### Key Differences from v1
+**Incorrect (parsed body, no signature check, slow handler):**
 
-- Multiple endpoint URLs per organization
-- Per-endpoint event type filtering
-- Automatic retry with exponential backoff
-- JavaScript transformation middleware
-- Testing playground for debugging
+```javascript
+app.post('/velt/webhooks', express.json(), async (req, res) => {
+  await processEverything(req.body); // can exceed 15 s and trigger retries
+  res.sendStatus(200);                // no verification: anyone can forge events
+});
+```
 
-### Event Types (v2 Format)
+**Correct (raw body, HMAC-SHA256 check, timestamp tolerance, fast ack):**
 
-v2 uses dot-notation event type names:
+```javascript
+const crypto = require('crypto');
 
-| Event Type | Description |
-|-----------|-------------|
-| `comment_annotation.add` | New comment annotation created |
-| `comment.add` | Comment added to annotation |
-| `comment.update` | Comment text updated |
-| `comment.delete` | Comment deleted |
-| `comment_annotation.status_change` | Annotation status changed |
-| `comment_annotation.priority_change` | Priority changed |
-| `comment.reaction_add` | Reaction added |
-| `comment.reaction_delete` | Reaction removed |
-| `huddle.create` | Huddle session started |
-| `huddle.join` | User joined huddle |
-| `crdt.update_data` | CRDT data changed (5s debounce) |
+app.post('/velt/webhooks', express.raw({ type: 'application/json' }), (req, res) => {
+  const id = req.header('webhook-id');
+  const timestamp = req.header('webhook-timestamp');
+  const signatures = (req.header('webhook-signature') || '').split(' ');
+  const body = req.body.toString('utf8'); // raw string, never re-stringified JSON
 
-### Retry Schedule
+  if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return res.sendStatus(400);
 
-Failed deliveries are retried on this schedule:
+  const secret = Buffer.from(process.env.VELT_WEBHOOK_SECRET.split('_')[1], 'base64');
+  const expected = crypto.createHmac('sha256', secret).update(`${id}.${timestamp}.${body}`).digest('base64');
+  const valid = signatures.some((sig) => {
+    const value = sig.split(',')[1] || '';
+    return value.length === expected.length &&
+      crypto.timingSafeEqual(Buffer.from(value), Buffer.from(expected));
+  });
+  if (!valid) return res.sendStatus(401);
 
-1. Immediately
-2. 5 seconds
-3. 5 minutes
-4. 30 minutes
-5. 2 hours
-6. 5 hours
-7. 10 hours
-8. 10 hours
+  res.sendStatus(200);                          // acknowledge within 15 seconds
+  enqueue(id, JSON.parse(body));                // dedupe on webhook-id; retries reuse it
+});
+```
 
-After all retries are exhausted, the event is marked as failed. Your endpoint must return a 2xx status code within **15 seconds** or the delivery is considered failed.
+### Event types
+
+| Area | Events |
+|------|--------|
+| Comment threads | `comment_annotation.add`, `.assign`, `.status_change`, `.priority_change`, `.custom_list_change`, `.subscribe`, `.unsubscribe`, `.accept`, `.reject`, `.approve`, `.suggestion_accept`, `.suggestion_reject` (suggestion events are opt-in) |
+| Comments | `comment.add`, `comment.update`, `comment.delete`, `comment.reaction_add`, `comment.reaction_delete` |
+| Huddle | `huddle.create`, `huddle.join` |
+| CRDT | `crdt.update_data` (5-second debounce) |
+| Recorder | `recorder.done` (on by default; toggle with `triggers.recorder.done`) |
+| Review Workflow Builder | `execution.dispatched`, `execution.completed`, `execution.failed`, `execution.cancelled`, `step.awaiting-approval`, `step.completed`, `step.failed`, `step.breached`, `step.cancelled`, `group.quorum-met`, `loop.iteration-started`, `loop.exhausted` |
+
+An endpoint with no event types receives everything; subscribe each endpoint to the subset it needs (`filterTypes` on the endpoint). Payloads look like `{ event, actionType, data: { actionUser, metadata, ... }, source, platform, webhookId }`. Private comments carry a `visibility` object inside `data`; treat it as informational only.
+
+### Delivery, retries, and recovery
+
+- Any non-2xx response, including 3xx redirects, or no response within 15 seconds is a failure.
+- Retries back off: immediately, 5 s, 5 min, 30 min, 2 h, 5 h, 10 h, 10 h. After that the message is marked failed and a `message.attempt.exhausted` event is sent.
+- An endpoint that fails for 5 days is disabled; re-enable it in the webhook dashboard. Failed messages can be resent one by one or recovered from a point in time.
+- Retries resend the same `webhook-id`, so make handlers idempotent.
+- Rate limits are per endpoint (messages per second) and can briefly be exceeded.
+- Deliveries come from static IPs (`44.228.126.217`, `50.112.21.217`, `52.24.126.164`, `54.148.139.208`, `2600:1f24:64:8000::/56`) for firewall allowlists. HTTP Basic auth in the URL and custom headers are also supported.
+- Disable CSRF protection on the webhook route.
 
 ### Transformations
 
-Transformations are JavaScript functions that modify the webhook payload before delivery. Configure them per endpoint in the Svix dashboard.
+A transformation is JavaScript on the endpoint that declares `handler(webhook)` and **returns the whole `WebhookObject`** (`method` of `POST` or `PUT`, `url`, `payload`, `cancel`). Returning only a new payload breaks delivery. Canceled messages show as successful.
 
 ```javascript
-// Example transformation: flatten payload for a Slack webhook
 function handler(webhook) {
-  const { actionType, actionUser, metadata } = webhook.payload;
-
-  return {
-    text: `[${actionType}] ${actionUser.name} on document ${metadata.documentId}`
-  };
+  if (webhook.payload.customUrl) {
+    webhook.url = webhook.payload.customUrl;
+  }
+  return webhook;
 }
 ```
 
-Transformations run as middleware — they receive the original payload and must return the modified payload. Use them to:
+Optional payload encoding (base64) and encryption (AES-256-CBC with an RSA-OAEP SHA-256 wrapped key) work as in basic webhooks; toggle them with `encodeData` / `encryptData` / `publicKey` on `/v2/workspace/advancedwebhookconfig/update`.
 
-- Reshape payloads for third-party services (Slack, PagerDuty, etc.)
-- Filter out unwanted fields
-- Add computed fields
+**Verification Checklist:**
+- [ ] Signature is computed over `${webhook-id}.${webhook-timestamp}.${rawBody}` with HMAC-SHA256 and the base64-decoded part of the `whsec_` secret
+- [ ] The `v1,` prefix is stripped from each space-delimited signature and compared in constant time
+- [ ] `webhook-timestamp` is checked against a tolerance window
+- [ ] The raw body is used for verification (no `JSON.stringify` round trip)
+- [ ] The endpoint returns 2xx within 15 seconds and processes work asynchronously
+- [ ] Handlers are idempotent on `webhook-id`
+- [ ] Each endpoint subscribes to an explicit event subset
+- [ ] Transformations return the full `WebhookObject`
 
-### Endpoint Configuration
-
-Each endpoint can be configured with:
-
-- **URL** — The destination for webhook deliveries
-- **Event types** — Filter which events this endpoint receives
-- **Rate limit** — Maximum deliveries per second
-- **Channels** — Logical grouping for multi-tenant routing
-- **Transformation** — JavaScript function to modify payloads
-
-### Testing
-
-Use the Svix testing playground to:
-
-1. Send test events to your endpoint
-2. Inspect request/response details
-3. Verify transformation output
-4. Debug delivery failures
-
-**Key points:**
-
-- The 15-second timeout is strict — long-running processing should be done asynchronously after acknowledging the webhook.
-- Transformations must be pure JavaScript (no external imports).
-- Event type filtering reduces noise — subscribe each endpoint only to the events it needs.
-- Retries use the same payload — ensure your handler is idempotent.
-- Failed events can be manually retried from the Svix dashboard.
-
-**Verification:**
-- [ ] Endpoint returns 2xx within 15 seconds
-- [ ] Handler logic is idempotent (safe to receive duplicate events)
-- [ ] Event type filters are configured per endpoint
-- [ ] Transformations return valid JSON
-- [ ] Long-running processing is deferred (e.g., queue) after 2xx response
-
-**Source Pointer:** `https://docs.velt.dev/webhooks/webhook-v2` (## Webhooks > ### Webhook v2 Enterprise)
+**Source Pointers:**
+- https://docs.velt.dev/webhooks/advanced - "Advanced Webhooks"
+- https://docs.velt.dev/webhooks/advanced#verifying-webhook-signatures - "Verifying webhook signatures"
+- https://docs.velt.dev/webhooks/advanced#retries - "Retries"
+- https://docs.velt.dev/webhooks/advanced#transformations - "Transformations"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#webhookv2payload - "WebhookV2Payload"

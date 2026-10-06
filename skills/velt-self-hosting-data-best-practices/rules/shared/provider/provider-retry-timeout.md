@@ -57,7 +57,7 @@ const commentDataProvider = {
 | Comments | 10-20s | 3 | 1-2s |
 | Reactions | 5-10s | 2-3 | 1s |
 | Recordings | 10-20s | 3 | 2s |
-| Users | 5-10s | 3 | 1s |
+| Users | 5-10s | n/a (`getRetryConfig` is not supported for the user provider) | n/a |
 | Activity | 30-60s | 3 | 2s |
 | Attachments (save) | 20-30s | 3 | 2-3s |
 | Attachments (delete) | 5-10s | 2 | 1s |
@@ -114,7 +114,7 @@ const commentDataProvider = {
 | Effect on Velt's DB | Removed | Kept |
 | Sent to your backend | Yes (moved) | Yes (copied) |
 | Merged back on read | Yes (restored from you) | No (already in Velt's DB) |
-| Falsy values (`0`, `""`, `false`) | Copied only if truthy | Preserved |
+| Falsy values (`0`, `""`, `false`) | Moved by reaction, recorder, and activity providers (`!== undefined`); comment fields remain truthy-gated | Preserved |
 | Processing order | First | Second |
 | If a field is in **both** lists | `fieldsToRemove` wins (removed first) | — |
 
@@ -123,9 +123,9 @@ const commentDataProvider = {
 | Provider | `fieldsToRemove` | `additionalFields` |
 |---|:---:|:---:|
 | `comment` | ✅ | ✅ |
-| `reaction` | — | ✅ |
-| `recorder` | — | ✅ |
-| `activity` | ✅ (for `custom` activity types only) | — |
+| `reaction` | ✅ | ✅ |
+| `recorder` | ✅ | ✅ |
+| `activity` | ✅ (all feature types) | — |
 | `notification` | — | — |
 
 > ⚠️ **`fieldsToRemove` is for your own custom fields ONLY.** Never list a field Velt relies on to query, scope, position, sync, or render an annotation. If you remove a structural field, Velt can no longer find or place the annotation, and comments/reactions/recordings will silently fail to load, appear in the wrong place, or break filtering and visibility. In particular, **do not** put any of these in `fieldsToRemove`:
@@ -144,6 +144,9 @@ const commentDataProvider = {
 - [ ] Attachment provider has longer timeout than text-based providers
 - [ ] `fieldsToRemove` lists only custom fields — never structural identifiers, metadata, query/filter fields, or resolver flags
 - [ ] `additionalFields` used when you only need a mirror copy (no removal from Velt's DB)
-- [ ] Provider supports the chosen option (only `comment` supports both; see support matrix above)
+- [ ] Provider supports the chosen option (`comment`, `reaction`, and `recorder` support both; `activity` supports only `fieldsToRemove`; see the matrix above)
 
-**Source Pointer:** https://docs.velt.dev/self-host-data/overview - "Excluding & extending fields"; https://docs.velt.dev/self-host-data/comments - "Configuration Options"
+**Source Pointers:**
+- https://docs.velt.dev/self-hosting/partial/overview - "Excluding & extending fields", "Where these are supported"
+- https://docs.velt.dev/self-hosting/partial/comments - "config"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#resolverconfig - "ResolverConfig"

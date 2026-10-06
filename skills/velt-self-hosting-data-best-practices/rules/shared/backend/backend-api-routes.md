@@ -48,7 +48,9 @@ app.post('/api/velt', async (req, res) => {
 // GET handler (comments, reactions, recordings)
 async function handleGet(req, res, collection) {
   try {
-    const { organizationId, documentIds, annotationIds } = req.body;
+    // ID filter key: commentAnnotationIds | reactionAnnotationIds | recorderAnnotationIds
+    const { organizationId, documentIds } = req.body;
+    const annotationIds = req.body.commentAnnotationIds ?? req.body.reactionAnnotationIds ?? req.body.recorderAnnotationIds;
     const query = {};
     if (annotationIds?.length) query.annotationId = { $in: annotationIds };
     if (documentIds?.length) query.documentId = { $in: documentIds };
@@ -67,15 +69,16 @@ async function handleGet(req, res, collection) {
 }
 
 // SAVE handler (comments, reactions, recordings)
-async function handleSave(req, res, collection) {
+// The map key depends on the provider: commentAnnotation | reactionAnnotation | recorderAnnotation
+async function handleSave(req, res, collection, mapKey) {
   try {
-    const { annotations, context } = req.body;
+    const { [mapKey]: annotations = {}, metadata } = req.body;
     for (const [id, annotation] of Object.entries(annotations)) {
       await collection.upsert(
         { annotationId: id },
         { ...annotation, annotationId: id,
-          documentId: context?.documentId,
-          organizationId: context?.organizationId }
+          documentId: metadata?.documentId,
+          organizationId: metadata?.organizationId }
       );
     }
     res.json({ success: true, statusCode: 200 });
@@ -85,9 +88,10 @@ async function handleSave(req, res, collection) {
 }
 
 // DELETE handler (comments, reactions, recordings)
-async function handleDelete(req, res, collection) {
+// The ID key depends on the provider: commentAnnotationId | reactionAnnotationId | recorderAnnotationId
+async function handleDelete(req, res, collection, idKey) {
   try {
-    const { annotationId } = req.body;
+    const annotationId = req.body[idKey];
     await collection.deleteOne({ annotationId });
     res.json({ success: true, statusCode: 200 });
   } catch (error) {
@@ -101,7 +105,9 @@ async function handleDelete(req, res, collection) {
 - Attachment save is the exception — uses `multipart/form-data` (see attachment-multipart-provider rule)
 - User endpoint only has `get` (no save/delete)
 - Every response must include `{ data, success, statusCode }`
-- Extract `documentId` and `organizationId` from request body or context for proper data scoping
+- Save bodies carry the annotation map (`commentAnnotation`, `reactionAnnotation`, or `recorderAnnotation`) plus `metadata`; delete bodies carry `commentAnnotationId` / `reactionAnnotationId` / `recorderAnnotationId` plus `metadata`. Read `documentId` and `organizationId` from `metadata`
+- Authenticate every route before reading or writing (see `backend-verify-resolver-auth`)
+- Node and Python backends can hand the raw body to `sdk.selfHosting.*` and return its result directly instead of hand-writing these handlers
 - When using REST API to add/update comments externally, set `isCommentResolverUsed: true` and `isCommentTextAvailable: true`
 
 **Verification:**
@@ -111,4 +117,7 @@ async function handleDelete(req, res, collection) {
 - [ ] Error responses return `success: false`
 - [ ] Attachment save parses multipart/form-data
 
-**Source Pointer:** https://docs.velt.dev/self-host-data/comments - Backend Example; https://docs.velt.dev/self-host-data/reactions - Backend Example
+**Source Pointers:**
+- https://docs.velt.dev/self-hosting/partial/comments - Backend Example
+- https://docs.velt.dev/self-hosting/partial/reactions - Backend Example
+- https://docs.velt.dev/api-reference/sdk/models/data-models#savecommentresolverrequest - resolver request shapes

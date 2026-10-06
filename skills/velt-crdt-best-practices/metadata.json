@@ -1,20 +1,20 @@
 {
-  "version": "2.1.1",
+  "version": "2.2.0",
   "organization": "Velt",
-  "date": "January 2026",
-  "abstract": "Comprehensive best practices guide for implementing real-time collaborative editing with Velt CRDT (Yjs). Contains 35 rules across 5 categories: Core CRDT (13 rules), Tiptap (7 rules), BlockNote (4 rules), CodeMirror (6 rules), and ReactFlow (5 rules). Each rule includes explanations, incorrect vs. correct code examples, verification checklists, and source pointers to official Velt documentation.",
+  "date": "October 2026",
+  "abstract": "Comprehensive best practices guide for implementing real-time collaborative editing with Velt CRDT (Yjs). Covers the core CRDT store API, the Tiptap, BlockNote, CodeMirror and ReactFlow integrations, and the multiplayer editor packages for Lexical, ProseMirror, Monaco, Ace, Quill, TinyMCE, CKEditor, SuperDoc, Apryse, Nutrient, SpreadJS, Slate and Draft.js. Each rule includes explanations, incorrect vs. correct code examples, verification checklists, and source pointers to official Velt documentation.",
   "categories": [
     {
       "name": "Core CRDT",
       "folder": "core",
       "impact": "CRITICAL",
-      "rules": 13
+      "rules": 25
     },
     {
       "name": "Tiptap",
       "folder": "tiptap",
       "impact": "CRITICAL",
-      "rules": 9
+      "rules": 12
     },
     {
       "name": "BlockNote",
@@ -33,6 +33,12 @@
       "folder": "reactflow",
       "impact": "HIGH",
       "rules": 5
+    },
+    {
+      "name": "Multiplayer Editor Integrations",
+      "folder": "editors",
+      "impact": "HIGH",
+      "rules": 15
     }
   ],
   "references": [
@@ -47,6 +53,21 @@
     "https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror",
     "https://docs.velt.dev/realtime-collaboration/crdt/setup/reactflow",
     "https://docs.velt.dev/get-started/quickstart",
-    "https://docs.yjs.dev/"
+    "https://docs.yjs.dev/",
+    "https://docs.velt.dev/realtime-collaboration/crdt/setup/lexical",
+    "https://docs.velt.dev/realtime-collaboration/crdt/setup/slate",
+    "https://docs.velt.dev/realtime-collaboration/crdt/setup/draftjs",
+    "https://docs.velt.dev/realtime-collaboration/crdt/setup/prosemirror",
+    "https://docs.velt.dev/realtime-collaboration/crdt/setup/quill",
+    "https://docs.velt.dev/realtime-collaboration/crdt/setup/tinymce",
+    "https://docs.velt.dev/realtime-collaboration/crdt/setup/ckeditor",
+    "https://docs.velt.dev/realtime-collaboration/crdt/setup/superdoc",
+    "https://docs.velt.dev/realtime-collaboration/crdt/setup/monaco",
+    "https://docs.velt.dev/realtime-collaboration/crdt/setup/ace",
+    "https://docs.velt.dev/realtime-collaboration/crdt/setup/apryse",
+    "https://docs.velt.dev/realtime-collaboration/crdt/setup/nutrient",
+    "https://docs.velt.dev/realtime-collaboration/crdt/setup/spreadjs",
+    "https://docs.velt.dev/webhooks/advanced",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/crdt/get-crdt-data"
   ]
 }

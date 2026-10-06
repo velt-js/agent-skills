@@ -9,7 +9,7 @@ tags: testing, multi-user, presence, cursors, collaboration, demo
 
 Collaboration features (presence, cursors, CRDT sync, comments) require at least two users to test. The generated app must have a built-in mechanism for signing in as different users.
 
-**Common pitfall — auto-login bypasses sign-in screen:**
+**Common pitfall: auto-login bypasses sign-in screen:**
 
 ```tsx
 // WRONG: Defaults to user-1, sign-in page never renders
@@ -23,7 +23,7 @@ useEffect(() => {
 // CORRECT: Only login via explicit URL param or button click
 useEffect(() => {
   const params = new URLSearchParams(window.location.search);
-  const uid = params.get("user"); // No default — sign-in page renders
+  const uid = params.get("user"); // No default: sign-in page renders
   if (uid) {
     const found = DEMO_USERS[uid];
     if (found) setUser(found);
@@ -46,19 +46,19 @@ if (!isLoggedIn) {
 ```
 
 **Two-user testing workflow:**
-1. Open `http://localhost:3000` — verify sign-in page renders (no auto-login)
-2. Click "Sign in as Alice" — navigate to a document
+1. Open `http://localhost:3000`: verify sign-in page renders (no auto-login)
+2. Click "Sign in as Alice": navigate to a document
 3. Open a second browser tab at `http://localhost:3000`
-4. Click "Sign in as Bob" — navigate to the same document
+4. Click "Sign in as Bob": navigate to the same document
 5. Verify both users' presence avatars are visible
-6. Type in one tab — verify text appears in the other (CRDT sync)
-7. Move cursor in one tab — verify thin caret appears in the other
+6. Type in one tab: verify text appears in the other (CRDT sync)
+7. Move cursor in one tab: verify thin caret appears in the other
 8. Alternative shortcut: `http://localhost:3000?user=user-2` to skip sign-in
 
 **URL parameter pattern for quick switching:**
-- `?user=user-1` — sign in as Alice
-- `?user=user-2` — sign in as Bob
-- No param — show sign-in page
+- `?user=user-1`: sign in as Alice
+- `?user=user-2`: sign in as Bob
+- No param: show sign-in page
 
 **Verification:**
 - [ ] Sign-in page renders when no user is selected
@@ -69,4 +69,6 @@ if (!isLoggedIn) {
 - [ ] CRDT text sync works bidirectionally
 - [ ] `?user=user-2` URL param logs in directly
 
-**Source Pointer:** `https://docs.velt.dev/get-started/quickstart`
+**Source Pointers:**
+- `https://docs.velt.dev/get-started/quickstart` - Step 8: Verify Setup ("To test presence functionality")
+- `https://docs.velt.dev/key-concepts/overview#sign-out-a-user` - Sign out a User (switching users in one tab)

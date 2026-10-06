@@ -97,4 +97,4 @@ This key structure:
 - [ ] AWS credentials stored in environment variables
 - [ ] File content type preserved during upload
 
-**Source Pointer:** https://docs.velt.dev/self-host-data/attachments - Backend Example
+**Source Pointer:** https://docs.velt.dev/self-hosting/partial/attachments - Backend Example

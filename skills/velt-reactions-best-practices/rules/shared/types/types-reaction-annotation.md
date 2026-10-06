@@ -9,6 +9,23 @@ tags: reactions, ReactionAnnotation, ReactionPinType, annotationId, commentAnnot
 
 `ReactionAnnotation` is the canonical shape Velt persists for every placed reaction. Code that subscribes to reactions, exports them, builds custom analytics, or implements a self-hosting data provider types against this shape.
 
+**Incorrect (assumes every reaction belongs to a comment):**
+
+```typescript
+function threadFor(reaction: ReactionAnnotation) {
+  return comments[reaction.commentAnnotationId!]; // BUG: undefined for inline-section reactions
+}
+```
+
+**Correct (narrow and null-guard):**
+
+```typescript
+function anchorFor(a: ReactionAnnotation) {
+  if (a.type !== 'reaction') return null;
+  return a.commentAnnotationId ?? a.targetElementId ?? null;
+}
+```
+
 **`ReactionAnnotation` shape:**
 
 ```typescript
@@ -73,9 +90,13 @@ Note: there is **no** `'inline'` value — that was a common-sense guess that do
 If you're self-hosting reaction data, see two sources for the full picture:
 
 - **`velt-self-hosting-data-best-practices`** — Python resolver-request shapes (`SaveReactionResolverRequest`, `DeleteReactionResolverRequest`, `GetReactionResolverRequest`). None of these include `commentId`; the canonical fields are `organizationId`, `documentId`, and (for delete) `reactionId`.
-- **Velt docs `self-host-data/reactions.mdx`** — the comprehensive reactions data-provider page covering the endpoint-based vs function-based `ReactionAnnotationDataProvider`, `getConfig` / `saveConfig` / `deleteConfig` endpoint configs, `resolveTimeout` and retry configs (`getRetryConfig` / `saveRetryConfig` / `deleteRetryConfig`), the `additionalFields` option, backend examples (MongoDB / PostgreSQL), and debugging via `client.on('dataProvider')`.
+- **Velt docs `self-hosting/partial/reactions.mdx`** — the comprehensive reactions data-provider page covering the endpoint-based vs function-based `ReactionAnnotationDataProvider`, `getConfig` / `saveConfig` / `deleteConfig` endpoint configs, `resolveTimeout` and retry configs (`getRetryConfig` / `saveRetryConfig` / `deleteRetryConfig`), the `additionalFields` option, `fieldsToRemove`, backend examples (MongoDB / PostgreSQL), and debugging via `client.on('dataProvider')`.
 
 This skill does not duplicate those payload shapes — read the linked sources for the full schemas before implementing a provider.
+
+### Reactions on private comments
+
+Since v6.0.0-beta.15, reactions on a private comment do not inherit the parent comment's Access Context, and they no longer reach viewers in the same Access Context. Context-scoped queries do not return them. Since v6.0.4, reactions on private comments persist after a reload and stay visible to exactly the people who can read the parent comment. Don't build visibility logic that assumes a reaction's `context` mirrors its comment's.
 
 ### Event-side cross-reference (comments + reactions)
 
@@ -98,6 +119,7 @@ When reactions are attached to comments, the comment-element event stream emits 
 - https://docs.velt.dev/api-reference/sdk/models/data-models#reaction
 - https://docs.velt.dev/api-reference/sdk/models/data-models#reactionpintype
 - https://docs.velt.dev/api-reference/sdk/models/data-models#reactionmetadata
-- https://docs.velt.dev/self-host-data/reactions — comprehensive reactions data-provider guide
+- https://docs.velt.dev/self-hosting/partial/reactions — comprehensive reactions data-provider guide
+- https://docs.velt.dev/release-notes/version-6/sdk-changelog — 6.0.0-beta.15 and 6.0.4 Comments entries (reactions on private comments)
 - velt-self-hosting-data-best-practices — Python resolver-request shapes (`python-users-reactions.md`)
 - velt-comments-best-practices — `addReaction` / `deleteReaction` / `toggleReaction` comment events

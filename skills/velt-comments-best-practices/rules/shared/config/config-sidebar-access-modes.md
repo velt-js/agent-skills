@@ -52,7 +52,7 @@ const filters = {
 commentElement.setCommentSidebarFilters(filters);
 ```
 
-**Custom filter dropdown in wireframe:** If you build a custom privacy filter dropdown inside `<velt-comments-sidebar-wireframe>`, drive `accessModes` through the same `setCommentSidebarFilters()` API. The filter is resolved server-side by the sidebar pipeline, so your custom UI only needs to write the array.
+**Custom filter dropdown in wireframe:** If you build a custom privacy filter dropdown inside `<velt-comments-sidebar-wireframe>`, drive `accessModes` through the same `setCommentSidebarFilters()` API, or bind your state to a call that writes the selected values. `setCommentSidebarFilters()` is a partial update: included keys replace their selections, omitted keys are preserved, and **Reset** clears them.
 
 **Full filter options reference:**
 
@@ -67,4 +67,17 @@ commentElement.setCommentSidebarFilters(filters);
 | `priority` | `string[]` | e.g. `['P0', 'P1']` |
 | `category` | `string[]` | e.g. `['bug', 'feedback']` |
 | `status` | `string[]` | e.g. `['OPEN', 'IN_PROGRESS']` |
+| `version` | `[{ id: string }]` | Filter by version |
 | `accessModes` | `('public' \| 'private')[]` | Privacy filter |
+
+For V2, `people` / `assigned` / `tagged` / `involved` match by `userId` (falling back to `email`) and `location` matches by `id` (falling back to `locationName`).
+
+**Verification Checklist:**
+- [ ] Privacy filtering uses `accessModes`, not a status or custom field
+- [ ] Values are `'public'` and/or `'private'` (both legacy `iam.accessMode` and `visibilityConfig.type` of `restricted` / `organizationPrivate` count as private)
+- [ ] User and location filter values are objects, not bare id strings
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v1/customize-behavior#setcommentsidebarfilters - setCommentSidebarFilters (V1)
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/customize-behavior#setcommentsidebarfilters - setCommentSidebarFilters (V2)
+- https://docs.velt.dev/api-reference/sdk/models/data-models#commentsidebarfilters - CommentSidebarFilters

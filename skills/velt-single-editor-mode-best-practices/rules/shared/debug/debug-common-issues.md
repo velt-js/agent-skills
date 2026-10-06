@@ -9,6 +9,13 @@ tags: debugging, troubleshooting, heartbeat, enableHeartbeat, disableHeartbeat, 
 
 Common issues when integrating Velt Single Editor Mode and how to resolve them.
 
+**Issue 0: Nothing happens at all (v6 modular SDK)**
+
+```jsx
+// If featureAllowList is set, list liveStateSync so its chunk preloads
+<VeltProvider apiKey="API_KEY" config={{ featureAllowList: ["liveStateSync", "presence"] }} />
+```
+
 **Issue 1: Default UI panel not visible**
 
 ```jsx
@@ -156,4 +163,4 @@ The content element has `contentEditable` but the SDK isn't controlling read-onl
 - [ ] Heartbeat disabled before SEM if disabling is needed
 - [ ] Tested with multiple users in separate browser profiles
 
-**Source Pointer:** https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup - Testing and Debugging, Notes; https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - Heartbeat, Presence Heartbeat, resetUserAccess
+**Source Pointer:** https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup - Testing and Debugging, Notes; https://docs.velt.dev/api-reference/sdk/models/data-models#config - featureAllowList; https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - Heartbeat, Presence Heartbeat, resetUserAccess

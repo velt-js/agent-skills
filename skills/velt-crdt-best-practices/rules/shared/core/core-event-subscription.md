@@ -116,4 +116,5 @@ interface CrdtUpdateDataPayload {
 - [ ] Or use `useCrdtEventCallback("updateData")` hook for automatic lifecycle management
 
 **Source Pointers:**
-- https://docs.velt.dev/realtime-collaboration/crdt/setup/core - on("updateData") event subscription
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/core#crdt-event-subscriptions - on("updateData") event subscription
+- https://docs.velt.dev/api-reference/sdk/models/data-models#crdtupdatedataevent - CrdtUpdateDataEvent

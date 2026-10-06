@@ -1,34 +1,32 @@
 ---
 title: Customize Huddle Tool Button
 impact: MEDIUM
-impactDescription: Slots, CSS parts, and CSS variables for customizing huddle UI
-tags: huddle, customization, slots, css, wireframe, VeltHuddleTool, ui
+impactDescription: Slots and CSS parts for customizing the huddle tool button
+tags: huddle, customization, slots, css-parts, VeltHuddleTool, velt-huddle-tool, ui
 ---
 
 ## Customizing the Huddle Tool Button
 
-`VeltHuddleTool` supports customization via slots for replacing the default button content, CSS parts for styling internal elements, and CSS variables for layout control.
+`VeltHuddleTool` supports a `button` slot for replacing the default button, and CSS `::part()` hooks for styling the default button inside its shadow DOM. For deeper layout changes, use the huddle wireframes (see `wireframe-variables-huddle`).
 
 **Why this matters:**
 
-Default Velt UI components may not match your application's design system. Customization ensures the huddle button integrates visually with your toolbar while preserving all real-time functionality.
+Default components may not match your design system. The slot keeps all huddle behavior while letting you render your own button. Invented CSS variable names silently do nothing, so use only documented parts and variables.
 
-**React: Custom button via slot**
+**Incorrect (wrong host element, undocumented CSS variable):**
 
-```jsx
-"use client";
-import { VeltHuddleTool } from "@veltdev/react";
+```html
+<!-- The slot must be on velt-huddle-tool, not another tool element -->
+<velt-user-invite-tool>
+  <button slot="button">Huddle</button>
+</velt-user-invite-tool>
 
-function Toolbar() {
-  return (
-    <VeltHuddleTool type="all">
-      <button slot="button">Start Call</button>
-    </VeltHuddleTool>
-  );
-}
+<style>
+  :root { --velt-huddle-z-index: 1000; } /* not a documented Velt variable */
+</style>
 ```
 
-**React: Custom button with icon**
+**Correct (React / Next.js: custom button via slot):**
 
 ```jsx
 "use client";
@@ -46,60 +44,46 @@ function Toolbar() {
 }
 ```
 
-**HTML: Custom button via slot**
+**Correct (Other Frameworks):**
 
 ```html
 <velt-huddle-tool type="all">
-  <button slot="button">Start Call</button>
+  <button slot="button">Huddle</button>
 </velt-huddle-tool>
 ```
 
-**CSS Parts for styling:**
+**CSS parts:**
 
-The following CSS parts are available for targeting internal elements:
+| Part | Targets |
+|---|---|
+| `container` | Tool container |
+| `button-container` | Button container |
+| `button-icon` | Button SVG icon |
 
 ```css
-/* Style the outer container */
-velt-huddle-tool::part(container) {
-  border-radius: 8px;
-}
-
-/* Style the button container */
-velt-huddle-tool::part(button-container) {
-  padding: 4px 8px;
-}
-
-/* Style the button icon */
 velt-huddle-tool::part(button-icon) {
   width: 1.5rem;
   height: 1.5rem;
-  color: var(--brand-primary);
 }
 ```
 
-**CSS Variable for z-index:**
-
-```css
-:root {
-  --velt-huddle-z-index: 1000;
-}
-```
-
-This controls the stacking order of the huddle overlay UI. Increase this value if the huddle panel renders behind other elements like modals or drawers.
+**CSS variables:** use only variables listed on the Global Styles / CSS variables pages. If a variable is not listed there, it does not exist.
 
 **Customization guidelines:**
 
-- Use the `slot="button"` approach to fully replace the button content while keeping huddle functionality
-- Use CSS parts when you want to adjust styling without replacing the default markup
-- The `--velt-huddle-z-index` variable affects the huddle overlay, not the tool button itself
-- Slots and CSS parts can be combined for full control
+- Use `slot="button"` to replace the button content while keeping huddle functionality
+- Use CSS parts to adjust the default button without replacing it
+- Use `darkMode` on `VeltHuddleTool` for the dark theme
+- Use huddle wireframes (`<velt-huddle-tool-wireframe>`, `<velt-huddle-wireframe>`) to restructure the tool or room
 
 **Verification:**
-- [ ] Custom button renders correctly inside `VeltHuddleTool`
-- [ ] Clicking the custom button still triggers huddle start/join
-- [ ] CSS part styles apply without breaking huddle functionality
-- [ ] Huddle overlay z-index is appropriate for your app's layering
-- [ ] Custom styles match the application's design system
+- [ ] The slot is placed inside `VeltHuddleTool` / `<velt-huddle-tool>`
+- [ ] Clicking the custom button still starts or joins a huddle
+- [ ] CSS parts used are `container`, `button-container`, or `button-icon`
+- [ ] No undocumented CSS variables are used
 
 **Source Pointers:**
-- `https://docs.velt.dev/huddle/customize-ui` - Huddle UI customization
+- https://docs.velt.dev/ui-customization/features/realtime/huddle/slots - "Slots"
+- https://docs.velt.dev/ui-customization/features/realtime/huddle/parts - "Parts"
+- https://docs.velt.dev/ui-customization/features/realtime/huddle/variables - "Variables"
+- https://docs.velt.dev/global-styles/global-styles - "Global Styles"

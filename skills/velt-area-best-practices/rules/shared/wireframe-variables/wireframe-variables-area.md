@@ -19,7 +19,27 @@ The Area feature has three customer-facing primitives. None of them currently re
 <velt-area-container>        No wireframe tag (CSS styling only).
 ```
 
-To customize the area pin appearance, target CSS classes driven by `componentConfig.*` variables on the host element. To customize the tool or container, target CSS on the public elements.
+To customize the area pin appearance, target CSS classes driven by `componentConfig.*` variables on the host element. To customize the tool or container, target CSS on the public elements. The UI customization reference confirms Areas have no wireframe slots, no `{...}` tokens, no `Velt*` React wrapper, and no headless hooks; the lever is CSS plus the area color (default `#625DF5`). Velt's own styles are high-specificity, so overrides may need `!important`.
+
+**Incorrect (wireframe that is never registered):**
+
+```html
+<velt-wireframe style="display:none;">
+  <!-- BUG: no Area wireframe slot exists; this template is ignored -->
+  <velt-area-pin-portal-wireframe>
+    <div velt-class="'is-selected': {componentConfig.selected}"></div>
+  </velt-area-pin-portal-wireframe>
+</velt-wireframe>
+```
+
+**Correct (CSS on the public host element):**
+
+```css
+/* Target the documented host element; Velt styles are high-specificity */
+velt-area-pin-portal {
+  opacity: 0.85 !important;
+}
+```
 
 This feature uses the **flat-config** access pattern — every variable is referenced via the explicit `componentConfig.<path>` form. Dropping the prefix (`<velt-data field="selected" />`) resolves to nothing.
 
@@ -91,5 +111,7 @@ Text comments uniformly.
 
 **Source Pointers:**
 - https://docs.velt.dev/ui-customization/features/async/area/wireframe-variables — full variable reference + subcomponent list
+- https://docs.velt.dev/ui-customization/features/annotations-tags-arrows-areas — "Limitations" (Areas: CSS and area color only)
+- https://docs.velt.dev/ui-customization/styling — CSS overrides and `--velt-*` theming
 - https://docs.velt.dev/ui-customization/template-variables — `velt-data` / `velt-if` / `velt-class` overview
 - velt-comments-best-practices — comment-dialog customization (shared between Pin / Area / Text)

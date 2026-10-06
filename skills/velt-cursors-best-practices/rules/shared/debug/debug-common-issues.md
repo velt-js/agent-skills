@@ -2,74 +2,72 @@
 title: Troubleshoot Common Cursor Issues
 impact: LOW-MEDIUM
 impactDescription: Quick fixes for frequent cursor problems
-tags: debug, troubleshooting, common-issues, cursor-problems, fixes
+tags: debug, troubleshooting, common-issues, cursor-problems, fixes, featureAllowList, z-index
 ---
 
 ## Troubleshoot Common Cursor Issues
 
 A checklist of frequent problems and their solutions when working with Velt Cursors.
 
+**Incorrect (common misconfigurations in one place):**
+
+```jsx
+<VeltProvider apiKey="API_KEY" config={{ featureAllowList: ["comment"] }}> {/* 'cursor' missing */}
+  <section><VeltCursor allowedElementIds={["canvas"]} /></section>          {/* plain array */}
+  <section><VeltCursor /></section>                                         {/* second instance is inert */}
+</VeltProvider>
+```
+
+**Correct:**
+
+```jsx
+<VeltProvider apiKey="API_KEY" authProvider={authProvider} config={{ featureAllowList: ["comment", "cursor"] }}>
+  <VeltCursor allowedElementIds={JSON.stringify(["canvas"])} inactivityTime={120000} />
+  <DocumentScope /> {/* calls setDocuments after login */}
+  <main id="canvas">{/* ... */}</main>
+</VeltProvider>
+```
+
 **Issue 1: Cursors not showing**
 
-Check the following in order:
-- `VeltProvider` has valid `apiKey` and `authProvider` props
-- `authProvider.getAuthToken` returns a valid JWT
-- `useSetDocuments` is called with a document ID in a child of `VeltProvider`
-- `VeltCursor` is rendered inside the component tree (within `VeltProvider`)
-- For Next.js, ensure `'use client'` directive is present on cursor components
-- Domain is safelisted in the Velt Console
-- Test with two browser tabs using different users
+- `VeltProvider` has a valid `apiKey` and `authProvider` (with `user` and `generateToken`)
+- The user is identified; anonymous users don't get live cursors
+- `setDocuments` is called after login, from a child of `VeltProvider`
+- `featureAllowList`, if set, includes `'cursor'`
+- Only one `VeltCursor` is mounted (extra instances are inert)
+- Your own cursor is never rendered back to you; test with two browsers and two users
+- Domain is safelisted in the Velt Console; Next.js files have `'use client'`
 
-**Issue 2: Cursors showing from other documents (cross-document leakage)**
+**Issue 2: Cursors from other documents**
 
-- `setDocuments` is not called or is called with a stale document ID
-- Ensure document ID updates on route changes
-- Verify `useSetDocuments` waits for `useCurrentUser` to return a valid user before setting documents
+- Update the document on every route change
+- Cursors use the root document; with multiple documents, make the viewed one the root
 
-**Issue 3: Cursors appearing in wrong areas (toolbar, sidebar)**
+**Issue 3: Cursors appear over toolbars or sidebars**
 
-- Use `allowedElementIds` to restrict cursors to the collaborative content area
-- Ensure the target element `id` attributes exist in the DOM
-- Remember: the component prop takes a JSON string (`JSON.stringify([...])`) not a plain array
+- Use `allowedElementIds` (component: `JSON.stringify([...])`; API: plain array)
+- Check that the target `id` attributes exist in the DOM (case-sensitive)
+- Moving `VeltCursor` into a container does not confine cursors
 
-**Issue 4: Cursor disappears too quickly**
+**Issue 4: Cursors disappear too quickly or linger**
 
-- Check `inactivityTime` setting (default is 300000ms / 5 minutes)
-- Tab unfocus hides cursors immediately -- this is expected behavior
-- Increase `inactivityTime` for document-style apps where users read more than they interact
-- Example: `<VeltCursor inactivityTime={600000} />` for 10-minute timeout
+- Set `inactivityTime` explicitly in milliseconds (doc pages list both 5-minute and 2-minute defaults)
+- Tab unfocus marks the user inactive immediately; this is expected
 
-**Issue 5: allowedElementIds not working**
+**Issue 5: Cursors render behind other UI**
 
-- The component prop must receive a JSON string, not a JavaScript array
-- Correct: `allowedElementIds={JSON.stringify(["canvas-id"])}`
-- The API method accepts a regular array: `cursorElement.allowedElementIds(["canvas-id"])`
-- Verify the element IDs match actual DOM `id` attributes (case-sensitive)
-- Ensure the elements are rendered in the DOM before cursor initialization
-
-**Debugging checklist:**
-
-```
-1. VeltProvider renders with valid apiKey and authProvider
-2. authProvider.getAuthToken returns a JWT
-3. useSetDocuments called with document ID (in child component)
-4. useCurrentUser returns a valid user before setDocuments
-5. VeltCursor is rendered inside VeltProvider tree
-6. 'use client' directive present (Next.js)
-7. Domain safelisted in Velt Console
-8. allowedElementIds uses JSON.stringify (if set)
-9. Target element IDs exist in DOM
-10. Tested with two browser tabs / different users
-11. Check browser console for Velt SDK errors
-```
+- Raise `--velt-cursor-z-index` (default `2147483647`) or lower the competing element's z-index
 
 **Verification:**
-- [ ] All items in the debugging checklist pass
-- [ ] Cursors render for multiple users on the same document
-- [ ] Cursors are scoped to the correct document
-- [ ] Cursors appear only in the intended content area
+- [ ] One `VeltCursor` inside `VeltProvider`, with valid auth
+- [ ] `setDocuments` called after login and on navigation
+- [ ] `featureAllowList` includes `'cursor'` when set
+- [ ] `allowedElementIds` uses `JSON.stringify` on the component
+- [ ] Tested with two browsers and two different users
 
 **Source Pointers:**
-- `https://docs.velt.dev/cursor/setup` - Cursor setup
-- `https://docs.velt.dev/cursor/customize-behavior/allowed-element-ids` - Allowed elements
-- `https://docs.velt.dev/documents/setup` - Document scoping
+- https://docs.velt.dev/realtime-collaboration/cursors/setup - "Cursors Setup"
+- https://docs.velt.dev/realtime-collaboration/cursors/customize-behavior - "Customize Behavior"
+- https://docs.velt.dev/ui-customization/features/realtime/cursors - "Limitations"
+- https://docs.velt.dev/ui-customization/reference/css-variables - "Z-index"
+- https://docs.velt.dev/key-concepts/overview#subscribe-to-documents - "Subscribe to Documents"

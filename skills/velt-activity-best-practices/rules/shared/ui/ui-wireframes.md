@@ -29,8 +29,7 @@ function CustomActivityFeed() {
 **Correct (compose the wireframe tree inside `VeltWireframe`):**
 
 ```jsx
-import { VeltWireframe, VeltActivityLog } from '@veltdev/react';
-import VeltActivityLogWireframe from '@veltdev/react/VeltActivityLogWireframe';
+import { VeltWireframe, VeltActivityLog, VeltActivityLogWireframe } from '@veltdev/react';
 
 function CustomActivityLog() {
   return (

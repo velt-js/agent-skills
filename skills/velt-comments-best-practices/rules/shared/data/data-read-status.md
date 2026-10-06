@@ -2,38 +2,51 @@
 title: Mark Comments as Read or Unread
 impact: HIGH
 impactDescription: Control read/unread state for notification badges and filtering
-tags: markAsRead, markAsUnread, unread, read
+tags: markAsRead, markAsUnread, viewedBy, unread, read, useCommentUtils
 ---
 
 ## Mark Comments as Read or Unread
 
-Use `markAsRead()` and `markAsUnread()` to programmatically control read/unread state of comment annotations — useful for custom notification badges, read receipts, or "mark all as read" actions.
+Use `markAsRead()` and `markAsUnread()` to control the current user's read state on one annotation at a time, for example in a custom "mark as read" button. Each call takes a single `annotationId` and resolves to `Promise<void>`. There is no batch `annotationIds` form.
 
-**API Methods:**
+**Incorrect (array payload):**
 
-```tsx
+```jsx
+commentElement.markAsRead({ annotationIds: ['ann-123', 'ann-456'] });
+```
+
+**Correct:**
+
+```jsx
+// Hook
+const { markAsRead, markAsUnread } = useCommentUtils();
+await markAsRead({ annotationId: 'ANNOTATION_ID' });
+
+// API Method
 const commentElement = client.getCommentElement();
+await commentElement.markAsRead({ annotationId: 'ANNOTATION_ID' });   // adds the user to viewedBy
+await commentElement.markAsUnread({ annotationId: 'ANNOTATION_ID' }); // removes the user from viewedBy
 
-// Mark specific annotations as read
-commentElement.markAsRead({
-  annotationIds: ['ann-123', 'ann-456'],
-});
+// Mark several threads by looping
+await Promise.all(ids.map((annotationId) => commentElement.markAsRead({ annotationId })));
+```
 
-// Mark specific annotations as unread
-commentElement.markAsUnread({
-  annotationIds: ['ann-123'],
-});
+```js
+// Other Frameworks
+const commentElement = Velt.getCommentElement();
+await commentElement.markAsRead({ annotationId: 'ANNOTATION_ID' });
 ```
 
 **Key details:**
-- These methods affect the current user's read state only
-- Unread badges on `VeltCommentBubble` (commentCountType="unread") update automatically
-- Sidebar unread filters reflect the change in real-time
-- Combine with `getUnreadCommentCountOnCurrentDocument()` to build custom unread indicators
+- Only the current user's read state changes.
+- Unread badges (`commentCountType="unread"`), sidebar unread filters, and unread count subscriptions update automatically.
+- Choose the unread indicator style with `setUnreadIndicatorMode('minimal' | 'verbose')`.
 
 **Verification:**
-- [ ] Annotation IDs are valid strings
-- [ ] Unread badges update after calling markAsRead/markAsUnread
-- [ ] Used in combination with unread count subscriptions for UI updates
+- [ ] Each call passes a single `annotationId`
+- [ ] Calls are awaited (they return promises)
+- [ ] Unread UI is driven by the unread count subscriptions, not local state
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/comments/customize-behavior - Comment Status (Read/Unread)
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#markasread - markAsRead
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#markasunread - markAsUnread

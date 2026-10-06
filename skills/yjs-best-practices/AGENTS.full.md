@@ -1,8 +1,8 @@
 # Yjs Best Practices
 
-**Version 1.1.1**  
+**Version 1.1.2**  
 Velt  
-May 2026
+October 2026
 
 > **Note:**  
 > This document is mainly for agents and LLMs to follow when maintaining,  
@@ -1157,6 +1157,7 @@ Symptoms of duplicate Yjs imports:
 - `instanceof` checks fail (e.g., `value instanceof Y.Map` returns `false` for a value that is clearly a Y.Map)
 - Errors like "Unexpected case" or "Unknown content type" in the console
 - State vectors diverge between clients that should be in sync
+- A "Yjs was already imported" warning in the browser console
 
 The root cause is almost always multiple versions or multiple builds of `yjs` in the dependency tree. Fix this by forcing a single resolution at the package manager level, and optionally with bundler aliases.
 
@@ -1203,10 +1204,14 @@ import { defineConfig } from 'vite'
 
 export default defineConfig({
   resolve: {
-    dedupe: ['yjs']
+    // Dedupe yjs plus the packages that share its constructors and awareness:
+    // the protocol package, the binding, and the editor it binds to.
+    dedupe: ['yjs', 'y-protocols', 'y-prosemirror', 'prosemirror-model', 'prosemirror-state', 'prosemirror-view']
   }
 })
 ```
+
+Duplicates are not limited to `yjs` itself. A second copy of `y-protocols` splits awareness, and a second copy of the bound editor (`monaco-editor`, `ckeditor5`, `lexical` and `@lexical/*`, `prosemirror-*`) breaks the binding even when `yjs` is single. In linked or monorepo builds, also dedupe `lib0`.
 
 **Correct — diagnosing the problem:**
 
@@ -1473,3 +1478,6 @@ console.log(ytext.toString()) // "Hello from tab 1"
 - https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap
 - https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror
 - https://docs.velt.dev
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/monaco
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/quill
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/prosemirror

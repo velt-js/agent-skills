@@ -1,33 +1,41 @@
 ---
-title: Live State Data Models and TypeScript Types
+title: Type live state with LiveStateData, LiveStateDataMap, and config types
 impact: MEDIUM
-tags: LiveStateData, LiveStateDataMap, SetLiveStateDataConfig, types, TypeScript
+impactDescription: Fetching all data returns a map with your entries under custom; looking up by id instead of liveStateDataId finds nothing
+tags: LiveStateData, LiveStateDataMap, SetLiveStateDataConfig, FetchLiveStateDataRequest, ServerConnectionState, types, TypeScript
 ---
 
-## Live State Data Models
+## Type live state with LiveStateData, LiveStateDataMap, and config types
 
-Reference types for Live State Sync data structures. Use these for type safety when working with the element API or raw data.
+`fetchLiveStateData()` with no request returns a `LiveStateDataMap`. Your application entries live under `custom`, keyed by `liveStateDataId`; `default` holds Velt-internal state (single editor mode, auto-sync).
 
-### LiveStateData
+**Incorrect (reads the map root and keys by the MD5 id):**
 
-The core data envelope returned by subscriptions and fetches:
+```typescript
+const all = await liveStateSyncElement.fetchLiveStateData();
+const theme = all['editor-theme'];            // BUG: app data lives under all.custom
+const byHash = all.custom?.[entry.id];        // BUG: id is an MD5 hash; key by liveStateDataId
+```
+
+**Correct:**
+
+```typescript
+const all = await liveStateSyncElement.fetchLiveStateData();
+const themeEntry = all.custom?.['editor-theme'];
+const theme = themeEntry?.data;
+const lastEditor = themeEntry?.updatedBy?.name;
+```
 
 ```typescript
 interface LiveStateData {
   id: string;                              // MD5 hash of liveStateDataId
-  liveStateDataId: string;                 // Your unique identifier string
-  data: string | number | boolean | JSON;  // The actual synced data
-  lastUpdated: any;                        // Server timestamp of last update
-  updatedBy: User;                         // User who last updated this data
-  tabId?: string | null;                   // Browser tab identifier (if applicable)
+  liveStateDataId: string;
+  data: string | number | boolean | JSON;
+  lastUpdated: any;
+  updatedBy: User;
+  tabId?: string | null;
 }
-```
 
-### LiveStateDataMap
-
-Returned by `fetchLiveStateData()` when called without arguments:
-
-```typescript
 interface LiveStateDataMap {
   custom?: { [liveStateDataId: string]: LiveStateData };
   default?: {
@@ -38,26 +46,18 @@ interface LiveStateDataMap {
     };
   };
 }
+
+interface SetLiveStateDataConfig { merge?: boolean }              // default false
+interface FetchLiveStateDataRequest { liveStateDataId?: string }  // omit for all data
+type ServerConnectionState = 'online' | 'offline' | 'pendingInit' | 'pendingData';
 ```
 
-- `custom` contains your application data (keyed by `liveStateDataId`)
-- `default` contains Velt internal state (single editor mode, auto-sync)
+**Verification Checklist:**
+- [ ] App data is read from `LiveStateDataMap.custom`
+- [ ] Lookups use `liveStateDataId`, not `id`
+- [ ] `updatedBy` is treated as a full Velt `User`
 
-### Config Types
-
-```typescript
-interface SetLiveStateDataConfig {
-  merge?: boolean;  // Default: false — merge with existing data instead of replacing
-}
-
-interface FetchLiveStateDataRequest {
-  liveStateDataId?: string;  // Omit to fetch all live state data
-}
-```
-
-### Key Points
-
-- `LiveStateData.data` can be any serializable type — keep structures flat for best performance
-- `updatedBy` contains the full Velt `User` object of whoever last wrote this state
-- When fetching all data, your custom state lives under `LiveStateDataMap.custom`
-- The `id` field is an MD5 hash generated from `liveStateDataId` — use `liveStateDataId` for lookups, not `id`
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/sdk/models/data-models#livestatedata — `LiveStateData`
+- https://docs.velt.dev/api-reference/sdk/models/data-models#livestatedatamap — `LiveStateDataMap`
+- https://docs.velt.dev/api-reference/sdk/models/data-models#fetchlivestatedatarequest — `FetchLiveStateDataRequest`

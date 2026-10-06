@@ -1,8 +1,8 @@
 # Velt Area Best Practices
 
-**Version 1.0.0**  
+**Version 1.0.1**  
 Velt  
-May 2026
+October 2026
 
 > **Note:**  
 > This document is mainly for agents and LLMs to follow when maintaining,  
@@ -47,7 +47,15 @@ There is **no** `<VeltArea>` component, no `getAreaElement()` handle, and no `cl
 
 ### Declarative — the `areaComment` prop on `<VeltComments>`
 
-**Disable area comments (React / Next.js):**
+**Incorrect (invented API):**
+
+```tsx
+// BUG: there is no <VeltArea> component and no getAreaElement() handle
+<VeltArea enabled={false} />
+client.getAreaElement().disable();
+```
+
+**Correct (React / Next.js): disable area comments with the prop:**
 
 ```tsx
 import { VeltComments } from '@veltdev/react';
@@ -55,7 +63,7 @@ import { VeltComments } from '@veltdev/react';
 <VeltComments areaComment={false} />
 ```
 
-**Disable area comments (Other Frameworks):**
+**Correct (Other Frameworks): disable area comments with the attribute:**
 
 ```html
 <velt-comments area-comment="false"></velt-comments>
@@ -81,18 +89,19 @@ commentElement.disableAreaComment();
 ```
 
 The prop is the right path when the toggle is part of an initial render; the runtime methods are right when toggling in response to user state.
-When area mode is enabled, the comments runtime renders three Area-specific public elements. You typically don't author these yourself — they're produced by the comments machinery — but you target them for CSS and (in one case) wireframe customization:
+When area mode is enabled, the comments runtime renders three Area-specific public elements. You typically don't author these yourself (the comments machinery produces them), but you target them for CSS:
 
 **Area public elements:**
 
 ```typescript
 <velt-area-tool>             The trigger primitive to draw a new area. No wireframe tag.
-<velt-area-pin-portal>       The rendered area pin (the rectangle overlay). Wireframe tag:
-                             <velt-area-pin-portal-wireframe> (React: VeltAreaPinPortalWireframe).
+<velt-area-pin-portal>       The rendered area pin (the rectangle overlay). No dedicated wireframe slot.
 <velt-area-container>        The per-document orchestrator for all area pins. No wireframe tag.
 ```
 
-Today only `area-pin-portal` registers a wireframe tag — see the `wireframe-variables-area` rule. The other two primitives don't yet expose `<velt-...-wireframe>` registrations.
+None of the three registers a usable `<velt-...-wireframe>` slot, and Areas have no `Velt*` React wrapper and no headless hooks. Customize with CSS on these host elements and the area color (default `#625DF5`); see the `wireframe-variables-area` rule.
+- Since v6.0.7, area annotations follow the same location filters as comment pins: after `setLocations()` or `excludeLocationIds` scopes the view, area rectangles for other locations are hidden too. No API change.
+- In the v6 modular SDK, if you pass `featureAllowList`, include `'area'` (and `'comment'`) or the area chunk is not preloaded; `client.preloadArea()` warms it on demand.
 
 **Common pitfalls — DO NOT:**
 
@@ -120,6 +129,8 @@ Today only `area-pin-portal` registers a wireframe tag — see the `wireframe-va
 - No <VeltArea> or <VeltAreaTool> component is referenced in the React code.
 - If toggling at runtime, the corresponding areaComment prop is omitted so
   the two paths don't fight.
+- No <velt-area-*-wireframe> tag or VeltArea* React wrapper is referenced.
+- If featureAllowList is set, it includes 'area'.
 ```
 
 ---
@@ -128,7 +139,7 @@ Today only `area-pin-portal` registers a wireframe tag — see the `wireframe-va
 
 **Impact: MEDIUM**
 
-Template-variable bindings for the Area feature. Only one primitive registers a wireframe tag today: `<velt-area-pin-portal-wireframe>` (React: `VeltAreaPinPortalWireframe`). The tool and container primitives do not. Uses the **flat-config** access pattern — every read is via `componentConfig.<path>`. Variables cover the annotation (`areaPinAnnotation`, `areaPinAnnotationOnResize`), the optional linked comment (`commentPinAnnotation`), selection / resize / hidden state (`selected`, `isResizing`, `hideAreaAnnotation`), the styling color (`areaAnnotationColor`), and the geometry / offset numbers (`areaProperties`, `resizingOffset.top`/`left`, `offsetTop`, `offsetLeft`).
+The `componentConfig` runtime model of the area pin overlay and how to customize Areas. No Area primitive registers a usable wireframe slot and there are no headless hooks, so customization is CSS on the public host elements plus the area color (default `#625DF5`). Uses the **flat-config** access pattern — every read is via `componentConfig.<path>`. Variables cover the annotation (`areaPinAnnotation`, `areaPinAnnotationOnResize`), the optional linked comment (`commentPinAnnotation`), selection / resize / hidden state (`selected`, `isResizing`, `hideAreaAnnotation`), the styling color (`areaAnnotationColor`), and the geometry / offset numbers (`areaProperties`, `resizingOffset.top`/`left`, `offsetTop`, `offsetLeft`).
 
 ### 2.1 Area wireframe variables — limited wireframe support; full componentConfig.* reference for the area pin overlay
 
@@ -146,7 +157,28 @@ The Area feature has three customer-facing primitives. None of them currently re
 <velt-area-container>        No wireframe tag (CSS styling only).
 ```
 
-To customize the area pin appearance, target CSS classes driven by `componentConfig.*` variables on the host element. To customize the tool or container, target CSS on the public elements.
+To customize the area pin appearance, target CSS classes driven by `componentConfig.*` variables on the host element. To customize the tool or container, target CSS on the public elements. The UI customization reference confirms Areas have no wireframe slots, no `{...}` tokens, no `Velt*` React wrapper, and no headless hooks; the lever is CSS plus the area color (default `#625DF5`). Velt's own styles are high-specificity, so overrides may need `!important`.
+
+**Incorrect (wireframe that is never registered):**
+
+```html
+<velt-wireframe style="display:none;">
+  <!-- BUG: no Area wireframe slot exists; this template is ignored -->
+  <velt-area-pin-portal-wireframe>
+    <div velt-class="'is-selected': {componentConfig.selected}"></div>
+  </velt-area-pin-portal-wireframe>
+</velt-wireframe>
+```
+
+**Correct (CSS on the public host element):**
+
+```css
+/* Target the documented host element; Velt styles are high-specificity */
+velt-area-pin-portal {
+  opacity: 0.85 !important;
+}
+```
+
 This feature uses the **flat-config** access pattern — every variable is referenced via the explicit `componentConfig.<path>` form. Dropping the prefix (`<velt-data field="selected" />`) resolves to nothing.
 
 **Area pin portal componentConfig variables:**
@@ -224,6 +256,20 @@ The `AreaAnnotation` data shape — including `targetElements: (TargetElement | 
 
 `AreaAnnotation` is the canonical shape Velt persists for every placed area rectangle. The most important field for understanding the data model is `targetAnnotations: AreaTargetAnnotation[]` — that's the linkage from an area to the comment thread(s) it scopes.
 
+**Incorrect (looks for the comment link in metadata):**
+
+```typescript
+const commentId = area.metadata?.commentAnnotationId; // BUG: the linkage lives in targetAnnotations[]
+```
+
+**Correct (resolve linked comments from targetAnnotations):**
+
+```typescript
+const commentIds = (area.targetAnnotations ?? [])
+  .filter((t) => t.type === 'comment' && t.annotationId)
+  .map((t) => t.annotationId as string);
+```
+
 **`AreaAnnotation` shape:**
 
 ```typescript
@@ -295,6 +341,14 @@ class AreaMetadata extends BaseMetadata {
 ```
 
 Open-ended bag. Use it to attach app-specific metadata that should travel with the area annotation. Don't put load-bearing relationships here — use `targetAnnotations` for that.
+
+**`AreaStatus` (added to the data models in v6):**
+
+```typescript
+type AreaStatus = 'added' | 'updated' | 'deleted';
+```
+
+**Private comments:** since v6.0.0-beta.15, area annotations on a private comment do not inherit the parent comment's Access Context and no longer reach viewers in the same Access Context; context-scoped queries do not return them.
 When a user draws an area and attaches a comment, two annotations are produced:
 1. An `AreaAnnotation` (`type === 'area'`) with the geometry.
 2. A `CommentAnnotation` (`type === 'comment'`) with the comment thread.
@@ -340,3 +394,5 @@ The wireframe surface exposes the resolved linkage via `componentConfig.commentP
 - https://docs.velt.dev/api-reference/sdk/models/data-models#areaproperty
 - https://docs.velt.dev/api-reference/sdk/models/data-models#areatargetannotation
 - https://docs.velt.dev/api-reference/sdk/models/data-models#areametadata
+- https://docs.velt.dev/ui-customization/features/annotations-tags-arrows-areas
+- https://docs.velt.dev/api-reference/sdk/models/data-models#areastatus

@@ -2,7 +2,7 @@
 title: Use Function-Based Comment Data Provider for Full Control
 impact: HIGH
 impactDescription: Full control over data flow for custom logic and transformations
-tags: comment, function, resolver, get, save, delete, custom, callback
+tags: comment, function, resolver, get, save, delete, custom, callback, additionalSaveEvents, CommentResolverSaveEvent, targetComment
 ---
 
 ## Use Function-Based Comment Data Provider for Full Control
@@ -140,7 +140,7 @@ The frontend strip is what makes `PartialCommentAnnotation` smaller than `Commen
 
 - **Stripped on the frontend (never sent to Velt):** per-comment `commentText` and `commentHtml`; per-comment `attachments[].name` and `attachments[].url` (only when the `attachment` resolver is active); `targetTextRange.text`; and any keys listed in `config.fieldsToRemove`. Per-comment strips set `isCommentResolverUsed = true` on the comment; attachment strips set `isAttachmentResolverUsed = true`.
 - **Copied-not-moved** (sent to both your DB and Velt's DB): `from`, `assignedTo`, `resolvedByUserId`.
-- **`save` is gated by `ResolverActions`.** It fires only when the PII actually changed **and** the action maps to one of `COMMENT_ANNOTATION_ADD` / `COMMENT_ADD` / `COMMENT_UPDATE` / `COMMENT_DELETE` (or a draft). Pure status, priority, or assignment changes do **not** call `save`.
+- **`save` is gated by `ResolverActions` by default.** It fires only when the PII actually changed **and** the action maps to one of `COMMENT_ANNOTATION_ADD` / `COMMENT_ADD` / `COMMENT_UPDATE` / `COMMENT_DELETE` (or a draft). Pure status, priority, or assignment changes do **not** call `save` unless you opt in with `config.additionalSaveEvents` (see below).
 - **Truthy-gating.** Empty strings (`commentText: ""`, `commentHtml: ""`) are **not** sent to your provider and are **not** withheld from Velt either — they fall through to Velt as the empty string. The exception is `config.additionalFields`, which uses `!== undefined`, so `0`, `""`, and `false` are copied to both sides.
 - **Delete payload is minimal.** A delete sends only `{ apiKey, documentId, organizationId, folderId? }` plus the `commentAnnotationId` — no PII to strip.
 
@@ -167,12 +167,47 @@ const saveCommentsToDB = async (request: CommentSaveRequest & { event?: string }
 };
 ```
 
+### Opting into non-core save events
+
+Set `config.additionalSaveEvents` (an `AdditionalSaveEventConfig[]`, each `{ event: CommentResolverSaveEvent }`) to also receive annotation-level lifecycle events on the same `save` handler or `saveConfig` endpoint. `CommentResolverSaveEvent` is a string-literal union in `@veltdev/react`, so pass the string values. Values: `comment_annotation.status_change`, `comment_annotation.priority_change`, `comment_annotation.assign`, `comment_annotation.access_mode_change`, `comment_annotation.custom_list_change`, `comment_annotation.approve`, `comment.accept`, `comment.reject`, `comment_annotation.suggestion_accept`, `comment_annotation.suggestion_reject`, `comment.reaction_add`, `comment.reaction_delete`, `comment_annotation.subscribe`, `comment_annotation.unsubscribe`.
+
+```tsx
+import type { CommentResolverSaveEvent } from '@veltdev/react';
+
+const additionalSaveEvents: { event: CommentResolverSaveEvent }[] = [
+  { event: 'comment_annotation.status_change' },
+  { event: 'comment_annotation.assign' },
+];
+
+export const commentDataProvider = {
+  get: fetchCommentsFromDB,
+  save: async (request) => {
+    // request.event is a ResolverActions value for the 4 core PII events,
+    // or a CommentResolverSaveEvent string for the opted-in events.
+    // request.targetComment (when present) is the comment the action happened on: context only, do not persist it.
+    if (request.event === 'comment_annotation.status_change') {
+      await auditLog.append({ annotationIds: Object.keys(request.commentAnnotation) });
+      return { success: true, statusCode: 200 };
+    }
+    return saveCommentsToDB(request);
+  },
+  delete: deleteCommentsFromDB,
+  config: { additionalSaveEvents },
+};
+```
+
+`comment.reaction_add` / `comment.reaction_delete` (comment-level reactions) are distinct from the reaction resolver's `reaction.add` / `reaction.delete`.
+
 **Verification:**
 - [ ] All three functions implemented (get, save, delete)
 - [ ] Each returns `{ data, success, statusCode }`
 - [ ] Error cases return `success: false` with appropriate statusCode
 - [ ] Get returns data keyed by annotationId
-- [ ] `save` handler treats `request.event` as a `ResolverActions` value — does not assume it fires on status / priority / assignment changes
+- [ ] `save` handler does not assume it fires on status / priority / assignment changes unless those events are listed in `additionalSaveEvents`
+- [ ] When `additionalSaveEvents` is set, the handler branches on `request.event` and never persists `targetComment`
 - [ ] Backend tolerates the truthy-gating contract: missing `commentText` / `commentHtml` means "no PII change for that comment", not "comment was cleared"
 
-**Source Pointer:** https://docs.velt.dev/self-host-data/comments - Function-Based approach; https://docs.velt.dev/self-host-data/field-inventory - "Comment strip rules"
+**Source Pointers:**
+- https://docs.velt.dev/self-hosting/partial/comments - "Function based DataProvider", "additionalSaveEvents"
+- https://docs.velt.dev/self-hosting/partial/field-inventory - "Comment strip rules"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#commentresolversaveevent - "CommentResolverSaveEvent"

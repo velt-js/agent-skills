@@ -37,7 +37,7 @@ Use `startFollowingUser()` and `stopFollowingUser()` when you need to trigger fo
 ```jsx
 const presenceElement = client.getPresenceElement();
 
-// Start following a specific user
+// Start following a specific user (the leader's userId)
 presenceElement.startFollowingUser(userId);
 
 // Stop following — removes current user from the session.
@@ -45,11 +45,20 @@ presenceElement.startFollowingUser(userId);
 presenceElement.stopFollowingUser();
 ```
 
+The API reference also lists a second `name` argument (the leader's display name) for `startFollowingUser`; the feature page shows only `userId`.
+
+`enableFlockMode()` accepts optional `FlockOptions` (`useHistoryAPI`, `onNavigate`, `disableDefaultNavigation`, `darkMode`) if you prefer configuring flock mode through the API instead of props.
+
 ### Custom Navigation with onNavigate
 
 **Incorrect (relying on default navigation in a SPA):**
 
-Velt's default flock navigation uses `window.location.href`, which causes full page reloads in single-page apps. In React/Next.js apps with client-side routing, this breaks the SPA experience — state is lost, components remount, and transitions are jarring.
+Velt's default flock navigation uses `window.location.href`, which causes full page reloads in single-page apps. In React/Next.js apps with client-side routing, this breaks the SPA experience: state is lost, components remount, and transitions are jarring.
+
+```jsx
+// Followers hard-reload on every leader navigation
+<VeltPresence flockMode={true} />
+```
 
 **Correct (use onNavigate callback with your router):**
 
@@ -98,6 +107,15 @@ function Toolbar() {
 | `defaultFlockNavigation` | `boolean` | `true` | Use built-in `window.location.href` navigation. Set to `false` when using `onNavigate` |
 | `onNavigate` | `(pageInfo: PageInfo) => void` | - | Callback fired when the leader navigates. Use with your app's router |
 
+**Other Frameworks (listen for the `onNavigate` event on the element):**
+
+```js
+const presenceDOMElement = document.querySelector("velt-presence");
+presenceDOMElement.addEventListener("onNavigate", (event) => {
+  myRouter.navigate(event.detail.path); // event.detail is the PageInfo
+});
+```
+
 ### HTML Usage
 
 ```html
@@ -110,7 +128,12 @@ function Toolbar() {
 ></velt-presence>
 ```
 
-Note: the HTML attribute for disabling default navigation is `disable-flock-navigation`, while the React prop is `defaultFlockNavigation={false}` — they express the same setting with inverted polarity.
+Note: the HTML attribute for disabling default navigation is `disable-flock-navigation`, while the React prop is `defaultFlockNavigation={false}`. They write the same underlying flag with inverted polarity. The React `disableFlockNavigation` prop is a deprecated alias; don't pass both, because the last one wins.
+
+**Interactions:**
+
+- `onNavigate` and `defaultFlockNavigation` only take effect while flock mode is on
+- With flock mode on, clicking another user's avatar fires `onPresenceUserClick` **and** makes that user the leader; with it off, the click only fires `onPresenceUserClick`
 
 ### Verification
 
@@ -122,6 +145,8 @@ Note: the HTML attribute for disabling default navigation is `disable-flock-navi
 - [ ] Test with two browsers: follower's screen mirrors leader's navigation
 
 **Source Pointers:**
-- `https://docs.velt.dev/realtime-collaboration/flock-mode/overview` — Feature overview
-- `https://docs.velt.dev/realtime-collaboration/flock-mode/setup` — Setup steps
-- `https://docs.velt.dev/realtime-collaboration/flock-mode/customize-behavior` — API reference for all flock mode props
+- https://docs.velt.dev/realtime-collaboration/flock-mode/overview - "Flock Mode Overview"
+- https://docs.velt.dev/realtime-collaboration/flock-mode/setup - "Flock Mode Setup"
+- https://docs.velt.dev/realtime-collaboration/flock-mode/customize-behavior - "flockMode", "onNavigate", "defaultFlockNavigation", "startFollowingUser()", "stopFollowingUser()"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#flockoptions - `FlockOptions`
+- https://docs.velt.dev/ui-customization/reference/behaviors/presence-reactions - flock prop interactions

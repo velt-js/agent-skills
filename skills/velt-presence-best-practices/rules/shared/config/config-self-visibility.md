@@ -13,7 +13,14 @@ By default, `VeltPresence` includes the current user's avatar in the presence li
 
 Showing the current user in presence is redundant when their identity is already visible in the header or navigation. Hiding it frees up an avatar slot for other collaborators and reduces visual clutter. Conversely, in apps where the toolbar is the only identity indicator, keeping it visible ensures the user knows they are connected.
 
-**React: Hide current user**
+**Incorrect (assuming the current user is excluded by default):**
+
+```jsx
+// self defaults to true: your own avatar shows and takes one of the maxUsers slots
+<VeltPresence maxUsers={3} />
+```
+
+**Correct (React: hide current user):**
 
 ```jsx
 import { VeltPresence } from "@veltdev/react";
@@ -43,10 +50,10 @@ function Toolbar() {
 <velt-presence self="false"></velt-presence>
 ```
 
-**API: Toggle programmatically**
+**API: Toggle programmatically** (React: `client.getPresenceElement()`, other frameworks: `Velt.getPresenceElement()`)
 
 ```javascript
-const presenceElement = client.getPresenceElement();
+const presenceElement = Velt.getPresenceElement();
 
 // Hide current user from presence
 presenceElement.disableSelf();
@@ -67,7 +74,7 @@ presenceElement.enableSelf();
 - Users need confirmation that their session is active
 - The app has no other profile or identity UI
 
-**Default:** `self={true}` — the current user is shown in the presence list.
+**Default:** `self={true}`: the current user is shown in the presence list and counts toward `maxUsers`. This default surprises many teams; set `self={false}` for an "others online" pattern.
 
 **Verification:**
 - [ ] `self` prop is set intentionally based on your UI design
@@ -76,4 +83,5 @@ presenceElement.enableSelf();
 - [ ] The `maxUsers` overflow count adjusts correctly based on self visibility
 
 **Source Pointers:**
-- `https://docs.velt.dev/presence/customize-behavior/self-presence` - Self presence configuration
+- https://docs.velt.dev/realtime-collaboration/presence/customize-behavior#self - "self"
+- https://docs.velt.dev/ui-customization/reference/behaviors/presence-reactions - `self` default and interaction with `maxUsers`

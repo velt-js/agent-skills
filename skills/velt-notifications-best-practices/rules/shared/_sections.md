@@ -8,7 +8,7 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 1. Core Setup (core)
 
 **Impact:** CRITICAL
-**Description:** Essential setup patterns required for any Velt notifications implementation. Includes enabling notifications in the console and adding VeltNotificationsTool.
+**Description:** Essential setup patterns required for any Velt notifications implementation. Includes enabling notifications in the console, adding VeltNotificationsTool, and the component props (most feature toggles are shared across the tool and panel).
 
 ---
 
@@ -44,7 +44,18 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 
 ---
 
-## 5. Notification Triggers (triggers)
+## 5. Configuration (config)
+
+**Impact:** MEDIUM
+**Description:** Opt-in data-scope configuration for the notifications feed. Includes cross-organization "For You" merging (enableCrossOrganization / CrossOrganizationConfig) and the user-scoped "For You" fetch (enableUserScopedNotifications / UserScopedNotificationsConfig) that keeps unread notifications visible outside the recently-active-documents window.
+
+**Rules:**
+- `config-cross-organization` - Merge "For You" notifications from other organizations the user belongs to
+- `config-user-scoped-notifications` - Fetch the user's newest notifications directly so unread items stay in the "For You" tab and unread count
+
+---
+
+## 6. Notification Triggers (triggers)
 
 **Impact:** MEDIUM
 **Description:** How notifications are generated. Includes automatic triggers from comments/@mentions, custom notification creation via REST API, and self-notification control.
@@ -55,21 +66,21 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 
 ---
 
-## 6. Delivery Channels (delivery)
+## 7. Delivery Channels (delivery)
 
 **Impact:** MEDIUM
-**Description:** Notification delivery methods. Includes in-app inbox, email via SendGrid, webhook integrations for external services, and the opt-in server-side delay and batching pipeline.
+**Description:** Notification delivery methods. Includes in-app inbox, email via SendGrid, basic and advanced webhook payloads (per-user notification config, private-comment `visibility` and `accessDeniedUsers`), and the opt-in server-side delay and batching pipeline.
 
 ---
 
-## 7. UI Customization (ui)
+## 8. UI Customization (ui)
 
 **Impact:** MEDIUM
 **Description:** Visual customization patterns for notification components. Includes wireframe components for panel, tool, and content list customization.
 
 ---
 
-## 8. Wireframe Variables (wireframe-variables)
+## 9. Wireframe Variables (wireframe-variables)
 
 **Impact:** MEDIUM
 **Description:** Template-variable binding layer for Notifications Panel and Notifications Tool wireframes. Documents the `velt-data` / `velt-if` / `velt-class` directives, the variable namespaces (Data State, UI State, Feature State, Loop-scope), `defaultCondition` / Angular signal inputs, and `shouldShow` gates exposed by each wireframe slot. Sits on top of the structural catalog in `ui/ui-wireframes.md`.
@@ -80,7 +91,7 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 
 ---
 
-## 9. Debugging & Testing (debug)
+## 10. Debugging & Testing (debug)
 
 **Impact:** LOW-MEDIUM
 **Description:** Troubleshooting patterns and verification checklists for Velt notification integrations.

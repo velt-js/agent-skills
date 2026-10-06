@@ -45,64 +45,66 @@ function Sidebar() {
 **Correct (read the slot's injected variables; let the wireframe iterate / gate for you):**
 
 ```jsx
-import { VeltCommentsSidebarWireframe } from '@veltdev/react';
+import { VeltWireframe, VeltCommentsSidebarWireframe, VeltIf, VeltData } from '@veltdev/react';
 
-<VeltCommentsSidebarWireframe>
-  <VeltCommentsSidebarWrapperWireframe>
-    <VeltCommentSidebarHeaderWireframe>
-      <h2>Comments</h2>
-      <VeltCommentsSidebarFilterButtonWireframe
-        veltClass="'has-filters': {appliedFiltersCount} > 0">
-        Filter
-        <VeltIf condition="{appliedFiltersCount} > 0">
-          <span><VeltData field="appliedFiltersCount" /></span>
+<VeltWireframe>
+  <VeltCommentsSidebarWireframe>
+    <VeltCommentsSidebarWireframe.Panel>
+      <VeltCommentsSidebarWireframe.Header>
+        <h2>Comments</h2>
+        <VeltCommentsSidebarWireframe.FilterButton
+          veltClass="'has-filters': {appliedFiltersCount} > 0">
+          Filter
+          <VeltIf condition="{appliedFiltersCount} > 0">
+            <span><VeltData field="appliedFiltersCount" /></span>
+          </VeltIf>
+        </VeltCommentsSidebarWireframe.FilterButton>
+        <VeltCommentsSidebarWireframe.CloseButton />
+      </VeltCommentsSidebarWireframe.Header>
+
+      <VeltCommentsSidebarWireframe.Skeleton />
+      <VeltCommentsSidebarWireframe.List />
+
+      <VeltCommentsSidebarWireframe.EmptyPlaceholder
+        veltIf="{componentConfig.noCommentsFound} || {componentConfig.noCommentsFoundForAppliedFilters}">
+        <p>No comments to show.</p>
+        <VeltCommentsSidebarWireframe.ResetFilterButton veltIf="{appliedFiltersCount} > 0">
+          Clear filters
+        </VeltCommentsSidebarWireframe.ResetFilterButton>
+      </VeltCommentsSidebarWireframe.EmptyPlaceholder>
+
+      <VeltCommentsSidebarWireframe.FocusedThread>
+        <VeltIf condition="{focusedAnnotation}">
+          <div className="my-focused">
+            <h3><VeltData field="focusedAnnotation.from.name" /></h3>
+            <p><VeltData field="focusedAnnotation.comments.0.commentText" /></p>
+          </div>
         </VeltIf>
-      </VeltCommentsSidebarFilterButtonWireframe>
-      <VeltCommentSidebarCloseButtonWireframe />
-    </VeltCommentSidebarHeaderWireframe>
-
-    <VeltCommentSidebarSkeletonWireframe />
-    <VeltCommentSidebarListWireframe />
-
-    <VeltCommentsSidebarEmptyPlaceholderWireframe
-      veltIf="{componentConfig.noCommentsFound} || {componentConfig.noCommentsFoundForAppliedFilters}">
-      <p>No comments to show.</p>
-      <VeltCommentsSidebarResetFilterButtonWireframe
-        veltIf="{appliedFiltersCount} > 0">
-        Clear filters
-      </VeltCommentsSidebarResetFilterButtonWireframe>
-    </VeltCommentsSidebarEmptyPlaceholderWireframe>
-
-    <VeltCommentsSidebarFocusedThreadWireframe>
-      <VeltIf condition="{focusedAnnotation}">
-        <div className="my-focused">
-          <button>Back</button>
-          <h3><VeltData field="focusedAnnotation.from.name" /></h3>
-          <p><VeltData field="focusedAnnotation.comments.0.commentText" /></p>
-        </div>
-      </VeltIf>
-    </VeltCommentsSidebarFocusedThreadWireframe>
-  </VeltCommentsSidebarWrapperWireframe>
-</VeltCommentsSidebarWireframe>
+      </VeltCommentsSidebarWireframe.FocusedThread>
+    </VeltCommentsSidebarWireframe.Panel>
+  </VeltCommentsSidebarWireframe>
+</VeltWireframe>
 ```
 
 **HTML / web-component equivalent:**
 
 ```html
-<velt-comments-sidebar-wireframe>
-  <velt-comments-sidebar-wrapper-wireframe>
-    <velt-comment-sidebar-header-wireframe>
-      <velt-comments-sidebar-filter-button-wireframe
-        velt-class="'has-filters': {appliedFiltersCount} > 0">
-        Filter
-      </velt-comments-sidebar-filter-button-wireframe>
-    </velt-comment-sidebar-header-wireframe>
-    <velt-comment-sidebar-list-wireframe></velt-comment-sidebar-list-wireframe>
-    <velt-comments-sidebar-empty-placeholder-wireframe
-      velt-if="{componentConfig.noCommentsFound} || {componentConfig.noCommentsFoundForAppliedFilters}">
-    </velt-comments-sidebar-empty-placeholder-wireframe>
-  </velt-comments-sidebar-wrapper-wireframe>
-</velt-comments-sidebar-wireframe>
+<velt-wireframe style="display:none;">
+  <velt-comments-sidebar-wireframe>
+    <velt-comments-sidebar-panel-wireframe>
+      <velt-comments-sidebar-header-wireframe>
+        <velt-comments-sidebar-filter-button-wireframe
+          velt-class="'has-filters': {appliedFiltersCount} > 0">
+          Filter
+        </velt-comments-sidebar-filter-button-wireframe>
+      </velt-comments-sidebar-header-wireframe>
+      <velt-comments-sidebar-list-wireframe></velt-comments-sidebar-list-wireframe>
+      <velt-comments-sidebar-empty-placeholder-wireframe
+        velt-if="{componentConfig.noCommentsFound} || {componentConfig.noCommentsFoundForAppliedFilters}">
+      </velt-comments-sidebar-empty-placeholder-wireframe>
+    </velt-comments-sidebar-panel-wireframe>
+  </velt-comments-sidebar-wireframe>
+</velt-wireframe>
 ```
 
 ### Mapped variables (bare short names)
@@ -196,7 +198,7 @@ The full tag set runs to ~80 wireframe tags. The structural tree lives in `ui/ui
 | Wireframe tag | Notes |
 |---|---|
 | `<velt-comments-sidebar-wireframe>` | Root. `shouldShow` = `componentConfig.isFirstComponent \|\| componentConfig.floatingMode \|\| componentConfig.embedMode`; floating mode additionally requires `componentConfig.sidebarVisible`. |
-| `<velt-comments-sidebar-wrapper-wireframe>` | Visible-content wrapper. |
+| `<velt-comments-sidebar-wrapper>` | Visible-content wrapper (a public element registered through its own template, not a `-wireframe` slot you fill). |
 | `<velt-comments-sidebar-panel-wireframe>` | Panel container. |
 | `<velt-comments-sidebar-page-mode-wireframe>` | Page-mode wrapper variant. Gate with `velt-if="{componentConfig.pageMode}"`. |
 

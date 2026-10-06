@@ -119,17 +119,17 @@ commentElement.toggleCommentSidebar();
 |------|---------|-------------|
 | `position` | `'right'` | `'left'` or `'right'` |
 | `readOnly` | `false` | Prevent editing in sidebar |
-| `currentLocationSuffix` | `false` | Adds "(this page)" to matching group |
+| `currentLocationSuffix` | `false` | Adds "(This page)" to matching group |
 | `excludeLocationIds` | `[]` | Hide comments from specific locations |
 | `filterGhostCommentsInSidebar` | `false` | Hide ghost/orphan comments |
 | `dialogSelection` | `true` | When false, sidebar clicks emit event instead of opening dialog inline |
 | `expandOnSelection` | `true` | Auto-expand dialogs on selection |
-| `forceClose` | `false` | Force close on outside click even when opened via API |
+| `forceClose` | V1: off unless set; V2: `true` | Force close on outside click even when opened via API (no effect in embed mode) |
 | `searchPlaceholder` | - | Custom search input placeholder text |
 | `commentPlaceholder` | - | Custom dialog composer placeholder |
 | `replyPlaceholder` | - | Custom reply input placeholder |
 | `pageModePlaceholder` | - | Custom page mode composer placeholder |
-| `commentCountType` | `'total'` | `'total'` or `'unread'` on sidebar button |
+| `commentCountType` | `'total'` | `'total'` or `'unread'` (V1 sidebar and `VeltSidebarButton`) |
 | `sidebarButtonCountType` | `'default'` | `'default'` or `'filter'` |
 | `context` | - | Custom context metadata for page mode comments |
 | `defaultMinimalFilter` | `'all'` | `'all'` \| `'read'` \| `'unread'` \| `'resolved'` \| `'open'` \| `'reset'` \| `null` |
@@ -171,4 +171,27 @@ export default function App() {
 </VeltProvider>
 ```
 
-V2 replaces the per-category filter panel with a unified `FilterDropdown`. For V2 wireframe customization, see the [Comment Sidebar V2 Wireframes](https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-v2-wireframes) docs (the older `comment-sidebar-structure-v2` path is superseded).
+V2 replaces the per-category filter panel with declarative `filters` / `miniFilters` / `minimalFilters`, and delivers navigation through events instead of props:
+
+```jsx
+// V2 navigation: subscribe to the comment event bus
+const commentNav = useCommentEventCallback('commentNavigationButtonClick');
+useEffect(() => {
+  const pageId = commentNav?.location?.pageId;
+  if (pageId) navigateToPage(pageId);
+}, [commentNav]);
+```
+
+For V2 wireframe customization, see the [Comment Sidebar V2 Wireframes](https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-v2-wireframes) page and the component catalog sidebar slot trees.
+
+**Verification Checklist:**
+- [ ] `VeltComments` is mounted alongside the sidebar so on-page pins render
+- [ ] Floating mode is set on `VeltSidebarButton`, and the sidebar is not rendered separately
+- [ ] V1 navigation uses `onCommentClick` / `onCommentNavigationButtonClick`; V2 uses the `commentClick` / `commentNavigationButtonClick` events
+- [ ] Embed mode has its own open/close control on the host
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v1/setup - V1 setup
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v1/customize-behavior - V1 customize behavior
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/setup - V2 setup
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/customize-behavior#commentnavigationbuttonclick - V2 navigation events

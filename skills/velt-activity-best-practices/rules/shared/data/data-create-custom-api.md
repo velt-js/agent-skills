@@ -89,4 +89,6 @@ await activityElement.createActivity({
 - [ ] Template variables have matching keys in displayMessageTemplateData
 - [ ] Activity appears in the feed after creation
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/activity/setup - Create a Custom Activity (Using API)
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/activity/customize-behavior#createactivity - "createActivity"
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#createactivity - "createActivity()"

@@ -1,8 +1,8 @@
 # Velt Single Editor Mode Best Practices
 
-**Version 1.0.0**  
+**Version 1.1.0**  
 Velt  
-March 2026
+October 2026
 
 > **Note:**  
 > This document is mainly for agents and LLMs to follow when maintaining,  
@@ -48,19 +48,22 @@ Velt Single Editor Mode implementation guide covering exclusive editing access c
 7. [Debugging & Testing](#7-debugging-testing) — **LOW-MEDIUM**
    - 7.1 [Debug Common Single Editor Mode Issues](#71-debug-common-single-editor-mode-issues)
 
+8. [UI Customization](#8-ui-customization) — **MEDIUM**
+   - 8.1 [Customize the Single Editor Mode Panel with Wireframes](#81-customize-the-single-editor-mode-panel-with-wireframes)
+
 ---
 
 ## 1. Core Setup
 
 **Impact: CRITICAL**
 
-Essential setup for enabling Single Editor Mode. Includes initializing via useLiveStateSyncUtils() or Velt.getLiveStateSyncElement(), enabling the mode with config options (customMode, singleTabEditor), embedding the VeltSingleEditorModePanel, and enabling the default UI.
+Essential setup for enabling Single Editor Mode. Includes initializing via useLiveStateSyncUtils() or Velt.getLiveStateSyncElement(), enabling the mode with config options (customMode, singleTabEditor) after useVeltInitState() is true, embedding the VeltSingleEditorModePanel, enabling the default UI, and listing liveStateSync in featureAllowList when set.
 
 ### 1.1 Enable Single Editor Mode with Auto-Sync and Editor Status UI
 
 **Impact: CRITICAL (Required for Single Editor Mode to function with live content sync)**
 
-Single Editor Mode restricts editing to one user at a time. Other users see content in read-only mode with live sync. The first user to load the page claims the editor role automatically.
+Single Editor Mode restricts editing to one user at a time. Other users see content in read-only mode with live sync. Enable it only after the user and document are initialized (`useVeltInitState()` returns `true` once both are set). In the example below, the first user to load the page claims the editor role; the docs recommend calling `setUserAsEditor()` on an explicit action (for example, when the user starts typing), so pick the trigger that fits your UX.
 
 **Setup requires changes in two places:**
 
@@ -89,9 +92,9 @@ export function VeltCollaboration({ documentId, documentName }: VeltCollaboratio
   const liveStateSyncElement = useLiveStateSyncUtils();
   const veltInitState = useVeltInitState();
 
-  // Enable Single Editor Mode with auto-sync and container scoping
+  // Enable Single Editor Mode once the user and document are initialized
   useEffect(() => {
-    if (!liveStateSyncElement) return;
+    if (!liveStateSyncElement || !veltInitState) return;
     liveStateSyncElement.enableSingleEditorMode({
       customMode: false,
       singleTabEditor: true,
@@ -105,7 +108,7 @@ export function VeltCollaboration({ documentId, documentName }: VeltCollaboratio
     return () => {
       liveStateSyncElement.disableSingleEditorMode();
     };
-  }, [liveStateSyncElement]);
+  }, [liveStateSyncElement, veltInitState]);
 
   // Claim editor role once Velt is fully initialized
   useEffect(() => {
@@ -215,7 +218,7 @@ export default function DocumentPage() {
 
 The document content MUST be in a child component of VeltProvider so hooks can access context:
 
-Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup; https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior
+Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup (Steps 2 to 4, Notes); https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior; https://docs.velt.dev/get-started/advanced#getveltinitstate (user and document initialized); https://docs.velt.dev/api-reference/sdk/models/data-models#config (`featureAllowList`)
 
 ---
 
@@ -357,7 +360,7 @@ if (result?.error) {
 }
 ```
 
-Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - setUserAsEditor, editCurrentTab
+Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior#setuseraseditor - setUserAsEditor, Error handling, editCurrentTab; https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup - Step 3: Set the editor
 
 ---
 
@@ -694,7 +697,7 @@ Fine-grained control over which DOM elements are governed by Single Editor Mode.
 
 **Impact: HIGH (Prevent broken element control when using customMode)**
 
-When using `customMode: true`, fine-tune which elements are controlled by Single Editor Mode using `data-velt-sync-access` and `data-velt-sync-access-disabled` attributes. These attributes only work on **native HTML elements**, not React components.
+Fine-tune which elements Single Editor Mode controls with `data-velt-sync-access` and `data-velt-sync-access-disabled`. The attributes work in both modes, and are **required** with `customMode: true` because the SDK then no longer makes elements read-only on its own. They only work on **native HTML elements**, not React components.
 
 **Incorrect (attributes on React components):**
 
@@ -738,12 +741,13 @@ When using `customMode: true`, fine-tune which elements are controlled by Single
 </div>
 ```
 
-**Setup requirement:**
+**Custom mode:**
 
 ```jsx
-// customMode must be true for manual element control
+// With customMode: true the SDK won't auto-manage read-only state,
+// so every element you want locked for viewers needs data-velt-sync-access="true"
 liveStateSyncElement.enableSingleEditorMode({
-  customMode: true,  // SDK won't auto-manage read-only state
+  customMode: true,
 });
 ```
 
@@ -1118,9 +1122,87 @@ Troubleshooting patterns for Single Editor Mode integrations. Covers heartbeat c
 
 Common issues when integrating Velt Single Editor Mode and how to resolve them.
 
-**Issue 1: Default UI panel not visible**
+**Issue 0: Nothing happens at all (v6 modular SDK)**
 
-Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup - Testing and Debugging, Notes; https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - Heartbeat, Presence Heartbeat, resetUserAccess
+Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup - Testing and Debugging, Notes; https://docs.velt.dev/api-reference/sdk/models/data-models#config - featureAllowList; https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - Heartbeat, Presence Heartbeat, resetUserAccess
+
+---
+
+## 8. UI Customization
+
+**Impact: MEDIUM**
+
+Customizing the default Single Editor Mode panel with VeltSingleEditorModePanelWireframe (ViewerText, EditorText, Countdown, EditHere, AcceptRequest, RejectRequest, RequestAccess, CancelRequest) inside VeltWireframe, plus the panel's shadowDom, darkMode, and variant props.
+
+### 8.1 Customize the Single Editor Mode Panel with Wireframes
+
+**Impact: MEDIUM (Restyle or rearrange the default editor/viewer panel without rebuilding the access-request flow)**
+
+The default panel (`VeltSingleEditorModePanel` / `<velt-single-editor-mode-panel>`) shows the user's editor or viewer status, access requests, the request countdown, and accept/reject controls. To change its look or layout, define a `VeltSingleEditorModePanelWireframe` inside `VeltWireframe` instead of rebuilding the flow with the APIs.
+
+**Incorrect (wireframe outside the wrapper, styling the shadow DOM from outside):**
+
+```jsx
+<VeltSingleEditorModePanelWireframe>
+  <VeltSingleEditorModePanelWireframe.RequestAccess />
+</VeltSingleEditorModePanelWireframe>
+<VeltSingleEditorModePanel /> {/* shadowDom defaults to true; your CSS cannot reach inside */}
+```
+
+**Correct (React / Next.js):**
+
+```jsx
+"use client";
+import {
+  VeltWireframe,
+  VeltSingleEditorModePanel,
+  VeltSingleEditorModePanelWireframe,
+} from "@veltdev/react";
+
+function SingleEditorPanel() {
+  return (
+    <>
+      <VeltWireframe>
+        <VeltSingleEditorModePanelWireframe>
+          <VeltSingleEditorModePanelWireframe.ViewerText />
+          <VeltSingleEditorModePanelWireframe.EditorText />
+          <VeltSingleEditorModePanelWireframe.Countdown />
+          {/* Editor sees this when editing in a different tab */}
+          <VeltSingleEditorModePanelWireframe.EditHere />
+          {/* Editor sees these when a viewer requests access */}
+          <VeltSingleEditorModePanelWireframe.AcceptRequest />
+          <VeltSingleEditorModePanelWireframe.RejectRequest />
+          {/* Viewer sees this by default */}
+          <VeltSingleEditorModePanelWireframe.RequestAccess />
+          {/* Viewer sees this after requesting access */}
+          <VeltSingleEditorModePanelWireframe.CancelRequest />
+        </VeltSingleEditorModePanelWireframe>
+      </VeltWireframe>
+
+      <VeltSingleEditorModePanel shadowDom={false} darkMode={false} />
+    </>
+  );
+}
+```
+
+**Correct (Other Frameworks):**
+
+```html
+<velt-wireframe style="display:none;">
+  <velt-single-editor-mode-panel-wireframe>
+    <velt-single-editor-mode-panel-viewer-text-wireframe></velt-single-editor-mode-panel-viewer-text-wireframe>
+    <velt-single-editor-mode-panel-editor-text-wireframe></velt-single-editor-mode-panel-editor-text-wireframe>
+    <velt-single-editor-mode-panel-countdown-wireframe></velt-single-editor-mode-panel-countdown-wireframe>
+    <velt-single-editor-mode-panel-edit-here-wireframe></velt-single-editor-mode-panel-edit-here-wireframe>
+    <velt-single-editor-mode-panel-accept-request-wireframe></velt-single-editor-mode-panel-accept-request-wireframe>
+    <velt-single-editor-mode-panel-reject-request-wireframe></velt-single-editor-mode-panel-reject-request-wireframe>
+    <velt-single-editor-mode-panel-request-access-wireframe></velt-single-editor-mode-panel-request-access-wireframe>
+    <velt-single-editor-mode-panel-cancel-request-wireframe></velt-single-editor-mode-panel-cancel-request-wireframe>
+  </velt-single-editor-mode-panel-wireframe>
+</velt-wireframe>
+
+<velt-single-editor-mode-panel shadow-dom="false"></velt-single-editor-mode-panel>
+```
 
 ---
 
@@ -1131,3 +1213,4 @@ Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup
 - https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup
 - https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior
 - https://console.velt.dev
+- https://docs.velt.dev/ui-customization/features/realtime/single-editor-mode

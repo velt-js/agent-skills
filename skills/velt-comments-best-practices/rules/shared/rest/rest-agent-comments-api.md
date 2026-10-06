@@ -160,15 +160,15 @@ Attaching the `agent` block to `commentData[0]` (the root comment) marks the who
 
 ### Replying as an agent
 
-An agent can also post a reply into an existing thread. Use the Add Comments API (`POST /v2/comments/add`, base contract in `rest-comments-api`) and attach an `agent` block to the reply comment — same shape as when creating the root comment.
+An agent can also post a reply into an existing thread. Use the Add Comments API (`POST /v2/commentannotations/comments/add`, base contract in `rest-comments-api`) and attach an `agent` block to the reply comment — same shape as when creating the root comment.
 
 Annotation-level fields such as `type` are set **only when the annotation is created**. They are **not accepted** on the Add Comments endpoint — the reply inherits its parent annotation's type. Sending `type` here is a common contract error; the field is silently ignored.
 
 **Correct (external agent replying to an existing thread):**
 
 ```javascript
-// POST https://api.velt.dev/v2/comments/add
-const response = await fetch('https://api.velt.dev/v2/comments/add', {
+// POST https://api.velt.dev/v2/commentannotations/comments/add
+const response = await fetch('https://api.velt.dev/v2/commentannotations/comments/add', {
   method: 'POST',
   headers: {
     'x-velt-api-key': process.env.VELT_API_KEY,
@@ -201,6 +201,8 @@ const response = await fetch('https://api.velt.dev/v2/comments/add', {
   }),
 });
 ```
+
+Each entry in the Add response map echoes `findingId` (from `commentData[0].agent.reason.findingId`). The map order does not match your input, so correlate results by `findingId` or `entry.annotationId`, never by the map key.
 
 ### Reading agent annotations back
 
@@ -276,14 +278,14 @@ const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
 
 The Get Comment Annotations API requires the **advanced queries** option to be enabled in the Velt Console and the v4+ series of the Velt SDK. Confirm the current prerequisite against the API reference before assuming this still applies.
 
-To fetch **individual comments within a specific annotation** (rather than whole threads), use the Get Comments API (`POST /v2/comments/get`) instead — see `rest-comments-api` for the base contract. Get Comment Annotations returns the thread with its full `comments[]` payload; Get Comments is the tool for pulling a single comment out of an existing thread by id.
+To fetch **individual comments within a specific annotation** (rather than whole threads), use the Get Comments API (`POST /v2/commentannotations/comments/get`) instead — see `rest-comments-api` for the base contract. Get Comment Annotations returns the thread with its full `comments[]` payload; Get Comments is the tool for pulling a single comment out of an existing thread by id.
 
 ### Updating agent annotations and comments
 
 Agent comments are updated through the same endpoints as any other comment — the split is by scope:
 
 - **Annotation-level fields** (status, assignee, location, resolved state, etc.) go through the Update Comment Annotations API (`POST /v2/commentannotations/update`). See `rest-comment-annotations-api` for the base contract.
-- **Individual comment content** within the thread goes through the Update Comments API (`POST /v2/comments/update`). See `rest-comments-api`.
+- **Individual comment content** within the thread goes through the Update Comments API (`POST /v2/commentannotations/comments/update`). See `rest-comments-api`.
 
 There is no agent-specific update endpoint; the `agent` block on the comment is carried through unchanged.
 
@@ -292,7 +294,7 @@ There is no agent-specific update endpoint; the `agent` block on the comment is 
 Two scopes, same split:
 
 - **Whole-thread deletion** goes through the Delete Comment Annotations API (`POST /v2/commentannotations/delete`). Filter by `annotationIds` for specific threads, by the agent's `userIds` (the idiomatic pattern for **purging every annotation a given agent created** — e.g. wiping a bot's findings before a re-run), or by the **combinable agent filters** `agentId`, `agentSuggestions`, and `agentUrls`, which are AND-combined to scope deletion (e.g. delete only one agent's still-pending suggestions on a specific set of pages). See `rest-comment-annotations-api`.
-- **Single-comment deletion** within a thread goes through the Delete Comments API (`POST /v2/comments/delete`). See `rest-comments-api`.
+- **Single-comment deletion** within a thread goes through the Delete Comments API (`POST /v2/commentannotations/comments/delete`). See `rest-comments-api`.
 
 The combinable agent filters target only annotations that still match the filter — suggestions already accepted, rejected, or resolved are left untouched when `agentSuggestions: true` is set (it selects only still-pending suggestions).
 
@@ -370,40 +372,19 @@ commentElement.on('suggestionRejected').subscribe(({ commentAnnotation, rejectRe
 
 Annotations created with `sourceType: "agent"` render with an agent-identity header (agent name + avatar from the `agent` block) instead of the standard human-author header. Because the annotation `type` is `"suggestion"`, the comment dialog shows Accept and Reject buttons.
 
-To build a custom agent suggestion UI, use the standalone `VeltCommentDialogAgentSuggestion*` primitives (not the wireframe pattern). Wrap them in a `VeltCommentDialogContextWrapper` with `annotationId`:
+To restyle the agent suggestion card, use the comment dialog wireframes or the suggestion action primitives:
 
-```tsx
-import {
-  VeltCommentDialogContextWrapper,
-  VeltCommentDialogAgentSuggestionBody,
-  VeltCommentDialogAgentSuggestionActions,
-  VeltCommentDialogAgentSuggestionActionsActionAccept,
-  VeltCommentDialogAgentSuggestionActionsActionReject,
-  VeltCommentDialogAgentSuggestionBanner,
-} from '@veltdev/react';
+- `VeltCommentDialogSuggestionActions`, `VeltCommentDialogSuggestionActionAccept`, and `VeltCommentDialogSuggestionActionReject` are available primitives for custom Accept / Reject controls.
+- The `VeltCommentDialogAgentSuggestion*` primitive family is Beta and is not exported by `@veltdev/react` yet, so importing it fails today.
 
-function AgentFindingCard({ annotationId }: { annotationId: string }) {
-  return (
-    <VeltCommentDialogContextWrapper annotationId={annotationId}>
-      <VeltCommentDialogAgentSuggestionBody />
-      <VeltCommentDialogAgentSuggestionActions>
-        <VeltCommentDialogAgentSuggestionActionsActionAccept />
-        <VeltCommentDialogAgentSuggestionActionsActionReject />
-      </VeltCommentDialogAgentSuggestionActions>
-      <VeltCommentDialogAgentSuggestionBanner />
-    </VeltCommentDialogContextWrapper>
-  );
-}
-```
-
-The full 21-component hierarchy and all props are documented in `ui-agent-suggestion-primitives`.
+To resolve a suggestion from your own UI (for example, a custom chip), call `commentElement.acceptSuggestion({ annotationId })` / `rejectSuggestion({ annotationId })`. See `ui-agent-suggestion-primitives.md`.
 
 **Verification:**
-- [ ] `agent` block is on `commentData[0]` (the root comment) when creating a thread, or on the reply comment when replying via `/v2/comments/add` — not on the annotation wrapper
+- [ ] `agent` block is on `commentData[0]` (the root comment) when creating a thread, or on the reply comment when replying via `/v2/commentannotations/comments/add` — not on the annotation wrapper
 - [ ] `agentSource` is set — `"external"` for your own agents, `"velt"` for built-in agents or custom agents created via the Review Agents API
 - [ ] `agentId` is set to a non-empty string for **both** `velt` and `external` agents (required regardless of `agentSource`)
 - [ ] `agentName` is provided when `agentSource` is `"external"` (server cannot resolve it)
-- [ ] Annotation `type` is `"suggestion"` when **creating** so Accept/Reject buttons render — do **not** send `type` on the Add Comments (`/v2/comments/add`) reply endpoint; it is ignored
+- [ ] Annotation `type` is `"suggestion"` when **creating** so Accept/Reject buttons render — do **not** send `type` on the Add Comments (`/v2/commentannotations/comments/add`) reply endpoint; it is ignored
 - [ ] `reason` object is provided with all three required fields (`title`, `description`, `severity`)
 - [ ] `severity` is one of `critical`, `high`, `medium`, `low`, `info`
 - [ ] `suggestion` is human-readable prose; `suggestedFix` is the literal replacement value (not conflated)
@@ -414,16 +395,17 @@ The full 21-component hierarchy and all props are documented in `ui-agent-sugges
 - [ ] Updates route by scope — annotation-level fields via Update Comment Annotations, per-comment content via Update Comments
 - [ ] Deletes route by scope — whole threads via Delete Comment Annotations (use the agent's `userIds` to purge everything one agent created, or the combinable `agentId` + `agentSuggestions` + `agentUrls` filters to scope deletion to one agent's still-pending suggestions on specific pages), single comments via Delete Comments
 - [ ] When deleting with `agentSuggestions: true`, understand that already-accepted / rejected / resolved suggestions are left untouched — the filter selects only still-pending suggestions
-- [ ] Individual-comment reads use Get Comments (`/v2/comments/get`); whole-thread reads use Get Comment Annotations
+- [ ] Individual-comment reads use Get Comments (`/v2/commentannotations/comments/get`); whole-thread reads use Get Comment Annotations
 - [ ] Client-side `suggestionAccepted`/`suggestionRejected` handlers apply changes to your data (the SDK only persists the status)
 
-**Source Pointer:** https://docs.velt.dev/ai/agent-comments
-**Source Pointer:** https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations
-**Source Pointer:** https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-v2
-**Source Pointer:** https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/update-comment-annotations
-**Source Pointer:** https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/delete-comment-annotations
-**Source Pointer:** https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/add-comments
-**Source Pointer:** https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/get-comments
-**Source Pointer:** https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/update-comments
-**Source Pointer:** https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/delete-comments
-**Source Pointer:** https://docs.velt.dev/api-reference/rest-apis/v2/agents/create
+**Source Pointers:**
+- https://docs.velt.dev/ai/agent-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-v2
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/update-comment-annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/delete-comment-annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/add-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/get-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/update-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/delete-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/create

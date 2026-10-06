@@ -1,7 +1,7 @@
 {
-  "version": "1.1.15",
+  "version": "1.4.2",
   "organization": "Velt",
-  "date": "January 2026",
+  "date": "October 2026",
   "abstract": "Comprehensive Velt Comments implementation guide covering comment modes, setup patterns, UI customization, and best practices. This skill provides evidence-backed patterns for integrating Velt's collaborative comments feature into React, Next.js, and other web applications. Covers Freestyle, Popover, Stream, Text, Page Mode, Inline Comments, rich text editor integrations (TipTap, SlateJS, Lexical), media player comments (Video, Lottie), chart comments (Highcharts, ChartJS, Nivo), and standalone component patterns.",
   "references": [
     "https://docs.velt.dev",
@@ -27,8 +27,19 @@
     "https://docs.velt.dev/async-collaboration/comments-sidebar/v2/setup",
     "https://docs.velt.dev/async-collaboration/comments-sidebar/v2/customize-behavior",
     "https://docs.velt.dev/api-reference/sdk/api/api-methods",
-    "https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar-structure-v2",
+    "https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-components",
     "https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-v2-wireframes",
-    "https://docs.velt.dev/api-reference/rest-apis/v2/agents/create"
+    "https://docs.velt.dev/api-reference/rest-apis/v2/agents/create",
+    "https://docs.velt.dev/ai/agent-comments",
+    "https://docs.velt.dev/async-collaboration/comments/customize-behavior",
+    "https://docs.velt.dev/async-collaboration/comments/standalone-components/comment-text/overview",
+    "https://docs.velt.dev/async-collaboration/comments/setup/prosemirror",
+    "https://docs.velt.dev/async-collaboration/comments-sidebar/v1/customize-behavior",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/update-comment-annotations",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/update-comments",
+    "https://docs.velt.dev/ui-customization/reference/primitives",
+    "https://docs.velt.dev/ui-customization/reference/wireframe-components",
+    "https://docs.velt.dev/async-collaboration/suggestions/overview"
   ]
 }

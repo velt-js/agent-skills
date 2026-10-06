@@ -1,8 +1,8 @@
 # Velt Activity Best Practices
 
-**Version 1.2.0**  
+**Version 1.2.1**  
 Velt  
-March 2026
+October 2026
 
 > **Note:**  
 > This document is mainly for agents and LLMs to follow when maintaining,  
@@ -21,7 +21,7 @@ Velt Activity Logs implementation guide covering real-time activity subscription
 ## Table of Contents
 
 1. [Core Setup](#1-core-setup) — **CRITICAL**
-   - 1.1 [Enable Activity Logs in Velt Console](#11-enable-activity-logs-in-velt-console)
+   - 1.1 [Set Up Activity Logs with an Authenticated User and a Feed Surface](#11-set-up-activity-logs-with-an-authenticated-user-and-a-feed-surface)
    - 1.2 [Use VeltActivityLog Component to Display Activity Feed UI](#12-use-veltactivitylog-component-to-display-activity-feed-ui)
 
 2. [Data Access](#2-data-access) — **HIGH**
@@ -53,74 +53,40 @@ Velt Activity Logs implementation guide covering real-time activity subscription
 
 **Impact: CRITICAL**
 
-Essential setup required for any Velt activity log implementation. Activity Logs must be enabled in the Velt Console before any SDK or REST API calls will work. Includes the VeltActivityLog drop-in UI component for displaying activity feeds.
+Essential setup required for any Velt activity log implementation: an authenticated user via authProvider, the VeltActivityLog drop-in UI component or a subscription, and the workspace-level activityServiceConfig (enablement, immutability, triggers) that the REST Add API depends on.
 
-### 1.1 Enable Activity Logs in Velt Console
+### 1.1 Set Up Activity Logs with an Authenticated User and a Feed Surface
 
-**Impact: CRITICAL (Required for activity logs to function)**
+**Impact: CRITICAL (Activity records are scoped to the signed-in user's organization and documents; without auth and a feed surface nothing renders)**
 
-**Requires `@veltdev/react@5.0.2-beta.13` or later.** The `useAllActivities` and `useActivityUtils` hooks are not available in earlier versions. If the installed SDK is older, upgrade: `npm install @veltdev/react@5.0.2-beta.13`
+Activity Logs need an authenticated user inside `VeltProvider` and a place to show records: the prebuilt `VeltActivityLog` component or a `useAllActivities()` / `getAllActivities()` subscription. The current setup guide has no Velt Console enable step; you add the component, optionally create custom activities, and subscribe. Velt generates records for Comments, Reactions, Recorder, and CRDT automatically. Activity Logs shipped in the 5.0.2-beta line; use a current SDK.
 
-Activity Logs are disabled by default. They must be enabled in the Velt Console before any SDK hooks, API subscriptions, or REST API calls will return data.
-
-**Incorrect (using activity APIs without console setup):**
+**Incorrect (no authenticated user, no loading state):**
 
 ```jsx
-import { useAllActivities } from '@veltdev/react';
+import { VeltProvider, useAllActivities } from '@veltdev/react';
+
+function App() {
+  // No authProvider: there is no user/organization to scope activity to
+  return (
+    <VeltProvider apiKey="API_KEY">
+      <ActivityFeed />
+    </VeltProvider>
+  );
+}
 
 function ActivityFeed() {
-  // This will always return null — Activity Logs not enabled in Console
   const activities = useAllActivities();
-
-  return (
-    <div>
-      {activities?.map(a => <div key={a.id}>{a.displayMessage}</div>)}
-    </div>
-  );
+  // Crashes while loading: activities is null
+  return activities.map((a) => <div key={a.id}>{a.displayMessage}</div>);
 }
 ```
 
-**Correct (enable in Console first, then subscribe):**
+**Correct (authProvider + prebuilt component or hook with null handling):**
 
 ```jsx
-import { useAllActivities } from '@veltdev/react';
+import { VeltProvider, VeltActivityLog, useAllActivities } from '@veltdev/react';
 
-function ActivityFeed() {
-  // Step 1: Enable Activity Logs in Velt Console at
-  //   console.velt.dev > Dashboard > Configuration > Activity Logs
-  // Step 2: Subscribe to activity feed
-  const activities = useAllActivities();
-
-  if (activities === null) return <div>Loading...</div>;
-  if (activities.length === 0) return <div>No activity yet</div>;
-
-  return (
-    <div>
-      {activities.map(a => (
-        <div key={a.id}>{a.displayMessage}</div>
-      ))}
-    </div>
-  );
-}
-```
-
-**For non-React frameworks:**
-
-```js
-// After enabling in Console:
-const activityElement = Velt.getActivityElement();
-activityElement.getAllActivities().subscribe((activities) => {
-  if (activities === null) return; // Loading
-  console.log('Activities:', activities);
-});
-```
-
-**VeltProvider with authProvider (required for activity logs to work):**
-
-```jsx
-import { VeltProvider } from '@veltdev/react';
-
-// Build authProvider from your app's user context
 const authProvider = user ? {
   user: {
     userId: user.userId,
@@ -130,9 +96,9 @@ const authProvider = user ? {
   },
   retryConfig: { retryCount: 3, retryDelay: 1000 },
   generateToken: async () => {
-    const resp = await fetch("/api/velt/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const resp = await fetch('/api/velt/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: user.userId, organizationId: user.organizationId }),
     });
     const { token } = await resp.json();
@@ -140,12 +106,39 @@ const authProvider = user ? {
   },
 } : undefined;
 
-<VeltProvider apiKey={process.env.NEXT_PUBLIC_VELT_API_KEY!} authProvider={authProvider}>
-  {/* Activity log components go here */}
-</VeltProvider>
+function App() {
+  return (
+    <VeltProvider apiKey={process.env.NEXT_PUBLIC_VELT_API_KEY} authProvider={authProvider}>
+      {/* Option 1: prebuilt, filterable timeline grouped by date */}
+      <VeltActivityLog />
+      {/* Option 2: custom UI from the subscription */}
+      <ActivityFeed />
+    </VeltProvider>
+  );
+}
+
+function ActivityFeed() {
+  const activities = useAllActivities();
+  if (activities === null) return <div>Loading...</div>;
+  if (activities.length === 0) return <div>No activity yet</div>;
+  return activities.map((a) => <div key={a.id}>{a.displayMessage}</div>);
+}
 ```
 
-Reference: https://docs.velt.dev/async-collaboration/activity/setup - Enable Activity Logs in the Velt Console
+**For non-React frameworks:**
+
+```html
+<velt-activity-log></velt-activity-log>
+
+<script>
+  const activityElement = Velt.getActivityElement();
+  const subscription = activityElement.getAllActivities().subscribe((activities) => {
+    if (activities === null) return; // Loading
+    console.log(activities.map((a) => a.displayMessage));
+  });
+  // subscription?.unsubscribe();
+</script>
+```
 
 ---
 
@@ -251,53 +244,38 @@ export function ActivityLogPanel() {
 <velt-activity-log></velt-activity-log>
 ```
 
-**Wireframe customization (27 primitives):**
+**Wireframe customization:**
 
 ```tsx
-import VeltActivityLogWireframe from '@veltdev/react/VeltActivityLogWireframe';
+import { VeltWireframe, VeltActivityLogWireframe, VeltActivityLog } from '@veltdev/react';
 
-<VeltActivityLog>
-  <VeltActivityLogWireframe>
-    <VeltActivityLogWireframe.Header>
-      <VeltActivityLogWireframe.Header.Title />
-      <VeltActivityLogWireframe.Header.CloseButton />
-      <VeltActivityLogWireframe.Header.Filter>
-        <VeltActivityLogWireframe.Header.Filter.Trigger>
-          <VeltActivityLogWireframe.Header.Filter.Trigger.Icon />
-          <VeltActivityLogWireframe.Header.Filter.Trigger.Label />
-        </VeltActivityLogWireframe.Header.Filter.Trigger>
-        <VeltActivityLogWireframe.Header.Filter.Content>
-          <VeltActivityLogWireframe.Header.Filter.Content.Item>
-            <VeltActivityLogWireframe.Header.Filter.Content.Item.Icon />
-            <VeltActivityLogWireframe.Header.Filter.Content.Item.Label />
-          </VeltActivityLogWireframe.Header.Filter.Content.Item>
-        </VeltActivityLogWireframe.Header.Filter.Content>
-      </VeltActivityLogWireframe.Header.Filter>
-    </VeltActivityLogWireframe.Header>
-    <VeltActivityLogWireframe.Loading />
-    <VeltActivityLogWireframe.List>
-      <VeltActivityLogWireframe.List.DateGroup>
-        <VeltActivityLogWireframe.List.DateGroup.Label />
-      </VeltActivityLogWireframe.List.DateGroup>
-      <VeltActivityLogWireframe.List.Item>
-        <VeltActivityLogWireframe.List.Item.Icon />
-        <VeltActivityLogWireframe.List.Item.Avatar />
-        <VeltActivityLogWireframe.List.Item.Time />
-        <VeltActivityLogWireframe.List.Item.Content>
-          <VeltActivityLogWireframe.List.Item.Content.User />
-          <VeltActivityLogWireframe.List.Item.Content.Action />
-          <VeltActivityLogWireframe.List.Item.Content.Target />
-          <VeltActivityLogWireframe.List.Item.Content.Detail />
-        </VeltActivityLogWireframe.List.Item.Content>
-      </VeltActivityLogWireframe.List.Item>
-      <VeltActivityLogWireframe.List.ShowMore />
-    </VeltActivityLogWireframe.List>
-    <VeltActivityLogWireframe.Empty />
-  </VeltActivityLogWireframe>
-</VeltActivityLog>
+<>
+  <VeltWireframe>
+    <VeltActivityLogWireframe>
+      <VeltActivityLogWireframe.Header>
+        <VeltActivityLogWireframe.Header.Title />
+        <VeltActivityLogWireframe.Header.Filter />
+      </VeltActivityLogWireframe.Header>
+      <VeltActivityLogWireframe.Loading />
+      <VeltActivityLogWireframe.List>
+        <VeltActivityLogWireframe.List.DateGroup>
+          <VeltActivityLogWireframe.List.DateGroup.Label />
+        </VeltActivityLogWireframe.List.DateGroup>
+        <VeltActivityLogWireframe.List.Item>
+          <VeltActivityLogWireframe.List.Item.Avatar />
+          <VeltActivityLogWireframe.List.Item.Content />
+          <VeltActivityLogWireframe.List.Item.Time />
+        </VeltActivityLogWireframe.List.Item>
+        <VeltActivityLogWireframe.List.ShowMore />
+      </VeltActivityLogWireframe.List>
+      <VeltActivityLogWireframe.Empty />
+    </VeltActivityLogWireframe>
+  </VeltWireframe>
+  <VeltActivityLog shadowDom={false} />
+</>
 ```
 
-**All 27 standalone primitive components:**
+**All 27 standalone primitive components (each accepts `defaultCondition`):**
 
 ```jsx
 // WRONG — remounts on every toggle, loses connection
@@ -317,8 +295,6 @@ import VeltActivityLogWireframe from '@veltdev/react/VeltActivityLogWireframe';
 ```
 
 **3. DO NOT pass `style` or `className` as props to `VeltActivityLog`.** It is a Velt web component, not a standard React element. Styling props are silently ignored and can prevent the component from rendering. To control sizing/positioning, wrap it in a `<div>` with your styles:
-
-Reference: https://docs.velt.dev/async-collaboration/activity/customize-ui - VeltActivityLog Component
 
 ---
 
@@ -401,8 +377,6 @@ await activityElement?.createActivity({
   displayMessageTemplateData: { assignee: 'Jane Smith' },
 });
 ```
-
-Reference: https://docs.velt.dev/async-collaboration/activity/setup - Create a Custom Activity (Using Hook)
 
 ---
 
@@ -520,8 +494,6 @@ interface ActivityChanges {
 }
 ```
 
-Reference: https://docs.velt.dev/async-collaboration/activity/customize-behavior - getAllActivities (Using Hook)
-
 ---
 
 ### 2.3 Use getActivityElement API to Create Custom Activity Records
@@ -589,8 +561,6 @@ await activityElement.createActivity({
   displayMessageTemplate: '{{actionUser.name}} added a comment',
 });
 ```
-
-Reference: https://docs.velt.dev/async-collaboration/activity/setup - Create a Custom Activity (Using API)
 
 ---
 
@@ -681,8 +651,6 @@ const subscription = activityElement.getAllActivities({
 subscription.unsubscribe();
 ```
 
-Reference: https://docs.velt.dev/async-collaboration/activity/customize-behavior - getAllActivities (Using API)
-
 ---
 
 ## 3. Configuration
@@ -693,44 +661,52 @@ Configuration options for activity log behavior. Includes CRDT debounce time to 
 
 ### 3.1 Configure CRDT Activity Debounce Time
 
-**Impact: MEDIUM (Prevent noisy activity feeds by batching CRDT edits into single records)**
+**Impact: MEDIUM (Tune how CRDT keystrokes are grouped into activity records; values under the 10-second minimum are ignored)**
 
-Without debouncing, every CRDT keystroke generates a separate activity record, flooding the activity feed. Use `setActivityDebounceTime()` to batch edits within a time window into a single record.
+CRDT editor keystrokes are batched into a single activity record per debounce window. The default window is 10 minutes, which can make a document timeline too coarse. Use `setActivityDebounceTime()` on the CRDT element to pick a window that matches your timeline. The minimum is 10 seconds (10,000 ms).
 
-**Incorrect (no debounce — every keystroke creates an activity record):**
+**Incorrect (calling it on the wrong element, and below the minimum):**
 
 ```jsx
-// Default behavior: typing "Hello" generates 5 separate activity records
-// H → record, e → record, l → record, l → record, o → record
-// This floods the activity feed with noise
+const activityElement = client.getActivityElement();
+// ActivityElement has no setActivityDebounceTime method
+activityElement.setActivityDebounceTime(5000);
+
+const crdtElement = client.getCrdtElement();
+// 5000 ms is below the 10,000 ms minimum
+crdtElement.setActivityDebounceTime(5000);
 ```
 
-**Correct (debounce CRDT edits into batched records):**
+**Correct (React / Next.js):**
 
 ```jsx
+import { useEffect } from 'react';
 import { useVeltClient } from '@veltdev/react';
 
 function EditorSetup() {
   const { client } = useVeltClient();
 
   useEffect(() => {
-    // Batch all CRDT edits within 5-second windows into single records
+    if (!client) return;
+    // One activity record per 30-second editing window
     const crdtElement = client.getCrdtElement();
-    crdtElement.setActivityDebounceTime(5000); // 5000ms = 5 seconds
+    crdtElement.setActivityDebounceTime(30000);
   }, [client]);
 
   return <YourEditor />;
 }
+
+// Hook alternative: useCrdtUtils() exposes the same method
+// const crdtUtils = useCrdtUtils();
+// crdtUtils?.setActivityDebounceTime(30000);
 ```
 
-**For non-React frameworks:**
+**Correct (Other Frameworks):**
 
 ```js
 const crdtElement = Velt.getCrdtElement();
-crdtElement.setActivityDebounceTime(5000); // 5 seconds
+crdtElement.setActivityDebounceTime(30000); // 30 seconds
 ```
-
-Reference: https://docs.velt.dev/async-collaboration/activity/overview - CRDT edits, setActivityDebounceTime
 
 ---
 
@@ -738,40 +714,44 @@ Reference: https://docs.velt.dev/async-collaboration/activity/overview - CRDT ed
 
 **Impact: MEDIUM (Tamper-evident activity records for SOX, SOC 2, HIPAA compliance)**
 
-When immutability is enabled in the Velt Console, activity records become tamper-evident — they cannot be edited or deleted after creation. This is off by default and must be enabled for regulated workflows.
+When immutability is on, activity records cannot be edited or deleted after creation, giving you a tamper-evident audit trail. Turn it on in the Velt Console, or set `activityServiceConfig.immutable` with the Update Activity Config workspace REST API. Records carry `immutable: true`, and the Update / Delete Activities REST APIs refuse to change them.
 
-**Incorrect (assuming records are immutable by default):**
+**Incorrect (assuming records are immutable and calling SDK methods that do not exist):**
 
-```jsx
-// Immutability is OFF by default
-// These operations will succeed unless immutability is enabled:
-await activityElement.updateActivity({ id: 'activity-123', /* changes */ });
-await activityElement.deleteActivity({ activityIds: ['activity-123'] });
-
-// If you need an audit trail, records can be tampered with!
+```js
+// Immutability is a workspace setting; it is not implied by your code.
+// The client ActivityElement only exposes getAllActivities() and createActivity();
+// updates and deletes go through the REST API.
+await activityElement.updateActivity({ id: 'activity-123' }); // not an SDK method
 ```
 
-**Correct (enable immutability in Console for audit trails):**
+**Correct (turn immutability on for the workspace, server-side):**
 
-```jsx
-// Step 1: Enable Immutability in Velt Console
-//   console.velt.dev > Dashboard > Configuration > Activity Logs > Immutability
-
-// Step 2: Records are now tamper-evident
-// Attempting to update or delete will fail:
-// - REST API update/delete calls return errors for immutable records
-// - SDK update/delete operations are rejected
-
-// Activity records now serve as a compliance audit trail
-const activities = useAllActivities({
-  documentIds: [documentId],
+```js
+// POST https://api.velt.dev/v2/workspace/activityconfig/update
+await fetch('https://api.velt.dev/v2/workspace/activityconfig/update', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN, // API-key-level auth token
+  },
+  body: JSON.stringify({
+    data: {
+      activityServiceConfig: { immutable: true }, // deep-merged with the stored config
+    },
+  }),
 });
-
-// Each record has immutable: true when immutability is enabled
-// activities[0].immutable === true
 ```
 
-Reference: https://docs.velt.dev/async-collaboration/activity/overview - Immutability
+**Correct (treat records as read-only in your app):**
+
+```jsx
+const activities = useAllActivities({ documentIds: [documentId] });
+
+// With immutability on, each record reports immutable: true
+const locked = activities?.every((a) => a.immutable);
+```
 
 ---
 
@@ -841,7 +821,7 @@ const activities = useAllActivities({
   featureTypes: ['comment', 'recorder'],
   actionTypes: [
     CommentActivityActionTypes.COMMENT_ADD,
-    RecorderActivityActionTypes.RECORDING_STARTED,
+    RecorderActivityActionTypes.RECORDING_ADD,     // 'recording.add'
   ],
 });
 ```
@@ -849,7 +829,7 @@ const activities = useAllActivities({
 **For non-React frameworks:**
 
 ```js
-// Import constants from the Velt client SDK
+// Use the string values from the tables above (or the exported constants if your build exposes them)
 const activityElement = Velt.getActivityElement();
 activityElement.getAllActivities({
   featureTypes: ['comment'],
@@ -859,15 +839,13 @@ activityElement.getAllActivities({
 });
 ```
 
-Reference: https://docs.velt.dev/async-collaboration/activity/overview - Activity Log Action Types
-
 ---
 
 ## 4. REST API
 
 **Impact: LOW-MEDIUM**
 
-Server-side activity log management via REST API. Covers Get, Add, Update, and Delete endpoints for programmatic access from backend services.
+Server-side activity log management via REST API. Covers Get, Add, Update, and Delete endpoints (result.data / result.pageToken responses) for programmatic access from backend services.
 
 ### 4.1 Use REST APIs for Server-Side Activity Log Management
 
@@ -906,7 +884,9 @@ const response = await fetch('https://api.velt.dev/v2/activities/get', {
   }),
 });
 
-const { data: activities } = await response.json();
+const { result } = await response.json();
+const activities = result.data;      // ActivityRecord[]
+const nextPage = result.pageToken;   // pass back as pageToken
 ```
 
 **Correct (Add custom activities via REST API):**
@@ -925,7 +905,7 @@ const response = await fetch('https://api.velt.dev/v2/activities/add', {
       organizationId: 'org-123',
       documentId: 'doc-456',
       activities: [{
-        id: 'build-789-unique',       // optional: stable ID for idempotency
+        id: 'build-789-unique',       // optional: an existing record with this ID is overwritten
         featureType: 'custom',         // one of: comment | reaction | recorder | crdt | custom
         actionType: 'custom',
         actionUser: { userId: 'system', name: 'CI Bot' },
@@ -933,6 +913,29 @@ const response = await fetch('https://api.velt.dev/v2/activities/add', {
         displayMessageTemplate: '{{actionUser.name}} completed build {{buildId}}',
         displayMessageTemplateData: { buildId: '#789' },
       }]
+    }
+  }),
+});
+```
+
+**Correct (Update activities via REST API):**
+
+```js
+await fetch('https://api.velt.dev/v2/activities/update', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': authToken,
+  },
+  body: JSON.stringify({
+    data: {
+      organizationId: 'org-123',
+      activities: [{
+        id: 'activity-1',                 // required
+        displayMessageTemplate: '{{actionUser.name}} completed build {{buildId}}',
+        displayMessageTemplateData: { buildId: '#790' },
+      }],
     }
   }),
 });
@@ -958,8 +961,6 @@ const response = await fetch('https://api.velt.dev/v2/activities/delete', {
 });
 ```
 
-Reference: https://docs.velt.dev/api-reference/rest-apis/v2/activities/get-activities; https://docs.velt.dev/api-reference/rest-apis/v2/activities/add-activities; https://docs.velt.dev/api-reference/rest-apis/v2/activities/update-activities; https://docs.velt.dev/api-reference/rest-apis/v2/activities/delete-activities
-
 ---
 
 ## 5. Debugging & Testing
@@ -975,8 +976,6 @@ Troubleshooting patterns and verification checklists for Velt activity log integ
 Common issues when integrating Velt Activity Logs and how to resolve them.
 
 **Issue 1: Activities not appearing in feed**
-
-Reference: https://docs.velt.dev/async-collaboration/activity/setup; https://docs.velt.dev/async-collaboration/activity/customize-behavior
 
 ---
 
@@ -995,8 +994,7 @@ The Activity Log wireframe exposes a fixed set of template variables that you re
 **Incorrect (rebuilding feed state from `useAllActivities` and conditionally mounting wireframe slots):**
 
 ```jsx
-import { useAllActivities } from '@veltdev/react';
-import VeltActivityLogWireframe from '@veltdev/react/VeltActivityLogWireframe';
+import { useAllActivities, VeltActivityLogWireframe } from '@veltdev/react';
 
 function ActivityRow({ row }) {
   const activities = useAllActivities();
@@ -1016,8 +1014,9 @@ function ActivityRow({ row }) {
 **Correct (read the slot's injected variables via `velt-data` / `velt-if` / `velt-class`):**
 
 ```jsx
-import VeltActivityLogWireframe from '@veltdev/react/VeltActivityLogWireframe';
+import { VeltWireframe, VeltActivityLogWireframe, VeltData } from '@veltdev/react';
 
+<VeltWireframe>
 <VeltActivityLogWireframe veltIf="{isEnabled} && {isOpen}">
   <VeltActivityLogWireframe.List>
     <VeltActivityLogWireframe.List.Item
@@ -1036,11 +1035,13 @@ import VeltActivityLogWireframe from '@veltdev/react/VeltActivityLogWireframe';
     </VeltActivityLogWireframe.List.ShowMore>
   </VeltActivityLogWireframe.List>
 </VeltActivityLogWireframe>
+</VeltWireframe>
 ```
 
 **HTML / web-component equivalent:**
 
 ```typescript
+<velt-wireframe style="display:none;">
 <velt-activity-log-wireframe velt-if="{isEnabled} && {isOpen}">
   <velt-activity-log-list-wireframe>
     <velt-activity-log-list-item-wireframe
@@ -1053,6 +1054,7 @@ import VeltActivityLogWireframe from '@veltdev/react/VeltActivityLogWireframe';
     </velt-activity-log-list-show-more-wireframe>
   </velt-activity-log-list-wireframe>
 </velt-activity-log-wireframe>
+</velt-wireframe>
 // On any <velt-activity-log-...-wireframe> in an Angular template
 [componentConfigSignal]="config()"     // filtered activities, date groups,
                                        // virtual scroll items, available filters
@@ -1149,8 +1151,7 @@ function CustomActivityFeed() {
 **Correct (compose the wireframe tree inside `VeltWireframe`):**
 
 ```jsx
-import { VeltWireframe, VeltActivityLog } from '@veltdev/react';
-import VeltActivityLogWireframe from '@veltdev/react/VeltActivityLogWireframe';
+import { VeltWireframe, VeltActivityLog, VeltActivityLogWireframe } from '@veltdev/react';
 
 function CustomActivityLog() {
   return (
@@ -1285,3 +1286,7 @@ Wireframe slots render inside the `VeltActivityLog` shadow root by default. To s
 - https://console.velt.dev
 - https://docs.velt.dev/ui-customization/features/async/activity-logs/activity-logs-wireframe-variables
 - https://docs.velt.dev/ui-customization/features/async/activity-logs/activity-logs-wireframes
+- https://docs.velt.dev/api-reference/rest-apis/v2/activities/get-activities
+- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/activityconfig-update
+- https://docs.velt.dev/ui-customization/features/async/activity-logs/activity-logs-primitives
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#setactivitydebouncetime

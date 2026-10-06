@@ -1,12 +1,25 @@
 ---
-title: Reading Reactions (All Plans)
+title: Read reactions on any plan without extra configuration
 impact: MEDIUM
-tags: onReaction, read, managed, emoji
+impactDescription: Reading reactions needs only the webhook events; adding self-hosting config for reads is unnecessary
+tags: onReaction, read, managed, emoji, rawEmoji
 ---
 
-## Reading Reactions
+## Read reactions on any plan without extra configuration
 
-Reading reactions via `onReaction` works on all Velt plans with the managed backend. No special configuration is needed beyond enabling the webhook events.
+Reading reactions with `onReaction` works on all Velt plans with the managed backend. Enable `comment.reaction_add` and `comment.reaction_delete` in the Webhook Service; no `selfHostingConfig` is needed.
+
+**Incorrect (adds self-hosting just to read):**
+
+```typescript
+createVeltAdapter({
+  botUserId: "velt-bot",
+  botUserName: "Velt Bot",
+  selfHostingConfig: { reactionsService }, // Unneeded: reads work without it
+});
+```
+
+**Correct:**
 
 ```typescript
 chat.onReaction(async (event) => {
@@ -18,18 +31,12 @@ chat.onReaction(async (event) => {
 });
 ```
 
-### Required Webhook Events
+`event.emoji` is normalized for the Chat SDK; `event.rawEmoji` carries the raw value from the Velt reaction payload.
 
-Enable in Velt Console:
-- `comment.reaction_add`
-- `comment.reaction_delete`
+**Verification Checklist:**
+- [ ] Both reaction webhook events are enabled
+- [ ] No `selfHostingConfig` is added solely for reading
+- [ ] Handlers filter by `threadId` / `messageId` when only some threads matter
 
-### Emoji Format
-
-Velt uses named emoji identifiers internally (e.g., `"RAISED_HANDS"`, `"THUMBS_UP"`). The adapter normalizes these to standard emoji characters or shortcodes in `event.emoji`. The original Velt name is available in `event.rawEmoji`.
-
-### Key Points
-
-- Reading reactions is supported on all plans — no self-hosting required
-- The `onReaction` handler fires for all reactions across the organization
-- Filter by `event.threadId` or `event.messageId` to scope to specific threads/messages
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "Reactions" and "Set up the Velt webhook"

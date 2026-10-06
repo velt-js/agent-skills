@@ -1,69 +1,52 @@
 ---
-title: Local Development with Tunnels and Production Deployment
+title: Use a public tunnel in development and persistent state in production
 impact: MEDIUM
-tags: ngrok, tunnel, local dev, Vercel, deployment, waitUntil
+impactDescription: Velt cannot reach localhost; stale webhook URLs and in-memory state are the usual reasons a deployed bot goes quiet
+tags: ngrok, tunnel, local dev, Vercel, deployment, waitUntil, state, redis
 ---
 
-## Local Development
+## Use a public tunnel in development and persistent state in production
 
-Velt webhooks need a publicly accessible URL. For local development, use a tunnel:
+Velt webhooks need a publicly reachable URL. During development expose your local server with a tunnel and point the Webhook Service at it; in production point it at the deployed route.
+
+**Incorrect (localhost endpoint):**
+
+```text
+Webhook URL: http://localhost:3000/api/webhooks/velt
+Result: Velt cannot reach it, so no events arrive.
+```
+
+**Correct (development):**
 
 ```bash
-# Start your dev server
 npm run dev
-
-# In another terminal, expose port 3000
+# In another terminal:
 npx ngrok http 3000
+# Set https://<your-tunnel-host>/api/webhooks/velt in Velt Console → Configurations → Webhook Service
 ```
 
-Then set the ngrok URL in Velt Console → Configurations → Webhook Service:
-```
-https://abc123.ngrok.io/api/webhooks/velt
-```
-
-### Production Deployment (Vercel)
-
-1. Deploy your Next.js app to Vercel
-2. Set environment variables in Vercel dashboard
-3. Update webhook URL in Velt Console to `https://yourapp.vercel.app/api/webhooks/velt`
-4. Use `@vercel/functions` for `waitUntil`:
+**Correct (production on Vercel):**
 
 ```typescript
 import { waitUntil } from "@vercel/functions";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(request: Request) {
-  return getChat().webhooks.velt(request, {
-    waitUntil: (p) => waitUntil(p),
-  });
+  return getChat().webhooks.velt(request, { waitUntil: (p) => waitUntil(p) });
 }
 ```
 
-### Other Platforms
+Set the environment variables in your hosting platform and update the Console webhook URL to the production route.
 
-The webhook endpoint works on any Node.js platform that:
-- Supports HTTP POST endpoints with raw JSON body access
-- Runs on Node.js (not Edge) runtime for `crypto` module access
-- Can keep async work alive after responding (via `waitUntil` or long-running processes)
-- Returns responses within 15 seconds
+**State:** `createMemoryState()` is fine for development but loses thread subscriptions on restart. In production, use a persistent Chat SDK state adapter (for example `@chat-adapter/state-redis`) so `onSubscribedMessage` keeps working across deploys.
 
-### State Persistence
+**Verification Checklist:**
+- [ ] The Console webhook URL matches the current environment
+- [ ] Tunnel URLs are updated after the tunnel restarts
+- [ ] Serverless deployments pass `waitUntil`
+- [ ] Production uses persistent state
 
-- **Development:** `createMemoryState()` — zero config, lost on restart
-- **Production:** `createRedisState()` via `@chat-adapter/state-redis` — survives restarts, required for thread subscriptions to persist
-
-```typescript
-import { createMemoryState } from "@chat-adapter/state-memory";
-import { createRedisState } from "@chat-adapter/state-redis";
-
-const state = process.env.REDIS_URL
-  ? createRedisState()
-  : createMemoryState();
-
-const chat = new Chat({ /* ... */ state });
-```
-
-### Key Points
-
-- Remember to update the webhook URL in Velt Console when switching between dev and production
-- ngrok URLs change on restart (use a paid plan for stable URLs or update the console each time)
-- For serverless deployments, `waitUntil` is critical — without it, bot replies may not be sent
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "Create the webhook endpoint" and "Set up the Velt webhook"

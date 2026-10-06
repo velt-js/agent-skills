@@ -12,12 +12,11 @@ The Huddle wireframes expose a fixed set of template variables read with three d
 **Incorrect (rebuilding huddle state from hooks and conditionally mounting wireframe slots):**
 
 ```jsx
-import { useHuddleState } from '@veltdev/react';
 import { VeltHuddleWireframe, VeltVideoHuddleUserWireframe } from '@veltdev/react';
 
-function Room({ attendees }) {
-  const huddle = useHuddleState();
-  if (!huddle?.meetingJoined) return null;
+// meetingJoined, attendees, currentUser come from app-level state you maintain yourself
+function Room({ meetingJoined, attendees, currentUser }) {
+  if (!meetingJoined) return null;
   // Reimplements the meetingJoined gate and the per-attendee tile context
   // that the wireframe already exposes via componentConfig.
   return (
@@ -34,7 +33,7 @@ function Room({ attendees }) {
 }
 ```
 
-**Correct (read injected variables via `velt-data` / `velt-if` / `velt-class`):**
+**Correct (read injected variables via `velt-data` / `velt-if` / `velt-class`; wrap in `VeltWireframe` / `<velt-wireframe style="display:none;">` in your app):**
 
 ```jsx
 <VeltHuddleToolWireframe>
@@ -125,6 +124,14 @@ Resolvable only inside `<velt-audio-huddle-user-wireframe>` and `<velt-video-hud
 | `componentConfig.gainVolume` | `number` | Audio gain driving the speaking-ring animation. |
 
 The screen-share viewer (`<velt-screen-sharing-huddle-wireframe>`) reads `componentConfig.screenSharing.stream` and `componentConfig.screenSharing.attendee` from the **root** config, not from a per-tile context.
+
+### Other wireframe tags
+
+| Tag | Notes |
+|---|---|
+| `<velt-huddle-tool-wireframe>` | The tool button; reads the Huddle Tool variables above. |
+| `<velt-huddle-menu-panel-wireframe>` | In-huddle controls (mute, video, screen, leave); read `componentConfig.localStreamState.*` from the root. |
+| `<velt-huddle-messages-panel-wireframe>` | In-huddle chat panel; no extra variables beyond the root config. |
 
 ### `shouldShow` gates worth remembering
 

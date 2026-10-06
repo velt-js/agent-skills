@@ -8,21 +8,21 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 1. Core (core)
 
 **Impact:** CRITICAL
-**Description:** Foundational concepts for the Velt proxy-server setup. Covers when and why to put a reverse proxy in front of Velt, the six service hosts the SDK talks to (`cdnHost`, `apiHost`, `v1DbHost`, `v2DbHost`, `storageHost`, `authHost`), and the authentication requirement that VeltProvider's `authProvider` prop is used for identity (not the deprecated `useIdentify` hook).
+**Description:** Foundational concepts for the Velt proxy-server setup. Covers when and why to put a reverse proxy in front of Velt, the six service hosts the SDK talks to (`cdnHost`, `apiHost`, `v1DbHost`, `v2DbHost`, `storageHost`, `authHost`) and their upstreams, and authenticating with the `authProvider` object (`user` + `generateToken`) alongside `proxyConfig`.
 
 ---
 
 ## 2. SDK Config (sdk-config)
 
 **Impact:** CRITICAL
-**Description:** The `proxyConfig` SDK-side configuration object that points Velt at your proxy hosts. Includes the React / Next.js form (`proxyConfig` prop on `VeltProvider`), the non-React form (`proxyConfig` field on `initVelt()`), and the Subresource Integrity (SRI) hash check for verifying the proxied SDK bundle.
+**Description:** The `proxyConfig` SDK-side configuration object that points Velt at your proxy hosts. Includes the React / Next.js form (`proxyConfig` inside the `config` prop on `VeltProvider`), the non-React form (`proxyConfig` field on `initVelt()`), and the Subresource Integrity (SRI) hash check for verifying the proxied SDK bundle.
 
 ---
 
 ## 3. Server Setup (server-setup)
 
 **Impact:** HIGH
-**Description:** Per-host nginx reverse-proxy configurations. Covers the CDN host (static SDK delivery), the API host (REST traffic), the persistence DB host (Firestore proxy), the ephemeral DB host (WebSocket + host-lock for realtime), the storage host (Firebase Storage / S3-compat), and the auth host (`identitytoolkit` + `securetoken`).
+**Description:** Reverse-proxy deployment on Cloudflare Workers (one Worker per service) and nginx, based on the `velt-js/velt-proxy-server` recipes. Covers the auth host (path-based `securetoken` / `identitytoolkit` routing), the persistence DB host (`firestore.googleapis.com`), the ephemeral DB host (WebSocket, `?ns=` dynamic upstream, host-lock), the storage host (`firebasestorage.googleapis.com`), and generic passthroughs for the CDN and API hosts.
 
 ---
 
