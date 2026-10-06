@@ -136,6 +136,17 @@ await client.setVeltAuthProvider({
 
 `authProvider` and `config` are sibling props on `VeltProvider`; neither goes inside the other. If your app also calls Velt's REST APIs (for example to generate tokens) through `apiHost`, those calls still need the `x-velt-api-key` and `x-velt-auth-token` headers passed through unchanged.
 
+**Verification:**
+- [ ] `authProvider` is an object with `user` (including `userId` and `organizationId`) and `generateToken`
+- [ ] `generateToken` returns a JWT string from your backend
+- [ ] `authProvider` and `config.proxyConfig` are separate props on `VeltProvider`
+- [ ] Token refresh requests appear on your `authHost` proxy, not on Google hosts
+
+**Source Pointers:**
+- https://docs.velt.dev/key-concepts/overview#authenticate-a-user — "Use Auth Provider"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#veltauthprovider — VeltAuthProvider
+- https://docs.velt.dev/security/proxy-server#quick-start — "Quick start"
+
 ---
 
 ### 1.2 Velt Proxy Server Overview
@@ -152,6 +163,43 @@ location / {
     proxy_pass https://my-velt-project.example-persistence.com;
 }
 ```
+
+**Correct (forward each service to its documented upstream):**
+
+| ProxyConfig Field | What It Proxies | Upstream Target |
+|-------------------|-----------------|-----------------|
+| `cdnHost` | SDK bundle (velt.js) | `cdn.velt.dev` |
+| `apiHost` | Velt API calls | `api.velt.dev` |
+| `v2DbHost` | Persistence database (Velt v2) | `firestore.googleapis.com` |
+| `v1DbHost` | Ephemeral realtime database (Velt v1) | `*.firebaseio.com`, picked per request from `?ns=` |
+| `storageHost` | File/attachment storage, recordings | `firebasestorage.googleapis.com` |
+| `authHost` | Authentication token endpoints | `identitytoolkit.googleapis.com` + `securetoken.googleapis.com`, routed by path |
+
+All fields are optional. Configure only the hosts you proxy; omitted fields talk to the default upstream directly.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `forceLongPolling` | `boolean` | `false` | Use long-polling instead of WebSockets for the persistence and ephemeral database connections. Set `true` only when your proxy can't pass WebSocket upgrades. |
+
+#### How It Works
+
+1. Deploy proxy endpoints under subdomains you control (for example `auth-proxy.`, `v2db-proxy.`, `v1db-proxy.`, `storage-proxy.`)
+2. Set `proxyConfig` on `VeltProvider` (React) or `initVelt()` (other frameworks)
+3. The SDK sends traffic for those services to your proxies, which forward it upstream without rewriting headers, body, or path
+
+#### Deployment Recipes
+
+The open-source `velt-js/velt-proxy-server` repository ships ready-to-deploy configs for Cloudflare Workers and nginx covering the four services most teams proxy: Auth, v2Db, v1Db, and Storage. `cdnHost` and `apiHost` are not covered by these recipes; contact Velt support if you need to proxy the SDK CDN or the Velt API. The repo also includes agent instructions, so an AI coding agent opened in the cloned repo can generate the deployment config for your subdomains.
+
+**Verification:**
+- [ ] Each proxied field forwards to the upstream in the table above
+- [ ] Proxies do not rewrite headers, body, or path
+- [ ] Only proxied hosts are listed in `proxyConfig`
+
+**Source Pointers:**
+- https://docs.velt.dev/security/proxy-server#how-it-works — "How it works"
+- https://docs.velt.dev/security/proxy-server#deploy-the-proxy-server — "Deploy the proxy server"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#proxyconfig — ProxyConfig
 
 ---
 
@@ -177,12 +225,19 @@ const client = await initVelt('YOUR_API_KEY', {
 
 **Correct:**
 
+#### Single Host
+
 ```js
 const client = await initVelt('YOUR_API_KEY', {
   proxyConfig: {
     cdnHost: 'https://cdn.yourdomain.com',
   },
 });
+```
+
+#### Full Proxy Configuration
+
+```js
 const client = await initVelt('YOUR_API_KEY', {
   proxyConfig: {
     cdnHost: 'https://cdn-proxy.yourdomain.com',
@@ -196,10 +251,16 @@ const client = await initVelt('YOUR_API_KEY', {
 });
 ```
 
+#### Key Points
+
 - `proxyConfig` goes inside the second argument to `initVelt()`, not as a separate call
 - Only specify the hosts you're actually proxying
 - The deprecated `apiProxyDomain` should be replaced with `proxyConfig.apiHost`
 - Authenticate with `client.setVeltAuthProvider({ user, generateToken })` after `initVelt()`
+
+**Source Pointers:**
+- https://docs.velt.dev/security/proxy-server#quick-start — "Quick start" (Other Frameworks tab)
+- https://docs.velt.dev/api-reference/sdk/models/data-models#proxyconfig — ProxyConfig
 
 ---
 
@@ -219,6 +280,8 @@ Pass `proxyConfig` inside the `config` prop on `VeltProvider`. Each field is a b
 
 **Correct:**
 
+#### Single Host (e.g., proxy only the CDN)
+
 ```jsx
 <VeltProvider
   apiKey="YOUR_API_KEY"
@@ -231,6 +294,13 @@ Pass `proxyConfig` inside the `config` prop on `VeltProvider`. Each field is a b
 >
   <App />
 </VeltProvider>
+```
+
+The SDK automatically appends `/lib/sdk@[VERSION]/velt.js` to `cdnHost` to fetch the bundle. Your proxy must forward that path to `https://cdn.velt.dev`.
+
+#### Full Proxy Configuration
+
+```jsx
 <VeltProvider
   apiKey="YOUR_API_KEY"
   authProvider={authProvider}
@@ -248,6 +318,20 @@ Pass `proxyConfig` inside the `config` prop on `VeltProvider`. Each field is a b
 >
   <App />
 </VeltProvider>
+```
+
+#### Key Points
+
+- `proxyConfig` is nested under `config`, not at the top level of `VeltProvider`
+- The deprecated `apiProxyDomain` top-level field still works but should be replaced with `proxyConfig.apiHost`
+- Only specify the hosts you're actually proxying; omit the rest
+- `authProvider` and `config` are sibling props on `VeltProvider`
+
+#### Migration from apiProxyDomain
+
+If you have the deprecated `apiProxyDomain`, replace it:
+
+```jsx
 // Before (deprecated)
 <VeltProvider config={{ apiProxyDomain: 'https://proxy.example.com/api' }} />
 
@@ -255,12 +339,10 @@ Pass `proxyConfig` inside the `config` prop on `VeltProvider`. Each field is a b
 <VeltProvider config={{ proxyConfig: { apiHost: 'https://proxy.example.com/api' } }} />
 ```
 
-The SDK automatically appends `/lib/sdk@[VERSION]/velt.js` to `cdnHost` to fetch the bundle. Your proxy must forward that path to `https://cdn.velt.dev`.
-- `proxyConfig` is nested under `config`, not at the top level of `VeltProvider`
-- The deprecated `apiProxyDomain` top-level field still works but should be replaced with `proxyConfig.apiHost`
-- Only specify the hosts you're actually proxying; omit the rest
-- `authProvider` and `config` are sibling props on `VeltProvider`
-If you have the deprecated `apiProxyDomain`, replace it:
+**Source Pointers:**
+- https://docs.velt.dev/security/proxy-server#quick-start — "Quick start"
+- https://docs.velt.dev/security/proxy-server#configure-each-service — "Configure each service"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#veltproviderconfig — VeltProviderConfig (deprecated `apiProxyDomain`)
 
 ---
 
@@ -279,6 +361,8 @@ This matters most when proxying the CDN, because you add an intermediary between
   <App />
 </VeltProvider>
 ```
+
+**Correct:**
 
 **React / Next.js:**
 
@@ -308,10 +392,16 @@ const client = await initVelt('YOUR_API_KEY', {
 });
 ```
 
+#### Key Points
+
 - `integrity` is a sibling of `proxyConfig` inside the `config` object, not nested inside `proxyConfig`
 - Default is `false`; you must explicitly enable it
 - Most valuable when proxying the CDN (`cdnHost`), but applies to the SDK bundle regardless of proxy setup
 - Your CDN proxy must not alter the bundle (no re-compression or minification), or the integrity check fails
+
+**Source Pointers:**
+- https://docs.velt.dev/security/proxy-server#subresource-integrity-sri — Subresource Integrity (SRI)
+- https://docs.velt.dev/api-reference/sdk/models/data-models#veltproviderconfig — VeltProviderConfig (`integrity`)
 
 ---
 
@@ -327,7 +417,7 @@ Reverse-proxy deployment on Cloudflare Workers (one Worker per service) and ngin
 
 Cloudflare Workers is an edge-distributed alternative to self-hosted nginx (about 15 minutes to set up). The `velt-js/velt-proxy-server` repo ships one Worker per service in its `cloudflare/` folder, covering Auth, v2Db, v1Db, and Storage. The Workers runtime handles WebSocket upgrades, so v1Db works without extra SDK configuration. `cdnHost` and `apiHost` are not covered by these recipes; contact Velt support if you need them.
 
-### Subdomains and Deployment
+#### Subdomains and Deployment
 
 Create CNAME records for four subdomains under a domain you control and attach them to your Cloudflare zone:
 
@@ -339,6 +429,17 @@ Create CNAME records for four subdomains under a domain you control and attach t
 | `storage-proxy.yourdomain.com` | Storage | `firebasestorage.googleapis.com` |
 
 Deploy each Worker with Wrangler, then bind each one to its subdomain (Cloudflare dashboard → Workers & Pages → Settings → Triggers → Add Custom Domain):
+
+```bash
+cd cloudflare/auth-proxy    && wrangler deploy && cd ..
+cd v2db-proxy               && wrangler deploy && cd ..
+cd v1db-proxy               && wrangler deploy && cd ..
+cd storage-proxy            && wrangler deploy && cd ..
+```
+
+#### Path-Based Auth Routing
+
+The Auth proxy splits on URL path: `/v1/token` and `/v2/token` requests go to the token-refresh upstream (`securetoken.googleapis.com`), everything else goes to the identity upstream (`identitytoolkit.googleapis.com`).
 
 **Incorrect:**
 
@@ -358,6 +459,8 @@ if (url.pathname.startsWith('/v1/token') || url.pathname.startsWith('/v2/token')
 }
 ```
 
+#### Dynamic v1Db Upstream from `?ns=`
+
 v1Db requests carry the Firebase namespace in the `?ns=` query param. The Worker rewrites the upstream Host to the shard that owns that namespace per request. Pair with the SDK's `v1DbHost` host-lock, which prevents Firebase from redirecting subsequent traffic to a shard server (`s-gke-*.firebaseio.com`) that would bypass your proxy.
 
 **Incorrect:**
@@ -369,7 +472,7 @@ const upstream = 'https://my-project.firebaseio.com' + url.pathname + url.search
 
 **Correct:**
 
-```bash
+```js
 // v1db-proxy.* handler (abbreviated)
 const ns = url.searchParams.get('ns');
 if (!ns) return new Response('Missing ns parameter', { status: 400 });
@@ -380,22 +483,39 @@ url.hostname = `${ns}.firebaseio.com`;
 if (request.headers.get('Upgrade') === 'websocket') {
   return fetch(new Request(url, request));
 }
+```
+
+Validate that `?ns=` is present before interpolating it into the upstream hostname: a missing or malformed value would otherwise produce a request to `https://null.firebaseio.com`. On WebSocket upgrades, forward the original `Request` object (with the rewritten URL) so the upgrade headers and stream survive end-to-end; bypassing this re-wrap can break RTDB real-time listeners.
+
+#### v2Db and Storage Passthrough
+
+v2Db and Storage are straight passthroughs. Forward the request to the upstream and set the upstream hostname as the `Host` header. Do not rewrite path or body.
+
+#### Verify
+
+From any machine, confirm each proxy responds:
+
+```bash
 curl -I https://auth-proxy.yourdomain.com/
 curl -I https://v2db-proxy.yourdomain.com/
 curl -I https://v1db-proxy.yourdomain.com/?ns=YOUR_PROJECT
 curl -I https://storage-proxy.yourdomain.com/
 ```
 
-Validate that `?ns=` is present before interpolating it into the upstream hostname: a missing or malformed value would otherwise produce a request to `https://null.firebaseio.com`. On WebSocket upgrades, forward the original `Request` object (with the rewritten URL) so the upgrade headers and stream survive end-to-end; bypassing this re-wrap can break RTDB real-time listeners.
-v2Db and Storage are straight passthroughs. Forward the request to the upstream and set the upstream hostname as the `Host` header. Do not rewrite path or body.
-From any machine, confirm each proxy responds:
 Upstream response headers (2xx or 4xx) confirm the proxy is live and reaching the upstream. Then point the SDK at the four subdomains with `proxyConfig`; WebSockets are on by default, so no extra SDK configuration is required.
+
+#### Key Points
+
 - One Worker per service, each bound to its own subdomain as a Custom Domain
 - Auth routing is path-based (`/v1/token` and `/v2/token` vs everything else); don't collapse it to a single upstream
 - v1Db upstream must be derived from the `?ns=` query param on every request, not hard-coded
 - For v1Db, detect the `Upgrade: websocket` header and forward the raw `Request` so the upgrade stream survives
 - Pair with `proxyConfig` `{ authHost, v2DbHost, v1DbHost, storageHost }` in your SDK config
 - `cdnHost` and `apiHost` are not covered; contact Velt support if you need them
+
+**Source Pointers:**
+- https://docs.velt.dev/security/proxy-server#cloudflare-workers — "Cloudflare Workers"
+- https://docs.velt.dev/security/proxy-server#deploy-the-proxy-server — "Routing notes by service"
 
 ---
 
@@ -436,9 +556,15 @@ server {
 }
 ```
 
+#### Key Points
+
 - Forward all requests to `https://api.velt.dev` without modifying headers or content
 - The SDK sends `x-velt-api-key` and other headers; your proxy must pass them through unmodified
 - Pair with `proxyConfig.apiHost: 'https://api-proxy.yourdomain.com'` in your SDK config
+
+**Source Pointers:**
+- https://docs.velt.dev/security/proxy-server#apihost — apiHost
+- https://docs.velt.dev/api-reference/sdk/models/data-models#proxyconfig — ProxyConfig (`apiHost`)
 
 ---
 
@@ -496,14 +622,26 @@ server {
 ```
 
 The `proxy_ssl_*` directives are required so the upstream TLS handshake uses the correct SNI. The `velt-js/velt-proxy-server` repo ships the full config as `nginx/conf.d/*.conf` with a Docker Compose setup.
+
+#### localStorage Caching Behavior
+
 The SDK caches the auth proxy host in `localStorage` during `initConfig()`. On later page loads the cached value is applied synchronously, before Auth can fire an internal token refresh, so the refresh goes through your proxy instead of directly to Google. Since v6.0.0-beta.7 the boot-time auth request on page reload also routes through `authHost`; no configuration change is required.
+
 This means:
 - Once set, the auth proxy applies across page loads automatically
 - If you change the auth proxy URL, users may need to clear the cached value for it to take effect immediately
+
+#### Key Points
+
 - Route `/v1/token` and `/v2/token` to `securetoken.googleapis.com`; everything else to `identitytoolkit.googleapis.com`
 - Pair `proxy_ssl_server_name on` with `proxy_ssl_name <upstream>` for correct SNI
 - Don't modify headers or content
 - Pair with `proxyConfig.authHost: 'https://auth-proxy.yourdomain.com'` in your SDK config
+
+**Source Pointers:**
+- https://docs.velt.dev/security/proxy-server#nginx — "nginx" ("Route Auth by path")
+- https://docs.velt.dev/security/proxy-server#cloudflare-workers — "Route Auth by path" (`/v1/token` and `/v2/token`)
+- https://docs.velt.dev/security/proxy-server#authhost — authHost (localStorage caching)
 
 ---
 
@@ -543,11 +681,17 @@ server {
 }
 ```
 
+#### Key Points
+
 - The `Host` header must be set to `cdn.velt.dev` so Velt's CDN serves the correct content
 - `proxy_ssl_server_name on` enables SNI for the upstream TLS connection
 - Do not rewrite paths; the SDK constructs the full URL and your proxy just forwards it
 - Pair with `proxyConfig.cdnHost: 'https://cdn-proxy.yourdomain.com'` in your SDK config
 - Consider enabling SRI (`integrity: true` in SDK config) when proxying the CDN for tamper detection
+
+**Source Pointers:**
+- https://docs.velt.dev/security/proxy-server#cdnhost — cdnHost
+- https://docs.velt.dev/security/proxy-server#subresource-integrity-sri — Subresource Integrity (SRI)
 
 ---
 
@@ -598,6 +742,19 @@ server {
         proxy_send_timeout 86400s;
     }
 }
+```
+
+#### Host-Lock Behavior
+
+When `v1DbHost` is set, the SDK overrides Firebase's internal host property setter to prevent shard redirects. Normally, Firebase's handshake redirects traffic to a shard server (`s-gke-*.firebaseio.com`), which would bypass your proxy. The host-lock keeps all RTDB requests on your proxy domain for the lifetime of the connection.
+
+This means your proxy only needs to forward to the primary `*.firebaseio.com` host; you don't need to handle shard redirects.
+
+#### Dynamic Upstream from `?ns=` (documented recipe)
+
+The static-upstream config above pins one RTDB host into the proxy. The documented nginx recipe instead derives the upstream host from the `?ns=` query param the SDK already sends. Three things are required when building the upstream dynamically: a `resolver` directive (nginx needs runtime DNS for non-static upstream hostnames), input validation on `?ns=` (refuse anything that wouldn't form a safe hostname), and the WebSocket upgrade headers so RTDB streams open:
+
+```nginx
 server {
     listen 443 ssl;
     server_name v1db-proxy.yourdomain.com;
@@ -633,16 +790,24 @@ server {
 }
 ```
 
-When `v1DbHost` is set, the SDK overrides Firebase's internal host property setter to prevent shard redirects. Normally, Firebase's handshake redirects traffic to a shard server (`s-gke-*.firebaseio.com`), which would bypass your proxy. The host-lock keeps all RTDB requests on your proxy domain for the lifetime of the connection.
-This means your proxy only needs to forward to the primary `*.firebaseio.com` host; you don't need to handle shard redirects.
-The static-upstream config above pins one RTDB host into the proxy. The documented nginx recipe instead derives the upstream host from the `?ns=` query param the SDK already sends. Three things are required when building the upstream dynamically: a `resolver` directive (nginx needs runtime DNS for non-static upstream hostnames), input validation on `?ns=` (refuse anything that wouldn't form a safe hostname), and the WebSocket upgrade headers so RTDB streams open:
 The `Host` header and `proxy_ssl_name` must follow the same `$v1db_host` value so Firebase serves the correct namespace and the upstream TLS handshake uses the correct SNI. SDK host-lock still applies: the SDK keeps `?ns=` on every subsequent request, so `$v1db_host` re-evaluates per request and the proxy stays the only path RTDB traffic takes.
+
+#### If Your Proxy Doesn't Support WebSocket
+
 If your proxy infrastructure can't handle WebSocket upgrades, set `forceLongPolling: true` in your SDK config. This forces the SDK to use HTTP long-polling instead of WebSocket for both v1 and v2 database connections. The nginx WebSocket headers above become unnecessary, but there will be higher latency.
+
+#### Key Points
+
 - WebSocket support (`Upgrade` and `Connection` headers) is required unless you use `forceLongPolling: true`
 - Set long read/send timeouts: RTDB connections are persistent and long-lived
 - The SDK's host-lock prevents Firebase shard redirects, so your proxy only needs to handle the primary host
 - Prefer the dynamic `$arg_ns` form (the documented recipe); always pair it with a `resolver` directive, a regex guard on `$arg_ns`, and `proxy_ssl_server_name on` + `proxy_ssl_name $v1db_host`
 - Pair with `proxyConfig.v1DbHost: 'https://v1db-proxy.yourdomain.com'` in your SDK config
+
+**Source Pointers:**
+- https://docs.velt.dev/security/proxy-server#v1dbhost — v1DbHost (host-lock)
+- https://docs.velt.dev/security/proxy-server#nginx — "Dynamic upstream for v1Db", "Prereqs"
+- https://docs.velt.dev/security/proxy-server#force-long-polling — Force long polling
 
 ---
 
@@ -680,10 +845,16 @@ server {
 }
 ```
 
+#### Key Points
+
 - The upstream is `firestore.googleapis.com`
 - Forward requests without modifying headers, body, or path
 - See `nginx/conf.d/v2db-proxy.conf` in the `velt-js/velt-proxy-server` repo for the full server block (SNI, timeouts)
 - Pair with `proxyConfig.v2DbHost: 'https://v2db-proxy.yourdomain.com'` in your SDK config
+
+**Source Pointers:**
+- https://docs.velt.dev/security/proxy-server#v2dbhost — v2DbHost
+- https://docs.velt.dev/security/proxy-server#nginx — "Passthrough for v2Db and Storage"
 
 ---
 
@@ -727,11 +898,17 @@ server {
 }
 ```
 
+#### Key Points
+
 - The upstream target is `firebasestorage.googleapis.com`
 - Increase `client_max_body_size` to accommodate file uploads (recordings, attachments)
 - Forward requests without modifying headers or content
 - Pair with `proxyConfig.storageHost: 'https://storage-proxy.yourdomain.com'` in your SDK config
 - See `nginx/conf.d/storage-proxy.conf` in the `velt-js/velt-proxy-server` repo for the full server block
+
+**Source Pointers:**
+- https://docs.velt.dev/security/proxy-server#storagehost — storageHost
+- https://docs.velt.dev/security/proxy-server#nginx — "Passthrough for v2Db and Storage"
 
 ---
 
@@ -749,41 +926,68 @@ If your app has a Content Security Policy, whitelist these domains for Velt to f
 
 **Incorrect (connect-src without WebSocket entries):**
 
-```typescript
+```text
 Content-Security-Policy: connect-src 'self' *.velt.dev *.googleapis.com
 # Realtime WebSocket connections to wss://*.firebaseio.com are blocked
+```
+
+**Correct:** include every directive below.
+
+#### Required CSP Directives
+
+**script-src** (SDK scripts and API calls):
+```
 *.velt.dev
 *.api.velt.dev
 *.firebaseio.com
 *.googleapis.com
 wss://*.firebaseio.com
 wss://*.firebasedatabase.app
+```
+
+**connect-src** (network connections):
+```
 *.velt.dev
 *.api.velt.dev
 *.firebaseio.com
 *.googleapis.com
 wss://*.firebaseio.com
 wss://*.firebasedatabase.app
+```
+
+**img-src** (user avatars, attachments):
+```
 storage.googleapis.com
 firebasestorage.googleapis.com
+```
+
+**media-src** (recordings, audio/video):
+```
 storage.googleapis.com
 firebasestorage.googleapis.com
+```
+
+#### When Using a Proxy
+
+If you're proxying all traffic through your own domain, you can replace the third-party domains with your proxy domains. For example, if all proxy subdomains are under `*.yourdomain.com`:
+
+```
 script-src: *.yourdomain.com;
 connect-src: *.yourdomain.com wss://*.yourdomain.com;
 img-src: *.yourdomain.com;
 media-src: *.yourdomain.com;
 ```
 
-**Correct:** include every directive below.
-**script-src** (SDK scripts and API calls):
-**connect-src** (network connections):
-**img-src** (user avatars, attachments):
-**media-src** (recordings, audio/video):
-If you're proxying all traffic through your own domain, you can replace the third-party domains with your proxy domains. For example, if all proxy subdomains are under `*.yourdomain.com`:
 If you're only proxying some services, include both your proxy domains and the default Velt domains for the un-proxied services.
+
+#### Key Points
+
 - Without these CSP entries, the browser blocks Velt SDK requests; check the browser console for CSP violation reports
 - The `wss://` entries are needed for WebSocket connections to the ephemeral database; omit them only if you're using `forceLongPolling: true`
 - When proxying storage, update `img-src` and `media-src` to include your storage proxy domain
+
+**Source Pointers:**
+- https://docs.velt.dev/security/content-security-policy — Whitelisting Rules for Content Security Policy (CSP)
 
 ---
 
@@ -803,7 +1007,9 @@ If your reverse proxy doesn't support WebSocket upgrades (common with some load 
 
 **Correct:**
 
-```js
+#### React / Next.js
+
+```jsx
 <VeltProvider
   apiKey="YOUR_API_KEY"
   authProvider={authProvider}
@@ -817,6 +1023,11 @@ If your reverse proxy doesn't support WebSocket upgrades (common with some load 
 >
   <App />
 </VeltProvider>
+```
+
+#### Other Frameworks
+
+```js
 const client = await initVelt('YOUR_API_KEY', {
   proxyConfig: {
     v1DbHost: 'https://v1db-proxy.yourdomain.com',
@@ -826,13 +1037,23 @@ const client = await initVelt('YOUR_API_KEY', {
 });
 ```
 
+#### Trade-offs
+
 - **Pros:** Works with any proxy, no WebSocket support required, simpler nginx config (no `Upgrade`/`Connection` headers needed)
 - **Cons:** Higher latency for real-time updates, more HTTP requests, slightly higher bandwidth usage
+
+#### When to Use
+
 - Your proxy infrastructure doesn't support WebSocket upgrades
 - You're behind a corporate proxy/firewall that blocks WebSocket
 - You see connection errors or dropped WebSocket connections through your proxy
 - You want the simplest possible proxy setup
+
 Default is `false` (WebSocket preferred). Only set `true` when WebSocket isn't an option.
+
+**Source Pointers:**
+- https://docs.velt.dev/security/proxy-server#force-long-polling — Force long polling
+- https://docs.velt.dev/api-reference/sdk/models/data-models#proxyconfig — ProxyConfig (`forceLongPolling`)
 
 ---
 
@@ -865,30 +1086,45 @@ curl -I "https://v1db-proxy.yourdomain.com/?ns=YOUR_NAMESPACE"
 curl -I https://storage-proxy.yourdomain.com/
 ```
 
+#### Verification Checklist
+
 - [ ] **CDN**: `https://your-cdn-proxy/lib/sdk@latest/velt.js` returns JavaScript
 - [ ] **API**: Network tab shows API requests to your `apiHost` domain with 200 responses
 - [ ] **Persistence DB**: Firestore requests go to your `v2DbHost` domain
 - [ ] **Ephemeral DB**: WebSocket connections (or long-poll requests with `forceLongPolling: true`) go to your `v1DbHost` domain and carry `?ns=`
 - [ ] **Storage**: uploading an attachment sends the request to your `storageHost` domain
 - [ ] **Auth**: sign-in and token-refresh requests (for example `/v1/token`) go to your `authHost` domain, including after a page reload
+
+#### Common Issues
+
 **CORS errors in browser console**
 Forward upstream CORS headers unchanged. Do not add your own `Access-Control-Allow-Origin` headers or strip the upstream ones, or the browser blocks requests.
+
 **WebSocket connection drops**
 - Ensure nginx has `proxy_http_version 1.1`, `proxy_set_header Upgrade $http_upgrade`, and `proxy_set_header Connection "upgrade"`
 - Set long timeouts such as `proxy_read_timeout 86400s` for persistent connections
 - If WebSocket can't work through your infrastructure, set `forceLongPolling: true`
+
 **Auth token refresh hitting Google directly**
 The SDK caches the auth proxy host in `localStorage` at init so refreshes on reload use your proxy. Since v6.0.0-beta.7 the boot-time auth request also routes through `authHost`; upgrade if you see it bypass the proxy on reload. If you added or changed `authHost` after users already loaded the app, they may need to clear the cached value (DevTools → Application → Local Storage) for the new host to apply immediately.
+
 **SDK not loading from CDN proxy**
 - Verify the proxy forwards the full path (including `/lib/sdk@[VERSION]/velt.js`)
 - Set `proxy_set_header Host cdn.velt.dev` so the CDN serves the correct content
 - With SRI (`integrity: true`), make sure the proxy doesn't modify the response body (re-compression, minification)
+
 **413 Request Entity Too Large on file uploads**
 Increase `client_max_body_size` in the storage proxy's nginx config; recordings can be much larger than the nginx default.
+
 **proxyConfig not taking effect**
 - `proxyConfig` must be nested under `config` (React) or the second `initVelt()` argument, not a top-level `VeltProvider` prop
 - Check field-name casing (`v1DbHost` not `v1DBHost`, `cdnHost` not `CDNHost`)
 - If migrating from `apiProxyDomain`, move it to `proxyConfig.apiHost`
+
+**Source Pointers:**
+- https://docs.velt.dev/security/proxy-server#cloudflare-workers — "Verify" step
+- https://docs.velt.dev/security/proxy-server#authhost — authHost (localStorage caching)
+- https://docs.velt.dev/security/proxy-server#force-long-polling — Force long polling
 
 ---
 

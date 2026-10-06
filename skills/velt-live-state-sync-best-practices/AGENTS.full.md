@@ -87,7 +87,19 @@ const [count, setCount] = useLiveState('counter', 0);
 | `LiveStateSyncElement` | Observables, one-shot `fetchLiveStateData()`, non-React code | `useLiveStateSyncUtils()`, `client.getLiveStateSyncElement()`, `Velt.getLiveStateSyncElement()` |
 | `createLiveStateMiddleware` | Sync Redux actions across clients | `@veltdev/react` |
 | REST / backend SDK broadcast | Server-driven updates | `POST /v2/livestate/broadcast`, `sdk.api.livestate.broadcastEvent` |
+
 **v6 modular SDK:** if you pass `featureAllowList` in the Velt config, include `'liveStateSync'`; otherwise its chunk is not preloaded. `client.preloadLiveStateSync()` loads it ahead of first use, and calling `getLiveStateSyncElement()` auto-enables the feature.
+
+**Verification Checklist:**
+- [ ] `VeltProvider` with `authProvider` wraps the app and a document is set (see `core-auth-provider`)
+- [ ] The simplest API that fits is used
+- [ ] Ephemeral data (cursors, selections, typing flags) has a cleanup plan (see `patterns-best-practices`)
+- [ ] `featureAllowList`, when set, includes `'liveStateSync'`
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/overview — latency, offline support, conflict resolution
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/setup — getter and setter methods, `useLiveState`
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#preloadlivestatesync — `preloadLiveStateSync()` and `featureAllowList`
 
 ---
 
@@ -160,6 +172,15 @@ Velt.setVeltAuthProvider({
 Velt.setDocuments([{ id: 'whiteboard-42' }]);
 ```
 
+**Verification Checklist:**
+- [ ] `authProvider` is an object with `user` (and `generateToken` for production), not a callback
+- [ ] A document is set (`setDocuments` / `useSetDocument`) before reading or writing live state
+- [ ] The full `VeltProvider` setup appears in generated examples, not only the store or component code
+
+**Source Pointers:**
+- https://docs.velt.dev/get-started/quickstart — "Authenticate Users" and "Initialize Document"
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/setup — Live State Sync APIs
+
 ---
 
 ## 2. Hooks
@@ -202,6 +223,14 @@ function ConnectionBadge() {
 
 **Other Frameworks:** subscribe to `Velt.getLiveStateSyncElement().onServerConnectionStateChange()` (see `element-connection`). `useLiveState` also returns the state as its third tuple item.
 
+**Verification Checklist:**
+- [ ] The UI handles `'pendingInit'` and `'pendingData'` as loading, not failure
+- [ ] Offline state is communicated without blocking local edits
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/setup — "Server Connection State"
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#useserverconnectionstatechangehandler — hook reference
+
 ---
 
 ### 2.2 Split reads and writes with useSetLiveStateData and useLiveStateData
@@ -237,6 +266,16 @@ function ThemeDisplay() {
 ```
 
 **Other Frameworks:** use `setLiveStateData(id, data, { merge: true })` and `getLiveStateData(id, config).subscribe(...)` on `Velt.getLiveStateSyncElement()` (see `element-get-set`).
+
+**Verification Checklist:**
+- [ ] Multiple writers to one object pass `{ merge: true }`
+- [ ] Readers null-guard the returned value
+- [ ] `listenToNewChangesOnly` is set only when existing data should be ignored
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/setup#set-live-data — "Set Live Data"
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/setup#get-live-data — "Get Live Data"
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#usesetlivestatedata — `useSetLiveStateData()` / `useLiveStateData()`
 
 ---
 
@@ -288,6 +327,16 @@ export function Counter() {
 
 **Other Frameworks:** there is no `useLiveState` equivalent; use `setLiveStateData` / `getLiveStateData` on `Velt.getLiveStateSyncElement()` (see `element-get-set`).
 
+**Verification Checklist:**
+- [ ] The `id` is a meaningful, shared string (`'editor-theme'`, `'selected-row'`)
+- [ ] Reads guard against `null` before data arrives
+- [ ] `resetLiveState: true` is used only when wiping persisted state on init is intended
+- [ ] `syncDuration` is tuned for the update rate
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/setup — "Alternative: useLiveState()"
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#uselivestate — `useLiveState()`
+
 ---
 
 ## 3. Element
@@ -335,6 +384,15 @@ const subscription = liveStateSyncElement
 subscription?.unsubscribe();
 ```
 
+**Verification Checklist:**
+- [ ] The subscription handle is kept and unsubscribed on teardown
+- [ ] React components that only need the value use `useServerConnectionStateChangeHandler()` instead
+- [ ] UI handles all four states
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/setup — "Server Connection State"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#serverconnectionstate — `ServerConnectionState`
+
 ---
 
 ### 3.2 Use fetchLiveStateData for one-shot reads
@@ -375,6 +433,16 @@ const theme = await liveStateSyncElement.fetchLiveStateData({ liveStateDataId: '
 ```
 
 For values that must stay current, subscribe with `getLiveStateData()` or use the hooks.
+
+**Verification Checklist:**
+- [ ] `fetchLiveStateData` is used only for one-time reads
+- [ ] Code that fetches everything reads app data from `LiveStateDataMap.custom`
+- [ ] Reactive UI uses `getLiveStateData()` or the hooks
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/setup#fetch-live-data — "Fetch Live Data"
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#fetchlivestatedata — `fetchLiveStateData()`
+- https://docs.velt.dev/api-reference/sdk/models/data-models#livestatedatamap — `LiveStateDataMap`
 
 ---
 
@@ -437,6 +505,16 @@ subscription?.unsubscribe();
 
 `listenToNewChangesOnly: true` skips existing data and only emits changes made after you subscribe (default `false`). For a one-shot read use `fetchLiveStateData()` (see `element-fetch`).
 
+**Verification Checklist:**
+- [ ] Every `getLiveStateData(...).subscribe()` has a matching `unsubscribe()`
+- [ ] Partial object updates pass `{ merge: true }`
+- [ ] React code reads the element from `useLiveStateSyncUtils()` or `client.getLiveStateSyncElement()`; other frameworks use `Velt.getLiveStateSyncElement()`
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/setup#set-live-data — "Set Live Data"
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/setup#get-live-data — "Get Live Data"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#setlivestatedataconfig — `SetLiveStateDataConfig`
+
 ---
 
 ## 4. Redux
@@ -475,6 +553,14 @@ function Room({ roomId }) {
 }
 ```
 
+**Verification Checklist:**
+- [ ] `updateLiveStateDataId` is exported from the store and called when scope changes
+- [ ] The middleware config also sets an initial `liveStateDataId`
+- [ ] The ID follows a stable convention such as `room-${roomId}`
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/redux-middleware — "Step 3: Selectively sync actions" (`updateLiveStateDataId`)
+
 ---
 
 ### 4.2 Sync Redux actions with createLiveStateMiddleware and explicit filters
@@ -492,7 +578,7 @@ const { middleware } = createLiveStateMiddleware();
 
 **Correct (React / Next.js, store.js):**
 
-```typescript
+```js
 import { configureStore } from '@reduxjs/toolkit';
 import { createLiveStateMiddleware } from '@veltdev/react';
 
@@ -507,6 +593,9 @@ export const store = configureStore({
 });
 
 export { updateLiveStateDataId };
+```
+
+```typescript
 type LiveStateMiddlewareConfig = {
   allowedActionTypes?: Set<string>;        // sync only these types
   disabledActionTypes?: Set<string>;       // never sync these types
@@ -516,6 +605,15 @@ type LiveStateMiddlewareConfig = {
 ```
 
 Use `allowedActionTypes` for a small set of collaborative actions, `disabledActionTypes` when most actions are collaborative, and `allowAction` for payload-based rules.
+
+**Verification Checklist:**
+- [ ] At least one filter is configured
+- [ ] A custom `liveStateDataId` is set in the config
+- [ ] `updateLiveStateDataId` is exported when the scope changes at runtime
+- [ ] `VeltProvider` with `authProvider` still wraps the app (see `core-auth-provider`)
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/redux-middleware — Steps 1 to 3 and "Complete Example"
 
 ---
 
@@ -534,8 +632,11 @@ dispatch({ type: 'canvas/addShape', payload: { shapeId: 'rect-1' }, timestamp: D
 
 **Correct:**
 
-```json
+```js
 dispatch({ type: 'canvas/addShape', payload: { shapeId: 'rect-1', x: 100, y: 200 } });
+```
+
+```json
 {
   "id": "ACTION_ID",
   "action": {
@@ -545,6 +646,14 @@ dispatch({ type: 'canvas/addShape', payload: { shapeId: 'rect-1', x: 100, y: 200
   "timestamp": 1759745729823
 }
 ```
+
+**Verification Checklist:**
+- [ ] Actions are plain `{ type, payload }` objects
+- [ ] Debugging tools read `timestamp` from the stored action record
+- [ ] `payload` stays serializable
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/redux-middleware — "Step 4: Action Data Structure"
 
 ---
 
@@ -629,6 +738,17 @@ result = sdk.api.livestate.broadcastEvent(
 | `data` | `object` | Yes | Any serializable JSON |
 | `merge` | `boolean` | No | Merge with existing data instead of replacing (default `false`) |
 
+**Verification Checklist:**
+- [ ] The REST body wraps the fields in `data`
+- [ ] `organizationId`, `documentId`, and `liveStateDataId` match what clients use
+- [ ] Partial updates pass `merge: true`
+- [ ] API key and auth token stay on the server
+
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/rest-apis/v2/livestate/broadcast-event — "Broadcast Event"
+- https://docs.velt.dev/backend-sdks/node — "Livestate" (`sdk.api.livestate.broadcastEvent`)
+- https://docs.velt.dev/backend-sdks/python — "Livestate" (`BroadcastEventRequest`)
+
 ---
 
 ### 5.2 Type live state with LiveStateData, LiveStateDataMap, and config types
@@ -652,6 +772,9 @@ const all = await liveStateSyncElement.fetchLiveStateData();
 const themeEntry = all.custom?.['editor-theme'];
 const theme = themeEntry?.data;
 const lastEditor = themeEntry?.updatedBy?.name;
+```
+
+```typescript
 interface LiveStateData {
   id: string;                              // MD5 hash of liveStateDataId
   liveStateDataId: string;
@@ -676,6 +799,16 @@ interface SetLiveStateDataConfig { merge?: boolean }              // default fal
 interface FetchLiveStateDataRequest { liveStateDataId?: string }  // omit for all data
 type ServerConnectionState = 'online' | 'offline' | 'pendingInit' | 'pendingData';
 ```
+
+**Verification Checklist:**
+- [ ] App data is read from `LiveStateDataMap.custom`
+- [ ] Lookups use `liveStateDataId`, not `id`
+- [ ] `updatedBy` is treated as a full Velt `User`
+
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/sdk/models/data-models#livestatedata — `LiveStateData`
+- https://docs.velt.dev/api-reference/sdk/models/data-models#livestatedatamap — `LiveStateDataMap`
+- https://docs.velt.dev/api-reference/sdk/models/data-models#fetchlivestatedatarequest — `FetchLiveStateDataRequest`
 
 ---
 
@@ -715,5 +848,25 @@ useEffect(() => {
 ```
 
 For entries a client never cleaned up (crashed tabs), overwrite them from your server with the broadcast API (see `api-broadcast`).
+
+**Guidelines from the docs:**
+- Keep state structures simple and flat.
+- Use meaningful IDs that reflect the purpose of the data.
+- Sync only what you need, not the entire component state (keep hover, focus, and animation state local).
+- Consider network latency when setting `syncDuration`; raise it to batch rapid updates.
+- Use `listenToNewChangesOnly` when existing data is irrelevant.
+- If using the element APIs, unsubscribe when components unmount. The hooks clean up on their own.
+
+**Offline:** reads and writes are local-first; writes sync on reconnect. Show a connectivity indicator with `useServerConnectionStateChangeHandler()` or `onServerConnectionStateChange()`.
+
+**Verification Checklist:**
+- [ ] Ephemeral per-user data has explicit cleanup on unmount or logout
+- [ ] Partial updates use `{ merge: true }` to avoid overwriting other users' keys
+- [ ] Element-API subscriptions are unsubscribed
+- [ ] `resetLiveState: true` is used only when wiping persisted data is intended
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/setup — "Best Practices" and the persistence Info under "Set Live Data"
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/overview — offline support and conflict resolution
 
 ---

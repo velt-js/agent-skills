@@ -72,7 +72,7 @@ createVeltAdapter({
 
 **Correct:**
 
-```env
+```typescript
 import { createVeltAdapter } from "@veltdev/chat-sdk-adapter";
 
 const adapter = createVeltAdapter({
@@ -84,10 +84,6 @@ const adapter = createVeltAdapter({
   // webhookSecret: "...",            // overrides VELT_WEBHOOK_SECRET
   // selfHostingConfig: { reactionsService }, // only for reaction writes
 });
-VELT_API_KEY="your-velt-api-key"
-VELT_AUTH_TOKEN=""
-VELT_WEBHOOK_SECRET="whsec_..."
-VELT_ORGANIZATION_ID="your-organization-id"
 ```
 
 | Option | Notes |
@@ -99,7 +95,24 @@ VELT_ORGANIZATION_ID="your-organization-id"
 | `webhookVersion` | `"v2"` (default, Advanced) or `"v1"` (Basic) |
 | `webhookSecret` | Overrides `VELT_WEBHOOK_SECRET` |
 | `selfHostingConfig` | Enables reaction writes via a self-hosted backend |
+
+```env
+VELT_API_KEY="your-velt-api-key"
+VELT_AUTH_TOKEN=""
+VELT_WEBHOOK_SECRET="whsec_..."
+VELT_ORGANIZATION_ID="your-organization-id"
+```
+
 `VELT_AUTH_TOKEN` is optional: if omitted, the adapter generates a bot token from your API key, scoped to `VELT_ORGANIZATION_ID`, and refreshes it automatically.
+
+**Verification Checklist:**
+- [ ] `VELT_API_KEY` and `VELT_WEBHOOK_SECRET` come from the environment
+- [ ] `botUserId` and `botUserName` are set and stable
+- [ ] `organizationId` is passed or `VELT_ORGANIZATION_ID` is set
+- [ ] `webhookVersion` matches the webhook type configured in the Velt Console
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "Quickstart" (Add your environment variables, Create the bot instance) and "Webhook versions"
 
 ---
 
@@ -110,6 +123,10 @@ VELT_ORGANIZATION_ID="your-organization-id"
 `@veltdev/chat-sdk-adapter` connects a [Chat SDK](https://chat-sdk.dev) bot to Velt comment threads. It runs on your server (API routes), not in the browser, so there is no `VeltProvider` or `authProvider`. Chat SDK concepts map to Velt as: Thread → comment annotation, Message → comment, Channel → document, `onNewMention` → a comment that @-mentions the bot, `onReaction` → a reaction added or removed, `thread.post()` → a reply in the thread.
 
 Prerequisites: a Velt API key, the Webhook Service enabled in the Velt Console, and a publicly reachable endpoint (a tunnel during development).
+
+```bash
+npm install @veltdev/chat-sdk-adapter chat @chat-adapter/state-memory
+```
 
 **Incorrect (module-scope instance):**
 
@@ -158,6 +175,15 @@ export function getChat() {
 
 `createMemoryState()` loses thread subscriptions on restart; for production use a persistent Chat SDK state adapter.
 
+**Verification Checklist:**
+- [ ] The Chat instance is created inside `getChat()`, not at module scope
+- [ ] Handlers are registered before the instance is cached
+- [ ] `userName` on `Chat` matches `botUserName` on the adapter
+- [ ] The code runs only on the server
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "How it maps" and "Quickstart" (Install, Create the bot instance)
+
 ---
 
 ## 2. Webhook
@@ -195,6 +221,16 @@ Secret: copied into VELT_WEBHOOK_SECRET
 ```
 
 You can also configure the webhook with `POST /v2/workspace/webhookconfig/update`. Update the endpoint URL whenever you switch between a development tunnel and production.
+
+**Verification Checklist:**
+- [ ] All four events above are enabled
+- [ ] The endpoint URL points at the deployed webhook route
+- [ ] `VELT_WEBHOOK_SECRET` matches the secret shown in the Console
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "Set up the Velt webhook"
+- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/webhookconfig-update — webhook config REST API
+- https://docs.velt.dev/webhooks/advanced — Velt webhooks
 
 ---
 
@@ -241,6 +277,11 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   return getChat().webhooks.velt(request, { waitUntil: (p) => waitUntil(p) });
 }
+```
+
+**Other Node frameworks:** the handler takes a Fetch API `Request` and returns a `Response`. On frameworks that use their own request objects (for example Express), build a `Request` from the **raw, unparsed** body and the original headers before calling it; a JSON-parsed body breaks signature verification.
+
+```typescript
 import express from "express";
 import { getChat } from "./bot";
 
@@ -257,7 +298,15 @@ app.post("/api/webhooks/velt", express.raw({ type: "*/*" }), async (req, res) =>
 });
 ```
 
-**Other Node frameworks:** the handler takes a Fetch API `Request` and returns a `Response`. On frameworks that use their own request objects (for example Express), build a `Request` from the **raw, unparsed** body and the original headers before calling it; a JSON-parsed body breaks signature verification.
+**Verification Checklist:**
+- [ ] The route runs on Node.js (`runtime = "nodejs"` in Next.js)
+- [ ] The route is not cached (`dynamic = "force-dynamic"`)
+- [ ] `waitUntil` is wired to `after` (Next.js) or `@vercel/functions`
+- [ ] Non-Fetch frameworks pass the raw body, not parsed JSON
+- [ ] The endpoint is publicly reachable
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "Create the webhook endpoint"
 
 ---
 
@@ -307,6 +356,15 @@ createVeltAdapter({
 
 Prefer v2: it signs each request and checks its timestamp, which also protects against replays.
 
+**Verification Checklist:**
+- [ ] `webhookVersion` matches the Console setting (omit for v2)
+- [ ] v2 uses a `whsec_...` secret; v1 uses the Basic token
+- [ ] Verification failures are investigated as secret or version mismatches first
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "Webhook versions"
+- https://docs.velt.dev/webhooks/advanced — Advanced webhooks
+
 ---
 
 ## 3. Events
@@ -348,6 +406,14 @@ chat.onSubscribedMessage(async (thread, message) => {
 
 Subscriptions live in the Chat SDK state adapter; with `createMemoryState()` they are lost on restart.
 
+**Verification Checklist:**
+- [ ] `onNewMention` calls `thread.subscribe()` so this handler fires
+- [ ] The handler filters on `message.isMention` (or another explicit rule)
+- [ ] Production bots use persistent state so subscriptions survive restarts
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "Create the bot instance" (subscribe pattern)
+
 ---
 
 ### 3.2 Observe reactions with onReaction
@@ -377,6 +443,14 @@ chat.onReaction(async (event) => {
 ```
 
 Event fields: `event.user` (`fullName`, `userId`), `event.emoji` (normalized), `event.rawEmoji` (the raw value from the Velt payload), `event.added`, `event.messageId` (the comment ID), and `event.threadId`. Filter by `threadId` or `messageId` to scope handling; the bot's own reactions are ignored.
+
+**Verification Checklist:**
+- [ ] `comment.reaction_add` and `comment.reaction_delete` are enabled in the Console
+- [ ] The handler only reads reactions unless self-hosted writes are configured
+- [ ] Handling is scoped by `threadId` / `messageId` where needed
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "Create the bot instance" (`onReaction`) and "Reactions"
 
 ---
 
@@ -422,6 +496,15 @@ chat.onNewMention(async (thread, message) => {
 
 Useful fields: `message.author.fullName` / `message.author.userId`, `message.text`, `message.isMention`, and `message.raw` (the Velt comment, including document context such as `documentName`, `documentUrl`, and `anchoredText`). `thread.id` encodes organization, document, and annotation (`velt:{organizationId}:{documentId}:{annotationId}`).
 
+**Verification Checklist:**
+- [ ] The handler is registered inside `getChat()` before the instance is cached
+- [ ] `thread.subscribe()` is called when follow-up conversation is expected
+- [ ] Streaming replies pass a text stream to `thread.post()`
+- [ ] The bot's own replies are not handled as mentions (the adapter ignores events from `botUserId`)
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "How it maps" and "Create the bot instance"
+
 ---
 
 ## 4. Users
@@ -461,6 +544,14 @@ const chat = new Chat<{ velt: VeltAdapter }>({
 ```
 
 Include the bot in your user lookup (`resolveUsers`) so its name renders in mentions.
+
+**Verification Checklist:**
+- [ ] `botUserId` is unique and never changes between deployments
+- [ ] `Chat.userName` equals the adapter's `botUserName`
+- [ ] `resolveUsers` resolves the bot's ID too
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "Create a user database" and "Create the bot instance"
 
 ---
 
@@ -504,6 +595,14 @@ export function resolveUsers({ userIds }: { userIds: string[] }) {
 
 For production, look users up in your database (batch the query, then map back in input order).
 
+**Verification Checklist:**
+- [ ] Output length equals input length, in the same order
+- [ ] Unknown users map to `undefined`
+- [ ] The bot user is resolvable
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "Create a user database"
+
 ---
 
 ## 5. Reactions
@@ -541,6 +640,14 @@ chat.onReaction(async (event) => {
 ```
 
 `event.emoji` is normalized for the Chat SDK; `event.rawEmoji` carries the raw value from the Velt reaction payload.
+
+**Verification Checklist:**
+- [ ] Both reaction webhook events are enabled
+- [ ] No `selfHostingConfig` is added solely for reading
+- [ ] Handlers filter by `threadId` / `messageId` when only some threads matter
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "Reactions" and "Set up the Velt webhook"
 
 ---
 
@@ -591,6 +698,16 @@ await adapter.removeReaction(threadId, messageId, "👍");
 
 Most bots only need to read reactions; skip `selfHostingConfig` unless the bot must react.
 
+**Verification Checklist:**
+- [ ] Reaction writes are attempted only when `selfHostingConfig.reactionsService` is set
+- [ ] The service comes from `await sdk.selfHosting.getReactions()` in `@veltdev/node`
+- [ ] The self-hosted database is the same one your Velt reactions data provider uses
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "Reactions" (Warning)
+- https://docs.velt.dev/backend-sdks/node — "Reactions" (`getReactions()`, `saveReactions`, `deleteReaction`)
+- https://docs.velt.dev/self-hosting/partial/reactions — self-hosted reaction data
+
 ---
 
 ## 6. Deployment
@@ -626,6 +743,14 @@ VELT_ORGANIZATION_ID="your-organization-id"
 ```
 
 Get the API key from the Velt Console and the webhook secret from **Configurations → Webhook Service** after you configure the endpoint. AI bots also need their model provider key (for example `ANTHROPIC_API_KEY` or `OPENAI_API_KEY`).
+
+**Verification Checklist:**
+- [ ] `VELT_API_KEY`, `VELT_WEBHOOK_SECRET`, and `VELT_ORGANIZATION_ID` are set in every environment
+- [ ] No secrets appear in source control
+- [ ] The webhook secret matches the Console for the configured webhook version
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "Add your environment variables" and "Set up the Velt webhook"
 
 ---
 
@@ -665,7 +790,17 @@ export async function POST(request: Request) {
 ```
 
 Set the environment variables in your hosting platform and update the Console webhook URL to the production route.
+
 **State:** `createMemoryState()` is fine for development but loses thread subscriptions on restart. In production, use a persistent Chat SDK state adapter (for example `@chat-adapter/state-redis`) so `onSubscribedMessage` keeps working across deploys.
+
+**Verification Checklist:**
+- [ ] The Console webhook URL matches the current environment
+- [ ] Tunnel URLs are updated after the tunnel restarts
+- [ ] Serverless deployments pass `waitUntil`
+- [ ] Production uses persistent state
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "Create the webhook endpoint" and "Set up the Velt webhook"
 
 ---
 

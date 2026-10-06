@@ -202,6 +202,27 @@ export default function App() {
 
 > **Note:** The recommended path is `authProvider` on `VeltProvider`. The `useIdentify()` hook still exists, but prefer `authProvider` so token refresh is handled for you.
 
+**Required User Object Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `userId` | string | Yes | Unique user identifier |
+| `organizationId` | string | Yes | Organization identifier |
+| `name` | string | Yes | Display name |
+| `email` | string | Yes | User email |
+| `photoUrl` | string | No | Avatar URL |
+| `color` | string | No | User color (e.g., "#FF6B6B") |
+| `textColor` | string | No | Text color for contrast |
+
+**Verification Checklist:**
+- [ ] User object includes userId, organizationId, name, email
+- [ ] authProvider is configured on VeltProvider
+- [ ] Token generation is set up for production
+- [ ] Authentication happens before document setup
+
+**Source Pointers:**
+- https://docs.velt.dev/get-started/quickstart - "Step 5: Authenticate Users"
+
 ---
 
 ### 1.2 Initialize Document Context for Comments
@@ -283,6 +304,18 @@ function DocumentSetup() {
 }
 ```
 
+**`SetDocumentsRequestOptions` fields:**
+
+<!-- TODO (v5.0.2-beta.10): Verify exact type and default value of debounceTime and precise semantics of optimisticPermissions against the API reference once released. Release note text: "SetDocumentsRequestOptions — New debounceTime and optimisticPermissions fields". -->
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `locationId` | string | No | Scopes documents to a specific location |
+| `rootDocumentId` | string | No | Sets a root document for hierarchical contexts |
+| `context` | SetDocumentsContext | No | Additional context passed with the document set |
+| `debounceTime` | number | No | Per-call debounce window in ms (default: 5000). Overrides the global debounce for this call only. |
+| `optimisticPermissions` | boolean | No | When `false`, awaits server permission validation before returning permitted documents. When `true` (default), applies permissions optimistically. |
+
 **Correct (using useSetDocument hook):**
 
 ```jsx
@@ -312,6 +345,23 @@ async function loadVelt() {
   ]);
 }
 ```
+
+**Document ID Best Practices:**
+- Use unique, stable identifiers (e.g., database record IDs)
+- Keep IDs consistent across sessions for the same content
+- Different document IDs create separate comment contexts
+
+**Repeated calls (v6.0.5+):** Calling `setDocuments()` again with the same documents and options is ignored, so calling it on every render no longer re-initializes documents or refetches comments. An identical repeat also does not refresh permissions. Passing a different set, including a narrower one, re-runs the pipeline.
+
+**Verification Checklist:**
+- [ ] Document is set after user authentication
+- [ ] Document ID is unique and stable
+- [ ] setDocuments or useSetDocument is called
+- [ ] Metadata includes descriptive documentName
+
+**Source Pointers:**
+- https://docs.velt.dev/get-started/quickstart - "Step 6: Initialize Document"
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#setdocuments - setDocuments() (identical repeat calls ignored)
 
 ---
 
@@ -353,6 +403,8 @@ export default function App() {
 
 **For Next.js (App Router):**
 
+Add `'use client'` directive at the top of files containing Velt components:
+
 ```jsx
 'use client';
 
@@ -382,6 +434,20 @@ export default function App() {
 </body>
 ```
 
+**API Key Setup:**
+1. Go to [console.velt.dev](https://console.velt.dev)
+2. Create an account and get your API key
+3. Add your domain to "Managed Domains" to whitelist it
+
+**Verification Checklist:**
+- [ ] VeltProvider wraps the entire app
+- [ ] API key is valid and from Velt Console
+- [ ] Domain is safelisted in Velt Console
+- [ ] Next.js files have `'use client'` directive
+
+**Source Pointers:**
+- https://docs.velt.dev/get-started/quickstart - "Step 4: Initialize Velt"
+
 ---
 
 ## 2. REST API
@@ -396,9 +462,20 @@ Server-side comment management via REST API, including agent comment annotations
 
 Agent comments let AI agents participate in collaboration by leaving findings via the Add Comment Annotations REST API. The server stamps `sourceType: "agent"` on the annotation and renders it with Accept/Reject buttons in the Velt UI. Any agent that can make an HTTP request can do this — a built-in Velt agent, a custom agent created via the Review Agents API (`POST /v2/agents/create`, owned by `velt-rest-apis-best-practices`), or an external agent running in your own framework.
 
-### Creating agent annotations
+#### Creating agent annotations
 
 Attach an `agent` object to `commentData[0]` (the root comment). Set the annotation `type` to `"suggestion"` so the finding renders as a reviewable agent suggestion rather than a regular comment.
+
+**The `agent` block:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `agentSource` | Yes | Origin of the agent: `"velt"` or `"external"` |
+| `agentId` | Yes | The agent's ID. Must be non-empty. Verified server-side for `velt` agents; opaque (never validated) for `external` agents. |
+| `agentName` | Required for `external` | Display name for the agent. For `velt` agents, the name is resolved server-side. |
+| `executionId` | No | Execution / run ID for this agent invocation. Used to query all findings from a single run. |
+| `url` | No | Page URL associated with the finding. |
+| `reason` | Yes | Finding details object — `title`, `description`, `severity`, `findingType`, `confidence`, `suggestedFix`, etc. Custom fields are preserved. |
 
 **Correct (external agent leaving a finding via REST):**
 
@@ -491,7 +568,11 @@ response = requests.post(
 ```
 
 Attaching the `agent` block to `commentData[0]` (the root comment) marks the whole annotation as agent-authored: the server stamps `sourceType: "agent"` on both that comment and the annotation, and generates the annotation-level `agent` block (the `CommentAnnotationAgent` type from `data-types-reference`). Attaching an `agent` block to a reply instead (see "Replying as an agent" below) marks only that individual comment as agent-authored — the annotation root stays a normal comment and is not reclassified. The finding renders in Velt as a suggestion with Accept and Reject buttons on the comment dialog.
+
+#### The `reason` object
+
 `reason` carries the finding's details. Three fields are required; the remaining ten are optional. Any extra custom fields beyond this list are preserved by the server.
+
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
 | `title` | Yes | string | Short finding title — a quick label for the issue (e.g. `"Low color contrast"`). |
@@ -507,6 +588,7 @@ Attaching the `agent` block to `commentData[0]` (the root comment) marks the who
 | `htmlSelector` | No | string | CSS / HTML selector pointing to the finding's location. |
 | `source` | No | string | Where the triggering rule came from. One of `instructions`, `knowledge`. |
 | `knowledgeSection` | No | string | Which knowledge section fired (pairs with `source: "knowledge"`). |
+
 **Do not conflate `suggestion` and `suggestedFix`.** `suggestion` is prose meant for a human reviewer to read in the comment; `suggestedFix` is the literal replacement value your code would apply on Accept. For a spelling fix, `suggestion` might read `"Did you mean 'Welcome'?"` while `suggestedFix` is just `"Welcome"`.
 
 **Correct (fully-populated `reason`):**
@@ -529,7 +611,10 @@ Attaching the `agent` block to `commentData[0]` (the root comment) marks the who
 }
 ```
 
+#### Replying as an agent
+
 An agent can also post a reply into an existing thread. Use the Add Comments API (`POST /v2/commentannotations/comments/add`, base contract in `rest-comments-api`) and attach an `agent` block to the reply comment — same shape as when creating the root comment.
+
 Annotation-level fields such as `type` are set **only when the annotation is created**. They are **not accepted** on the Add Comments endpoint — the reply inherits its parent annotation's type. Sending `type` here is a common contract error; the field is silently ignored.
 
 **Correct (external agent replying to an existing thread):**
@@ -571,7 +656,11 @@ const response = await fetch('https://api.velt.dev/v2/commentannotations/comment
 ```
 
 Each entry in the Add response map echoes `findingId` (from `commentData[0].agent.reason.findingId`). The map order does not match your input, so correlate results by `findingId` or `entry.annotationId`, never by the map key.
+
+#### Reading agent annotations back
+
 Use the Get Comment Annotations API with agent-specific filters to fetch whole agent-authored threads. Only one agent filter may be supplied per request.
+
 | Filter | Description |
 |--------|-------------|
 | `agentId` | Annotations created by a specific agent. |
@@ -641,14 +730,25 @@ const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
 ```
 
 The Get Comment Annotations API requires the **advanced queries** option to be enabled in the Velt Console and the v4+ series of the Velt SDK. Confirm the current prerequisite against the API reference before assuming this still applies.
+
 To fetch **individual comments within a specific annotation** (rather than whole threads), use the Get Comments API (`POST /v2/commentannotations/comments/get`) instead — see `rest-comments-api` for the base contract. Get Comment Annotations returns the thread with its full `comments[]` payload; Get Comments is the tool for pulling a single comment out of an existing thread by id.
+
+#### Updating agent annotations and comments
+
 Agent comments are updated through the same endpoints as any other comment — the split is by scope:
+
 - **Annotation-level fields** (status, assignee, location, resolved state, etc.) go through the Update Comment Annotations API (`POST /v2/commentannotations/update`). See `rest-comment-annotations-api` for the base contract.
 - **Individual comment content** within the thread goes through the Update Comments API (`POST /v2/commentannotations/comments/update`). See `rest-comments-api`.
+
 There is no agent-specific update endpoint; the `agent` block on the comment is carried through unchanged.
+
+#### Deleting agent annotations and comments
+
 Two scopes, same split:
+
 - **Whole-thread deletion** goes through the Delete Comment Annotations API (`POST /v2/commentannotations/delete`). Filter by `annotationIds` for specific threads, by the agent's `userIds` (the idiomatic pattern for **purging every annotation a given agent created** — e.g. wiping a bot's findings before a re-run), or by the **combinable agent filters** `agentId`, `agentSuggestions`, and `agentUrls`, which are AND-combined to scope deletion (e.g. delete only one agent's still-pending suggestions on a specific set of pages). See `rest-comment-annotations-api`.
 - **Single-comment deletion** within a thread goes through the Delete Comments API (`POST /v2/commentannotations/comments/delete`). See `rest-comments-api`.
+
 The combinable agent filters target only annotations that still match the filter — suggestions already accepted, rejected, or resolved are left untouched when `agentSuggestions: true` is set (it selects only still-pending suggestions).
 
 **Correct (purge one agent's pending suggestions on two specific pages):**
@@ -676,6 +776,8 @@ const response = await fetch('https://api.velt.dev/v2/commentannotations/delete'
   }),
 });
 ```
+
+#### Handling accept/reject on the client
 
 Agent findings render with Accept and Reject buttons. Subscribe to `suggestionAccepted` and `suggestionRejected` on the comment element to apply the change to your own data or trigger follow-up logic. The SDK records the outcome and persists the suggestion status — applying the actual change is your code's responsibility.
 
@@ -719,11 +821,47 @@ commentElement.on('suggestionRejected').subscribe(({ commentAnnotation, rejectRe
 });
 ```
 
+#### UI rendering
+
 Annotations created with `sourceType: "agent"` render with an agent-identity header (agent name + avatar from the `agent` block) instead of the standard human-author header. Because the annotation `type` is `"suggestion"`, the comment dialog shows Accept and Reject buttons.
+
 To restyle the agent suggestion card, use the comment dialog wireframes or the suggestion action primitives:
+
 - `VeltCommentDialogSuggestionActions`, `VeltCommentDialogSuggestionActionAccept`, and `VeltCommentDialogSuggestionActionReject` are available primitives for custom Accept / Reject controls.
 - The `VeltCommentDialogAgentSuggestion*` primitive family is Beta and is not exported by `@veltdev/react` yet, so importing it fails today.
+
 To resolve a suggestion from your own UI (for example, a custom chip), call `commentElement.acceptSuggestion({ annotationId })` / `rejectSuggestion({ annotationId })`. See `ui-agent-suggestion-primitives.md`.
+
+**Verification:**
+- [ ] `agent` block is on `commentData[0]` (the root comment) when creating a thread, or on the reply comment when replying via `/v2/commentannotations/comments/add` — not on the annotation wrapper
+- [ ] `agentSource` is set — `"external"` for your own agents, `"velt"` for built-in agents or custom agents created via the Review Agents API
+- [ ] `agentId` is set to a non-empty string for **both** `velt` and `external` agents (required regardless of `agentSource`)
+- [ ] `agentName` is provided when `agentSource` is `"external"` (server cannot resolve it)
+- [ ] Annotation `type` is `"suggestion"` when **creating** so Accept/Reject buttons render — do **not** send `type` on the Add Comments (`/v2/commentannotations/comments/add`) reply endpoint; it is ignored
+- [ ] `reason` object is provided with all three required fields (`title`, `description`, `severity`)
+- [ ] `severity` is one of `critical`, `high`, `medium`, `low`, `info`
+- [ ] `suggestion` is human-readable prose; `suggestedFix` is the literal replacement value (not conflated)
+- [ ] `findingType`, if set, is one of `text`, `pin`, `page`
+- [ ] `source`, if set, is `instructions` or `knowledge` (and `knowledgeSection` is set when `source` is `knowledge`)
+- [ ] Only one agent filter is used per Get request (`agentId`, `executionId`, `agentType`, `agentSource`, `agentSuggestions`, or `agentComments`)
+- [ ] `agentType`, if used, is one of `"built-in"`, `"custom"`, or `"external"`
+- [ ] Updates route by scope — annotation-level fields via Update Comment Annotations, per-comment content via Update Comments
+- [ ] Deletes route by scope — whole threads via Delete Comment Annotations (use the agent's `userIds` to purge everything one agent created, or the combinable `agentId` + `agentSuggestions` + `agentUrls` filters to scope deletion to one agent's still-pending suggestions on specific pages), single comments via Delete Comments
+- [ ] When deleting with `agentSuggestions: true`, understand that already-accepted / rejected / resolved suggestions are left untouched — the filter selects only still-pending suggestions
+- [ ] Individual-comment reads use Get Comments (`/v2/commentannotations/comments/get`); whole-thread reads use Get Comment Annotations
+- [ ] Client-side `suggestionAccepted`/`suggestionRejected` handlers apply changes to your data (the SDK only persists the status)
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/agent-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-v2
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/update-comment-annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/delete-comment-annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/add-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/get-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/update-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/delete-comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/create
 
 ---
 
@@ -747,6 +885,8 @@ body: JSON.stringify({ data: { organizationId: 'org-1', documentId: 'doc-1' } })
 ```
 
 **Add Annotations:**
+
+The request body uses `data.commentAnnotations`, an array of annotation objects that each contain a `commentData` array.
 
 ```javascript
 // POST https://api.velt.dev/v2/commentannotations/add
@@ -787,6 +927,19 @@ Response handling:
 - Read `entry.annotationId` from each value, never the map key. Keys for permission-denied entries without your own `annotationId` fall back to `__velt_denied:<index>`.
 - On a failure response, `error.details` carries the same per-annotation map. Entries with `"success": true` **were created**, so treat a failed request as a partial write.
 - For agent annotations, `findingId` echoes `commentData[0].agent.reason.findingId`; use it to correlate results with your own records.
+
+**Optional annotation fields on add:**
+
+| Field | Notes |
+|-------|-------|
+| `type` | `'comment'` (default) or `'suggestion'`. Use `'suggestion'` for agent findings and reviewable proposed changes. The legacy `commentType: "suggestion"` no longer drives classification. |
+| `suggestion` | Proposed-change payload for `type: 'suggestion'`: `targetId`, `targetType`, `oldValue`, `newValue`, `summary`, `driftDetected`, plus any custom fields. `status` is server-owned and stamped `pending` on create. |
+| `visibility` | `{ type: 'public' \| 'organizationPrivate' \| 'restricted', organizationId?, userIds? }`. `organizationPrivate` requires `organizationId`; `restricted` requires non-empty `userIds`. |
+| `actions` | Annotation-level default action chips (`CommentAction[]`, max 20). See `data-comment-actions.md`. |
+| `commentData[].progress` | Live progress row (`CommentProgress`, `steps` max 100). See `data-comment-progress.md`. |
+| `commentData[].actions` | Row-level action chips that override the annotation default. |
+| `createOrganization` / `createDocument` | Create the org or document if missing. |
+| `verifyUserPermissions` | Check the author can access the document (default `false`). |
 
 **Get Annotations (with filters):**
 
@@ -867,6 +1020,21 @@ body: JSON.stringify({
 }),
 // Response: { result: { data: { 'doc-1': { total: 4, unread: 2 }, 'doc-2': { total: 2, unread: 0 } } } }
 ```
+
+**Verification:**
+- [ ] API key and auth token read from server-side environment variables
+- [ ] Add responses iterated with `Object.values(result.data)` and `entry.annotationId`, and failed requests checked for partial writes in `error.details`
+- [ ] Updates use `annotationIds` / filters plus a single `updatedData` object
+- [ ] Status changes send `statusUpdatedByUserId` (and `resolvedByUserId` for terminal statuses)
+- [ ] Count requests send `documentIds` (max 30) and `userId`
+- [ ] Pagination reads `nextPageToken` and sends it back as `pageToken`
+
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations - Add Comment Annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-v2 - Get Comment Annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/update-comment-annotations - Update Comment Annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/delete-comment-annotations - Delete Comment Annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-count - Get Comment Annotations Count
 
 ---
 
@@ -982,6 +1150,25 @@ body: JSON.stringify({
 }),
 ```
 
+**Key details:**
+- `commentIds` and `attachmentId` are numbers, not strings.
+- `userIds` is required on Get; `from` is required in `updatedData` on Update.
+- `triggerNotification` on Update must sit at the `data` root, not inside `updatedData`; on Add it sits on each `commentData` entry.
+- `progress` and `actions` in `updatedData` replace the stored values; they are not deep-merged.
+
+**Verification:**
+- [ ] Paths use `/v2/commentannotations/comments/{add|get|update|delete}`
+- [ ] `organizationId`, `documentId`, and `annotationId` included in every request
+- [ ] Update payload includes `updatedData.from` and puts `triggerNotification` at the root
+- [ ] Delete without `commentIds` understood as "delete all comments in the annotation"
+- [ ] Tagged users appear as `{{userId}}` in text/HTML with a matching `taggedUserContacts` entry
+
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/add-comments - Add Comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/get-comments - Get Comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/update-comments - Update Comments
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/delete-comments - Delete Comments
+
 ---
 
 ## 3. Comment Modes
@@ -995,6 +1182,10 @@ Different comment presentation and interaction modes for various use cases. Incl
 **Impact: HIGH (Manual comment positioning for HTML5 canvas and drawing apps)**
 
 Add collaborative comments to HTML5 canvas or drawing applications using manual comment positioning with VeltCommentPin.
+
+**Setup Overview:**
+
+Canvas comments follow the manual positioning pattern - handle click events, store coordinates in context, and render pins at stored positions.
 
 **Implementation:**
 
@@ -1092,8 +1283,9 @@ export default function CanvasComments() {
 }
 ```
 
-**1. Calculate Click Position:**
+**Key Implementation Details:**
 
+**1. Calculate Click Position:**
 ```jsx
 const rect = canvasRef.current.getBoundingClientRect();
 const x = event.clientX - rect.left;
@@ -1101,7 +1293,6 @@ const y = event.clientY - rect.top;
 ```
 
 **2. Store in Context:**
-
 ```jsx
 const context = {
   canvasId,           // For filtering
@@ -1112,13 +1303,11 @@ const context = {
 ```
 
 **3. Add Manual Comment:**
-
 ```jsx
 client.getCommentElement().addManualComment({ context });
 ```
 
 **4. Position Pin:**
-
 ```jsx
 style={{
   position: 'absolute',
@@ -1129,7 +1318,6 @@ style={{
 ```
 
 **Alternative: Using onCommentAdd:**
-
 ```jsx
 // Let Velt handle click, add metadata via callback
 <VeltComments
@@ -1147,6 +1335,17 @@ style={{
 />
 ```
 
+**Verification Checklist:**
+- [ ] Container has data-velt-manual-comment-container="true"
+- [ ] Container has position: relative
+- [ ] Click position calculated relative to canvas
+- [ ] Context includes canvasId for filtering
+- [ ] Pins rendered at stored coordinates
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/canvas - Canvas setup
+- https://docs.velt.dev/async-collaboration/comments/setup/canvas-comments/overview - Overview
+
 ---
 
 ### 3.2 Add Comments to ChartJS Charts
@@ -1154,6 +1353,10 @@ style={{
 **Impact: HIGH (Data point comments for Chart.js using manual positioning pattern)**
 
 Add collaborative comments to Chart.js data points using the manual positioning pattern with context metadata.
+
+**Setup Overview:**
+
+Chart.js integration follows the custom charts pattern using `addManualComment` and `VeltCommentPin` for positioning.
 
 **Complete Implementation:**
 
@@ -1292,24 +1495,34 @@ export default function ChartJSComments() {
 }
 ```
 
-**1. Register Components:**
+**Key Chart.js Specifics:**
 
+**1. Register Components:**
 ```jsx
 ChartJS.register(CategoryScale, LinearScale, BarElement, ...);
 ```
 
 **2. Get Elements at Click:**
-
 ```jsx
 chart.getElementsAtEventForMode(event.nativeEvent, 'nearest', { intersect: true }, false)
 ```
 
 **3. Get Pixel Position:**
-
 ```jsx
 x: chart.scales.x.getPixelForValue(index)
 y: chart.scales.y.getPixelForValue(yValue)
 ```
+
+**Verification Checklist:**
+- [ ] Chart.js components registered
+- [ ] Container has data-velt-manual-comment-container="true"
+- [ ] Context includes chartId, seriesId, xValue, yValue
+- [ ] Pin position calculated from chart scales
+- [ ] Comments filtered by chartId
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/chart-comments-setup/chartjs - Setup reference
+- https://docs.velt.dev/async-collaboration/comments/setup/chart-comments-setup/custom-charts - Pattern details
 
 ---
 
@@ -1456,8 +1669,9 @@ export default function CustomChartComments() {
 }
 ```
 
-**1. Container Setup:**
+**Key Steps:**
 
+**1. Container Setup:**
 ```jsx
 <div
   style={{ position: 'relative' }}
@@ -1466,31 +1680,37 @@ export default function CustomChartComments() {
 ```
 
 **2. Handle Click - Get Data Point:**
-
 ```jsx
 const elements = chart.getElementsAtEventForMode(event, 'nearest', ...);
 const context = { chartId, seriesId, xValue, yValue };
 ```
 
 **3. Add Manual Comment:**
-
 ```jsx
 const commentElement = client.getCommentElement();
 commentElement.addManualComment({ context });
 ```
 
 **4. Get & Filter Annotations:**
-
 ```jsx
 const commentAnnotations = useCommentAnnotations();
 const filtered = commentAnnotations?.filter(c => c.context?.chartId === chartId);
 ```
 
 **5. Render Pins with Position:**
-
 ```jsx
 <VeltCommentPin annotationId={annotation.annotationId} />
 ```
+
+**Verification Checklist:**
+- [ ] Container has data-velt-manual-comment-container="true"
+- [ ] Container has position: relative
+- [ ] Context includes chartId for filtering
+- [ ] Context includes data for recalculating position
+- [ ] VeltCommentPin receives correct annotationId
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/chart-comments-setup/custom-charts - Complete setup
 
 ---
 
@@ -1499,6 +1719,10 @@ const filtered = commentAnnotations?.filter(c => c.context?.chartId === chartId)
 **Impact: HIGH (Data point comments for Nivo charts using manual positioning pattern)**
 
 Add collaborative comments to Nivo chart data points using the manual positioning pattern.
+
+**Setup Overview:**
+
+Nivo charts integration follows the custom charts pattern using `addManualComment` and `VeltCommentPin` for positioning. Since Nivo charts are SVG-based, you'll need to handle click events and calculate positions accordingly.
 
 **Implementation Pattern:**
 
@@ -1597,8 +1821,10 @@ export default function NivoChartComments() {
 }
 ```
 
-**1. Click Handler:**
+**Nivo-Specific Considerations:**
 
+**1. Click Handler:**
+Nivo provides bar data with position info:
 ```jsx
 onClick={(bar, event) => {
   // bar.x, bar.y, bar.width, bar.height available
@@ -1607,7 +1833,7 @@ onClick={(bar, event) => {
 ```
 
 **2. Position Storage:**
-
+Store pixel positions in context since Nivo doesn't expose scales like Chart.js:
 ```jsx
 const context = {
   chartId,
@@ -1617,6 +1843,20 @@ const context = {
   y: bar.y
 };
 ```
+
+**3. Responsive Charts:**
+For `ResponsiveBar`/`ResponsiveLine`, positions are relative to container.
+
+**Verification Checklist:**
+- [ ] Container has data-velt-manual-comment-container="true"
+- [ ] Container has position: relative
+- [ ] onClick handler captures bar data and position
+- [ ] Context stores position for pin rendering
+- [ ] Comments filtered by chartId
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/chart-comments-setup/nivo-charts - Setup reference
+- https://docs.velt.dev/async-collaboration/comments/setup/chart-comments-setup/custom-charts - Pattern details
 
 ---
 
@@ -1678,16 +1918,25 @@ export default function HighchartsWithComments() {
 
 **Key Setup Requirements:**
 
+1. **Container Styling:**
 ```jsx
 <div style={{ position: 'relative' }}>
   {/* Chart and Velt component */}
 </div>
+```
+
+2. **Chart Ref:**
+```jsx
 const chartComponentRef = useRef(null);
 
 <HighchartsReact
   ref={chartComponentRef}
   ...
 />
+```
+
+3. **Conditional Rendering:**
+```jsx
 {chartComponentRef.current && (
   <VeltHighChartComments
     id="unique-chart-id"
@@ -1696,8 +1945,13 @@ const chartComponentRef = useRef(null);
 )}
 ```
 
-2. **Chart Ref:**
-3. **Conditional Rendering:**
+**VeltHighChartComments Props:**
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `id` | string | Unique ID to scope comments to this chart |
+| `chartComputedData` | ref | Reference to HighchartsReact component |
+| `dialogMetadataTemplate` | array | Customize metadata display order |
 
 **Customize Metadata Display:**
 
@@ -1710,6 +1964,16 @@ const chartComponentRef = useRef(null);
 
 // Default: ['groupId', 'label', 'value']
 ```
+
+**Verification Checklist:**
+- [ ] Container div has position: relative
+- [ ] Chart ref is created and passed to HighchartsReact
+- [ ] VeltHighChartComments rendered conditionally when ref exists
+- [ ] Unique id assigned to VeltHighChartComments
+- [ ] chartComputedData receives the ref
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/chart-comments-setup/highcharts - Complete setup
 
 ---
 
@@ -1729,14 +1993,23 @@ Add collaborative text comments to an Ace editor using Velt's Ace extension. Use
 
 **Correct (with Ace extension):**
 
-```jsx
+**Step 1: Install the extension**
+```bash
 npm install @veltdev/ace-velt-comments
+```
+
+**Step 2: Configure VeltComments**
+```jsx
 import { VeltProvider, VeltComments } from '@veltdev/react';
 
 // Disable default text mode when using editor integration
 <VeltProvider apiKey="API_KEY">
   <VeltComments textMode={false} />
 </VeltProvider>
+```
+
+**Step 3: Initialize Ace editor with Velt extension**
+```jsx
 import { useEffect, useRef, useCallback } from 'react';
 import AceEditor from 'react-ace';
 import 'ace-builds/src-noconflict/mode-markdown';
@@ -1799,11 +2072,13 @@ function AceEditorComponent() {
 }
 ```
 
-**Step 2: Configure VeltComments**
-**Step 3: Initialize Ace editor with Velt extension**
+**Key Functions:**
+- `AceVeltComments(editor)` - Initialize extension, returns cleanup function
+- `addComment({ editor })` - Create comment on selected text
+- `renderComments({ editor, commentAnnotations })` - Render existing comments
+- `useCommentAnnotations()` - Hook to get comment data
 
 **With Custom Metadata (Context):**
-
 ```jsx
 addComment({
   editor: editorRef.current,
@@ -1816,7 +2091,6 @@ addComment({
 ```
 
 **Configure Mark Persistence:**
-
 ```jsx
 const cleanup = AceVeltComments(editor, {
   persistVeltMarks: false, // Set false if storing content yourself
@@ -1824,7 +2098,6 @@ const cleanup = AceVeltComments(editor, {
 ```
 
 **Style Commented Text:**
-
 ```css
 velt-comment-text {
   background-color: rgba(255, 255, 0, 0.3);
@@ -1832,6 +2105,16 @@ velt-comment-text {
   cursor: pointer;
 }
 ```
+
+**Verification Checklist:**
+- [ ] @veltdev/ace-velt-comments is installed
+- [ ] VeltComments has textMode={false}
+- [ ] AceVeltComments() called with editor instance on load
+- [ ] Cleanup function called on component unmount
+- [ ] renderComments called when annotations change
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/ace - Complete setup
 
 ---
 
@@ -1853,13 +2136,27 @@ Use `@veltdev/apryse-velt-comments` when adding Velt text comments to Apryse Web
 
 **Correct (React / Next.js with the Apryse extension):**
 
-```jsx
+**Step 1: Install both packages**
+
+```bash
 npm install @veltdev/apryse-velt-comments @pdftron/webviewer
+```
+
+`@pdftron/webviewer` is a peer dependency. Copy its `public/core` and `public/ui` runtime folders into your app's public assets, then point WebViewer's `path` option at that location.
+
+**Step 2: Mount Velt comments with default text mode disabled**
+
+```jsx
 import { VeltProvider, VeltComments } from '@veltdev/react';
 
 <VeltProvider apiKey="API_KEY">
   <VeltComments textMode={false} />
 </VeltProvider>
+```
+
+**Step 3: Dynamically create WebViewer and attach the Velt extension**
+
+```jsx
 import { useEffect, useRef, useState } from 'react';
 import { useCommentAnnotations } from '@veltdev/react';
 import {
@@ -1933,9 +2230,21 @@ function ApryseEditor() {
 }
 ```
 
-`@pdftron/webviewer` is a peer dependency. Copy its `public/core` and `public/ui` runtime folders into your app's public assets, then point WebViewer's `path` option at that location.
-**Step 2: Mount Velt comments with default text mode disabled**
-**Step 3: Dynamically create WebViewer and attach the Velt extension**
+**Key APIs:**
+
+| API | Purpose |
+|-----|---------|
+| `ApryseVeltComments.configure({ editorId }).attach(instance)` | Attach Velt comment handling to one WebViewer instance. |
+| `addComment({ instance })` | Create a Velt annotation from the current Apryse text selection. Returns `null` when nothing is selected or the SDK is not loaded. |
+| `renderComments({ instance, commentAnnotations })` | Re-render Velt annotations as Apryse text highlights. |
+| `AttachedExtension.detach()` | Remove Apryse listeners and clear per-instance caches during cleanup. |
+
+**Important details:**
+- Import `@pdftron/webviewer` dynamically in browser-only code; WebViewer touches the DOM.
+- Clicking a host-page button does not clear Apryse's canvas selection, so no selection-preservation `mousedown` workaround is needed.
+- Set `editorId` when the page hosts multiple WebViewer instances; `renderComments()` only paints annotations whose stored editor id matches.
+- The library stores `annotation.context.textEditorConfig` with `editorId`, selected `text`, `pageNumber`, and `occurrence`; physical positions are re-derived at render time.
+- If the WebViewer loads a new document in the same instance, keep the extension attached. It listens for Apryse document lifecycle events and re-syncs highlights.
 
 **Style Apryse highlights:**
 
@@ -1949,6 +2258,21 @@ velt-comment-text:hover .velt-apryse-highlight {
   background-color: rgba(60, 130, 246, 0.50) !important;
 }
 ```
+
+**Verification Checklist:**
+- [ ] `@veltdev/apryse-velt-comments` and `@pdftron/webviewer` are installed
+- [ ] WebViewer runtime assets are copied to a public HTTP path used by `WebViewer({ path })`
+- [ ] `VeltComments` is mounted with `textMode={false}`
+- [ ] `ApryseVeltComments.configure(...).attach(instance)` runs once per WebViewer instance
+- [ ] `renderComments({ instance, commentAnnotations })` runs when annotations change
+- [ ] `extension.detach()` runs on unmount
+- [ ] Multi-viewer pages set stable `editorId` values
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/apryse - "Apryse Setup"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#apryseveltcommentsconfig - "ApryseVeltCommentsConfig"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#addcommentargs - "AddCommentArgs"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#attachedextension - "AttachedExtension"
 
 ---
 
@@ -1968,14 +2292,23 @@ Add collaborative text comments to a CodeMirror editor using Velt's CodeMirror e
 
 **Correct (with CodeMirror extension):**
 
-```jsx
+**Step 1: Install the extension**
+```bash
 npm install @veltdev/codemirror-velt-comments
+```
+
+**Step 2: Configure VeltComments**
+```jsx
 import { VeltProvider, VeltComments } from '@veltdev/react';
 
 // Disable default text mode when using editor integration
 <VeltProvider apiKey="API_KEY">
   <VeltComments textMode={false} />
 </VeltProvider>
+```
+
+**Step 3: Add extension to CodeMirror editor**
+```jsx
 import { useRef, useState, useEffect } from 'react';
 import { EditorView, basicSetup } from 'codemirror';
 import { CodemirrorVeltComments, addComment, renderComments } from '@veltdev/codemirror-velt-comments';
@@ -2054,11 +2387,17 @@ function CodeMirrorEditorComponent() {
 }
 ```
 
-**Step 2: Configure VeltComments**
-**Step 3: Add extension to CodeMirror editor**
+**Key Functions:**
+- `CodemirrorVeltComments()` - Extension to add to the editor
+- `addComment({ editor })` - Create comment on selected text
+- `renderComments({ editor, commentAnnotations })` - Render existing comments
+- `useCommentAnnotations()` - Hook to get comment data
+
+**Important: Selection Preservation**
+
+When clicking a button, the browser moves focus and clears the editor selection. You must save the selection on `mousedown` (before focus changes) and restore it via `editorView.dispatch()` before adding the comment.
 
 **With Custom Metadata (Context):**
-
 ```jsx
 addComment({
   editor: editorView,
@@ -2071,7 +2410,6 @@ addComment({
 ```
 
 **Configure Mark Persistence:**
-
 ```jsx
 const view = new EditorView({
   extensions: [
@@ -2084,7 +2422,6 @@ const view = new EditorView({
 ```
 
 **Style Commented Text:**
-
 ```css
 velt-comment-text {
   background-color: rgba(255, 255, 0, 0.3);
@@ -2092,6 +2429,16 @@ velt-comment-text {
   cursor: pointer;
 }
 ```
+
+**Verification Checklist:**
+- [ ] @veltdev/codemirror-velt-comments is installed
+- [ ] VeltComments has textMode={false}
+- [ ] CodemirrorVeltComments() added to editor extensions
+- [ ] renderComments called when annotations change
+- [ ] Selection is saved on mousedown and restored before addComment
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/codemirror - Complete setup
 
 ---
 
@@ -2111,13 +2458,22 @@ Add collaborative text comments to Lexical editor using Velt's Lexical extension
 
 **Correct (with Lexical extension):**
 
-```jsx
+**Step 1: Install the extension**
+```bash
 npm install @veltdev/lexical-velt-comments @veltdev/client lexical
+```
+
+**Step 2: Configure VeltComments**
+```jsx
 import { VeltProvider, VeltComments } from '@veltdev/react';
 
 <VeltProvider apiKey="API_KEY">
   <VeltComments textMode={false} />
 </VeltProvider>
+```
+
+**Step 3: Register CommentNode in editor config**
+```jsx
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { CommentNode } from '@veltdev/lexical-velt-comments';
 
@@ -2134,6 +2490,10 @@ function Editor() {
     </LexicalComposer>
   );
 }
+```
+
+**Step 4: Add comment functionality**
+```jsx
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { addComment, renderComments } from '@veltdev/lexical-velt-comments';
 import { useCommentAnnotations } from '@veltdev/react';
@@ -2166,12 +2526,13 @@ function CommentPlugin() {
 }
 ```
 
-**Step 2: Configure VeltComments**
-**Step 3: Register CommentNode in editor config**
-**Step 4: Add comment functionality**
+**Key Functions:**
+- `CommentNode` - Node type to register with Lexical
+- `addComment({ editor })` - Create comment on selected text
+- `renderComments({ editor, commentAnnotations })` - Render existing comments
+- `exportJSONWithoutComments(editor)` - Export clean editor state
 
 **Export Editor State Without Comments:**
-
 ```jsx
 import { exportJSONWithoutComments } from '@veltdev/lexical-velt-comments';
 
@@ -2180,12 +2541,21 @@ const cleanState = exportJSONWithoutComments(editor);
 ```
 
 **Style Commented Text:**
-
 ```css
 velt-comment-text[comment-available="true"] {
   background-color: #ffff00;
 }
 ```
+
+**Verification Checklist:**
+- [ ] @veltdev/lexical-velt-comments is installed
+- [ ] VeltComments has textMode={false}
+- [ ] CommentNode registered in editor config
+- [ ] renderComments called on annotation changes
+- [ ] Comment button triggers addComment
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/lexical - Complete setup
 
 ---
 
@@ -2207,14 +2577,23 @@ Add collaborative text comments to a Plate.js editor using Velt's Plate plugin. 
 
 **Correct (with Plate plugin):**
 
-```jsx
+**Step 1: Install the extension**
+```bash
 npm install @veltdev/plate-comments-react
+```
+
+**Step 2: Configure VeltComments**
+```jsx
 import { VeltProvider, VeltComments } from '@veltdev/react';
 
 // Disable default text mode when using editor integration
 <VeltProvider apiKey="API_KEY">
   <VeltComments textMode={false} />
 </VeltProvider>
+```
+
+**Step 3: Add plugin to Plate editor**
+```jsx
 import { Plate, PlateContent, usePlateEditor } from '@platejs/core/react';
 import { VeltCommentsPlugin, addComment, renderComments } from '@veltdev/plate-comments-react';
 import { useCommentAnnotations } from '@veltdev/react';
@@ -2261,11 +2640,13 @@ export default function PlateEditorComponent() {
 }
 ```
 
-**Step 2: Configure VeltComments**
-**Step 3: Add plugin to Plate editor**
+**Key Functions:**
+- `VeltCommentsPlugin` - Plugin to add to the Plate editor's plugins array
+- `addComment({ editor })` - Create comment on selected text
+- `renderComments({ editor, commentAnnotations })` - Render existing comments
+- `useCommentAnnotations()` - Hook to get comment data
 
 **With Custom Metadata (Context):**
-
 ```jsx
 addComment({
   editor,
@@ -2278,7 +2659,6 @@ addComment({
 ```
 
 **Configure Mark Persistence:**
-
 ```jsx
 const editor = usePlateEditor({
   plugins: [
@@ -2292,7 +2672,6 @@ const editor = usePlateEditor({
 ```
 
 **Style Commented Text:**
-
 ```css
 velt-comment-text {
   background-color: rgba(255, 255, 0, 0.3);
@@ -2300,6 +2679,16 @@ velt-comment-text {
   cursor: pointer;
 }
 ```
+
+**Verification Checklist:**
+- [ ] @veltdev/plate-comments-react is installed
+- [ ] VeltComments has textMode={false}
+- [ ] VeltCommentsPlugin added to editor plugins
+- [ ] renderComments called when annotations change
+- [ ] Comment button uses onClick with preventDefault
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/plate - Complete setup
 
 ---
 
@@ -2319,14 +2708,23 @@ Add collaborative text comments to a Quill editor using Velt's Quill module. Use
 
 **Correct (with Quill module):**
 
-```jsx
+**Step 1: Install the extension**
+```bash
 npm install @veltdev/quill-velt-comments
+```
+
+**Step 2: Configure VeltComments**
+```jsx
 import { VeltProvider, VeltComments } from '@veltdev/react';
 
 // Disable default text mode when using editor integration
 <VeltProvider apiKey="API_KEY">
   <VeltComments textMode={false} />
 </VeltProvider>
+```
+
+**Step 3: Register and configure the Quill module**
+```jsx
 import { useEffect, useRef, useState, useCallback } from 'react';
 import Quill from 'quill';
 import { QuillVeltComments, addComment, renderComments } from '@veltdev/quill-velt-comments';
@@ -2394,11 +2792,17 @@ function QuillEditorComponent() {
 }
 ```
 
-**Step 2: Configure VeltComments**
-**Step 3: Register and configure the Quill module**
+**Key Functions:**
+- `QuillVeltComments` - Module to register with Quill
+- `addComment({ editor })` - Create comment on selected text
+- `renderComments({ editor, commentAnnotations })` - Render existing comments
+- `useCommentAnnotations()` - Hook to get comment data
+
+**Important: Selection Preservation**
+
+When clicking a button, the browser moves focus and clears the editor selection. You must save the selection on `mousedown` (before focus changes) and restore it before adding the comment.
 
 **With Custom Metadata (Context):**
-
 ```jsx
 addComment({
   editor: quill,
@@ -2411,7 +2815,6 @@ addComment({
 ```
 
 **Configure Mark Persistence:**
-
 ```jsx
 const quill = new Quill(editorRef.current, {
   theme: 'snow',
@@ -2424,7 +2827,6 @@ const quill = new Quill(editorRef.current, {
 ```
 
 **Style Commented Text:**
-
 ```css
 velt-comment-text {
   background-color: rgba(255, 255, 0, 0.3);
@@ -2432,6 +2834,16 @@ velt-comment-text {
   cursor: pointer;
 }
 ```
+
+**Verification Checklist:**
+- [ ] @veltdev/quill-velt-comments is installed
+- [ ] VeltComments has textMode={false}
+- [ ] QuillVeltComments registered with Quill.register()
+- [ ] renderComments called when annotations change
+- [ ] Selection is saved on mousedown and restored before addComment
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/quill - Complete setup
 
 ---
 
@@ -2451,13 +2863,22 @@ Add collaborative text comments to SlateJS editor using Velt's SlateJS extension
 
 **Correct (with SlateJS extension):**
 
-```jsx
+**Step 1: Install the extension**
+```bash
 npm install @veltdev/slate-velt-comments
+```
+
+**Step 2: Configure VeltComments**
+```jsx
 import { VeltProvider, VeltComments } from '@veltdev/react';
 
 <VeltProvider apiKey="API_KEY">
   <VeltComments textMode={false} />
 </VeltProvider>
+```
+
+**Step 3: Configure editor with extension**
+```jsx
 import { createEditor } from 'slate';
 import { withReact, Slate, Editable, useSlate } from 'slate-react';
 import { withHistory } from 'slate-history';
@@ -2469,6 +2890,10 @@ const editor = withVeltComments(
   withReact(withHistory(createEditor())),
   { HistoryEditor: SlateHistoryEditor }
 );
+```
+
+**Step 4: Register custom type**
+```typescript
 import type { VeltCommentsElement } from '@veltdev/slate-velt-comments';
 
 type CustomElement = VeltCommentsElement;
@@ -2478,6 +2903,10 @@ declare module 'slate' {
     Element: CustomElement;
   }
 }
+```
+
+**Step 5: Render comments and add button**
+```jsx
 function SlateEditor() {
   const editor = useSlate();
   const commentAnnotations = useCommentAnnotations();
@@ -2515,18 +2944,28 @@ const renderElement = (props) => {
 };
 ```
 
-**Step 2: Configure VeltComments**
-**Step 3: Configure editor with extension**
-**Step 4: Register custom type**
-**Step 5: Render comments and add button**
+**Key Functions:**
+- `withVeltComments(editor, options)` - Augment editor with Velt support
+- `addComment({ editor })` - Create comment on selected text
+- `renderComments({ editor, commentAnnotations })` - Render existing comments
+- `SlateVeltComment` - Component to render comment elements
 
 **Style Commented Text:**
-
 ```css
 velt-comment-text[comment-available="true"] {
   background-color: #ffff00;
 }
 ```
+
+**Verification Checklist:**
+- [ ] @veltdev/slate-velt-comments is installed
+- [ ] VeltComments has textMode={false}
+- [ ] withVeltComments wraps editor creation
+- [ ] VeltCommentsElement type registered
+- [ ] renderComments called on annotation changes
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/slatejs - Complete setup
 
 ---
 
@@ -2548,14 +2987,23 @@ Add collaborative text comments to TipTap editor using Velt's TipTap extension. 
 
 **Correct (with TipTap extension):**
 
-```jsx
+**Step 1: Install the extension**
+```bash
 npm install @veltdev/tiptap-velt-comments
+```
+
+**Step 2: Configure VeltComments**
+```jsx
 import { VeltProvider, VeltComments } from '@veltdev/react';
 
 // Disable default text mode when using editor integration
 <VeltProvider apiKey="API_KEY">
   <VeltComments textMode={false} />
 </VeltProvider>
+```
+
+**Step 3: Add extension to TipTap editor**
+```jsx
 // BubbleMenu MUST be imported from @tiptap/react/menus (NOT @tiptap/react)
 import { useEditor, EditorContent } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
@@ -2617,11 +3065,23 @@ export default function TipTapComponent({ scrollContainerRef }) {
 }
 ```
 
-**Step 2: Configure VeltComments**
-**Step 3: Add extension to TipTap editor**
+**Key Functions:**
+
+| Function | Purpose |
+|----------|---------|
+| `TiptapVeltComments` | Extension to add to editor config |
+| `addComment({ editor })` | Create comment on selected text |
+| `renderComments({ editor, commentAnnotations })` | Render existing comment highlights |
+| `useCommentAnnotations()` | Hook to get comment annotation data |
+
+> Note: Older v4 packages exported `triggerAddComment` and `highlightComments` — these are deprecated. Use `addComment` and `renderComments` instead.
+
+**Tiptap v3 notes:**
+- `BubbleMenu` import: `@tiptap/react/menus` (NOT `@tiptap/react`)
+- `tippyOptions` prop was removed in v3 — do not use it
+- `@floating-ui/dom` is a required peer dependency for BubbleMenu
 
 **With Custom Metadata (Context):**
-
 ```jsx
 addComment({
   editor,
@@ -2634,7 +3094,6 @@ addComment({
 ```
 
 **Configure Mark Persistence:**
-
 ```jsx
 const editor = useEditor({
   extensions: [
@@ -2646,12 +3105,24 @@ const editor = useEditor({
 ```
 
 **Style Commented Text:**
-
 ```css
 velt-comment-text[comment-available="true"] {
   background-color: #ffff00;
 }
 ```
+
+**Verification Checklist:**
+- [ ] Commenting inside the editor goes through the Velt plugin, not default text or pin comments
+- [ ] @veltdev/tiptap-velt-comments is installed
+- [ ] VeltComments has textMode={false}
+- [ ] TiptapVeltComments extension added to editor
+- [ ] renderComments called when annotations change
+- [ ] BubbleMenu has comment button
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/tiptap - Complete setup
+- https://docs.velt.dev/async-collaboration/comments/setup/prosemirror - ProseMirror plugin
+- https://docs.velt.dev/release-notes/version-6/sdk-changelog - 6.0.16-beta.1 (default comments disabled on ProseMirror-based editors)
 
 ---
 
@@ -2748,8 +3219,9 @@ export default function LottieComments() {
 }
 ```
 
-**1. Set Total Media Length (frames):**
+**Key Implementation Steps:**
 
+**1. Set Total Media Length (frames):**
 ```jsx
 <VeltCommentPlayerTimeline totalMediaLength={120} />
 
@@ -2759,7 +3231,6 @@ commentElement.setTotalMediaLength(120);
 ```
 
 **2. Set Location on Comment Mode:**
-
 ```jsx
 const setLocation = () => {
   client.setLocation({
@@ -2769,7 +3240,6 @@ const setLocation = () => {
 ```
 
 **3. Remove Location on Play:**
-
 ```jsx
 const removeLocation = () => {
   client.removeLocation();
@@ -2777,7 +3247,6 @@ const removeLocation = () => {
 ```
 
 **4. Handle Comment Click:**
-
 ```jsx
 const onCommentClick = (event) => {
   const { location } = event;
@@ -2791,7 +3260,6 @@ const onCommentClick = (event) => {
 ```
 
 **Limit Commentable Elements:**
-
 ```jsx
 const commentElement = client.getCommentElement();
 commentElement.allowedElementIds(['lottiePlayerContainer']);
@@ -2809,6 +3277,16 @@ commentElement.allowedElementIds(['lottiePlayerContainer']);
   <velt-comment-player-timeline total-media-length="120"></velt-comment-player-timeline>
 </div>
 ```
+
+**Verification Checklist:**
+- [ ] Timeline parent has non-static position
+- [ ] totalMediaLength matches animation frame count
+- [ ] Location set with currentMediaPosition on comment
+- [ ] Location removed when animation plays
+- [ ] Comment clicks seek to correct frame
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/lottie-player-setup - Complete setup
 
 ---
 
@@ -2904,8 +3382,13 @@ export default function VideoComments() {
 }
 ```
 
-**2. Timeline Setup:**
+**Key Concepts:**
 
+**1. Location Management:**
+- `currentMediaPosition` - Required field for timeline positioning
+- `videoPlayerId` - Associates comments with specific player
+
+**2. Timeline Setup:**
 ```jsx
 <div style={{ position: 'relative' }}>  {/* Parent must not be static */}
   <YourVideoPlayer id="videoPlayerId" />
@@ -2917,7 +3400,6 @@ export default function VideoComments() {
 ```
 
 **3. Set Location When Commenting:**
-
 ```jsx
 await client.setLocations([{
   currentMediaPosition: currentTimeInSeconds,
@@ -2926,13 +3408,11 @@ await client.setLocations([{
 ```
 
 **4. Clear Location When Playing:**
-
 ```jsx
 await client.unsetLocationsIds();
 ```
 
 **5. Handle Comment Clicks:**
-
 ```jsx
 const onCommentClick = async (event) => {
   const { location } = event;
@@ -2953,6 +3433,17 @@ const onCommentClick = async (event) => {
   ></velt-comment-player-timeline>
 </div>
 ```
+
+**Verification Checklist:**
+- [ ] Timeline parent has non-static position
+- [ ] videoPlayerId matches on player and timeline
+- [ ] totalMediaLength set correctly
+- [ ] Location set when comment mode activates
+- [ ] Location cleared when video plays
+- [ ] Comment clicks seek video and set location
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/video-player-setup/custom-video-player-setup - Complete setup
 
 ---
 
@@ -3008,6 +3499,19 @@ export default function App() {
 }
 ```
 
+**Why these props matter:**
+- `shadowDom={false}` — lets your CSS styles apply to Velt comment components (nearly always needed)
+- `textMode={false}` — disables the default text selection comment mode, which conflicts with freestyle pin mode
+- `allowedElementIds` — restricts where comment pins can be placed. Without this, users can pin comments on headers, navbars, and other UI elements you don't want annotated
+- `commentToNearestAllowedElement={true}` — if a user clicks near the edge of the allowed area, the comment attaches to the nearest allowed element instead of failing
+
+**How Freestyle Works:**
+1. User clicks the `VeltCommentTool` button
+2. Cursor changes to a comment pin
+3. User clicks anywhere on the page
+4. Comment dialog appears at click location
+5. Comment is attached to the clicked element
+
 **For HTML:**
 
 ```html
@@ -3030,6 +3534,18 @@ export default function App() {
   </button>
 </VeltCommentTool>
 ```
+
+**Verification Checklist:**
+- [ ] VeltComments is added with `shadowDom={false}` and `textMode={false}`
+- [ ] VeltCommentTool is placed in accessible location (toolbar/header)
+- [ ] VeltCommentsSidebar is included for viewing all comments
+- [ ] VeltSidebarButton is available to toggle the sidebar
+- [ ] `allowedElementIds` restricts commenting to the intended content area
+- [ ] Clicking tool changes cursor to comment pin
+- [ ] Clicking inside allowed area creates comment at that location
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/freestyle - Complete setup
 
 ---
 
@@ -3088,6 +3604,18 @@ export default function App() {
 }
 ```
 
+**Why these props matter:**
+- `context={{}}` — attaches metadata to every comment in this section. Essential for filtering, grouping, and knowing which item a comment belongs to. Without this, comments are only tied to a DOM element ID which can break if your UI changes.
+- `composerPosition="bottom"` — places the comment composer below existing threads, which is the natural position for inline discussions (like GitHub PR comments)
+- `shadowDom={false}` — lets your CSS styles apply to inline comment components
+- `textMode={false}` on VeltComments — prevents conflicts with inline comment sections
+
+**Key Requirements:**
+1. Container element needs unique `id`
+2. `VeltInlineCommentsSection` inside the container
+3. `targetElementId` matches the container's ID
+4. `context` prop with item-specific metadata for filtering/grouping
+
 **Multi-threaded vs Single-threaded:**
 
 ```jsx
@@ -3142,6 +3670,15 @@ export default function App() {
 </section>
 ```
 
+**Message Truncation (v5.0.2-beta.18+):**
+
+`VeltInlineCommentsSection` supports per-comment message truncation. When enabled, long messages are clipped to the specified line count and a **Show more** button appears. Each comment tracks its own expand/collapse state independently. The Show more and Show less controls are full wireframe primitives — see `ui-wireframes.md` for customization.
+
+| Prop (React) | Attribute (HTML) | Type | Default | Description |
+|---|---|---|---|---|
+| `messageTruncation` | `message-truncation` | `boolean` | `false` | Enable per-comment truncation with expand/collapse |
+| `messageTruncationLines` | `message-truncation-lines` | `number` | `4` | Lines visible before truncation |
+
 **Correct (React / Next.js — message truncation enabled):**
 
 ```jsx
@@ -3164,7 +3701,9 @@ export default function App() {
 
 **Wireframe `context` Variable Resolution (v5.0.2-beta.11+):**
 
-```html
+Inside wireframe templates for `VeltInlineCommentsSection`, the `context` data variable resolves from `parentLocalUIState.context` — the document/location context for the section. This is the corrected behavior as of v5.0.2-beta.11.
+
+```jsx
 // Inside a VeltInlineCommentsSection wireframe template:
 // `context` resolves from parentLocalUIState.context (document/location context).
 // Use field="context.someProperty" to access location-level context data.
@@ -3173,6 +3712,9 @@ export default function App() {
 // For annotation-level context in other (non-Inline-Section) components,
 // use field="annotation.context.someProperty" instead.
 <velt-data field="annotation.context.someProperty" />
+```
+
+```html
 <!-- HTML — same distinction applies in velt-data field expressions -->
 <!-- Inside VeltInlineCommentsSection wireframe: context = parentLocalUIState.context -->
 <velt-data field="context.someProperty"></velt-data>
@@ -3180,6 +3722,20 @@ export default function App() {
 <!-- Inside other component wireframes: annotation-level context -->
 <velt-data field="annotation.context.someProperty"></velt-data>
 ```
+
+**Verification Checklist:**
+- [ ] VeltComments has `shadowDom={false}` and `textMode={false}`
+- [ ] Container has unique ID
+- [ ] VeltInlineCommentsSection is inside container with matching `targetElementId`
+- [ ] `context` prop includes item-specific metadata (IDs, status, etc.)
+- [ ] `composerPosition="bottom"` is set for natural thread layout
+- [ ] `shadowDom={false}` is set on VeltInlineCommentsSection
+- [ ] multiThread setting matches requirements
+- [ ] If long comment bodies are expected, `messageTruncation={true}` and `messageTruncationLines` are set to improve readability
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/inline-comments - Complete setup
+- https://docs.velt.dev/ui-customization/overview - Wireframe data variable resolution
 
 ---
 
@@ -3221,6 +3777,17 @@ export default function App() {
 }
 ```
 
+**Key Components:**
+- `VeltComments` - Enables comments feature
+- `VeltCommentsSidebar` - The sidebar panel (with `pageMode={true}`)
+- `VeltSidebarButton` - Toggles the sidebar open/closed
+
+**How Page Mode Works:**
+1. User clicks VeltSidebarButton to open sidebar
+2. Comment composer appears at bottom of sidebar
+3. User types page-level comment
+4. Comment is associated with the page, not a specific element
+
 **For HTML:**
 
 ```html
@@ -3234,13 +3801,18 @@ export default function App() {
 
 **Programmatic Page Mode Composer Control (v4.7.7+):**
 
-```jsx
+`setContextInPageModeComposer()` accepts a `PageModeComposerConfig` object. By default, context is cleared after each submission (`clearContext: true`). Set `clearContext: false` to preserve context data across multiple submissions.
+
+```tsx
 // PageModeComposerConfig interface
 // {
 //   context?: { [key: string]: any } | null;
 //   targetElementId?: string | null;
 //   clearContext?: boolean;  // defaults to true
 // }
+```
+
+```jsx
 import { useVeltClient } from '@veltdev/react';
 
 function PageModeControls() {
@@ -3282,6 +3854,15 @@ function PageModeControls() {
   );
 }
 ```
+
+**Verification Checklist:**
+- [ ] VeltCommentsSidebar has `pageMode={true}`
+- [ ] VeltSidebarButton is placed in UI
+- [ ] Sidebar shows comment composer at bottom
+- [ ] Comments appear without element association
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/page - Complete setup
 
 ---
 
@@ -3331,10 +3912,15 @@ export default function App() {
 
 **Two Patterns for Comment Tools:**
 
+**Pattern A: Comment Tool per Element**
 ```jsx
 <div className="cell" id="cell-id-1">
   <VeltCommentTool targetElementId="cell-id-1" />
 </div>
+```
+
+**Pattern B: Single Comment Tool with data attributes**
+```jsx
 <VeltCommentTool />  {/* Single tool in toolbar */}
 
 <div className="cell"
@@ -3343,8 +3929,6 @@ export default function App() {
   Content
 </div>
 ```
-
-**Pattern B: Single Comment Tool with data attributes**
 
 **Adding Custom Metadata (Context):**
 
@@ -3381,6 +3965,15 @@ export default function App() {
 </div>
 ```
 
+**Verification Checklist:**
+- [ ] VeltComments has `popoverMode={true}`
+- [ ] Each commentable element has unique ID
+- [ ] VeltCommentTool has matching `targetElementId`
+- [ ] Comments appear attached to target element
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/popover - Complete setup
+
 ---
 
 ### 3.20 Use Prebuilt Video Player for Quick Setup
@@ -3416,6 +4009,14 @@ export default function App() {
 }
 ```
 
+**VeltVideoPlayer Props:**
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `src` | string | Video source URL |
+| `sync` | boolean | Enable synchronized playback across users |
+| `darkMode` | boolean | Enable dark mode styling |
+
 **For HTML:**
 
 ```html
@@ -3425,6 +4026,23 @@ export default function App() {
 >
 </velt-video-player>
 ```
+
+**When to Use Prebuilt vs Custom:**
+
+| Use Prebuilt When | Use Custom When |
+|-------------------|-----------------|
+| Quick implementation | Custom player UI needed |
+| Standard video features | Specific player library required |
+| Don't need custom controls | Advanced playback features |
+| Simple commenting needs | Custom timeline/seeking |
+
+**Verification Checklist:**
+- [ ] VeltVideoPlayer is inside VeltProvider
+- [ ] src prop points to valid video URL
+- [ ] sync enabled if collaborative playback needed
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/video-player-setup/video-player-setup - Complete setup
 
 ---
 
@@ -3467,6 +4085,12 @@ export default function App() {
 }
 ```
 
+**Key Requirements:**
+1. `streamMode={true}` enables stream layout
+2. `streamViewContainerId` must match the scrolling container's ID
+3. `VeltComments` should be inside the scrolling container
+4. Text mode is enabled by default (works well with Stream)
+
 **For HTML:**
 
 ```html
@@ -3481,6 +4105,22 @@ export default function App() {
   ></velt-comments>
 </div>
 ```
+
+**How Stream Mode Works:**
+1. User selects text (Text mode enabled by default)
+2. Comment tool appears near selection
+3. User clicks to add comment
+4. Comment dialog appears in right-side stream
+5. Stream scrolls with document content
+
+**Verification Checklist:**
+- [ ] `streamMode={true}` is set
+- [ ] `streamViewContainerId` matches container ID
+- [ ] Container element is scrollable
+- [ ] VeltComments is inside the scrolling container
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/stream - Complete setup
 
 ---
 
@@ -3515,6 +4155,13 @@ export default function App() {
 }
 ```
 
+**How Text Mode Works:**
+1. User selects text on the page
+2. Comment Tool button appears near the selection
+3. User clicks to add a comment
+4. Comment is attached to the highlighted text
+5. Text selection is visually marked
+
 **For HTML:**
 
 ```html
@@ -3527,12 +4174,16 @@ export default function App() {
 
 **Disable Text Mode (when using editor integrations):**
 
+When using TipTap, SlateJS, Lexical, or other editor integrations, disable native text mode. Since v6.0.16-beta.1, default text and pin comments are disabled inside TipTap and other ProseMirror-based editors regardless, so use the dedicated plugin there.
+
 ```jsx
 // Disable for editor integrations
 <VeltComments textMode={false} />
 ```
 
 **Combining with Stream Mode:**
+
+Text mode works well with Stream mode for a Google Docs-like experience:
 
 ```jsx
 <VeltComments
@@ -3544,15 +4195,31 @@ export default function App() {
 
 **Keep highlights on their original anchor (`restrictTextSearchToAnchor`, v6.0.0-beta.3+):**
 
-```html
+When the commented text can no longer be found in its anchor element, the SDK by default searches wider (`document.body`, or the location element for location-scoped comments) before ghosting the comment. Turn this off when the same text appears in several regions and a comment must never re-bind elsewhere:
+
+```jsx
 <VeltComments restrictTextSearchToAnchor={true} />
 // or
 const commentElement = client.getCommentElement();
 commentElement.enableRestrictTextSearchToAnchor();
+```
+
+```html
 <velt-comments restrict-text-search-to-anchor="true"></velt-comments>
 ```
 
 **Programmatic text comments:** `commentElement.addCommentOnSelectedText()` comments on the current selection; `addCommentOnElement({ targetElement: { elementId, targetText, occurrence } })` targets a specific occurrence. To attach a known annotation to text in your own markup, wrap it in `VeltCommentText` (see `standalone-comment-text.md`).
+
+**Verification Checklist:**
+- [ ] `restrictTextSearchToAnchor` enabled only when wider re-binding would attach comments to the wrong text
+- [ ] `textMode={true}` (or omitted - it's default)
+- [ ] Selecting text shows Comment Tool
+- [ ] Comments attach to selected text
+- [ ] Highlighted text is visually marked
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/text - Complete setup
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#restricttextsearchtoanchor - restrictTextSearchToAnchor
 
 ---
 
@@ -3568,8 +4235,26 @@ Individual comment components for building custom implementations. Includes Comm
 
 VeltCommentPin gives you complete control over where comment pins appear. Use this for complex UIs, canvas applications, or when automatic positioning doesn't meet your needs.
 
+**When to Use Standalone Components:**
+
+Standalone components (Pin, Thread, Composer) are recommended when:
+- **You need direct API access** - Work with comment data programmatically
+- **You have complex UI requirements** - 3D canvas, WebGL, custom rendering engines
+- **Default components don't fit your layout** - Kanban boards, custom sidebars, split views
+- **You need custom positioning logic** - Comments on non-DOM elements, virtual lists
+
+**When to Use Comment Pin Specifically:**
+- Custom chart/canvas implementations
+- 3D applications and WebGL scenes
+- Complex drag-and-drop interfaces
+- When automatic pin placement doesn't work
+- Building custom comment UIs with full control
+
+**Implementation Steps:**
+
 **1. Add Comments with Custom Metadata:**
 
+Option A: Using onCommentAdd callback
 ```jsx
 <VeltComments
   onCommentAdd={(event) => {
@@ -3584,6 +4269,10 @@ VeltCommentPin gives you complete control over where comment pins appear. Use th
     };
   }}
 />
+```
+
+Option B: Using addManualComment API
+```jsx
 const { client } = useVeltClient();
 const commentModeState = useCommentModeState();
 
@@ -3599,8 +4288,6 @@ const handleClick = (event) => {
   }
 };
 ```
-
-Option B: Using addManualComment API
 
 **2. Retrieve Comment Annotations:**
 
@@ -3700,6 +4387,22 @@ export default function ManualPinExample() {
 }
 ```
 
+**VeltCommentPin Props:**
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `annotationId` | string | ID of the comment annotation to display |
+
+**Verification Checklist:**
+- [ ] Container has data-velt-manual-comment-container="true"
+- [ ] Context includes position data
+- [ ] annotationId passed to VeltCommentPin
+- [ ] Pin positioned with absolute CSS
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/standalone-components/comment-pin/overview - Overview
+- https://docs.velt.dev/async-collaboration/comments/standalone-components/comment-pin/setup - Setup
+
 ---
 
 ### 4.2 Use Comment Composer for Custom Comment Input
@@ -3707,6 +4410,21 @@ export default function ManualPinExample() {
 **Impact: MEDIUM-HIGH (Add comment input anywhere in your application)**
 
 The Comment Standalone Composer lets you add comment input anywhere in your application. Combine with Comment Thread and Comment Pin for fully custom comment interfaces.
+
+**When to Use Standalone Components:**
+
+Standalone components (Pin, Thread, Composer) are recommended when:
+- **You need direct API access** - Work with comment data programmatically
+- **You have complex UI requirements** - 3D canvas, WebGL, custom rendering engines
+- **Default components don't fit your layout** - Kanban boards, custom sidebars, split views
+- **You need custom positioning logic** - Comments on non-DOM elements, virtual lists
+
+**When to Use Comment Composer Specifically:**
+- Building custom comment sidebars with your own layout
+- Adding comment input in overlays/popovers/modals
+- Creating inline comment forms in custom locations
+- Custom comment creation flows (e.g., multi-step wizards)
+- Combining with Thread and Pin for fully custom interfaces
 
 **Implementation:**
 
@@ -3862,6 +4580,25 @@ function ComposerControls() {
 ></velt-comment-composer>
 ```
 
+**Integration Points:**
+
+| Component | Purpose |
+|-----------|---------|
+| VeltCommentComposer | Input for creating new comments |
+| VeltCommentThread | Display existing comment threads |
+| VeltCommentPin | Position comment pins manually |
+| useCommentAnnotations | Fetch comment data |
+
+**Verification Checklist:**
+- [ ] VeltComments added to app root
+- [ ] VeltCommentComposer placed in desired location
+- [ ] Use `targetComposerElementId` (not `targetElementId`) for element association
+- [ ] Combined with Thread/Pin as needed
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/standalone-components/comment-composer/overview - Overview
+- https://docs.velt.dev/async-collaboration/comments/standalone-components/comment-composer/setup - Setup
+
 ---
 
 ### 4.3 Use Comment Thread to Render Existing Comments
@@ -3869,6 +4606,25 @@ function ComposerControls() {
 **Impact: MEDIUM-HIGH (Render comment threads in custom locations like kanban boards)**
 
 The Standalone Comment Thread component renders existing comment data in custom locations. Use this to build custom UIs like kanban boards or your own sidebar implementation.
+
+**When to Use Standalone Components:**
+
+Standalone components (Pin, Thread, Composer) are recommended when:
+- **You need direct API access** - Work with comment data programmatically
+- **You have complex UI requirements** - 3D canvas, WebGL, custom rendering engines
+- **Default components don't fit your layout** - Kanban boards, custom sidebars, split views
+- **You need custom positioning logic** - Comments on non-DOM elements, virtual lists
+
+**When to Use Comment Thread Specifically:**
+- **Kanban boards** - Display comment threads as cards in columns (see example below)
+- Creating a custom comments sidebar
+- Rendering comments in a custom layout (split views, panels)
+- Displaying comments outside the default dialog
+- Building task/issue tracking interfaces with threaded discussions
+
+**Note:** This component only renders existing comments. It's a thin wrapper around the Comment Dialog component.
+
+**Implementation:**
 
 **1. Get Comment Annotations:**
 
@@ -3986,6 +4742,16 @@ export default function KanbanBoard() {
 </velt-comment-thread>
 ```
 
+**Verification Checklist:**
+- [ ] VeltComments added to app root
+- [ ] useCommentAnnotations retrieves comments
+- [ ] annotationId passed to VeltCommentThread
+- [ ] Comments display in custom location
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/standalone-components/comment-thread/overview - Overview
+- https://docs.velt.dev/async-collaboration/comments/standalone-components/comment-thread/setup - Setup
+
 ---
 
 ### 4.4 Use VeltCommentText to Attach a Known Annotation to Text in Your Markup
@@ -4030,6 +4796,25 @@ import { VeltCommentText } from '@veltdev/react';
 </velt-comment-text>
 ```
 
+**Props:**
+
+| Prop | HTML attribute | Type | Description |
+|------|----------------|------|-------------|
+| `annotationId` | `annotation-id` | `string` | Comment annotation to attach to the wrapped text |
+| `multiThreadAnnotationId` | `multi-thread-annotation-id` | `string` | Multi-thread annotation to attach to the wrapped text |
+
+Pass one of the two. Style highlighted text with the `velt-comment-text[comment-available="true"]` selector, as editor integrations do.
+
+**Verification Checklist:**
+- [ ] `VeltComments` is mounted so the annotation data and dialog are available
+- [ ] Each wrapper receives the `annotationId` (or `multiThreadAnnotationId`) of an existing annotation
+- [ ] `VeltCommentText` is used for known annotations; selection-driven commenting uses text mode
+- [ ] HTML uses a closing `</velt-comment-text>` tag, not a self-closing element
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/standalone-components/comment-text/overview - Comment Text
+- https://docs.velt.dev/async-collaboration/comments/setup/text - Text comments (selection-driven)
+
 ---
 
 ## 5. Comment Surfaces
@@ -4068,6 +4853,17 @@ export default function App() {
   );
 }
 ```
+
+**Step 2 — Choose a display mode:**
+
+| Mode | Prop | Behavior |
+|------|------|----------|
+| Default | _(none)_ | Slides in from the right edge |
+| Embed | `embedMode={true}` | Fills its parent container; no close button — you manage open/close |
+| Floating | `floatingMode={true}` on **VeltSidebarButton** | Overlay panel over the button. Do NOT render `<VeltCommentsSidebar>` separately |
+| Page Mode | `pageMode={true}` | Adds a composer for page-level comments (not pinned to an element) |
+| Focused Thread | `focusedThreadMode={true}` | Clicking a comment expands it in-place; adds a navigation button |
+| Full Screen | `fullScreen={true}` | Expands to fill the viewport (default mode only, not floating/embed) |
 
 **Embed mode:**
 
@@ -4137,7 +4933,31 @@ commentElement.closeCommentSidebar();
 commentElement.toggleCommentSidebar();
 ```
 
+**Additional props reference:**
+
+| Prop | Default | Description |
+|------|---------|-------------|
+| `position` | `'right'` | `'left'` or `'right'` |
+| `readOnly` | `false` | Prevent editing in sidebar |
+| `currentLocationSuffix` | `false` | Adds "(This page)" to matching group |
+| `excludeLocationIds` | `[]` | Hide comments from specific locations |
+| `filterGhostCommentsInSidebar` | `false` | Hide ghost/orphan comments |
+| `dialogSelection` | `true` | When false, sidebar clicks emit event instead of opening dialog inline |
+| `expandOnSelection` | `true` | Auto-expand dialogs on selection |
+| `forceClose` | V1: off unless set; V2: `true` | Force close on outside click even when opened via API (no effect in embed mode) |
+| `searchPlaceholder` | - | Custom search input placeholder text |
+| `commentPlaceholder` | - | Custom dialog composer placeholder |
+| `replyPlaceholder` | - | Custom reply input placeholder |
+| `pageModePlaceholder` | - | Custom page mode composer placeholder |
+| `commentCountType` | `'total'` | `'total'` or `'unread'` (V1 sidebar and `VeltSidebarButton`) |
+| `sidebarButtonCountType` | `'default'` | `'default'` or `'filter'` |
+| `context` | - | Custom context metadata for page mode comments |
+| `defaultMinimalFilter` | `'all'` | `'all'` \| `'read'` \| `'unread'` \| `'resolved'` \| `'open'` \| `'reset'` \| `null` |
+| `systemFiltersOperator` | `'and'` | `'and'` or `'or'` for combining system filters |
+
 **V2 Sidebar (primitive-based):**
+
+`VeltComments` must be mounted alongside `VeltCommentsSidebarV2` — pin rendering lives inside `VeltComments`, and mounting the sidebar alone leaves pages without on-page pins.
 
 ```jsx
 import {
@@ -4169,6 +4989,11 @@ export default function App() {
   {/* Missing <VeltComments /> — page-level pins will not render */}
   <VeltCommentsSidebarV2 />
 </VeltProvider>
+```
+
+V2 replaces the per-category filter panel with declarative `filters` / `miniFilters` / `minimalFilters`, and delivers navigation through events instead of props:
+
+```jsx
 // V2 navigation: subscribe to the comment event bus
 const commentNav = useCommentEventCallback('commentNavigationButtonClick');
 useEffect(() => {
@@ -4177,8 +5002,19 @@ useEffect(() => {
 }, [commentNav]);
 ```
 
-V2 replaces the per-category filter panel with declarative `filters` / `miniFilters` / `minimalFilters`, and delivers navigation through events instead of props:
 For V2 wireframe customization, see the [Comment Sidebar V2 Wireframes](https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-v2-wireframes) page and the component catalog sidebar slot trees.
+
+**Verification Checklist:**
+- [ ] `VeltComments` is mounted alongside the sidebar so on-page pins render
+- [ ] Floating mode is set on `VeltSidebarButton`, and the sidebar is not rendered separately
+- [ ] V1 navigation uses `onCommentClick` / `onCommentNavigationButtonClick`; V2 uses the `commentClick` / `commentNavigationButtonClick` events
+- [ ] Embed mode has its own open/close control on the host
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v1/setup - V1 setup
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v1/customize-behavior - V1 customize behavior
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/setup - V2 setup
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/customize-behavior#commentnavigationbuttonclick - V2 navigation events
 
 ---
 
@@ -4244,20 +5080,28 @@ export default function App() {
     // e.g., scroll to element, seek video, etc.
   }}
 />
+```
+
+The same clicks are also emitted on the comment element event bus as `commentClick` (and `commentNavigationButtonClick`), which is the only path for `VeltCommentsSidebarV2`:
+
+```jsx
 const commentClick = useCommentEventCallback('commentClick');
 useEffect(() => {
   if (commentClick) navigateTo(commentClick.location);
 }, [commentClick]);
 ```
 
-The same clicks are also emitted on the comment element event bus as `commentClick` (and `commentNavigationButtonClick`), which is the only path for `VeltCommentsSidebarV2`:
-
 **V2 Sidebar Entry:**
 
-```html
+For the primitive-based V2 sidebar, import `VeltCommentsSidebarV2` directly in React or mount `<velt-comments-sidebar-v2>` in other frameworks. The current V2 setup docs no longer document the V1 component prop opt-in as a setup path.
+
+```jsx
 import { VeltCommentsSidebarV2 } from '@veltdev/react';
 
 <VeltCommentsSidebarV2 />
+```
+
+```html
 <velt-comments-sidebar-v2></velt-comments-sidebar-v2>
 ```
 
@@ -4290,7 +5134,105 @@ import { VeltCommentsSidebarV2 } from '@veltdev/react';
 />
 ```
 
+#### `VeltCommentsSidebarProps` (layout props shared with `VeltCommentsSidebarV2`)
+
 The React TypeScript interface; HTML attributes use the same names in kebab-case. All props are optional. Defaults reflect the current SDK surface — note in particular: `position` is narrowed from `string` to `'right' | 'left'`, and `forceClose` now defaults to `true` (the sidebar force-closes on outside click unless you explicitly set `forceClose={false}` — embed mode is unaffected).
+
+**Layout / mode:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `pageMode` | boolean | `false` | Page-level comments mode (composer in the sidebar, no element attachment). |
+| `focusedThreadMode` | boolean | `false` | Open individual threads in a focused view inside the sidebar. |
+| `readOnly` | boolean | `false` | Render the sidebar in read-only mode. |
+| `embedMode` | boolean | not set | Embed the sidebar inline within a host container (`embed-mode="false"` on HTML means not embedded). |
+| `floatingMode` | boolean | `false` | Floating overlay layout. |
+| `position` | `'right' \| 'left'` | `'right'` | Side of the viewport the sidebar opens from. Narrowed from `string`. |
+| `variant` | string | `'sidebar'` | Layout variant id. |
+| `forceClose` | boolean | `true` | Force-close on outside click, even when opened via API. Does not affect embed mode. (V2 default flipped from `false` → `true`.) |
+| `fullScreen` | boolean | `false` | Add a fullscreen toggle button to the header. |
+| `fullExpanded` | boolean | `false` | Render the sidebar fully expanded. |
+| `shadowDom` | boolean | input `false`; shadow-DOM isolation is on by default | Render the sidebar body inside a shadow root for style isolation. Opt out via `shadow-dom="false"` or `disableSidebarShadowDOM()`. |
+| `groupConfig` | `{ enable?: boolean; name?: string; groupBy?: string }` | — | Grouping config; defaults to grouping by location when enabled. |
+| `currentLocationSuffix` | boolean | `false` | Append a "(This page)" suffix when a group matches the current location. |
+| `dialogVariant` | string | `'sidebar'` | Variant for the embedded comment dialog rendered in the list. |
+| `focusedThreadDialogVariant` | string | `'sidebar'` | Variant for the focused-thread dialog. |
+| `pageModeComposerVariant` | string | `'sidebar'` | Variant for the page-mode composer. |
+| `dialogSelection` | boolean | `true` | Clicking a comment opens its dialog inline; with `false`, a click emits `commentClick` only (no selection, inline expansion, or focused-thread view). |
+| `expandOnSelection` | boolean | `true` | Expand the dialog automatically on selection. |
+| `openAnnotationInFocusMode` | boolean | `false` | Open annotations in focus mode when `focusedThreadMode={true}` and a reply / `selectCommentByAnnotationId()` is used. |
+| `excludeLocationIds` | `string[]` | `[]` | Hide comments from these locations. |
+| `customActions` | boolean | `false` | Enable host-driven wireframe actions in the sidebar. |
+| `sidebarButtonCountType` | `'default' \| 'filter'` | — | What the sidebar-button badge tracks — total open/in-progress (default) vs filtered count. |
+| `context` | object | `null` | Context attached to comments added via the page-mode composer (serialized JSON on the HTML attribute). |
+
+**Placeholders (V2 surface; also accepted by V1):**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `searchPlaceholder` | string | `'Search comments'` | Placeholder in the search input. |
+| `pageModePlaceholder` | string | `''` | Placeholder for the page-mode composer. |
+| `commentPlaceholder` | string | `''` | Placeholder for the dialog composer (new comment input). |
+| `replyPlaceholder` | string | `''` | Placeholder for reply input fields. |
+| `editPlaceholder` | string | `''` | Fallback edit placeholder. |
+| `editCommentPlaceholder` | string | `''` | Placeholder when editing the first comment (takes precedence over `editPlaceholder`). |
+| `editReplyPlaceholder` | string | `''` | Placeholder when editing a reply (takes precedence over `editPlaceholder`). |
+
+**Virtual scrolling:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `measuredSize` | number | `220` | Estimated row size (px). |
+| `minBufferPx` | number | `1000` | Minimum virtual-scroll buffer (px). |
+| `maxBufferPx` | number | `2000` | Maximum virtual-scroll buffer (px). |
+
+**URL navigation:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `urlNavigation` | boolean | `false` | Automatically update the URL when navigating between comments. |
+| `queryParamsComments` | boolean | `false` | Sync the selected comment to URL query params. |
+
+**Events / callbacks:**
+
+| V1 prop | Event bus equivalent (V1 + V2) | Description |
+|---------|-------------------------------|-------------|
+| `onCommentClick` | `commentClick` | A comment in the list was clicked. |
+| `onCommentNavigationButtonClick` | `commentNavigationButtonClick` | The navigation ("go to") button was clicked. |
+| — | `sidebarOpen` / `sidebarClose` | Sidebar opened / closed (`sidebarClose` fires exactly once per close). |
+| `onFullscreenClick` | `fullscreenClick` | Fullscreen toggle clicked; `fullScreen` is the new state. |
+
+Subscribe to the event bus with `useCommentEventCallback('commentClick')` or `commentElement.on('commentClick')`. `VeltCommentsSidebarV2` does not take the `on*` click / open / close props.
+
+For the V2-only declarative filter / sort surface (`filters`, `miniFilters`, `minimalFilters`, `filterOperator`, `filterPanelLayout`, `filterOptionLayout`, `filterCount`, `filterGhostCommentsInSidebar`, `systemFiltersOperator`, `sortBy`, `sortOrder`, `defaultMinimalFilter`) and the `applyCommentSidebarClientFilters()` API, see `surface/surface-sidebar-v2.md`.
+
+**`setCommentSidebarFilters()` semantics (V1 + V2):**
+
+`setCommentSidebarFilters()` applies values as selected filters in the sidebar UI — the values render as checked options and are cleared by **Reset**. The call is a partial update, not a full overwrite:
+
+- Included keys replace their current selections.
+- Omitted keys are preserved.
+- A present-but-empty array clears one field (e.g. `{ location: [] }`).
+- An empty object `{}` clears every client-provided selection.
+
+This wording is aligned across V1 (`/async-collaboration/comments-sidebar/v1/customize-behavior#setcommentsidebarfilters`) and V2 (`/async-collaboration/comments-sidebar/v2/customize-behavior#setcommentsidebarfilters`), so the same guidance applies regardless of which sidebar version the app mounts. For the V2 `CommentSidebarFilters` payload shape (object identities for `people` / `location` etc.) and facet-count coupling, see `surface/surface-sidebar-v2.md`.
+
+**Verification Checklist:**
+- [ ] `VeltCommentsSidebar` mounted for V1/sidebar-prop usage, or `VeltCommentsSidebarV2` / `<velt-comments-sidebar-v2>` mounted directly for V2 setup
+- [ ] `VeltSidebarButton` provides toggle
+- [ ] `embedMode` set if using a custom container
+- [ ] `position` is `'right'` or `'left'` (no other strings — the union is narrowed)
+- [ ] `forceClose` is explicitly set when the default (`true`) is not desired — do not assume the old default of `false`
+- [ ] Navigation is handled via `onCommentClick` (V1) or the `commentClick` / `commentNavigationButtonClick` events (V1 + V2)
+- [ ] V2 code does not pass `onSidebarOpen` / `onCommentClick` props; it subscribes to the event bus
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments-sidebar/overview - Overview
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v1/customize-behavior - V1 setup + customize-behavior (`/customize-behavior` paths re-rooted to `/v1/customize-behavior`)
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/setup - V2 entry (direct `VeltCommentsSidebarV2` / `<velt-comments-sidebar-v2>` setup)
+- https://docs.velt.dev/api-reference/sdk/models/data-models#veltcommentssidebarprops - `VeltCommentsSidebarProps`
+- https://docs.velt.dev/api-reference/sdk/models/data-models#veltcommentssidebarv2props - `VeltCommentsSidebarV2Props`
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/customize-behavior#commentclick - `commentClick` event
 
 ---
 
@@ -4310,7 +5252,7 @@ The React TypeScript interface; HTML attributes use the same names in kebab-case
 
 **Correct (basic setup):**
 
-```html
+```jsx
 import {
   VeltProvider,
   VeltComments,
@@ -4331,6 +5273,9 @@ export default function App() {
     </VeltProvider>
   );
 }
+```
+
+```html
 <velt-comments></velt-comments>
 <velt-comments-sidebar></velt-comments-sidebar>
 <velt-sidebar-button></velt-sidebar-button>
@@ -4338,7 +5283,7 @@ export default function App() {
 
 **Badge count and floating mode:**
 
-```html
+```jsx
 // 'total' (default) | 'unread'
 <VeltSidebarButton commentCountType="unread" />
 
@@ -4347,6 +5292,9 @@ export default function App() {
 
 // Overlay sidebar anchored to the button; do not render the sidebar separately
 <VeltSidebarButton floatingMode={true} />
+```
+
+```html
 <velt-sidebar-button comment-count-type="unread"></velt-sidebar-button>
 ```
 
@@ -4354,7 +5302,7 @@ Programmatic alternative for the badge source: `commentElement.setSidebarButtonC
 
 **Custom appearance (wireframe):**
 
-```html
+```jsx
 <VeltWireframe>
   <VeltSidebarButtonWireframe>
     <VeltSidebarButtonWireframe.Icon />
@@ -4362,6 +5310,9 @@ Programmatic alternative for the badge source: `commentElement.setSidebarButtonC
     <VeltSidebarButtonWireframe.UnreadIcon />
   </VeltSidebarButtonWireframe>
 </VeltWireframe>
+```
+
+```html
 <velt-wireframe style="display:none;">
   <velt-sidebar-button-wireframe>
     <velt-sidebar-button-icon-wireframe></velt-sidebar-button-icon-wireframe>
@@ -4372,6 +5323,17 @@ Programmatic alternative for the badge source: `commentElement.setSidebarButtonC
 ```
 
 Clicks emit `sidebarButtonClicked` on the comment element (see `permissions-comment-interaction-events.md`).
+
+**Verification Checklist:**
+- [ ] A sidebar (`VeltCommentsSidebar` or `VeltCommentsSidebarV2`) is mounted, unless `floatingMode` is on
+- [ ] Button customization uses `VeltSidebarButtonWireframe`, not custom children
+- [ ] Badge source chosen deliberately (`commentCountType` / `sidebarButtonCountType`)
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v1/setup - Setup with sidebar button
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v1/customize-behavior#floatingmode - floatingMode
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v1/customize-behavior#commentcounttype - commentCountType
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar-button/wireframes - Sidebar button wireframes
 
 ---
 
@@ -4391,7 +5353,7 @@ Clicks emit `sidebarButtonClicked` on the comment element (see `permissions-comm
 
 **Correct (React / Next.js — direct V2 component with primitive composition):**
 
-```js
+```jsx
 import { useEffect } from 'react';
 import {
   VeltProvider,
@@ -4438,6 +5400,9 @@ function SidebarEvents() {
 
   return null;
 }
+```
+
+```js
 // Other Frameworks
 const commentElement = Velt.getCommentElement();
 const subscription = commentElement.on('commentNavigationButtonClick').subscribe((event) => {
@@ -4462,9 +5427,47 @@ subscription?.unsubscribe();
 
 `<velt-comments-sidebar-v2>` / `VeltCommentsSidebarV2` is the only entry point documented by the V2 setup page. The old V1 component prop opt-in is no longer shown in `async-collaboration/comments-sidebar/v2/setup`. Mount the dedicated V2 tag directly; do not pair it with a V1 tag.
 
+**VeltCommentsSidebarV2 Props (core layout / event surface):**
+
+| Prop | Type | Optional | Description |
+|------|------|----------|-------------|
+| `pageMode` | boolean | Yes | Enable page-level comments mode. |
+| `focusedThreadMode` | boolean | Yes | Open individual threads in a focused view inside the sidebar. |
+| `readOnly` | boolean | Yes | Render the sidebar in read-only mode. |
+| `embedMode` | boolean | Yes | Embed the sidebar inside a custom container (fills it, no close button). The HTML attribute takes a string; `embed-mode="false"` means not embedded. |
+| `floatingMode` | boolean | Yes | Render the sidebar in floating mode. |
+| `position` | `'right' \| 'left'` | Yes | Anchor position of the sidebar panel. Narrowed from `string`. |
+| `variant` | string | Yes | Display variant (e.g. `"sidebar"`). |
+| `forceClose` | boolean | Yes | Force the sidebar to close on outside click, even when opened via API. Default `true`. |
+| `fullScreen` | boolean | Yes | Add a fullscreen toggle to the header. Default `false`. |
+| `onFullscreenClick` | (data: any) => void | Yes | Fires when the fullscreen toggle is clicked (component output). |
+| `urlNavigation` | boolean | Yes | Update the URL when navigating between comments. Default `false`. |
+| `queryParamsComments` | boolean | Yes | Sync the selected comment to URL query params. Default `false`. |
+| `dialogSelection` | boolean | Yes | Default `true`. With `false`, a list click emits `commentClick` only: no selection, inline expansion, or focused-thread view. |
+
 **V2 events (comment element event bus):**
 
-```html
+| Event | Payload | Notes |
+|-------|---------|-------|
+| `sidebarOpen` | `SidebarOpenEvent` | Fired when the sidebar opens. Reopening starts with no comment selected but keeps expanded/collapsed groups. |
+| `sidebarClose` | `SidebarCloseEvent` | Fired exactly once per close (close button, outside click, `closeCommentSidebar()`, `toggleCommentSidebar()`). |
+| `commentClick` | `CommentClickEvent` | `annotation`, `documentId`, `location`, `targetElementId`, `context`. |
+| `commentNavigationButtonClick` | `CommentNavigationButtonClickEvent` | Same fields as `commentClick`. |
+| `fullscreenClick` | `FullscreenClickEvent` | `fullScreen` is the state after the toggle. |
+
+The V1-era `onSidebarOpen` / `onSidebarClose` / `onCommentClick` / `onCommentNavigationButtonClick` props are no longer part of `VeltCommentsSidebarV2Props`. Subscribe with `useCommentEventCallback(...)` or `commentElement.on(...)`. Open, close, or toggle programmatically with `openCommentSidebar()` / `closeCommentSidebar()` / `toggleCommentSidebar()`.
+
+#### Declarative filter surfaces (V2)
+
+V2 exposes filter / sort / group / search as data. The sidebar renders the matching UI and applies the selections client-side via the new `applyCommentSidebarClientFilters()` API method. Three filter surface props drive three distinct surfaces — they only make sense together, so configure them as one unit:
+
+| Prop | Surface | Shape |
+|------|---------|-------|
+| `filters` | Main Filter bottom-sheet / menu panel | `FilterField[]` defines sections; a `CommentSidebarFilters` object (e.g. `{ status: ['OPEN'] }`) applies active selections directly — included keys replace their values, omitted keys are preserved. Default `[]`. |
+| `miniFilters` | Single header funnel dropdown | `FilterField[]` — one section per field. Default `[]`. |
+| `minimalFilters` | Multiple header dropdowns (replaces the single funnel) | `SidebarMinimalFilterConfig[]` — one dropdown per entry. The entry's `type` (`filter` / `sort` / `quick` / `actions`) decides what the dropdown contains; matching input (`fields` / `sorts` / `actions`) provides its content. Default `[]`. |
+
+```jsx
 // React — main filter panel + a multi-dropdown minimal bar
 <VeltCommentsSidebarV2
   filters={[
@@ -4485,6 +5488,9 @@ subscription?.unsubscribe();
   systemFiltersOperator="and"
   defaultMinimalFilter="open"
 />
+```
+
+```html
 <!-- HTML — same shape, kebab-cased attributes; multi-value props as JSON strings -->
 <velt-comments-sidebar-v2
   minimal-filters='[{"type":"filter","fields":[{"field":"status"}]},{"type":"sort","sorts":["date","unread"]}]'
@@ -4496,6 +5502,11 @@ subscription?.unsubscribe();
   system-filters-operator="and"
   default-minimal-filter="open"
 ></velt-comments-sidebar-v2>
+```
+
+**Active-selections form (`CommentSidebarFilters`)** — pass an object keyed by field instead of a `FilterField[]` to apply selected values directly. User/location identities are objects, not bare id strings. Included keys replace their current selections; omitted keys are preserved; a present-but-empty array clears one field; `{}` clears all client-provided selections; **Reset** in the Main Filter panel clears them too:
+
+```jsx
 <VeltCommentsSidebarV2
   filters={{
     status: ['OPEN'],
@@ -4503,6 +5514,9 @@ subscription?.unsubscribe();
     location: [{ locationName: 'Home' }],
   }}
 />
+```
+
+```html
 <velt-comments-sidebar-v2></velt-comments-sidebar-v2>
 <script>
   const sidebar = document.querySelector('velt-comments-sidebar-v2');
@@ -4514,21 +5528,60 @@ subscription?.unsubscribe();
 </script>
 ```
 
-**Active-selections form (`CommentSidebarFilters`)** — pass an object keyed by field instead of a `FilterField[]` to apply selected values directly. User/location identities are objects, not bare id strings. Included keys replace their current selections; omitted keys are preserved; a present-but-empty array clears one field; `{}` clears all client-provided selections; **Reset** in the Main Filter panel clears them too:
-
 **Incorrect (V1-style bare-id selections):**
 
-```typescript
+```jsx
 // Bare id strings for people/location no longer match the CommentSidebarFilters shape
 <VeltCommentsSidebarV2
   filters={{ status: ['open'], people: ['1.1', '2.3'] }}
 />
+```
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `filters` | `string \| FilterField[] \| CommentSidebarFilters` | `[]` | Main Filter panel sections, OR a `CommentSidebarFilters` object of active selections. Included selection keys replace their values, omitted keys are preserved, and **Reset** clears the client-provided selections. |
+| `miniFilters` | `string \| FilterField[]` | `[]` | Single header funnel dropdown. |
+| `minimalFilters` | `string \| SidebarMinimalFilterConfig[]` | `[]` | Multiple configurable header dropdowns. Replaces the single mini-filter funnel when present. |
+| `filterOperator` | `'and' \| 'or'` | `'and'` | Cross-field combination of active filter selections. Directly configures the V2 filter engine and shares its effective value with the `systemFiltersOperator` input / API. |
+| `filterPanelLayout` | `'bottomSheet' \| 'menu'` | `'bottomSheet'` | Main Filter panel layout. |
+| `filterOptionLayout` | `'dropdown' \| 'checkbox'` | `'dropdown'` | How options render within a filter section. |
+| `filterCount` | boolean | `true` | Per-option facet counts. Counts remain **absolute** within the current page-scoped annotation set and do **not** shrink around selections supplied through `setCommentSidebarFilters()`. Disabling improves performance. |
+| `filterGhostCommentsInSidebar` | boolean | `false` | Hide ghost comments from the list. |
+| `systemFiltersOperator` | `'and' \| 'or'` | `'and'` (effective) | Combines selections across **different** filter fields; values within one field always use OR. Also applies to client filters set via `setCommentSidebarFilters()` and is mirrored by `applyCommentSidebarClientFilters()`. An explicit `filterOperator` set at init is preserved over the shared operator's default. |
+| `defaultMinimalFilter` | `'all' \| 'read' \| 'unread' \| 'resolved' \| 'open' \| 'assignedToMe' \| 'reset'` | — | Default active quick filter applied on load. `all` / `unread` / `read` / `open` / `assignedToMe` hide terminal statuses unless a terminal status is explicitly selected; the `resolved` quick filter is additive (reveals resolved comments on top of the visible statuses). |
+
+#### Default sort and quick-filter (V2)
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `sortBy` | [`SortBy`](#) | Default sort key — built-in preset (`'date'`, `'unread'`) or a dot-path (e.g. `'comments.createdAt'`). Sets the default sort; does not render a sort dropdown on its own. |
+| `sortOrder` | [`SortOrder`](#) — `'asc' \| 'desc'` | Default sort direction. |
+
+```jsx
 <VeltCommentsSidebarV2 sortBy="comments.createdAt" sortOrder="desc" defaultMinimalFilter="open" />
+```
+
+#### `applyCommentSidebarClientFilters()` — programmatic filter pipeline
+
+Apply a `CommentSidebarFilters` payload to an annotation array client-side, honoring the current `systemFiltersOperator`. Backs the V2 declarative filter pipeline; reach for it when filtering annotations outside the sidebar (custom previews, off-screen counts, exports).
+
+```typescript
 const commentElement = client.getCommentElement();
 const filtered: CommentAnnotation[] = commentElement.applyCommentSidebarClientFilters(
   annotations,
   filters,
 );
+```
+
+- Params: `annotations: CommentAnnotation[]`, `filters: CommentSidebarFilters`.
+- Returns: `CommentAnnotation[]`.
+- No React hook — call on `commentElement`.
+
+#### `setCommentSidebarFilters()` — merge / replace / clear semantics (V2)
+
+`setCommentSidebarFilters()` writes into the sidebar's active selections; the values render as checked options in the Main Filter panel and are cleared by **Reset**. Each call is a partial update, not a full overwrite: keys included in the payload replace their current selections, while omitted keys are preserved. A present-but-empty array clears one field, and an empty object clears all client-provided selections.
+
+```typescript
 const commentElement = client.getCommentElement();
 
 // Apply / replace selections for specific fields
@@ -4543,16 +5596,102 @@ commentElement.setCommentSidebarFilters({ location: [] });
 
 // Clear everything the client has supplied
 commentElement.setCommentSidebarFilters({});
+```
+
+Normalization used by the sidebar's active selections:
+
+- `location`: matched by `id` (numeric `id` compares to string filter values; `id: 0` is valid), with `locationName` as fallback when `id` is `null` / `undefined` / empty.
+- `people` / `assigned` / `tagged` / `involved`: matched by `userId`, with `email` as fallback when `userId` is absent. Email-only records do not create duplicate filter options.
+- `status` / `priority` / `category`: matched by the provided ids without further normalization.
+- `accessModes`: `'public'` or `'private'` — recognizes both legacy `iam.accessMode` and new `visibilityConfig` (`restricted` / `organizationPrivate` → `'private'`).
+- `version`: matched by `id`.
+- Custom fields (`[key: string]`): string values or `{ id?, name? }` objects.
+
+A non-empty client selection filters even when its field is not declared in the Main Filter panel; empty undeclared fields are ignored, and declared fields are not duplicated. Facet counts stay absolute — see `filterCount` above.
+
+#### `setSystemFiltersOperator()` — cross-field combinator (V2)
+
+Set how selections from **different** sidebar filter fields are combined. Values within one field always use OR.
+
+```typescript
 const commentElement = client.getCommentElement();
 commentElement.setSystemFiltersOperator('or');   // 'and' | 'or'
+```
+
+- Params: `operator: 'and' | 'or'`.
+- Returns: `void`.
+- Effective default: `'and'`.
+- Also applies to client filters set via `setCommentSidebarFilters()`, including any value written before the sidebar initializes.
+- An explicit `filterOperator` set at init is preserved over the shared operator's default.
+
+#### `setSidebarButtonCountType()` — sidebar-button badge source (V2)
+
+Change what the sidebar button count badge reflects.
+
+```typescript
 const commentElement = client.getCommentElement();
 commentElement.setSidebarButtonCountType('filter');   // 'default' | 'filter'
+```
+
+- `'default'` — count of comments in open and in-progress states.
+- `'filter'` — count of the sidebar's currently filtered list, including `0` for an empty result. Updates when comments are deleted. When `filterCommentsOnDom` is enabled, the same filtered list also gates which pins render on the page. The current filtered result is preserved while the sidebar is loading and is cleared when the sidebar is destroyed, so a removed sidebar no longer gates the badge or on-page pins.
+
+#### Default status selection (V2)
+
+On first load, the Status field starts with **Open** plus every **In Progress** status selected; the sidebar shows active comments by default. The default selection is skipped when:
+
+- Filter state was restored from `sessionStorage`.
+- A caller supplied a status selection through `setCommentSidebarFilters()`.
+- The user has already changed the Status selection.
+
+If the status catalog loads after the sidebar renders and the user hasn't touched Status, the default selection refreshes to match the catalog's current Open + In Progress statuses. **Reset** does not re-apply the default statuses — clear the Status field or select **All** to show resolved / terminal comments.
+
+#### Priority "Not set" option (`includeUnset`)
+
+The default Priority field includes a **Not set** option for comments without a priority. Opt out by supplying a custom `FilterField` with `includeUnset: false`:
+
+```jsx
 <VeltCommentsSidebarV2
   filters={[
     { field: 'status' },
     { field: 'priority', includeUnset: false },
   ]}
 />
+```
+
+#### Location identity + people filter identity (V2)
+
+The sidebar identifies a location by its `id`, falling back to `locationName` when `id` is `null`, `undefined`, or an empty string. `id: 0` is valid, numeric annotation ids compare with equivalent string filter values, and `id` takes precedence when both fields are present. This identity is used consistently by grouping, location filter options and matching, page mode, and client filters (`setCommentSidebarFilters()`). Comments without any location context appear in the **Others** group.
+
+People / Involved / Assigned / Tagged options are keyed by `userId` with the user's display name as the label and email as fallback. Records containing only an email do not create filter options — this prevents duplicate options when another record for the same person contains a `userId`.
+
+#### Grouping expansion defaults (V2)
+
+- **Location grouping** — the current + additional-location groups start expanded; other location groups start collapsed.
+- **Document grouping** — the current document starts expanded; other documents start collapsed.
+- **Status / priority / custom-field grouping** — all groups start expanded.
+- Precedence: explicit expand > explicit collapse > grouping default. Both overrides persist in `sessionStorage`.
+- A real location change resets overrides so the new current group expands. The initial location emitted during a reload preserves restored overrides.
+
+`CommentSidebarGroup.isExpanded` is no longer just a boolean default: an omitted value is resolved from the user's overrides plus the current grouping default per the precedence above.
+
+#### `pageMode` uses location identity (V2)
+
+The page-mode composer list is scoped by the current location identity, so a location supplied with only `locationName` behaves like an id-based location.
+
+#### Pages filter and current page (V2)
+
+The Pages filter floats the current page to the top of its option list. With `currentLocationSuffix={true}`, the option and its selected chip show "(This page)". Filter option, option name, and selected-chip wireframes receive `isCurrentPage` for custom treatment via `velt-if` / `velt-class`. The option name is nested inside `.velt-filter-option-name-wrap`, so direct-child CSS selectors from its former parent no longer match.
+
+#### Virtual-scroll row clipping (V2)
+
+Rows wider than the sidebar viewport are clipped to sidebar width rather than producing a horizontal scrollbar. Tune the virtual-scroll window via `measuredSize` / `minBufferPx` / `maxBufferPx` (defaults `220` / `1000` / `2000`).
+
+#### V2 type vocabulary
+
+V2-only types that back the declarative pipeline. They are consumed exclusively through V2 props (filter / sort / group / list / facet) — keep them co-located with this surface rule rather than mixing them into the core type reference.
+
+```typescript
 // Active-selection payload consumed by `filters={...}`, setCommentSidebarFilters(),
 // and applyCommentSidebarClientFilters(). Included keys REPLACE; omitted keys are preserved.
 interface CommentSidebarFilters {
@@ -4679,62 +5818,42 @@ interface FilterFieldResolver {
 }
 ```
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `filters` | `string \| FilterField[] \| CommentSidebarFilters` | `[]` | Main Filter panel sections, OR a `CommentSidebarFilters` object of active selections. Included selection keys replace their values, omitted keys are preserved, and **Reset** clears the client-provided selections. |
-| `miniFilters` | `string \| FilterField[]` | `[]` | Single header funnel dropdown. |
-| `minimalFilters` | `string \| SidebarMinimalFilterConfig[]` | `[]` | Multiple configurable header dropdowns. Replaces the single mini-filter funnel when present. |
-| `filterOperator` | `'and' \| 'or'` | `'and'` | Cross-field combination of active filter selections. Directly configures the V2 filter engine and shares its effective value with the `systemFiltersOperator` input / API. |
-| `filterPanelLayout` | `'bottomSheet' \| 'menu'` | `'bottomSheet'` | Main Filter panel layout. |
-| `filterOptionLayout` | `'dropdown' \| 'checkbox'` | `'dropdown'` | How options render within a filter section. |
-| `filterCount` | boolean | `true` | Per-option facet counts. Counts remain **absolute** within the current page-scoped annotation set and do **not** shrink around selections supplied through `setCommentSidebarFilters()`. Disabling improves performance. |
-| `filterGhostCommentsInSidebar` | boolean | `false` | Hide ghost comments from the list. |
-| `systemFiltersOperator` | `'and' \| 'or'` | `'and'` (effective) | Combines selections across **different** filter fields; values within one field always use OR. Also applies to client filters set via `setCommentSidebarFilters()` and is mirrored by `applyCommentSidebarClientFilters()`. An explicit `filterOperator` set at init is preserved over the shared operator's default. |
-| `defaultMinimalFilter` | `'all' \| 'read' \| 'unread' \| 'resolved' \| 'open' \| 'assignedToMe' \| 'reset'` | — | Default active quick filter applied on load. `all` / `unread` / `read` / `open` / `assignedToMe` hide terminal statuses unless a terminal status is explicitly selected; the `resolved` quick filter is additive (reveals resolved comments on top of the visible statuses). |
-| Prop | Type | Description |
-|------|------|-------------|
-| `sortBy` | [`SortBy`](#) | Default sort key — built-in preset (`'date'`, `'unread'`) or a dot-path (e.g. `'comments.createdAt'`). Sets the default sort; does not render a sort dropdown on its own. |
-| `sortOrder` | [`SortOrder`](#) — `'asc' \| 'desc'` | Default sort direction. |
-Apply a `CommentSidebarFilters` payload to an annotation array client-side, honoring the current `systemFiltersOperator`. Backs the V2 declarative filter pipeline; reach for it when filtering annotations outside the sidebar (custom previews, off-screen counts, exports).
-- Params: `annotations: CommentAnnotation[]`, `filters: CommentSidebarFilters`.
-- Returns: `CommentAnnotation[]`.
-- No React hook — call on `commentElement`.
-`setCommentSidebarFilters()` writes into the sidebar's active selections; the values render as checked options in the Main Filter panel and are cleared by **Reset**. Each call is a partial update, not a full overwrite: keys included in the payload replace their current selections, while omitted keys are preserved. A present-but-empty array clears one field, and an empty object clears all client-provided selections.
-Normalization used by the sidebar's active selections:
-- `location`: matched by `id` (numeric `id` compares to string filter values; `id: 0` is valid), with `locationName` as fallback when `id` is `null` / `undefined` / empty.
-- `people` / `assigned` / `tagged` / `involved`: matched by `userId`, with `email` as fallback when `userId` is absent. Email-only records do not create duplicate filter options.
-- `status` / `priority` / `category`: matched by the provided ids without further normalization.
-- `accessModes`: `'public'` or `'private'` — recognizes both legacy `iam.accessMode` and new `visibilityConfig` (`restricted` / `organizationPrivate` → `'private'`).
-- `version`: matched by `id`.
-- Custom fields (`[key: string]`): string values or `{ id?, name? }` objects.
-A non-empty client selection filters even when its field is not declared in the Main Filter panel; empty undeclared fields are ignored, and declared fields are not duplicated. Facet counts stay absolute — see `filterCount` above.
-Set how selections from **different** sidebar filter fields are combined. Values within one field always use OR.
-- Params: `operator: 'and' | 'or'`.
-- Returns: `void`.
-- Effective default: `'and'`.
-- Also applies to client filters set via `setCommentSidebarFilters()`, including any value written before the sidebar initializes.
-- An explicit `filterOperator` set at init is preserved over the shared operator's default.
-Change what the sidebar button count badge reflects.
-- `'default'` — count of comments in open and in-progress states.
-- `'filter'` — count of the sidebar's currently filtered list, including `0` for an empty result. Updates when comments are deleted. When `filterCommentsOnDom` is enabled, the same filtered list also gates which pins render on the page. The current filtered result is preserved while the sidebar is loading and is cleared when the sidebar is destroyed, so a removed sidebar no longer gates the badge or on-page pins.
-On first load, the Status field starts with **Open** plus every **In Progress** status selected; the sidebar shows active comments by default. The default selection is skipped when:
-- Filter state was restored from `sessionStorage`.
-- A caller supplied a status selection through `setCommentSidebarFilters()`.
-- The user has already changed the Status selection.
-If the status catalog loads after the sidebar renders and the user hasn't touched Status, the default selection refreshes to match the catalog's current Open + In Progress statuses. **Reset** does not re-apply the default statuses — clear the Status field or select **All** to show resolved / terminal comments.
-The default Priority field includes a **Not set** option for comments without a priority. Opt out by supplying a custom `FilterField` with `includeUnset: false`:
-The sidebar identifies a location by its `id`, falling back to `locationName` when `id` is `null`, `undefined`, or an empty string. `id: 0` is valid, numeric annotation ids compare with equivalent string filter values, and `id` takes precedence when both fields are present. This identity is used consistently by grouping, location filter options and matching, page mode, and client filters (`setCommentSidebarFilters()`). Comments without any location context appear in the **Others** group.
-People / Involved / Assigned / Tagged options are keyed by `userId` with the user's display name as the label and email as fallback. Records containing only an email do not create filter options — this prevents duplicate options when another record for the same person contains a `userId`.
-- **Location grouping** — the current + additional-location groups start expanded; other location groups start collapsed.
-- **Document grouping** — the current document starts expanded; other documents start collapsed.
-- **Status / priority / custom-field grouping** — all groups start expanded.
-- Precedence: explicit expand > explicit collapse > grouping default. Both overrides persist in `sessionStorage`.
-- A real location change resets overrides so the new current group expands. The initial location emitted during a reload preserves restored overrides.
-`CommentSidebarGroup.isExpanded` is no longer just a boolean default: an omitted value is resolved from the user's overrides plus the current grouping default per the precedence above.
-The page-mode composer list is scoped by the current location identity, so a location supplied with only `locationName` behaves like an id-based location.
-The Pages filter floats the current page to the top of its option list. With `currentLocationSuffix={true}`, the option and its selected chip show "(This page)". Filter option, option name, and selected-chip wireframes receive `isCurrentPage` for custom treatment via `velt-if` / `velt-class`. The option name is nested inside `.velt-filter-option-name-wrap`, so direct-child CSS selectors from its former parent no longer match.
-Rows wider than the sidebar viewport are clipped to sidebar width rather than producing a horizontal scrollbar. Tune the virtual-scroll window via `measuredSize` / `minBufferPx` / `maxBufferPx` (defaults `220` / `1000` / `2000`).
-V2-only types that back the declarative pipeline. They are consumed exclusively through V2 props (filter / sort / group / list / facet) — keep them co-located with this surface rule rather than mixing them into the core type reference.
+**Key V2 Differences from V1:**
+
+- **Declarative filter / sort model** — `filters` / `miniFilters` / `minimalFilters` (+ `sortBy` / `sortOrder` / `defaultMinimalFilter`) replace the legacy `minimalFilter` + `advancedFilters` system.
+- **CDK virtual scroll** — built-in for large comment lists; tune via `measuredSize` / `minBufferPx` / `maxBufferPx`.
+- **Focused-thread view** — when `focusedThreadMode={true}`, clicking a comment opens the thread inline inside the sidebar.
+- **Primitive tree** — every section (header, search, filter button, filter container, list group header, fullscreen button, list, thread view, page-mode composer) is an independently importable primitive that accepts `parentLocalUIState` and supports `velt-class` conditional styling. See `ui/ui-v2-primitives.md`.
+- **`MinimalActionsDropdown` removed** — replaced by the combined `actions` filter-dropdown configured via `minimalFilters`.
+
+**Verification Checklist:**
+- [ ] `VeltCommentsSidebarV2` (or `<velt-comments-sidebar-v2>`) is mounted directly for per-section customization — the V2 setup docs no longer cover the legacy V1 component prop opt-in
+- [ ] `focusedThreadMode` is set explicitly when inline thread expansion is needed
+- [ ] `forceClose` is driven by state when not using the new default of `true` (V2 default flipped from `false` to `true`)
+- [ ] Filter / sort props are configured together (`filters` + `minimalFilters` for visible UI, `sortBy` / `sortOrder` for default ordering)
+- [ ] Active-selection payloads use the `CommentSidebarFilters` shape — `people`/`involved`/`assigned`/`tagged` are `{ userId?, email? }[]`, `location` is `{ id?, locationName? }[]`; do **not** pass bare id strings
+- [ ] `setCommentSidebarFilters()` calls are treated as partial updates (included keys replace, omitted keys preserved); use `{ field: [] }` to clear one field and `{}` to clear all
+- [ ] `systemFiltersOperator` is set explicitly when the sidebar needs `'or'` combination across fields (effective default is `'and'`); `setSystemFiltersOperator()` is used for runtime changes
+- [ ] `filterOperator` is set explicitly at init when it must differ from the shared `systemFiltersOperator` default
+- [ ] Sidebar button badge source is chosen via `sidebarButtonCountType` / `setSidebarButtonCountType('default' | 'filter')`; `filterCommentsOnDom` coupling is understood when `'filter'` is used
+- [ ] `applyCommentSidebarClientFilters()` is used for off-sidebar filtering instead of reimplementing the predicate pipeline
+- [ ] Built-in filter fields are referenced via `BuiltInFilterFieldId` ids; custom fields supply `valuePath` (and a `FilterFieldResolver` when option sourcing is non-trivial)
+- [ ] Priority field opts out of the **Not set** option via `includeUnset: false` on its `FilterField` when unset priorities should be hidden
+- [ ] Grouping code does not assume `CommentSidebarGroup.isExpanded` is a plain "default true" — expansion resolves from user overrides (persisted in `sessionStorage`) combined with the current grouping default
+- [ ] Sidebar events (`sidebarOpen`, `sidebarClose`, `commentClick`, `commentNavigationButtonClick`, `fullscreenClick`) are consumed via `useCommentEventCallback` / `commentElement.on()`, not V1-style props, and subscriptions are cleaned up
+- [ ] With `lazyLoadResolvedComments` on, terminal status options show no count until resolved comments are unlocked
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/setup — "V2 Setup"
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/customize-behavior#events — "V2 Events" (`sidebarOpen`, `sidebarClose`, `fullscreenClick`)
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/customize-behavior#commentclick — `commentClick`
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/customize-behavior — "V2 Customize Behavior" (declarative filters / sort / `applyCommentSidebarClientFilters` / `setCommentSidebarFilters` / grouping defaults / location + people identity / virtual-scroll clipping)
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#applycommentsidebarclientfilters — `applyCommentSidebarClientFilters()`
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#setcommentsidebarfilters — `setCommentSidebarFilters()` (V2 merge/replace semantics)
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#setsystemfiltersoperator — `setSystemFiltersOperator()`
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#setsidebarbuttoncounttype — `setSidebarButtonCountType()`
+- https://docs.velt.dev/api-reference/sdk/models/data-models#commentsidebarfilters — `CommentSidebarFilters` payload shape
+- https://docs.velt.dev/api-reference/sdk/models/data-models#veltcommentssidebarv2props — V2 props reference (incl. `FilterField`, `SidebarMinimalFilterConfig`, `SortBy` / `SortOrder`)
 
 ---
 
@@ -4776,6 +5895,14 @@ import { VeltCommentBubble } from '@veltdev/react';
 />
 ```
 
+**VeltCommentBubble Props:**
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `targetElementId` | string | ID of associated element |
+| `commentCountType` | string | "total" or "unread" |
+| `context` | object | Custom metadata for matching |
+
 **Using with Context (complex matching):**
 
 ```jsx
@@ -4786,6 +5913,8 @@ import { VeltCommentBubble } from '@veltdev/react';
 ```
 
 **Disable Triangle (Popover Mode):**
+
+When using bubbles, you may want to disable the default triangle indicator:
 
 ```jsx
 <VeltComments
@@ -4815,6 +5944,10 @@ import { VeltCommentBubble } from '@veltdev/react';
 
 **React Primitive Sub-Components (v5.0.2-beta.13+):**
 
+`VeltCommentBubble` now exposes three independently importable React primitives for fine-grained composition. Previously only available as HTML elements, these now have React wrappers:
+
+<!-- TODO (v5.0.2-beta.13): Verify full prop signatures for VeltCommentBubbleAvatar, VeltCommentBubbleCommentsCount, and VeltCommentBubbleUnreadIcon. Release note confirms component names, import path, and defaultCondition prop, but full prop tables are not specified in the release notes. -->
+
 ```jsx
 import {
   VeltCommentBubbleAvatar,
@@ -4828,6 +5961,17 @@ import {
 <VeltCommentBubbleCommentsCount defaultCondition={false} />
 <VeltCommentBubbleUnreadIcon defaultCondition={false} />
 ```
+
+**Verification Checklist:**
+- [ ] targetElementId matches element ID
+- [ ] commentCountType set appropriately
+- [ ] Bubble displays in correct location
+- [ ] Triangle disabled if using bubble as indicator
+- [ ] React primitive sub-components imported from `@veltdev/react` (v5.0.2-beta.13+)
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/popover - "Step 5: Add the Comment Bubble component"
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-bubble/wireframes - Customization
 
 ---
 
@@ -4857,7 +6001,9 @@ Customize comment dialog appearance using variants, styling, and wireframe compo
 
 **`VeltCommentDialogProps` — full prop surface (v5.0.2-beta.11+):**
 
-```jsx
+The React interface mirrors the underlying `<velt-comment-dialog>` HTML element's full attribute set. Use these props to control rendering modes, layout, sort, edit-mode placeholders, target binding for programmatic submission, and visual styling.
+
+```typescript
 interface VeltCommentDialogProps {
   annotationId?: string;
   multiThreadAnnotationId?: string;
@@ -4904,6 +6050,9 @@ interface VeltCommentDialogProps {
   editCommentPlaceholder?: string;
   editReplyPlaceholder?: string;
 }
+```
+
+```jsx
 // Common combinations
 <VeltCommentDialog
   darkMode={true}
@@ -4917,6 +6066,8 @@ interface VeltCommentDialogProps {
 
 **Wireframe Customization (full control):**
 
+Velt provides wireframe components for complete UI customization:
+
 ```jsx
 import { VeltCommentDialogWireframe } from '@veltdev/react';
 
@@ -4928,6 +6079,18 @@ import { VeltCommentDialogWireframe } from '@veltdev/react';
   {/* Custom body content */}
 </VeltCommentDialogWireframe.Body>
 ```
+
+**Available Wireframe Components:**
+
+| Component | Purpose |
+|-----------|---------|
+| `GhostBanner` | Banner for ghost/anonymous comments |
+| `PrivateBanner` | Banner for private comments |
+| `AssigneeBanner` | Shows assigned user |
+| `Header` | Dialog header section |
+| `Status` | Comment status indicator |
+| `Priority` | Priority selector |
+| `Options` | Comment options menu |
 
 **CSS Customization (with shadowDom=false):**
 
@@ -4964,7 +6127,9 @@ velt-comment-dialog {
 
 **Thread-Card Primitives (v5.0.2-beta.11+):**
 
-```html
+Three new primitives let you place reaction pins, the assign-to button, and an inline edit composer directly inside a custom thread-card composition.
+
+```jsx
 import {
   VeltCommentDialogThreadCardReactionPin,
   VeltCommentDialogThreadCardAssignButton,
@@ -4989,6 +6154,9 @@ import {
   annotationId="abc123"
   commentId="456"
 />
+```
+
+```html
 <!-- HTML — primitive custom elements -->
 <velt-comment-dialog-thread-card-reaction-pin
   annotation-id="abc123"
@@ -5015,7 +6183,9 @@ import {
 
 **`VeltCommentDialogOptionsDropdownContent` — show/hide individual options (v5.0.2-beta.11+):**
 
-```html
+Previously documented as common-inputs-only; now exposes per-option enable flags so you can selectively render the assign / edit / notifications / private-mode / mark-as-read items inside the options dropdown.
+
+```jsx
 // React — show only the edit option
 <VeltCommentDialogOptionsDropdownContent
   annotationId="abc123"
@@ -5025,6 +6195,9 @@ import {
   enablePrivateMode={false}
   enableMarkAsRead={false}
 />
+```
+
+```html
 <!-- HTML — same shape, kebab-case string attrs -->
 <velt-comment-dialog-options-dropdown-content
   annotation-id="abc123"
@@ -5048,7 +6221,9 @@ import {
 
 **Collapsed-Replies-Preview Primitives (v5.0.2-beta.37+):**
 
-```html
+Two primitives render the "Show N replies…" divider in a comment dialog's collapsed teaser (shown in the non-selected/preview state when `collapsedRepliesPreview` is enabled). They appear only when a thread has more than two comments.
+
+```jsx
 import {
   VeltCommentDialogMoreReplyCount,
   VeltCommentDialogMoreReplyText,
@@ -5059,11 +6234,30 @@ import {
 
 // Pluralized noun: "reply" when one reply is hidden, otherwise "replies"
 <VeltCommentDialogMoreReplyText annotationId="abc123" />
+```
+
+```html
 <velt-comment-dialog-more-reply-count annotation-id="abc123"></velt-comment-dialog-more-reply-count>
 <velt-comment-dialog-more-reply-text annotation-id="abc123"></velt-comment-dialog-more-reply-text>
 ```
 
 Both accept Common Inputs only. In React wireframe mode the public primitive is also exposed as the named sub-properties `VeltCommentDialogMoreReply.Count` and `.Text`; see `wireframe-variables-comment-dialog` for the separate wireframe-tree names.
+
+**Verification Checklist:**
+- [ ] Variant applied if using pre-defined styles
+- [ ] shadowDom={false} if using custom CSS
+- [ ] Wireframes used for complex customization
+- [ ] `VeltCommentDialogProps` flags use React camelCase (e.g. `darkMode`, `readOnly`, `pageModeComposer`); HTML attributes use kebab-case
+- [ ] Thread-card primitives (`VeltCommentDialogThreadCard{ReactionPin,AssignButton,EditComposer}`) receive `annotationId` (+ `commentId` or `commentIndex` where relevant)
+- [ ] `VeltCommentDialogOptionsDropdownContent` sets `enable*` flags for any individual options it should show; omitted flags default to the SDK's built-in behavior
+- [ ] `VeltCommentDialogMoreReply{Count,Text}` used only inside the collapsed-replies-preview divider (threads with more than two comments); both take Common Inputs only
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog-structure - Structure
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/wireframes#styling - Styling
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/wireframes#pre-defined-variants - Variants
+- https://docs.velt.dev/api-reference/sdk/models/data-models#veltcommentdialogprops - VeltCommentDialogProps full attribute set
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/primitives - Thread-card primitives and options-dropdown enable flags
 
 ---
 
@@ -5103,13 +6297,16 @@ function SuggestionControls({ annotationId }) {
 
 **Correct (custom buttons that resolve the suggestion through the API):**
 
-```js
+```jsx
 const commentElement = client.getCommentElement();
 
 // Same action as the built-in buttons: sets suggestion.status, flips annotation.type to 'comment',
 // and emits suggestionAccepted / suggestionRejected
 await commentElement.acceptSuggestion({ annotationId });
 await commentElement.rejectSuggestion({ annotationId });
+```
+
+```js
 // Other Frameworks
 const commentElement = Velt.getCommentElement();
 await commentElement.acceptSuggestion({ annotationId: 'ANNOTATION_ID' });
@@ -5117,12 +6314,17 @@ await commentElement.acceptSuggestion({ annotationId: 'ANNOTATION_ID' });
 
 **Wireframe slots for the suggestion card:**
 
-```html
+The registered wireframe slot elements for the card are the `velt-comment-dialog-agent-suggestion-*-wireframe` family. The slot tree under the Comment Dialog wireframe is:
+
+```
 AgentSuggestion
 ├── Body / Header / Footer(.OpenComment) / Actions(.Accept, .Reject)
 ├── Header → Agent(.Avatar, .Name) / Author(.Avatar, .Name) / Timestamp
 │            Menu(.Trigger, .Content → Item(.Icon, .Label))
 └── Banner → Avatar(.UserImage, .StatusIcon) / Label / Separator / Timestamp / ResolverUserName
+```
+
+```html
 <velt-wireframe style="display:none;">
   <velt-comment-dialog-agent-suggestion-actions-wireframe>
     <velt-comment-dialog-agent-suggestion-action-accept-wireframe></velt-comment-dialog-agent-suggestion-action-accept-wireframe>
@@ -5132,6 +6334,23 @@ AgentSuggestion
 ```
 
 The Comment Dialog wireframes feature page shows the same card under `VeltCommentDialogWireframe.Suggestion.*` (`Header`, `Body`, `Footer`, `Actions.ActionAccept` / `Actions.ActionReject`, `Banner`). Before shipping wireframe markup, confirm the exact slot name against the Wireframe components reference, which lists every registered slot element.
+
+**Replacing the Accept / Reject row with your own chips:**
+
+Set `actions` on the comment or annotation to render customer-defined chips in place of the built-in Accept / Reject row, then handle `commentActionClicked`. See `data-comment-actions.md`.
+
+**Verification Checklist:**
+- [ ] No imports from the `VeltCommentDialogAgentSuggestion*` family until it ships in `@veltdev/react`
+- [ ] Custom Accept / Reject controls use `VeltCommentDialogSuggestionAction*` primitives or call `acceptSuggestion()` / `rejectSuggestion()`
+- [ ] Wireframe slot names checked against the Wireframe components reference
+- [ ] HTML wireframe wrapper uses `style="display:none;"` and no self-closing custom elements
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/reference/primitives - Primitives catalog (Beta note on `VeltCommentDialogAgentSuggestion*`)
+- https://docs.velt.dev/ui-customization/reference/wireframe-components - Wireframe slot elements (agent suggestion sub-family)
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/wireframes#suggestion - Suggestion wireframes
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/primitives#veltcommentdialogsuggestionactionaccept - VeltCommentDialogSuggestionActionAccept
+- https://docs.velt.dev/async-collaboration/suggestions/overview - Suggestions lifecycle
 
 ---
 
@@ -5178,22 +6397,47 @@ import { VeltWireframe } from '@veltdev/react';
 </velt-wireframe>
 ```
 
+**V2-Migrated Component Families:**
+
+| Family | Primitive Count | Notes |
+|--------|----------------|-------|
+| Comment Pin | 6 | React + HTML |
+| Comment Bubble | 3 | HTML-only primitives |
+| Text Comment | 7 | React + HTML |
+| Inline Comments Section | 24 | React + HTML (ApplyButton promoted to React in v5.0.2-beta.11) |
+| Multi-Thread Comment Dialog | 25 | React + HTML (`VeltMultiThreadCommentDialog` root added in v5.0.2-beta.11) |
+| Sidebar Button | 3 | React + HTML |
+| Comments Sidebar V2 | 56+ | React + HTML; standalone HTML sub-primitive tags use the singular `velt-comment-sidebar-*-v2` form (root stays plural `velt-comments-sidebar-v2`); React identifiers are also singular `VeltCommentSidebarV2*` |
+| Comment Dialog Composer — Attachment Downloads | 2 | React + HTML; edit-mode only |
+
 **Attachment Download Primitives (edit-mode composer):**
 
-```html
+Two new primitives enable download buttons for attachments inside the edit-mode comment dialog composer. Non-wireframe integrations receive download buttons automatically; use these primitives only when building a custom wireframe composer.
+
+- `VeltCommentDialogComposerAttachmentsImageDownload` — download button for image attachments
+- `VeltCommentDialogComposerAttachmentsOtherDownload` — download button for non-image file attachments
+
+Both accept an `annotationId` prop (required, `string`) providing the attachment context.
+
+```jsx
 // React — inside a custom wireframe composer
 <VeltCommentDialogComposerAttachmentsImageDownload annotationId="abc123" />
 <VeltCommentDialogComposerAttachmentsOtherDownload annotationId="abc123" />
+```
+
+```html
 <!-- HTML -->
 <velt-comment-dialog-composer-attachments-image-download annotation-id="abc123"></velt-comment-dialog-composer-attachments-image-download>
 <velt-comment-dialog-composer-attachments-other-download annotation-id="abc123"></velt-comment-dialog-composer-attachments-other-download>
 ```
 
+#### Comments Sidebar V2 — naming convention
+
 > **Note:** The root container `VeltCommentsSidebarV2` / `<velt-comments-sidebar-v2>` is plural. **Every** standalone sub-primitive — React identifier *and* HTML custom-element tag — uses the singular form `VeltCommentSidebarV2*` / `<velt-comment-sidebar-*-v2>`. The HTML tag rename (plural → singular for sub-primitives) is the current release; React identifiers were already singular.
 
 **Incorrect (old plural HTML / React identifiers):**
 
-```html
+```jsx
 <VeltCommentsSidebarV2>
   <VeltCommentsSidebarV2Skeleton />
   <VeltCommentsSidebarV2Panel>
@@ -5201,6 +6445,9 @@ import { VeltWireframe } from '@veltdev/react';
     <VeltCommentsSidebarV2List />
   </VeltCommentsSidebarV2Panel>
 </VeltCommentsSidebarV2>
+```
+
+```html
 <!-- Old plural HTML sub-primitive tags — no longer valid -->
 <velt-comments-sidebar-v2>
   <velt-comments-sidebar-skeleton-v2></velt-comments-sidebar-skeleton-v2>
@@ -5213,7 +6460,7 @@ import { VeltWireframe } from '@veltdev/react';
 
 **Correct (singular sub-primitive names for React *and* HTML; root stays plural):**
 
-```html
+```jsx
 <VeltCommentsSidebarV2>
   <VeltCommentSidebarV2Skeleton />
   <VeltCommentSidebarV2Panel>
@@ -5240,6 +6487,9 @@ import { VeltWireframe } from '@veltdev/react';
     </VeltCommentSidebarV2FocusedThread>
   </VeltCommentSidebarV2Panel>
 </VeltCommentsSidebarV2>
+```
+
+```html
 <velt-comments-sidebar-v2>
   <velt-comment-sidebar-skeleton-v2></velt-comment-sidebar-skeleton-v2>
   <velt-comment-sidebar-panel-v2>
@@ -5276,22 +6526,32 @@ import { VeltWireframe } from '@veltdev/react';
 | ResetFilterButton | `VeltCommentSidebarV2ResetFilterButton` | `velt-comment-sidebar-reset-filter-button-v2` |
 | PageModeComposer | `VeltCommentSidebarV2PageModeComposer` | `velt-comment-sidebar-page-mode-composer-v2` |
 | FocusedThread (+ subtree) | `VeltCommentSidebarV2FocusedThread*` | `velt-comment-sidebar-focused-thread-*-v2` |
+
 > **Breaking change (Comment Sidebar V2 — current release):** `VeltCommentSidebarV2MinimalActionsDropdown` (and the `Trigger` / `Content` / `MarkAllRead` / `MarkAllResolved` children) plus the corresponding `velt-comments-sidebar-minimal-actions-dropdown-v2` HTML family have been **removed**. The bulk actions are now exposed by the combined `actions` filter-dropdown, configured via the `minimalFilters` input on `VeltCommentsSidebarV2`. Replace any `MinimalActionsDropdown` usage with a `FilterDropdown` configured as `{ type: 'actions', sorts: [...], actions: [...] }` — see `surface/surface-sidebar-v2.md`.
+
+#### New V2 primitive families (current release)
+
 - **Search** — header search container holding the icon + input leaves (`VeltCommentSidebarV2Search`, `*SearchIcon`, `*SearchInput`).
 - **FilterButton** — header button that opens the Main Filter container; child `*FilterButtonAppliedIcon` surfaces the active-filter indicator.
 - **FullscreenButton** — header leaf that emits `onFullscreenClick` when clicked.
 - **FilterContainer** — root container for the Main Filter bottom-sheet / menu, holding:
   - `Title`, `GroupBy`, `ResetButton`, `ApplyButton`, `CloseButton` leaves.
   - `SectionList` → `Section` → `SectionLabel` (leaf) and `SectionField` → `SectionControl` (+ `SectionControlChevron`, `SectionControlValue`, `SectionControlChipList` → `SectionControlChip`, `SectionControlSearch`) and `SectionOptionList` → `SectionOption` (+ `SectionOptionCheckbox`, `SectionOptionName`, `SectionOptionCount`).
+
 The `Search`, `FilterButton`, `FilterContainer`, and `FullscreenButton` families replace the customization surface previously occupied by `MinimalActionsDropdown`. Use the `actions` dropdown type on `minimalFilters` for bulk mark-all-read / mark-all-resolved — these primitive families are the new shape for that surface.
 
 **`VeltInlineCommentsSectionFilterDropdownContentApplyButton` — React promotion (v5.0.2-beta.11+):**
 
-```html
+Previously HTML-only; now exposed as a React component with `targetElementId` and `defaultCondition` props. This brings the Inline Comments Section primitive family count to 24.
+
+```jsx
 <VeltInlineCommentsSectionFilterDropdownContentApplyButton
   targetElementId="my-section"
   defaultCondition={true}
 />
+```
+
+```html
 <velt-inline-comments-section-filter-dropdown-content-apply-button
   target-element-id="my-section"
   default-condition="true">
@@ -5300,13 +6560,18 @@ The `Search`, `FilterButton`, `FilterContainer`, and `FullscreenButton` families
 
 **`VeltMultiThreadCommentDialog` — new root primitive (v5.0.2-beta.11+):**
 
-```html
+A new root component for the multi-thread comment dialog family, with a matching standalone `<velt-multi-thread-comment-dialog>` custom element. Multi-thread primitives can now also be used standalone by passing `multiThreadAnnotationId` to render with real annotation data without a parent root.
+
+```jsx
 <VeltMultiThreadCommentDialog
   multiThreadAnnotationId="thread-123"
   readOnly={false}
   defaultCondition={true}
   onSaveComment={(e) => console.log(e)}
 />
+```
+
+```html
 <velt-multi-thread-comment-dialog
   multi-thread-annotation-id="thread-123"
   read-only="false"
@@ -5324,6 +6589,23 @@ The `Search`, `FilterButton`, `FilterContainer`, and `FullscreenButton` families
 | `variant` | `string` | — | Visual variant for the component |
 | `inboxMode` | `boolean` | `false` | Renders the dialog in inbox mode |
 | `onSaveComment` | `Function` | — | Callback fired when a comment is saved (HTML: listen via `addEventListener('onSaveComment', ...)`) |
+
+**Verification Checklist:**
+- [ ] `defaultCondition={false}` is set on any V2 primitive whose section is fully replaced by a custom wireframe
+- [ ] Primitive components are wrapped inside a `<VeltWireframe>` block (React) or `<velt-wireframe style="display:none;">` wrapper (HTML)
+- [ ] HTML attributes use kebab-case: `default-condition="false"`
+- [ ] Only primitives from the V2-migrated families are targeted (Comment Pin, Comment Bubble, Text Comment, Inline Comments Section, Multi-Thread Comment Dialog, Sidebar Button, Comments Sidebar V2)
+- [ ] V2 sidebar sub-primitives use the singular `VeltCommentSidebarV2*` React identifiers **and** singular `velt-comment-sidebar-*-v2` HTML tags; the root component stays `VeltCommentsSidebarV2` / `velt-comments-sidebar-v2`
+- [ ] Any `MinimalActionsDropdown` usage is migrated to a `FilterDropdown` configured via `minimalFilters: [{ type: 'actions', sorts: [...], actions: [...] }]`
+- [ ] New families (`Search`, `FilterButton`, `FilterContainer`, `FullscreenButton`) are composed inside `Header` for the modern V2 sidebar header layout
+- [ ] Multi-thread primitives used standalone pass `multiThreadAnnotationId` to bind real annotation data without the parent `VeltMultiThreadCommentDialog` root
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/overview - Wireframe and primitive architecture overview
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog-structure - Comment dialog primitives reference
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-v2-primitives - V2 sidebar primitive catalog (56+ primitives, singular HTML tag rename, MinimalActionsDropdown removal)
+- https://docs.velt.dev/ui-customization/features/async/comments/inline-comments-section/primitives - Inline Comments Section primitives (incl. ApplyButton React promotion)
+- https://docs.velt.dev/ui-customization/features/async/comments/multithread-comments/primitives - Multi-Thread Comment Dialog primitives (incl. new root)
 
 ---
 
@@ -5429,15 +6711,46 @@ import { VeltWireframe, VeltAutocompleteEmptyWireframe } from '@veltdev/react';
 </velt-autocomplete-empty-wireframe>
 ```
 
+**Primitive Component Reference (v5.0.2-beta.5+):**
+
+| React | HTML | Key Props |
+|-------|------|-----------|
+| `VeltAutocompleteOption` | `velt-autocomplete-option` | `userObject`, `userId` |
+| `VeltAutocompleteOptionIcon` | `velt-autocomplete-option-icon` | — |
+| `VeltAutocompleteOptionName` | `velt-autocomplete-option-name` | — |
+| `VeltAutocompleteOptionDescription` | `velt-autocomplete-option-description` | `field` |
+| `VeltAutocompleteOptionErrorIcon` | `velt-autocomplete-option-error-icon` | — |
+| `VeltAutocompleteGroupOption` | `velt-autocomplete-group-option` | — |
+| `VeltAutocompleteTool` | `velt-autocomplete-tool` | — |
+| `VeltAutocompleteEmpty` | `velt-autocomplete-empty` | — |
+| `VeltAutocompleteChip` | `velt-autocomplete-chip` | `type`, `email`, `userObject`, `userId` |
+| `VeltAutocompleteChipTooltip` | `velt-autocomplete-chip-tooltip` | — |
+| `VeltAutocompleteChipTooltipIcon` | `velt-autocomplete-chip-tooltip-icon` | — |
+| `VeltAutocompleteChipTooltipName` | `velt-autocomplete-chip-tooltip-name` | — |
+| `VeltAutocompleteChipTooltipDescription` | `velt-autocomplete-chip-tooltip-description` | — |
+
 **`VeltAutocomplete` Panel Props (v5.0.2-beta.5+):**
 
-```html
+These props are added to the parent `<VeltAutocomplete>` / `<velt-autocomplete>` panel component when using the full panel:
+
+| React Prop | HTML Attribute | Type | Description |
+|------------|---------------|------|-------------|
+| `multiSelect` | `multi-select` | `boolean` | Allows selecting multiple contacts |
+| `selectedFirstOrdering` | `selected-first-ordering` | `boolean` | Shows selected items first in the list |
+| `readOnly` | `read-only` | `boolean` | Disables user interaction |
+| `inline` | `inline` | `boolean` | Renders autocomplete inline rather than as a floating panel |
+| `contacts` | *(React only)* | `User[]` | Overrides the default contact list with a custom array |
+
+```jsx
 // React — configure the autocomplete panel
 <VeltAutocomplete
   multiSelect={true}
   selectedFirstOrdering={true}
   contacts={myContactList}
 />
+```
+
+```html
 <!-- HTML — configure the autocomplete panel (contacts has no HTML attribute) -->
 <velt-autocomplete
   multi-select="true"
@@ -5449,7 +6762,9 @@ import { VeltWireframe, VeltAutocompleteEmptyWireframe } from '@veltdev/react';
 
 **`VeltAutocompletePanel` — standalone panel (v5.0.2-beta.11+):**
 
-```html
+Use `VeltAutocompletePanel` when you need an autocomplete panel that is not tied to a text-input @-mention (e.g. an inline user picker, assignee selector, or standalone contact chooser). It accepts all of the `VeltAutocomplete` panel props plus `type`, `hideInput`, `placeholder`, `enableOnFocus`, `position`, and `defaultCondition`.
+
+```jsx
 // React — inline user picker that always renders
 <VeltAutocompletePanel
   type="contact"
@@ -5458,6 +6773,9 @@ import { VeltWireframe, VeltAutocompleteEmptyWireframe } from '@veltdev/react';
   inline={true}
   defaultCondition={false}
 />
+```
+
+```html
 <!-- HTML — same shape, kebab-case attrs -->
 <velt-autocomplete-panel
   type="contact"
@@ -5481,6 +6799,18 @@ import { VeltWireframe, VeltAutocompleteEmptyWireframe } from '@veltdev/react';
 | `position` | `position` | `'above' \| 'below' \| 'auto' \| string` | `'auto'` | Position of the panel relative to its anchor |
 | `defaultCondition` | `default-condition` | `boolean` | `true` | When `false`, the component always renders regardless of internal state |
 
+**Verification Checklist:**
+- [ ] Primitives imported from `'@veltdev/react'` individually (not from the full panel import path)
+- [ ] `VeltAutocompleteEmptyWireframe` is wrapped inside `<VeltWireframe>` when customizing the empty state
+- [ ] `VeltAutocompleteOptionDescription` uses the `field` prop to specify which user field to display
+- [ ] HTML custom elements use separate opening and closing tags (not self-closing)
+- [ ] When using `VeltAutocompletePanel` standalone, pick `VeltAutocompletePanel` (not `VeltAutocomplete`) for inline pickers that are not tied to a text-input @-mention
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog-structure - Autocomplete and dialog customization
+- https://docs.velt.dev/api-reference/sdk/models/data-models - User model reference for `userObject` and `contacts` types
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/primitives - VeltAutocompletePanel standalone primitive reference
+
 ---
 
 ### 6.6 Use Wireframe Components for Custom UI
@@ -5488,6 +6818,13 @@ import { VeltWireframe, VeltAutocompleteEmptyWireframe } from '@veltdev/react';
 **Impact: MEDIUM (Build fully custom comment UIs with wireframe building blocks)**
 
 Velt provides wireframe components that give you complete control over comment UI structure while maintaining functionality.
+
+**Naming Conventions:**
+
+| Framework | Pattern | Example |
+|-----------|---------|---------|
+| React | PascalCase | `VeltCommentDialogWireframe.Header` |
+| HTML | kebab-case, `-wireframe` suffix | `velt-comment-dialog-header-wireframe` |
 
 **Comment Dialog Wireframe Structure:**
 
@@ -5541,9 +6878,44 @@ function CustomSidebar() {
 }
 ```
 
+**Key Wireframe Components:**
+
+**Dialog Components:**
+- `GhostBanner` - Anonymous comment indicator
+- `PrivateBanner` - Private comment indicator
+- `AssigneeBanner` - Assigned user display
+  - `AssigneeBanner.ResolveButton` - Resolve button (template nested **inside** the button component as of v5.0.1-beta.2)
+  - `AssigneeBanner.UnresolveButton` - Unresolve button (template nested **inside** the button component as of v5.0.1-beta.2)
+- `Header` - Dialog header container
+- `Status` - Status selector
+- `Priority` - Priority selector
+- `Options` - Options menu
+- `Body` - Comment content area
+- `Composer` - Input composer
+- `VisibilityBanner` - Four-option visibility banner below the composer (v5.0.2-beta.4+; replaces the removed `VisibilityDropdown`)
+  - `VisibilityBanner.Icon` - Banner icon
+  - `VisibilityBanner.Text` - Banner label text
+  - `VisibilityBanner.Dropdown` - Visibility selector dropdown
+  - `VisibilityBanner.Dropdown.Trigger` - Dropdown trigger button
+  - `VisibilityBanner.Dropdown.Trigger.Label` - Trigger label text
+  - `VisibilityBanner.Dropdown.Trigger.AvatarList` - Avatar list (shown for `selected-people`)
+  - `VisibilityBanner.Dropdown.Trigger.AvatarList.Item` - Individual avatar
+  - `VisibilityBanner.Dropdown.Trigger.AvatarList.RemainingCount` - Overflow count badge
+  - `VisibilityBanner.Dropdown.Trigger.Icon` - Trigger icon
+  - `VisibilityBanner.Dropdown.Content` - Dropdown content panel
+  - `VisibilityBanner.Dropdown.Content.Item` - Visibility option item (accepts `type`: `'public'` | `'organizationPrivate'` | `'restrictedSelf'` | `'restrictedSelectedPeople'`) (renamed from `'org-users'` / `'personal'` / `'selected-people'` in v5.0.2-beta.5)
+  - `VisibilityBanner.Dropdown.Content.Item.Icon` - Option item icon
+  - `VisibilityBanner.Dropdown.Content.Item.Label` - Option item label
+
+> **Breaking Change (v5.0.2-beta.4):** The `velt-comment-dialog-visibility-dropdown-*` wireframe family has been removed. Migrate any custom wireframes to the new `velt-comment-dialog-visibility-banner-*` family shown below.
+
+> **Breaking Change (v5.0.2-beta.5):** The `type` prop values on `VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.Item` (and the HTML equivalent) have been renamed to align with the `CommentVisibilityOption` enum. Replace `type="personal"` → `type="restrictedSelf"`, `type="selected-people"` → `type="restrictedSelectedPeople"`, `type="org-users"` → `type="organizationPrivate"`. The `type="public"` value is unchanged.
+
+> **Breaking Change (v5.0.2-beta.5):** The `VeltCommentDialogWireframe.VisibilityBanner.Dropdown.Content.UserPicker` sub-component hierarchy (11 components) has been removed. The visibility banner now uses the shared autocomplete component internally for user selection. Remove any wireframe usage of `UserPicker` and its descendants.
+
 **VisibilityBanner Wireframe Usage (v5.0.2-beta.5+):**
 
-```html
+```jsx
 // React (v5.0.2-beta.5+)
 <VeltWireframe>
   <VeltCommentDialogWireframe.VisibilityBanner>
@@ -5580,6 +6952,9 @@ function CustomSidebar() {
     </VeltCommentDialogWireframe.VisibilityBanner.Dropdown>
   </VeltCommentDialogWireframe.VisibilityBanner>
 </VeltWireframe>
+```
+
+```html
 <!-- Other Frameworks (inside <velt-wireframe style="display:none;"> wrapper) (v5.0.2-beta.5+) -->
 <velt-comment-dialog-visibility-banner-wireframe>
   <velt-comment-dialog-visibility-banner-icon-wireframe></velt-comment-dialog-visibility-banner-icon-wireframe>
@@ -5618,7 +6993,9 @@ function CustomSidebar() {
 
 **AssigneeBanner Resolve/Unresolve Button Nesting (v5.0.1-beta.2+):**
 
-```html
+As of v5.0.1-beta.2, the wireframe template for the resolve and unresolve buttons is nested **inside** the button component, not wrapping it. This gives custom content direct access to button state, styling, and event handlers.
+
+```jsx
 // Correct: custom content rendered INSIDE the button component (v5.0.1-beta.2+)
 <VeltCommentDialogWireframe.AssigneeBanner>
   <VeltCommentDialogWireframe.AssigneeBanner.ResolveButton>
@@ -5628,6 +7005,9 @@ function CustomSidebar() {
     {/* Custom content rendered inside the unresolve button */}
   </VeltCommentDialogWireframe.AssigneeBanner.UnresolveButton>
 </VeltCommentDialogWireframe.AssigneeBanner>
+```
+
+```html
 <!-- HTML equivalents -->
 <velt-comment-dialog-assignee-banner-wireframe>
   <velt-comment-dialog-assignee-banner-resolve-button-wireframe>
@@ -5639,9 +7019,30 @@ function CustomSidebar() {
 </velt-comment-dialog-assignee-banner-wireframe>
 ```
 
+**Sidebar Components:**
+- `Header` - Sidebar header
+- `Filter` - Filter controls
+- `Panel` - Main content panel
+- `List` - Comment list
+- `EmptyPlaceholder` - Empty state
+
 **V2 Sidebar Wireframe Subtrees (`VeltCommentsSidebarV2Wireframe.*` / `velt-comments-sidebar-*-v2-wireframe`):**
 
-```html
+The V2 sidebar wireframe catalog gained five new subtrees and lost the MinimalActionsDropdown family. Compose them inside `VeltWireframe` / `<velt-wireframe>`.
+
+- `Search` — header search row (and its `Icon` + `Input` leaves).
+- `FilterButton` — opens the Main Filter container; child `AppliedIcon` leaf surfaces the active-filter indicator.
+- `FilterContainer` — Main Filter bottom-sheet / menu subtree:
+  - `Title`, `GroupBy`, `ResetButton`, `ApplyButton`, `CloseButton` leaves.
+  - `SectionList` → `Section` → `SectionLabel` (leaf) and `SectionField` → `SectionControl` (+ `SectionControlChevron`, `SectionControlValue`, `SectionControlChipList` → `SectionControlChip`, `SectionControlSearch`) and `SectionOptionList` → `SectionOption` (+ `SectionOptionCheckbox`, `SectionOptionName`, `SectionOptionCount`).
+- `FullscreenButton` — leaf header toggle that emits the new `onFullscreenClick` event.
+- `ListGroupHeader` — renders once per group when grouping is enabled; child leaves `Label`, `Count`, `Chevron`, `Separator`.
+- `FilterDropdown.Content.List.Item.Count` — new leaf under the existing `FilterDropdown` subtree.
+- `FilterDropdown.Content.List.Category.Label` — new leaf alongside the existing `Category.Content`.
+
+> **Breaking change (Comment Sidebar V2 — current release):** `VeltCommentsSidebarV2Wireframe.MinimalActionsDropdown` (Trigger / Content / MarkAllRead / MarkAllResolved) and the `velt-comments-sidebar-minimal-actions-dropdown-v2-wireframe` family are removed from the wireframe catalog. The actions are now exposed by the combined `actions` filter-dropdown, configured via the `minimalFilters` input on `VeltCommentsSidebarV2`. Migrate any custom wireframes to a `FilterDropdown` (or `FilterContainer`) composition.
+
+```jsx
 // React — V2 sidebar header composed against the new wireframe subtree
 <VeltWireframe>
   <VeltCommentsSidebarV2Wireframe.Header>
@@ -5666,6 +7067,9 @@ function CustomSidebar() {
     </VeltCommentsSidebarV2Wireframe.ListGroupHeader>
   </VeltCommentsSidebarV2Wireframe.List>
 </VeltWireframe>
+```
+
+```html
 <!-- HTML / Other Frameworks — matching velt-comments-sidebar-*-v2-wireframe tags -->
 <velt-wireframe style="display:none;">
   <velt-comments-sidebar-header-v2-wireframe>
@@ -5706,7 +7110,16 @@ function CustomSidebar() {
 
 **Wireframe Data Variables (v5.0.2-beta.11+):**
 
-```html
+Two shorthand variables are now available inside `<velt-data field="...">` expressions within wireframe templates:
+
+| Variable | Resolves To | Notes |
+|----------|-------------|-------|
+| `annotations` | `componentConfigSignal.data.annotations` | Supports nested access, e.g. `field="annotations.0.annotationId"` |
+| `allAnnotations` | `componentConfigSignal.data.allAnnotations` | All annotations regardless of current filter context |
+
+These variables are useful for list-level UIs such as Inline Comments Section wireframes where you need to iterate over or reference annotation data directly.
+
+```jsx
 // React — reference annotation data via the annotations shorthand variable
 // inside a wireframe template for a list-level component (e.g., Inline Comments Section)
 <VeltWireframe>
@@ -5716,12 +7129,35 @@ function CustomSidebar() {
   {/* allAnnotations gives access to all annotations regardless of filter state */}
   <velt-data field="allAnnotations" />
 </VeltWireframe>
+```
+
+```html
 <!-- HTML — same shorthand variables work inside velt-data field expressions -->
 <velt-wireframe style="display:none;">
   <velt-data field="annotations.0.annotationId"></velt-data>
   <velt-data field="allAnnotations"></velt-data>
 </velt-wireframe>
 ```
+
+**Thread Card Message — ShowMore / ShowLess Wireframe Primitives (v5.0.2-beta.18+):**
+
+When `messageTruncation` is enabled (on `VeltInlineCommentsSection`, or via `messageTruncation` / `messageTruncationLines` on `VeltCommentDialog`-rendering surfaces), the expand/collapse controls are full wireframe primitives. They live in the comment-dialog thread-card message hierarchy because truncation is implemented at the message level, and the inline-comments section internally renders comment-dialog thread cards.
+
+Wireframes (use inside `VeltWireframe` / `<velt-wireframe>`):
+
+| React | HTML |
+|---|---|
+| `VeltCommentDialogWireframe.ThreadCard.Message.ShowMore` | `velt-comment-dialog-thread-card-message-show-more-wireframe` |
+| `VeltCommentDialogWireframe.ThreadCard.Message.ShowLess` | `velt-comment-dialog-thread-card-message-show-less-wireframe` |
+
+Equivalent standalone primitives (use directly without a wireframe wrapper):
+
+| React | HTML |
+|---|---|
+| `VeltCommentDialogThreadCardMessageShowMore` | `velt-comment-dialog-thread-card-message-show-more` |
+| `VeltCommentDialogThreadCardMessageShowLess` | `velt-comment-dialog-thread-card-message-show-less` |
+
+These controls only render when a message exceeds the `messageTruncationLines` threshold. Both accept the standard Common Inputs props/attributes — no message-specific configuration is required; the primitives bind to the iterating thread card automatically.
 
 **Correct (React / Next.js — custom ShowMore / ShowLess inside a wireframe):**
 
@@ -5744,6 +7180,21 @@ function CustomSidebar() {
   </velt-comment-dialog-thread-card-message-show-less-wireframe>
 </velt-wireframe>
 ```
+
+**Verification Checklist:**
+- [ ] Correct wireframe component imported
+- [ ] Proper nesting of child components
+- [ ] Framework naming convention followed
+- [ ] Required subcomponents included
+- [ ] When accessing annotation data in wireframe templates, use `annotations` or `allAnnotations` shorthand variables (v5.0.2-beta.11+) instead of long-form signal paths
+- [ ] V2 sidebar header compositions use `Search` / `FilterButton` / `FilterContainer` / `FullscreenButton` / `FilterDropdown` — `MinimalActionsDropdown` and its descendants are no longer in the catalog
+- [ ] V2 sidebar list compositions place `ListGroupHeader` (+ `Label`, `Count`, `Chevron`, `Separator`) inside `List`
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog-structure - Dialog wireframe
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-components - Sidebar wireframe (V1)
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-v2-wireframes - V2 Sidebar wireframe structure (Search / FilterButton / FilterContainer / FullscreenButton / ListGroupHeader)
+- https://docs.velt.dev/ui-customization/reference/wireframe-components - Complete list of wireframe slot elements
 
 ---
 
@@ -5838,12 +7289,23 @@ Object.entries(groupedBySection).map(([section, comments]) => (
 
 **Comment Aggregation Pattern (Tables):**
 
+When multiple comments can exist on the same element:
+
 ```jsx
 <VeltComments
   popoverMode={true}
   groupMatchedComments={true}  // Group comments on same element
 />
 ```
+
+**Verification Checklist:**
+- [ ] Filter criteria matches context structure
+- [ ] Grouped data structure matches UI needs
+- [ ] Sidebar groupConfig set appropriately
+- [ ] Empty groups handled gracefully
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior - "Aggregation"
 
 ---
 
@@ -5963,6 +7425,31 @@ commentElement.getCommentAnnotationsCount({
 });
 ```
 
+**Hooks Available:**
+
+| Hook | Description |
+|------|-------------|
+| `useCommentAnnotations()` | Get all annotations for current document |
+| `useAddCommentAnnotation()` | Add new annotation programmatically |
+| `useDeleteCommentAnnotation()` | Delete annotation by ID |
+| `useGetCommentAnnotations()` | Advanced query with CommentRequestQuery filters |
+| `useCommentAnnotationsCount()` | Get counts (total + unread) with filtering |
+| `useUnreadCommentAnnotationCountByLocationId()` | Unread count scoped to a location |
+| `useCommentModeState()` | Get comment mode status (active/inactive) |
+| `useCommentEventCallback()` | Subscribe to comment events |
+| `useVeltEventCallback()` | Subscribe to Velt UI events |
+
+**Verification Checklist:**
+- [ ] useCommentAnnotations returns array
+- [ ] Annotations have expected structure
+- [ ] Subscription cleaned up on unmount
+- [ ] Filtering works with annotation properties
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#getcommentannotations - "getCommentAnnotations"
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#getallcommentannotations - "getAllCommentAnnotations" (legacy)
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks - Hook documentation
+
 ---
 
 ### 7.3 Add Custom Metadata to Comments with Context
@@ -5972,6 +7459,12 @@ commentElement.getCommentAnnotationsCount({
 Add custom metadata (context) to comments for filtering, grouping, rendering, and notification processing.
 
 **Use Cases:**
+- Filter comments by category, status, or custom fields
+- Group comments by section, element type, etc.
+- Pass data to notification processors
+- Store position data for manual comment pins
+
+**Method 1: Via Comment Tool**
 
 ```jsx
 <VeltCommentTool
@@ -5983,6 +7476,13 @@ Add custom metadata (context) to comments for filtering, grouping, rendering, an
     customField: 'value'
   }}
 />
+```
+
+**Method 2: Via the addCommentAnnotation event (using addContext)**
+
+`addContext()` is available on the `addCommentAnnotation` and `addCommentAnnotationDraft` events. The legacy `onCommentAdd` prop still works but is listed under Legacy Methods.
+
+```jsx
 // Hook
 const addEvent = useCommentEventCallback('addCommentAnnotation');
 useEffect(() => {
@@ -5997,6 +7497,11 @@ const subscription = commentElement.on('addCommentAnnotation').subscribe((event)
   event.addContext({ pageSection: 'main-content' });
 });
 subscription?.unsubscribe();
+```
+
+**Method 3: Via addManualComment API**
+
+```jsx
 const { client } = useVeltClient();
 
 const addCommentWithMetadata = () => {
@@ -6010,10 +7515,6 @@ const addCommentWithMetadata = () => {
   });
 };
 ```
-
-**Method 2: Via the addCommentAnnotation event (using addContext)**
-`addContext()` is available on the `addCommentAnnotation` and `addCommentAnnotationDraft` events. The legacy `onCommentAdd` prop still works but is listed under Legacy Methods.
-**Method 3: Via addManualComment API**
 
 **Accessing Context in Annotations:**
 
@@ -6045,6 +7546,8 @@ const feedbackComments = commentAnnotations?.filter(
 
 **Method 4: Via Global Context Provider (v5.0.0-beta.7+):**
 
+The provider runs whenever a new comment annotation is created and receives `(documentId, location)`.
+
 ```jsx
 import { useCallback, useEffect } from 'react';
 import { useSetContextProvider } from '@veltdev/react';
@@ -6067,11 +7570,15 @@ function AppWithContextProvider() {
 // Or via API
 const commentElement = client.getCommentElement();
 commentElement.setContextProvider((documentId, location) => ({ appVersion: '2.0' }));
+```
+
+**Method 5: Update context on an existing annotation**
+
+```jsx
 // Replace (default) or merge the annotation's context
 commentElement.updateContext('ANNOTATION_ID', { dashboardName: 'Q3 Revenue' }, { merge: true });
 ```
 
-**Method 5: Update context on an existing annotation**
 With `{ merge: true }`, the `access` object (Access Context) is merged key by key: adding a key keeps the others, passing `null` for a key deletes it, and removing the last key returns the comment to its default context. Updating context keeps the comment's visibility. See `permissions-private-comments-access-context.md`.
 
 **For HTML:**
@@ -6082,6 +7589,20 @@ With `{ merge: true }`, the `access` object (Access Context) is merged key by ke
   context='{"category": "feedback", "section": "header"}'
 ></velt-comment-tool>
 ```
+
+**Verification Checklist:**
+- [ ] Context object passed to comment tool or API
+- [ ] Context data accessible in annotations
+- [ ] Filtering uses correct context keys
+- [ ] JSON format correct for HTML attributes
+- [ ] `useSetContextProvider()` destructured to `{ setContextProvider }` and called inside an effect
+- [ ] `updateContext()` uses `{ merge: true }` when other context keys must survive
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/setup/popover - "Step 4: Add Metadata to the Comment"
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#addcontext - addContext
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#updatecontext - updateContext
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#setcontextprovider - setContextProvider
 
 ---
 
@@ -6303,6 +7824,23 @@ interface FullscreenClickEvent {
 
 Emitted by the Comment Sidebar V2 `fullscreenClick` event when the header fullscreen toggle is clicked. `fullScreen` is the **post-toggle** state, not the previous state. See `events-comment-lifecycle.md` for subscription patterns.
 
+**Verification:**
+- [ ] Using correct types for all comment-related data
+- [ ] commentId is number, annotationId is string
+- [ ] `Location` has an `id` (string or number) or a non-empty `locationName`
+- [ ] Status.type is one of 'default', 'ongoing', 'terminal'
+- [ ] Agent-authored annotations check `annotation.agent` for identity, not custom fields
+- [ ] `CommentAnnotation.involvedUserIds` / `mentionedUserIds` and `ReactionAnnotation.involvedUserIds` are treated as read-only server-derived fields (never written from the client)
+- [ ] `Comment.sourceType === 'agent'` is the discriminator for the agent-identity header; `Comment.agent` carries the AI payload (`AgentData` — see `data-agent-fields-query.md` for the shape)
+- [ ] `Comment.metadata` is opaque to Velt — application code owns its schema
+- [ ] `FullscreenClickEvent.fullScreen` is read as the post-toggle state (`true` = now fullscreen)
+
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/sdk/models/data-models#commentannotation - CommentAnnotation
+- https://docs.velt.dev/api-reference/sdk/models/data-models#comment - Comment
+- https://docs.velt.dev/api-reference/sdk/models/data-models#location - Location
+- https://docs.velt.dev/api-reference/sdk/models/data-models#fullscreenclickevent - FullscreenClickEvent
+
 ---
 
 ### 7.5 Individual Comment CRUD — Add, Update, Delete, Get Comments Within Threads
@@ -6342,6 +7880,9 @@ await commentElement.deleteComment({ annotationId: 'ANNOTATION_ID', commentId: 4
 
 // Returns Comment[] for the annotation
 const comments = await commentElement.getComment({ annotationId: 'ANNOTATION_ID' });
+```
+
+```jsx
 // Hooks
 const { addComment } = useAddComment();
 const { updateComment } = useUpdateComment();
@@ -6364,6 +7905,24 @@ const subscription = commentElement
 subscription?.unsubscribe();
 ```
 
+**Key details:**
+- `addComment()` adds a reply to an existing thread. To create a new thread, use `addCommentAnnotation()` (see `data-annotation-crud.md`).
+- `commentId` is a number.
+- `updateComment()` replaces the comment. It marks a comment "(edited)" only when the replaced comment already had content, so completing a content-less progress comment is not flagged as edited.
+- The `addComment` and `updateComment` events carry `isAssigneeChanged`; through `commentElement.updateComment()` it is always `false`.
+- Live progress rows and action chips are fields on the comment (`progress`, `actions`); see `data-comment-progress.md` and `data-comment-actions.md`.
+- In Other Frameworks, call the same methods on `Velt.getCommentElement()`.
+
+**Verification:**
+- [ ] `updateComment()` passes `comment.commentId`
+- [ ] `commentHtml` provided alongside `commentText` for rich text
+- [ ] Unread count subscriptions cleaned up on unmount
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#messages - Messages
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#updatecomment - updateComment
+- https://docs.velt.dev/api-reference/sdk/models/data-models#updatecommentrequest - UpdateCommentRequest
+
 ---
 
 ### 7.6 Mark Comments as Read or Unread
@@ -6380,7 +7939,7 @@ commentElement.markAsRead({ annotationIds: ['ann-123', 'ann-456'] });
 
 **Correct:**
 
-```js
+```jsx
 // Hook
 const { markAsRead, markAsUnread } = useCommentUtils();
 await markAsRead({ annotationId: 'ANNOTATION_ID' });
@@ -6392,10 +7951,27 @@ await commentElement.markAsUnread({ annotationId: 'ANNOTATION_ID' }); // removes
 
 // Mark several threads by looping
 await Promise.all(ids.map((annotationId) => commentElement.markAsRead({ annotationId })));
+```
+
+```js
 // Other Frameworks
 const commentElement = Velt.getCommentElement();
 await commentElement.markAsRead({ annotationId: 'ANNOTATION_ID' });
 ```
+
+**Key details:**
+- Only the current user's read state changes.
+- Unread badges (`commentCountType="unread"`), sidebar unread filters, and unread count subscriptions update automatically.
+- Choose the unread indicator style with `setUnreadIndicatorMode('minimal' | 'verbose')`.
+
+**Verification:**
+- [ ] Each call passes a single `annotationId`
+- [ ] Calls are awaited (they return promises)
+- [ ] Unread UI is driven by the unread count subscriptions, not local state
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#markasread - markAsRead
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#markasunread - markAsUnread
 
 ---
 
@@ -6497,6 +8073,37 @@ commentElement.getUnreadCommentAnnotationCountByLocationId('locationId').subscri
 
 With 2+ `documentIds`, count requests are auto-batched (tune with `debounceMs`, default 5000 ms). Set `filterGhostComments: true` to exclude ghost comments.
 
+**CommentRequestQuery (getCommentAnnotations / getCommentAnnotationsCount):**
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `organizationId` | `string` | Filter by organization |
+| `documentIds` | `string[]` | Documents to query (30 at a time for `getCommentAnnotations`) |
+| `folderId` / `allDocuments` | `string` / `boolean` | Query a whole folder |
+| `locationIds` / `locationId` | `string[]` / `string` | Filter by location |
+| `statusIds` | `string[]` | Filter by status |
+| `aggregateDocuments` | `boolean` | One combined count across documents |
+| `batchedPerDocument` | `boolean` | Batched listener for large document lists |
+| `debounceMs` | `number` | Auto-batching delay |
+| `filterGhostComments` | `boolean` | Exclude ghost comments |
+| `agentFields` | `string[]` | Agent-tagged annotations only (see `data-agent-fields-query.md`) |
+
+`fetchCommentAnnotations()` takes `FetchCommentAnnotationsRequest`, which adds `createdAfter` / `createdBefore` / `updatedAfter` / `updatedBefore`, `order`, `pageSize`, and `pageToken`.
+
+In Other Frameworks, call the same methods on `Velt.getCommentElement()`.
+
+**Verification:**
+- [ ] Mutation hooks destructured (`const { addCommentAnnotation } = useAddCommentAnnotation()`)
+- [ ] `addCommentAnnotation()` request wraps the thread in `annotation: { comments: [...] }`
+- [ ] Subscription responses read from `response.data[documentId]`, handling `null` while loading
+- [ ] Subscriptions cleaned up on unmount
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#threads - Threads
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#getcommentannotationscount - getCommentAnnotationsCount
+- https://docs.velt.dev/api-reference/sdk/models/data-models#commentrequestquery - CommentRequestQuery
+- https://docs.velt.dev/api-reference/sdk/models/data-models#fetchcommentannotationsrequest - FetchCommentAnnotationsRequest
+
 ---
 
 ### 7.8 Programmatic Composer Control — Submit, Clear, Read State
@@ -6514,7 +8121,7 @@ const data = commentElement.getComposerData();  // requires { targetComposerElem
 
 **Correct:**
 
-```html
+```jsx
 import { VeltCommentComposer, useVeltClient } from '@veltdev/react';
 
 function CustomSubmitForm() {
@@ -6542,12 +8149,30 @@ function CustomSubmitForm() {
     </>
   );
 }
+```
+
+```html
 <velt-comment-composer target-composer-element-id="composer-1"></velt-comment-composer>
 <script>
   const commentElement = Velt.getCommentElement();
   commentElement.submitComment({ targetComposerElementId: 'composer-1' });
 </script>
 ```
+
+**Key details:**
+- `clearComposer()` resets text, attachments, recordings, tagged users, assignments, and custom lists for that composer.
+- `getComposerData()` returns a `ComposerTextChangeEvent` synchronously; subscribe to `composerTextChange` for live updates.
+- To pre-fill files, use `setComposerFileAttachments({ files, annotationId?, targetElementId? })` (see `config-attachments.md`).
+
+**Verification:**
+- [ ] `targetComposerElementId` matches between the component and each API call
+- [ ] `clearComposer()` and `getComposerData()` receive `{ targetComposerElementId }`
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#submitcomment - submitComment
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#clearcomposer - clearComposer
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#getcomposerdata - getComposerData
+- https://docs.velt.dev/async-collaboration/comments/standalone-components/comment-composer/customize-behavior - Comment Composer
 
 ---
 
@@ -6569,7 +8194,7 @@ await commentElement.updateComment({
 
 **Correct (set actions, then handle the event):**
 
-```js
+```jsx
 const commentElement = client.getCommentElement();
 
 await commentElement.updateComment({
@@ -6597,6 +8222,9 @@ const subscription = commentElement.on('commentActionClicked').subscribe((event)
   handleAction(event.actionId, event.scope, event.commentId, event.action.metadata);
 });
 subscription?.unsubscribe();
+```
+
+```js
 // Other Frameworks
 const commentElement = Velt.getCommentElement();
 const subscription = commentElement.on('commentActionClicked').subscribe((event) => {
@@ -6606,6 +8234,14 @@ subscription?.unsubscribe();
 ```
 
 To resolve a suggestion from a chip, call `commentElement.acceptSuggestion({ annotationId })` or `rejectSuggestion({ annotationId })` in your handler.
+
+**Behavior:**
+- `CommentAnnotation.actions` is the per-row default regardless of who authored the row; a comment-level list overrides it for that row.
+- An explicitly empty comment-level list (`actions: []`, or every entry `hidden`) renders no row and does not fall back to the built-in Accept / Reject controls.
+- A progress row never inherits annotation-level actions; only actions set directly on the progress comment render there.
+- Each entry is validated on its own. It renders when `id` is a non-empty string, `hidden` is not `true`, and it has a non-empty `label` or `icon`. `disabled` keeps the chip visible but emits nothing.
+- Duplicate clicks are suppressed for 500 ms per `(annotationId, commentId, actionId)`.
+- REST: `actions` is accepted on `commentData[]` and on the annotation (max 20); updates replace the stored array outright.
 
 **Types:**
 
@@ -6632,6 +8268,19 @@ interface CommentActionClickedEvent {
 ```
 
 Restyle the chip row with the Actions wireframes or the `VeltCommentDialogActions` primitives.
+
+**Verification Checklist:**
+- [ ] A `commentActionClicked` listener performs every side effect; nothing is expected from Velt
+- [ ] Each action has a stable non-empty `id` and a `label` or `icon`
+- [ ] Suggestion cards that need Accept / Reject either omit `actions` or call `acceptSuggestion()` / `rejectSuggestion()` from a chip
+- [ ] Subscriptions are unsubscribed on unmount
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#actions - Actions
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#commentactionclicked - commentActionClicked
+- https://docs.velt.dev/api-reference/sdk/models/data-models#commentaction - CommentAction
+- https://docs.velt.dev/api-reference/sdk/models/data-models#commentactionclickedevent - CommentActionClickedEvent
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/primitives#veltcommentdialogactions - VeltCommentDialogActions primitives
 
 ---
 
@@ -6686,14 +8335,24 @@ await commentElement.updateComment({
 ```
 
 The Other Frameworks code is identical with `Velt.getCommentElement()`.
+
 **From your backend:** send `progress` on `commentData[]` in Add Comments / Add Comment Annotations, then update it with Update Comments (`updatedData.progress` replaces the stored object). Set `triggerNotification: true` at the request root of the final update to notify once when the answer lands. Keep progress writes to about one per second per comment. See `rest-comments-api.md`.
 
 **Behavior:**
+- The row renders only while `progress.state === 'active'`. `completed` renders the comment as a normal reply; `failed` and `cancelled` stop the indicator but keep any partial content visible.
+- `steps` is replaced on every update; there is no server-side append. Keep at most one step `active`. The label shown is the last `active` step, else the last step, else a default "Processing…". Labels render verbatim and are never translated.
+- Multiple concurrent runs each get their own row, ordered by server-stamped `createdAt` (`progress.startedAt` never affects ordering).
+- A thread whose only comments are content-less progress comments does not render until real content is written.
+- Completing a content-less progress comment does not mark it "(edited)".
+- A row with no updates goes stale after `commentProgressStaleAfter` ms (default `600000`) and stops rendering. Raise it for long-running agents:
 
-```html
+```jsx
 <VeltComments commentProgressStaleAfter={1800000} />
 // or
 commentElement.setCommentProgressStaleAfter(1800000);
+```
+
+```html
 <velt-comments comment-progress-stale-after="1800000"></velt-comments>
 ```
 
@@ -6717,6 +8376,20 @@ interface CommentProgressStep {
 ```
 
 Restyle the row with the Progress wireframes (`VeltCommentDialogProgressWireframe` with `.Dots` / `.Label`) or the `VeltCommentDialogProgress` primitives.
+
+**Verification Checklist:**
+- [ ] Every update reuses the same `commentId` as the initial progress comment
+- [ ] The final update writes content and sets `state` to `'completed'` (or `'failed'` / `'cancelled'`)
+- [ ] Each update sends the full `steps` array you want displayed
+- [ ] `commentProgressStaleAfter` raised for runs that can pause longer than 10 minutes
+- [ ] `visibleToUserIds` is not relied on for access control
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#progress - Progress
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#commentprogressstaleafter - commentProgressStaleAfter
+- https://docs.velt.dev/api-reference/sdk/models/data-models#commentprogress - CommentProgress
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/update-comments - Update Comments (progress, triggerNotification)
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/wireframes#progress-body - Progress wireframes
 
 ---
 
@@ -6788,7 +8461,17 @@ subscription?.unsubscribe();
 
 React hook equivalent: `const { data } = useCommentAnnotationsCount({ organizationId: 'org-123', agentFields: ['agent-1'] });`
 
+**CommentRequestQuery.agentFields:**
+
+| Field | Type | Optional | Description |
+|-------|------|----------|-------------|
+| `agentFields` | `string[]` | Yes | Filters count queries to annotations where `agent.agentFields` contains any of the provided values. When set, unread count is treated as equal to total count. |
+
+**Behavioral Note:** When `agentFields` is set, the returned `unread` count equals `total`. If your UI distinguishes read from unread, do not rely on `unread` when `agentFields` is active.
+
 **AgentData (set on `Comment.agent`):**
+
+The AI-agent identity + output payload attached to an agent-authored `Comment` (set on `Comment.agent` when `Comment.sourceType === 'agent'`). Read-only from the SDK; populated when the annotation is created via the REST API `agent` block. The `agentFields` array on this payload is the field that `CommentRequestQuery.agentFields` filters against.
 
 ```typescript
 interface AgentData {
@@ -6801,6 +8484,18 @@ interface AgentData {
 ```
 
 The annotation-level `CommentAnnotationAgent` (see `data-types-reference.md`) is a sibling shape used on `CommentAnnotation.agent`; `AgentData` is its comment-level counterpart on `Comment.agent`. Both surface `agentFields` for the same query-side filter.
+
+**Verification Checklist:**
+- [ ] `agentFields` values match the strings stored in `agent.agentFields` on the target annotations
+- [ ] UI does not display a meaningful unread badge when `agentFields` is set (unread equals total)
+- [ ] Subscription is cleaned up on component unmount
+- [ ] `organizationId` is always provided alongside `agentFields`
+- [ ] When reading `Comment.agent`, use the `AgentData` shape (`agentName`, `name`, `avatar`, `result.title`, `agentFields`); do not mutate it from the client
+
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/sdk/models/data-models#commentrequestquery - CommentRequestQuery model
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#getcommentannotationscount - getCommentAnnotationsCount
+- https://docs.velt.dev/api-reference/sdk/models/data-models#getcommentannotationscountresponse - GetCommentAnnotationsCountResponse
 
 ---
 
@@ -6896,6 +8591,16 @@ type CommentActivityActionType =
 
 <!-- TODO (v5.0.2-beta.7): Verify the complete member list for CommentActivityActionTypes. Release note confirms ANNOTATION_ADD and STATUS_CHANGE and that the constant exists; all 17 members above are supplied in the release delta but should be validated against SDK source before shipping to production. -->
 
+**Verification Checklist:**
+- [ ] `CommentActivityActionTypes` imported from `@veltdev/react` (React) or `@veltdev/types` (other frameworks)
+- [ ] `CommentActivityActionType` union type used for typed `actionTypes` arrays
+- [ ] No raw string literals used for comment action type values
+- [ ] Activity subscriptions cleaned up on unmount
+
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/sdk/models/data-models#activitysubscribeconfig - ActivitySubscribeConfig
+- https://docs.velt.dev/async-collaboration/comments/setup/popover - Comments Setup
+
 ---
 
 ### 7.13 Use Config-Based URL Endpoints Instead of Placeholder Callbacks in CommentAnnotationDataProvider
@@ -6970,6 +8675,32 @@ function DataProviderSetupCallbackBased() {
 }
 ```
 
+**CommentAnnotationDataProvider interface (v5.0.2-beta.8):**
+
+| Field | Type | Optional | Description |
+|-------|------|----------|-------------|
+| `get` | `(request: CommentAnnotationGetRequest) => Promise<ResolverResponse<CommentAnnotation>>` | Yes | Callback to fetch an annotation from your backend. Optional when `config.getConfig` is provided. |
+| `save` | `(request: CommentAnnotationSaveRequest) => Promise<ResolverResponse<void>>` | Yes | Callback to persist an annotation. Optional when `config.saveConfig` is provided. |
+| `delete` | `(request: CommentAnnotationDeleteRequest) => Promise<ResolverResponse<void>>` | Yes | Callback to delete an annotation. Optional when `config.deleteConfig` is provided. |
+| `config.getConfig` | `{ url: string }` | Yes | URL endpoint for fetch operations. |
+| `config.saveConfig` | `{ url: string }` | Yes | URL endpoint for save operations. |
+| `config.deleteConfig` | `{ url: string }` | Yes | URL endpoint for delete operations. |
+| `config.additionalFields` | `string[]` | Yes | Fields copied to your resolver endpoint payload but **retained** in Velt's storage. Use for data replication without removal. |
+| `config.fieldsToRemove` | `string[]` | Yes | Fields **stripped from Velt's DB** before storage. Use for PII removal. Can coexist with `additionalFields` on the same config object. |
+
+The same `get?`, `save?`, `delete?` optionality applies to `ReactionAnnotationDataProvider` and `AttachmentDataProvider`.
+
+**Verification Checklist:**
+- [ ] Config-based registrations omit placeholder `get`/`save`/`delete` stub callbacks
+- [ ] `additionalFields` lists only field names that exist in your comment data model and are safe to replicate
+- [ ] `fieldsToRemove` lists PII or sensitive fields that must not be persisted in Velt's storage
+- [ ] Callback-based and config-based forms are not mixed on the same provider entry
+- [ ] `setDataProviders` is called after the Velt client is initialized
+
+**Source Pointers:**
+- https://docs.velt.dev/self-hosting/partial/comments - Comments data provider (endpoint and function based)
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#setdataproviders - setDataProviders()
+
 ---
 
 ### 7.14 Use triggerActivities to Create Activity Records via REST API
@@ -6979,6 +8710,8 @@ function DataProviderSetupCallbackBased() {
 When adding comments via the `POST /v2/commentannotations/add` REST endpoint, set `triggerActivities: true` on each `CommentData` entry to automatically create an activity record for that comment. Without this flag the comment is persisted but no activity record is generated, even if the workspace has `activityServiceConfig` enabled.
 
 Note: `triggerActivities` creates activity records; `triggerNotification` sends notifications. These are independent flags — one does not imply the other.
+
+**Prerequisite:** The workspace must have `activityServiceConfig` enabled at the workspace level before `triggerActivities` has any effect.
 
 **Incorrect (omitting triggerActivities when activity tracking is required):**
 
@@ -7019,6 +8752,23 @@ Note: `triggerActivities` creates activity records; `triggerNotification` sends 
 }
 ```
 
+**Field Reference — CommentData schema (v5.0.2-beta.7):**
+
+| Field | Type | Default | Description |
+|---|---|---|---|
+| `triggerActivities` | `boolean` | `false` | When `true`, an activity record is automatically created for this comment addition. Requires workspace `activityServiceConfig` to be enabled. Set at the individual `CommentData` level, not the annotation level. |
+| `triggerNotification` | `boolean` | `false` | When `true`, triggers in-app notifications, email notifications, and webhooks matching the SDK's native behavior. Independent of `triggerActivities`. |
+
+**Verification Checklist:**
+- [ ] `triggerActivities` is set inside `commentData[]`, not at the `commentAnnotations[]` level
+- [ ] Workspace has `activityServiceConfig` enabled before relying on this flag
+- [ ] `triggerActivities` and `triggerNotification` are set independently based on requirements
+- [ ] Request body uses `commentData` (array) as the key, not `comments`
+
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations - POST /v2/commentannotations/add endpoint reference
+- https://docs.velt.dev/async-collaboration/activity/overview - Activity Service overview and activityServiceConfig
+
 ---
 
 ## 8. Debugging & Testing
@@ -7035,8 +8785,9 @@ Common issues and solutions when integrating Velt Comments.
 
 **Issue: Components Not Rendering**
 
-**Solutions:**
+**Symptoms:** VeltComments, VeltCommentTool, etc. don't appear
 
+**Solutions:**
 ```jsx
 // 1. Ensure VeltProvider wraps all Velt components
 <VeltProvider apiKey="YOUR_API_KEY">
@@ -7053,10 +8804,10 @@ console.log('API Key:', process.env.NEXT_PUBLIC_VELT_API_KEY);
 ```
 
 **Issue: Users Can't See Each Other's Comments**
+
 **Symptoms:** Comments visible to creator only
 
 **Solutions:**
-
 ```jsx
 // 1. Ensure same organizationId for all users
 const user = {
@@ -7072,10 +8823,10 @@ client.setDocuments([{ id: 'same-document-id' }]);
 ```
 
 **Issue: Comments Not Persisting**
+
 **Symptoms:** Comments disappear on refresh
 
 **Solutions:**
-
 ```jsx
 // 1. Verify authentication is working
 const user = await client.getCurrentUser();
@@ -7093,10 +8844,10 @@ client.setDocuments([{ id: 'project-123-document' }]);
 ```
 
 **Issue: Popover Comments Not Attaching to Elements**
+
 **Symptoms:** Comments appear in wrong location
 
 **Solutions:**
-
 ```jsx
 // 1. Ensure popoverMode is enabled
 <VeltComments popoverMode={true} />
@@ -7114,10 +8865,10 @@ client.setDocuments([{ id: 'project-123-document' }]);
 ```
 
 **Issue: Video/Lottie Comments Not Syncing**
+
 **Symptoms:** Comments don't appear at correct timestamps
 
 **Solutions:**
-
 ```jsx
 // 1. Set totalMediaLength
 <VeltCommentPlayerTimeline totalMediaLength={videoDuration} />
@@ -7132,10 +8883,10 @@ client.removeLocation();  // or client.unsetLocationsIds()
 ```
 
 **Issue: Editor Comments (TipTap/Slate/Lexical) Not Working**
+
 **Symptoms:** Can't add comments to editor text
 
 **Solutions:**
-
 ```jsx
 // 1. Disable default text mode
 <VeltComments textMode={false} />
@@ -7167,6 +8918,16 @@ const commentElement = Velt.getCommentElement();
 commentElement.getAllCommentAnnotations().subscribe(console.log);
 ```
 
+**Verification Checklist:**
+- [ ] API key valid and domain safelisted
+- [ ] VeltProvider wraps all Velt components
+- [ ] User authenticated before document setup
+- [ ] Document ID is stable and consistent
+- [ ] Mode-specific props configured correctly
+
+**Source Pointers:**
+- https://docs.velt.dev/get-started/quickstart - "Debugging" section
+
 ---
 
 ### 8.2 Verify Velt Comments Integration
@@ -7178,6 +8939,90 @@ Use this checklist to verify your Velt Comments integration is working correctly
 **1. SDK Initialization Check**
 
 Open browser console and run:
+```javascript
+// Should return document metadata
+await Velt.getMetadata();
+
+// Should return user object
+await Velt.getCurrentUser();
+```
+
+**2. Core Setup Verification**
+
+- [ ] VeltProvider wraps application with valid API key
+- [ ] Domain added to "Managed Domains" in Velt Console
+- [ ] User authenticated with userId, organizationId, name, email
+- [ ] Document set with stable, unique ID
+- [ ] VeltComments component added to app root
+
+**3. Comment Creation Test**
+
+- [ ] Click VeltCommentTool button
+- [ ] Cursor changes to comment pin (Freestyle mode)
+- [ ] Click on page creates comment dialog
+- [ ] Submit comment successfully
+- [ ] Comment persists after page refresh
+
+**4. Multi-User Test**
+
+- [ ] Open two browsers (one incognito)
+- [ ] Login as different users with same organizationId
+- [ ] Set same documentId in both
+- [ ] Create comment in one browser
+- [ ] Comment appears in other browser
+
+**5. Mode-Specific Tests**
+
+**Freestyle Mode:**
+- [ ] VeltCommentTool button visible
+- [ ] Click anywhere creates comment
+
+**Popover Mode:**
+- [ ] popoverMode={true} set
+- [ ] Comments attach to target elements
+- [ ] Triangle or bubble indicator visible
+
+**Text Mode:**
+- [ ] Select text shows comment tool
+- [ ] Comment attaches to selection
+- [ ] Highlighted text marked
+
+**Stream Mode:**
+- [ ] streamMode={true} set
+- [ ] Comments appear in right column
+- [ ] Stream scrolls with content
+
+**Video/Lottie:**
+- [ ] Timeline shows comment bubbles
+- [ ] Comments link to correct timestamps
+- [ ] Clicking comment seeks media
+
+**Editor (TipTap/Slate/Lexical):**
+- [ ] textMode={false} set
+- [ ] Extension installed and configured
+- [ ] Comments render in editor
+- [ ] renderComments called on annotation change
+
+**6. Sidebar Verification**
+
+- [ ] VeltCommentsSidebar renders
+- [ ] VeltSidebarButton toggles sidebar
+- [ ] Comments listed in sidebar
+- [ ] Click navigates to comment
+
+**7. Console Error Check**
+
+Open browser console and check for:
+- [ ] No Velt-related errors
+- [ ] No "Invalid API key" errors
+- [ ] No network errors to Velt endpoints
+- [ ] No authentication errors
+
+**8. Performance Check**
+
+- [ ] Comments load without significant delay
+- [ ] No UI blocking during comment operations
+- [ ] Smooth interaction with comment dialogs
 
 **Quick Test Script:**
 
@@ -7203,6 +9048,9 @@ async function testVeltSetup() {
 }
 testVeltSetup();
 ```
+
+**Source Pointers:**
+- https://docs.velt.dev/get-started/quickstart - "Step 8: Verify Setup"
 
 ---
 
@@ -7275,6 +9123,35 @@ commentElement.enablePrivateMode({ type: 'organizationPrivate' });
 // removing the last key returns the comment to its default context.
 commentElement.updateContext('ANNOTATION_ID', { access: { widgetId: 3, region: null } }, { merge: true });
 ```
+
+**How the two settings behave together:**
+- Making a comment private keeps its Access Context, and updating Access Context (even clearing `access` with `null`) keeps its visibility.
+- You can edit a private comment while Access Context is enabled.
+- A private comment appears only under its own Access Context, for everyone including the author, and reaches only the users its visibility allows.
+- Comments created with context from `setContextProvider()` or a component `context` prop (`VeltCommentTool`, `VeltCommentComposer`) load right away and survive reloads, the same as `addContext()`.
+- Turning a loaded comment private removes it from other viewers immediately; turning it public again keeps it loadable when Access Context is off.
+- Reactions, recordings, and area annotations on a private comment do not inherit its Access Context, and viewers who cannot see the parent do not receive them.
+- The write gate checks the **acting** user (not the comment author); admins are exempt so moderation works. An empty access field list grants access.
+- Notifications follow visibility: users who cannot see a private comment get no notification, on any channel. Comment webhooks for private comments carry a `visibility` object (`type`, `userIds`, `organizationIds`, `organizationId`); public comments carry none. Basic (V1) webhooks also include `accessDeniedUsers`. Use it to filter downstream fan-out.
+- Inside `context.accessFields`, the prefixes `__velt_private_self:` and `organizationPrivate:` are reserved for visibility. Never name an Access Context field `organizationPrivate`; Velt does not block it at runtime.
+
+**Prerequisites:**
+- Enable **Private Comments** in the Velt Console. Without it, visibility choices do not filter the audience.
+- Set `isContextEnabled: true` on your Permission Provider to enforce Access Context.
+
+**Verification Checklist:**
+- [ ] Private Comments enabled in the Velt Console
+- [ ] Permission Provider sets `isContextEnabled: true` when Access Context must be enforced
+- [ ] Visibility is set separately from context; context is never used as the only privacy control
+- [ ] No Access Context field is named `organizationPrivate`
+- [ ] `updateContext()` uses `{ merge: true }` when other access keys must be kept
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#private-comments-with-access-context - Private comments with Access Context
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#updatecontext - updateContext
+- https://docs.velt.dev/key-concepts/overview#d-set-feature-level-permissions-using-access-context - Access Context permissions
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#notifications-for-private-comments - Notifications for private comments
+- https://docs.velt.dev/webhooks/advanced#comment-visibility - Comment visibility on webhooks
 
 ---
 
@@ -7478,6 +9355,15 @@ commentElement.addComment({
 });
 ```
 
+**API Reference:**
+
+| Method | Signature | Description |
+|---|---|---|
+| `enablePrivateMode` | `enablePrivateMode(config: PrivateModeConfig): void` | Sets global visibility for all new comments. |
+| `disablePrivateMode` | `disablePrivateMode(): void` | Reverts all new comments to default public visibility. |
+| `updateVisibility` | `updateVisibility(config: CommentVisibilityConfig): Promise<any>` | Updates visibility of a specific annotation; the annotation is identified by `config.annotationId` (a single object, not two arguments). |
+| `addComment` | `addComment(request: AddCommentRequest): Promise<AddCommentEvent>` | Creates a comment; accepts optional `visibility` to set `CommentVisibilityConfig` at creation time. |
+
 **Type Definitions:**
 
 ```typescript
@@ -7502,6 +9388,24 @@ interface AddCommentRequest {
 }
 ```
 
+**Key Behaviors:**
+
+- `enablePrivateMode()` applies to all **new** comments created after the call. It does not retroactively change existing annotations.
+- `disablePrivateMode()` resets the global default to `'public'` for subsequent new comments.
+- For `'organizationPrivate'` type, `organizationId` defaults to the logged-in user's organization. Pass `organizationIds` to make a comment visible to several organizations or teams (pair with `contactElement.updateOrgList()` for the "Selected Teams" picker).
+- `enablePrivateMode()` called before the user is identified keeps its config, and restricted comments always carry their actual author.
+- Visibility and Access Context are independent: setting visibility keeps the comment's `access` context, and a viewer must pass both checks. See `permissions-private-comments-access-context.md`.
+- Comment notifications follow visibility: a user who cannot see a private comment gets no notification for it on any channel.
+- For `'restricted'` type, the current user is **always** auto-appended to `userIds` — even when an explicit `userIds` list is provided. If the current user is not in the list, they are automatically included. Do not assume passing `userIds: ['user-b']` restricts the comment to only `user-b`.
+- `updateVisibility()` requires `annotationId` and changes only that specific annotation.
+- `addComment()` accepts an optional `visibility: CommentVisibilityConfig` field (v5.0.2-beta.4+) to set visibility at creation time, eliminating a separate `updateVisibility()` call when visibility is known upfront.
+
+---
+
+#### Breaking Change: CommentVisibilityType Value Renames (v5.0.1-beta.4)
+
+The string literal values of `CommentVisibilityType` were renamed in v5.0.1-beta.4. Passing the old values will **silently** apply incorrect (or no) visibility — there is no runtime error.
+
 **Before (v5.0.1-beta.3 and earlier — now broken):**
 
 ```typescript
@@ -7520,6 +9424,24 @@ commentElement.updateVisibility({ annotationId: 'a1', type: 'restricted' });    
 commentElement.enablePrivateMode({ type: 'organizationPrivate' });                    // CORRECT
 ```
 
+**Migration Checklist:**
+- [ ] Search codebase for `type: 'organization'` passed to `updateVisibility()` or `enablePrivateMode()` — replace with `'organizationPrivate'`
+- [ ] Search codebase for `type: 'self'` passed to `updateVisibility()` or `enablePrivateMode()` — replace with `'restricted'`
+- [ ] Audit any serialized `CommentVisibilityType` values stored in databases or localStorage
+
+**Verification Checklist:**
+- [ ] Visibility feature is enabled in [Velt Console](https://console.velt.dev/dashboard/config/appconfig) before using any visibility API
+- [ ] `enablePrivateMode()` called before the user creates any new comments in the session
+- [ ] `disablePrivateMode()` called in cleanup (e.g., `useEffect` return) to avoid leaking visibility state across routes
+- [ ] `CommentVisibilityType` values use the new names: `'public'`, `'organizationPrivate'`, `'restricted'`
+- [ ] `updateVisibility()` includes a valid `annotationId` for per-annotation changes
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#private-comments-beta - Private Comments
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#updatevisibility - updateVisibility
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#updatevisibility - updateVisibility() reference
+- https://docs.velt.dev/api-reference/sdk/models/data-models#commentvisibilityconfig - CommentVisibilityConfig
+
 ---
 
 ### 9.3 Moderation & Permissions
@@ -7532,11 +9454,13 @@ commentElement.enablePrivateMode({ type: 'organizationPrivate' });              
 - **Anonymous (email-only) users:** `permissions-anonymous-user-data-provider.md`.
 - **Moderation (approval, read-only, admin-only resolve, suggestion resolution):** `config/config-moderation.md`.
 
+#### Access control basics
 
 - Assign users as **Editor** or **Viewer** per resource (organization, folder, document) through your JWT token permissions or the access REST APIs. Editors can write collaboration data; Viewers are read-only.
 - Users can only access documents in their own organization unless you grant cross-organization access.
 - Feature-level partitioning of comments uses Access Context with `isContextEnabled: true` on your Permission Provider.
 
+#### Source Pointers
 
 - https://docs.velt.dev/key-concepts/overview - Access control concepts
 - https://docs.velt.dev/security/auth-tokens - Auth tokens
@@ -7615,6 +9539,35 @@ const sub2 = commentElement.on('sidebarButtonClicked').subscribe((event) => {
 sub1.unsubscribe();
 sub2.unsubscribe();
 ```
+
+**Event Alias Reference:**
+
+| Past-Tense (canonical, new code) | Present-Tense (legacy, still works) | Type |
+|----------------------------------|--------------------------------------|------|
+| `commentToolClicked` | `commentToolClick` | `CommentToolClickedEvent extends CommentToolClickEvent` |
+| `sidebarButtonClicked` | `sidebarButtonClick` | `SidebarButtonClickedEvent extends SidebarButtonClickEvent` |
+
+<!-- TODO (v5.0.2-beta.2): Verify exact payload fields for CommentToolClickEvent and SidebarButtonClickEvent. Release note documents the type names and alias relationship but does not enumerate individual payload fields. Refer to https://docs.velt.dev/api-reference/sdk/models/data-models for the full field listing of the parent types. -->
+
+**Key Behaviors:**
+
+- `commentToolClicked` and `sidebarButtonClicked` are past-tense aliases introduced in v5.0.2-beta.2. Both names fire simultaneously when the corresponding UI element is clicked — subscribing to either name receives the same event.
+- `CommentToolClickedEvent` extends `CommentToolClickEvent`; `SidebarButtonClickedEvent` extends `SidebarButtonClickEvent`. Payload fields match the parent types — refer to the data-models documentation for the full field listing.
+- Migration from the present-tense names is non-breaking. Existing subscriptions on `commentToolClick` or `sidebarButtonClick` continue to work without modification.
+- In React, use `useCommentEventCallback` with a `useEffect` that depends on the returned event value.
+- In non-React frameworks, always call `.unsubscribe()` on each subscription to avoid memory leaks.
+
+**Verification Checklist:**
+- [ ] New code subscribes to `commentToolClicked` and `sidebarButtonClicked` (past-tense), not the present-tense originals
+- [ ] React usage uses `useCommentEventCallback('commentToolClicked')` / `useCommentEventCallback('sidebarButtonClicked')` with separate `useEffect` hooks for each event
+- [ ] Non-React usage calls `.unsubscribe()` on each subscription when the listener is destroyed
+- [ ] Payload field access is validated against the data-models documentation for `CommentToolClickEvent` / `SidebarButtonClickEvent`
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#event-subscription - `commentToolClicked` and `sidebarButtonClicked` event reference
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks - `useCommentEventCallback` hook
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#on - `commentElement.on()` subscription pattern
+- https://docs.velt.dev/api-reference/sdk/models/data-models - Parent type payload field details
 
 ---
 
@@ -7750,6 +9703,23 @@ interface ResolverResponse<T> {
   data: T;
 }
 ```
+
+**Key Behaviors:**
+
+- The provider is called automatically at comment save time — not on every keystroke or mention.
+- `resolveUserIdsByEmail` receives all unresolved emails for the annotation in a single batch call.
+- `setAnonymousUserDataProvider(resolver)` and `setDataProviders({ anonymousUser: resolver })` are equivalent; use whichever fits your initialization pattern.
+
+**Verification Checklist:**
+- [ ] `setAnonymousUserDataProvider()` or `setDataProviders({ anonymousUser })` is called once at initialization inside a `useEffect` that depends on `client`
+- [ ] `resolveUserIdsByEmail` returns `{ statusCode: number, success: boolean, data: Record<string, string> }` mapping each input email to its userId
+- [ ] The provider handles the case where an email cannot be resolved (e.g., returns an empty string or omits the key)
+- [ ] Subscription/cleanup is not needed — this is a one-time registration, not an observable
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#setanonymoususerdataprovider - setAnonymousUserDataProvider
+- https://docs.velt.dev/self-hosting/partial/users#anonymous-user-resolution - Anonymous user resolution guide
+- https://docs.velt.dev/api-reference/sdk/models/data-models#anonymoususerdataprovider - AnonymousUserDataProvider and related type definitions
 
 ---
 
@@ -7889,6 +9859,51 @@ interface VisibilityOptionClickedEvent {
 }
 ```
 
+**API Reference:**
+
+| API | Type | Signature | Description |
+|-----|------|-----------|-------------|
+| `visibilityOptions` | prop | `boolean` (default: `false`) | Show or hide the visibility banner in the comment composer. |
+| `enableVisibilityOptions` | method | `enableVisibilityOptions(): void` | Programmatically show the visibility banner. |
+| `disableVisibilityOptions` | method | `disableVisibilityOptions(): void` | Programmatically hide the visibility banner. |
+| `visibilityOptionClicked` | event | `VisibilityOptionClickedEvent` | Fires when the user selects a visibility option from the banner. |
+
+**Key Behaviors:**
+
+- Enable **Private Comments** in the Velt Console first. Without it, the "Visible to" dropdown does not filter the audience: comments stay visible to everyone on the document even after a user picks a non-public option.
+- Users can also change visibility after submission from the thread options menu. Supply the "Selected Teams" options with `contactElement.updateOrgList({ orgList })`.
+- The visibility banner is hidden by default (`visibilityOptions={false}`). It must be explicitly enabled via the prop or `enableVisibilityOptions()`.
+- The `visibilityOptionClicked` event fires each time the user selects an option — not on submission.
+- When `visibility === 'restrictedSelectedPeople'`, the event includes a `users` array with the selected user objects. For other visibility types, `users` is `undefined`.
+- In React, `useCommentEventCallback('visibilityOptionClicked')` returns the latest event; use it inside a `useEffect` that depends on the returned value.
+- In non-React frameworks, always call `.unsubscribe()` to avoid memory leaks when the listener is no longer needed.
+- The UI surface is a persistent banner below the composer (replaces the previous two-option dropdown). Customize it via `VeltCommentDialogWireframe.VisibilityBanner.*`.
+
+**Migration Checklist (from v5.0.2-beta.3 and earlier):**
+- [ ] Replace `visibilityOptionDropdown={true}` with `visibilityOptions={true}` on `<VeltComments>`
+- [ ] Replace `visibility-option-dropdown="true"` with `visibility-options="true"` on `<velt-comments>`
+- [ ] Replace `enableVisibilityOptionDropdown()` with `enableVisibilityOptions()`
+- [ ] Replace `disableVisibilityOptionDropdown()` with `disableVisibilityOptions()`
+- [ ] Replace `visibility === 'private'` checks with `visibility === 'personal'`
+- [ ] Update `VisibilityOptionClickedEvent.visibility` type references from `'public' | 'private'` to `CommentVisibilityOptionType`
+
+**Migration Checklist (from v5.0.2-beta.4 and earlier — v5.0.2-beta.5 rename):**
+- [ ] Replace `visibility === 'personal'` checks with `visibility === 'restrictedSelf'`
+- [ ] Replace `visibility === 'selected-people'` checks with `visibility === 'restrictedSelectedPeople'`
+- [ ] Replace `visibility === 'org-users'` checks with `visibility === 'organizationPrivate'`
+- [ ] Update `CommentVisibilityOptionType` references to the new template-literal form: `'restrictedSelf' | 'restrictedSelectedPeople' | 'organizationPrivate' | 'public'`
+
+**Verification Checklist:**
+- [ ] `visibilityOptions={true}` set on `<VeltComments>` or `enableVisibilityOptions()` called programmatically before the user opens the composer
+- [ ] `disableVisibilityOptions()` called in cleanup (e.g., `useEffect` return) if enabled programmatically
+- [ ] `visibilityOptionClicked` listener uses `useCommentEventCallback` in React or `.on(...).subscribe(...)` in other frameworks
+- [ ] Non-React subscriptions call `.unsubscribe()` when the listener is destroyed
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#visibilityoptions - visibilityOptions banner
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#getcommentelement - `getCommentElement()` reference
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks - `useCommentEventCallback` hook
+
 ---
 
 ### 9.7 Use CommentDialogActionService.isSubmitInFlight() to Guard Against Duplicate Submits
@@ -7896,6 +9911,8 @@ interface VisibilityOptionClickedEvent {
 **Impact: LOW-MEDIUM (Without in-flight tracking, custom submit actions in sidebar custom-actions hosts can trigger duplicate comment saves or spurious draft events)**
 
 When building custom-actions sidebar hosts that intercept the comment submit flow, `CommentDialogActionService.isSubmitInFlight()` prevents duplicate submits and spurious auto-draft saves that fire before the composer reset signal propagates.
+
+**When to use:** Only relevant for advanced custom-actions hosts (apps using `customActions={true}` on `VeltCommentsSidebar` with `setCommentSidebarData()`). Standard integrations do not need this.
 
 **API:**
 
@@ -8008,6 +10025,32 @@ interface CommentSaveTriggeredEvent {
 }
 ```
 
+**Event Timing Reference:**
+
+| Event | Fires When | Use For |
+|-------|-----------|---------|
+| `commentSaveTriggered` | Immediately on save button click | Instant UI feedback (spinners, disabled states) |
+| `commentSaved` | After async database write confirms | Webhooks, analytics, external sync |
+
+**Key Behaviors:**
+
+- `commentSaveTriggered` fires **before** the database write — it is not a confirmation of persistence.
+- Do not trigger webhooks or external sync from `commentSaveTriggered`; those side-effects require confirmation from `commentSaved`.
+- `CommentSaveTriggeredEvent` now includes the full `commentAnnotation` object (v5.0.2-beta.4+), providing comment content, assignment, and visibility state without a separate lookup.
+- In React, `useCommentEventCallback('commentSaveTriggered')` returns the latest event value and updates on each new save click.
+- In non-React frameworks, always call `.unsubscribe()` to avoid memory leaks when the listener is no longer needed.
+
+**Verification Checklist:**
+- [ ] Immediate UI side-effects (spinners, disabled inputs) use `commentSaveTriggered`, not `commentSaved`
+- [ ] Post-persist side-effects (webhooks, analytics, external sync) use `commentSaved`, not `commentSaveTriggered`
+- [ ] React usage uses `useCommentEventCallback('commentSaveTriggered')` with a `useEffect` that depends on `triggeredEvent`
+- [ ] Non-React usage calls `.unsubscribe()` to clean up the subscription when the listener is destroyed
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#event-subscription - `commentSaveTriggered` event and payload reference
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks - `useCommentEventCallback` hook
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#on - `commentElement.on()` subscription pattern
+
 ---
 
 ### 9.9 Use isAnnotationPrivate() for Unified Visibility Routing
@@ -8036,11 +10079,13 @@ The SDK's internal `isAnnotationPrivate()` returns `true` when any of these cond
 - `annotation.iam.accessMode === 'private'` (legacy)
 - `annotation.visibilityConfig.type === 'restricted'`
 - `annotation.visibilityConfig.type === 'organizationPrivate'`
+
 This utility is used internally by these primitive components:
 - `VeltCommentDialogOptionsDropdownContentMakePrivate` — auto-suppressed when `featureState.visibilityOptions === true`
 - `VeltCommentDialogOptionsDropdownContentMakePrivateEnable` — shown when `isAnnotationPrivate()` returns `false`
 - `VeltCommentDialogOptionsDropdownContentMakePrivateDisable` — shown when `isAnnotationPrivate()` returns `true`
 - The private badge and banner are auto-suppressed when visibility options are active
+
 In wireframes, bind to `{isPrivateComment}` (Comment Bubble and Comment Dialog wireframe variables), which reflects both models.
 
 **How to set visibility:**
@@ -8106,6 +10151,16 @@ await addComment({
 ```
 
 **Two enum systems:** The API methods use `CommentVisibilityConfig` with 3 values (`'public'`, `'organizationPrivate'`, `'restricted'`). The UI wireframes use `CommentVisibilityOption` with 4 values (`'restrictedSelf'`, `'restrictedSelectedPeople'`, `'organizationPrivate'`, `'public'`). The API's single `'restricted'` value covers both "self-only" and "selected people" — distinguished by whether `userIds` is provided.
+
+**Verification Checklist:**
+- [ ] Privacy checks cover `iam.accessMode === 'private'` and `visibilityConfig.type` of `restricted` / `organizationPrivate`
+- [ ] Wireframes use `{isPrivateComment}` rather than reading one field
+- [ ] Visibility changes go through `updateVisibility()` / `enablePrivateMode()`, not by writing `iam` directly
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/primitives#veltcommentdialogoptionsdropdowncontentmakeprivateenable - Make-private enable/disable variants
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-bubble/wireframe-variables - `isPrivateComment` variable
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#private-comments-beta - Private Comments
 
 ---
 
@@ -8182,6 +10237,25 @@ interface CommentSavedEvent {
 }
 ```
 
+**Key Behaviors:**
+
+- `commentSaved` fires **after** write confirmation, not on optimistic update. It is safe to use as the trigger for backend side-effects.
+- The event is emitted once per annotation save — both for new annotations and updates to existing ones.
+- `savedEvent.commentAnnotation` contains the full persisted annotation object, including any server-assigned fields.
+- In React, `useCommentEventCallback('commentSaved')` returns the latest event value; it updates whenever a new save occurs.
+- In non-React frameworks, the `.subscribe()` callback receives each event in order. Always call `.unsubscribe()` to avoid memory leaks.
+
+**Verification Checklist:**
+- [ ] Side-effects (webhooks, logging, external sync) are triggered from `commentSaved`, not from optimistic callbacks like `onCommentAdd`
+- [ ] React usage uses `useCommentEventCallback('commentSaved')` with a `useEffect` that depends on `savedEvent`
+- [ ] Non-React usage calls `.unsubscribe()` to clean up the subscription when the component or listener is destroyed
+- [ ] `annotationId` from the event is used to reference the saved annotation in downstream systems
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#event-subscription - `commentSaved` event and payload reference
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks - `useCommentEventCallback` hook
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#on - `commentElement.on()` subscription pattern
+
 ---
 
 ## 10. Attachments & Reactions
@@ -8198,8 +10272,25 @@ File attachment control and emoji reaction features. Includes attachment downloa
 - **Enabling attachments, file-type limits, programmatic uploads:** `config/config-attachments.md` (`setAllowedFileTypes`, `addAttachment`, `setComposerFileAttachments`).
 - **Comment reactions (enable, custom set, add / delete / toggle):** `config/config-reactions.md`.
 
+#### Video player reactions
 
 `VeltReactionTool` adds reactions to video content and needs a `videoPlayerId`:
+
+```jsx
+import { VeltReactionTool } from '@veltdev/react';
+
+<VeltReactionTool videoPlayerId={videoPlayerId} onReactionToolClick={() => onReactionToolClick()} />
+```
+
+```html
+<velt-reaction-tool video-player-id="videoPlayerId"></velt-reaction-tool>
+```
+
+#### Source Pointers
+
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#attachments - Attachments
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#reactions - Reactions
+- https://docs.velt.dev/async-collaboration/comments/setup/video-player-setup/custom-video-player-setup - VeltReactionTool
 
 ---
 
@@ -8265,9 +10356,12 @@ function AttachmentClickListener() {
 
 **Correct (disable download in HTML / Other Frameworks):**
 
-```typescript
+```html
 <!-- Declarative attribute -->
 <velt-comments attachment-download="false"></velt-comments>
+```
+
+```typescript
 // Imperative API methods (non-React)
 const commentElement = Velt.getCommentElement();
 commentElement.disableAttachmentDownload();
@@ -8280,6 +10374,13 @@ commentElement.on('attachmentDownloadClicked').subscribe((event) => {
 });
 ```
 
+**`attachmentDownload` Prop Reference:**
+
+| Prop / Attribute | Type | Default | Description |
+|---|---|---|---|
+| `attachmentDownload` (React) | boolean | `true` | Controls whether clicking an attachment triggers a file download. Set to `false` to suppress download. |
+| `attachment-download` (HTML) | string | `"true"` | Same control via HTML attribute. Use `"false"` to suppress download. |
+
 **`AttachmentDownloadClickedEvent` Interface:**
 
 ```typescript
@@ -8291,7 +10392,18 @@ interface AttachmentDownloadClickedEvent {
 }
 ```
 
+**Key Behaviors:**
+
+- Download is enabled by default — no breaking change when upgrading.
+- `attachmentDownloadClicked` fires on **every** attachment click, even when download is enabled.
+- Use the event to open a custom file viewer, log analytics, or enforce access control without needing to disable downloads globally.
+- `enableAttachmentDownload()` and `disableAttachmentDownload()` operate on `commentElement` obtained via `client.getCommentElement()` (React) or `Velt.getCommentElement()` (non-React).
+
 **CSS State Classes:**
+
+Velt applies the following CSS classes to composer attachment elements to reflect loading and edit-mode states. These classes allow styling attachment states without needing to use wireframes.
+
+> **Shadow DOM note:** These classes live inside Velt's Shadow DOM by default. To target them with external CSS you must either disable Shadow DOM (`shadowDom={false}` / `shadow-dom="false"`) or use CSS custom properties. See the `ui-comment-dialog` rule for the Shadow DOM disable pattern.
 
 ```css
 /* Base container class applied to every composer attachment wrapper */
@@ -8313,6 +10425,17 @@ interface AttachmentDownloadClickedEvent {
 ```
 
 <!-- TODO (v5.0.1-beta.2): Verify exact DOM element hierarchy for .velt-composer-attachment-container and whether shadowDom must be disabled to target these classes, or whether CSS custom properties suffice. Release note confirms classes exist and their semantic meaning but does not specify DOM depth or shadow DOM requirements. -->
+
+**Verification Checklist:**
+- [ ] `attachmentDownload={false}` or `disableAttachmentDownload()` called to suppress default download
+- [ ] `attachmentDownloadClicked` event handler subscribed to handle click side-effects
+- [ ] Subscription cleaned up on component unmount (non-React: `unsubscribe()`)
+- [ ] Shadow DOM disabled (`shadowDom={false}`) if targeting CSS state classes with external stylesheets
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#attachmentdownload - Attachment download control
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks - `useCommentEventCallback` hook
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/wireframes#disable-shadowdom - Shadow DOM and CSS customization
 
 ---
 
@@ -8338,7 +10461,7 @@ commentElement.rejectCommentAnnotation({ annotationId: 'ann-123' }); // deprecat
 
 **Correct (moderation, read-only, suggestion resolution):**
 
-```html
+```jsx
 const commentElement = client.getCommentElement();
 
 // Moderator mode (default false). Mark admins with isAdmin: true on the User you authenticate.
@@ -8360,14 +10483,39 @@ commentElement.enableSuggestionMode();
 // flips annotation.type to 'comment', and emits suggestionAccepted / suggestionRejected.
 await commentElement.acceptSuggestion({ annotationId: 'ANNOTATION_ID' });
 await commentElement.rejectSuggestion({ annotationId: 'ANNOTATION_ID' });
+```
+
+```jsx
 // React hooks
 const { approveCommentAnnotation } = useApproveCommentAnnotation();
 const { acceptSuggestion } = useAcceptSuggestion();
 const { rejectSuggestion } = useRejectSuggestion();
+```
+
+```jsx
 // Props
 <VeltComments moderatorMode={true} resolveStatusAccessAdminOnly={true} readOnly={false} suggestionMode={true} />
+```
+
+```html
 <velt-comments moderator-mode="true" resolve-status-access-admin-only="true" suggestion-mode="true"></velt-comments>
 ```
+
+**Key details:**
+- `approveCommentAnnotation` emits the `approveCommentAnnotation` event.
+- For the full suggestion lifecycle (targets, `newValue`, `suggestionAccepted` handling), see the `velt-suggestions-best-practices` skill and the `suggestionAccepted` / `suggestionRejected` handling in `events-comment-lifecycle.md`.
+- In Other Frameworks, call the same methods on `Velt.getCommentElement()`.
+
+**Verification:**
+- [ ] Moderator mode only enabled where approval is required, and admins carry `isAdmin: true`
+- [ ] No new code calls `acceptCommentAnnotation()` / `rejectCommentAnnotation()`
+- [ ] Suggestions are resolved with `acceptSuggestion()` / `rejectSuggestion()` (or the built-in buttons)
+- [ ] Read-only mode used for viewers who must not write
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#moderation - Moderation
+- https://docs.velt.dev/async-collaboration/suggestions/overview#resolve-suggestions-programmatically - acceptSuggestion / rejectSuggestion
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#acceptsuggestion - acceptSuggestion()
 
 ---
 
@@ -8422,6 +10570,16 @@ subscription?.unsubscribe();
 ```
 
 React hooks for links: `const { getLink } = useGetLink();` and `const { copyLink } = useCopyLink();`. Disable URL scroll with `<VeltComments scrollToComment={false} />`. In Other Frameworks, call the same methods on `Velt.getCommentElement()`.
+
+**Verification:**
+- [ ] `selectCommentByAnnotationId()` called after the page finished rendering the target
+- [ ] `getLink()` result read as a `GetLinkResponse`, not a string
+- [ ] `onCommentSelectionChange()` subscription cleaned up on unmount
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#navigation - Navigation
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#deep-link - Deep Link
+- https://docs.velt.dev/api-reference/sdk/models/data-models#getlinkresponse - GetLinkResponse
 
 ---
 
@@ -8482,6 +10640,20 @@ import {
   readOnly={false}
 />
 ```
+
+**Verification Checklist:**
+- [ ] Edit-mode placeholder variants (`editCommentPlaceholder`, `editReplyPlaceholder`) are set on `VeltComments` root so they propagate to all dialogs
+- [ ] `assignToType` is only used on `VeltComments` (not on `VeltCommentDialog`)
+- [ ] `openAnnotationInFocusMode` on `VeltCommentsSidebar` is paired with `focusedThreadMode` enabled
+- [ ] `VeltInlineCommentsSection` `readOnly` prop is used instead of imperative disable calls where applicable
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior - VeltCommentsProps and VeltCommentDialogProps
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v1/customize-behavior - VeltCommentsSidebarProps
+- https://docs.velt.dev/api-reference/sdk/models/data-models#veltcommentsprops - VeltCommentsProps type definition
+- https://docs.velt.dev/api-reference/sdk/models/data-models#veltcommentdialogprops - VeltCommentDialogProps type definition
+- https://docs.velt.dev/api-reference/sdk/models/data-models#veltcommentssidebarprops - VeltCommentsSidebarProps type definition
+- https://docs.velt.dev/api-reference/sdk/models/data-models#veltinlinecommentssectionprops - VeltInlineCommentsSectionProps type definition
 
 ---
 
@@ -8587,6 +10759,24 @@ subscription?.unsubscribe();
 />
 ```
 
+**Key details:**
+- `assignUser()` takes `assignedTo` (a `User`), not a bare `userId`.
+- `setAssignToType()` takes an `AssignToConfig` object: `{ type: 'dropdown' | 'checkbox' }`.
+- `updateContactList()` only affects the current session; it does not grant document access.
+- In Other Frameworks, use `Velt.getCommentElement()` and `Velt.getContactElement()`.
+
+**Verification:**
+- [ ] `@here`, mentions, and contact-list calls use the contact element, not the comment element
+- [ ] `assignUser()` passes `assignedTo: { userId, ... }`
+- [ ] Custom search enabled via prop or `enableCustomAutocompleteSearch()` and answered from the `autocompleteSearch` event
+- [ ] `onContactSelected()` and `autocompleteSearch` subscriptions are unsubscribed on unmount
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#mentions - @Mentions
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#customautocompletesearch - customAutocompleteSearch
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#updatecontactlist - updateContactList
+- https://docs.velt.dev/api-reference/sdk/models/data-models#assigntoconfig - AssignToConfig
+
 ---
 
 ### 11.5 Configure Comment Attachments and File Uploads
@@ -8605,7 +10795,7 @@ commentElement.setComposerFileAttachments([file1, file2]);             // needs 
 
 **Correct:**
 
-```html
+```jsx
 const commentElement = client.getCommentElement();
 
 commentElement.enableAttachments();   // default true
@@ -8628,12 +10818,33 @@ const attachments = await commentElement.getAttachment({ annotationId: 'ANNOTATI
 commentElement.setComposerFileAttachments({ files: [file1, file2] });
 commentElement.setComposerFileAttachments({ files: [file1], annotationId: 'annotation-123' });
 commentElement.setComposerFileAttachments({ files: [file1], targetElementId: 'element-1' });
+```
+
+```jsx
 // Props
 <VeltComments attachments={true} screenshot={true} allowedFileTypes={['jpg', 'png']} attachmentNameInMessage={true} />
+```
+
+```html
 <velt-comments allowed-file-types="['jpg', 'png']" attachment-name-in-message="true"></velt-comments>
 ```
 
 React hooks: `useAddAttachment()`, `useDeleteAttachment()`, `useGetAttachment()` (each returns the matching method, for example `const { addAttachment } = useAddAttachment();`).
+
+**Key details:**
+- `getAttachment()` returns `Attachment[]` for the comment.
+- Download control and click interception are covered in `attach/attach-download-control.md`.
+- In Other Frameworks, call the same methods on `Velt.getCommentElement()`.
+
+**Verification:**
+- [ ] `setAllowedFileTypes()` (or the `allowedFileTypes` prop) uses extensions, not MIME types
+- [ ] `addAttachment()` and `setComposerFileAttachments()` pass `files: File[]`
+- [ ] `deleteAttachment()` includes `annotationId`, `commentId`, and `attachmentId`
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#attachments - Attachments
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#setcomposerfileattachments - setComposerFileAttachments
+- https://docs.velt.dev/api-reference/sdk/models/data-models#uploadfiledata - UploadFileData
 
 ---
 
@@ -8650,6 +10861,8 @@ commentElement.setCustomStatus([
   { id: 'open', name: 'Open', type: 'default' }, // missing color / lightColor; need at least 2 statuses
 ]);
 ```
+
+**Correct:**
 
 **Status Configuration:**
 
@@ -8712,6 +10925,28 @@ await commentElement.updatePriority({
 
 React hooks: `const { updateStatus } = useUpdateStatus();`, `const { resolveCommentAnnotation } = useResolveCommentAnnotation();`, `const { updatePriority } = useUpdatePriority();`. In Other Frameworks, call the same methods on `Velt.getCommentElement()`.
 
+**Status type values:**
+- `'default'` — initial state (e.g., Open)
+- `'ongoing'` — in-progress state (e.g., In Progress, Needs Attention)
+- `'terminal'` — final state (e.g., Resolved, Approved, Rejected)
+
+**Key details:**
+- Custom statuses replace built-in defaults entirely; define at least 2
+- Comments with a `terminal` status are no longer shown on the DOM (unless `showResolvedCommentsOnDom()` is on)
+- Status and priority appear in the comment dialog header, sidebar filters, and activity logs
+- When you change status through the V2 REST Update Comment Annotations API, also send `statusUpdatedByUserId` (and `resolvedByUserId` for terminal statuses) so authorship is recorded; see `rest-comment-annotations-api.md`
+
+**Verification:**
+- [ ] Status types correctly use 'default', 'ongoing', or 'terminal'
+- [ ] At least two statuses defined, including one `terminal` status for resolve
+- [ ] Every custom status / priority includes `color` and `lightColor`
+- [ ] Custom status/priority called before user interaction
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#enablestatus - enableStatus
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#setcustomstatus - setCustomStatus
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#updatestatus - updateStatus
+
 ---
 
 ### 11.7 Configure Emoji Reactions on Comments
@@ -8773,6 +11008,20 @@ await toggleReaction({ annotationId: 'ANNOTATION_ID', commentId: 384399, reactio
 
 In Other Frameworks, call the same methods on `Velt.getCommentElement()`. The `addReaction`, `deleteReaction`, and `toggleReaction` events are available on `commentElement.on(...)`.
 
+**Key details:**
+- `setCustomReactions()` replaces the default reaction set.
+- Each method resolves to its event object, or `null`.
+- Reactions on private comments stay visible only to people who can read the parent comment, and they do not inherit the parent's Access Context.
+
+**Verification:**
+- [ ] `setCustomReactions()` receives an object map, not an array
+- [ ] add / delete / toggle pass `reaction: { reactionId }`
+- [ ] `commentId` is a number; `annotationId` is a string
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#reactions - Reactions
+- https://docs.velt.dev/api-reference/sdk/models/data-models#togglereactionrequest - ToggleReactionRequest
+
 ---
 
 ### 11.8 Configure Rich Text Formatting in Comment Composer
@@ -8794,7 +11043,7 @@ commentElement.setFormatConfig({
 
 **Correct:**
 
-```html
+```jsx
 const commentElement = client.getCommentElement(); // or useCommentUtils()
 
 commentElement.enableFormatOptions();   // default false
@@ -8804,13 +11053,28 @@ commentElement.setFormatConfig({
   underline: { enable: false },
   strikethrough: { enable: false },
 });
+```
+
+```jsx
 <VeltComments formatOptions={true} />
+```
+
+```html
 <velt-comments format-options="true"></velt-comments>
 <script>
   const commentElement = Velt.getCommentElement();
   commentElement.setFormatConfig({ bold: { enable: true }, italic: { enable: true } });
 </script>
 ```
+
+**Verification:**
+- [ ] Toolbar enabled via `formatOptions={true}` or `enableFormatOptions()`
+- [ ] `setFormatConfig()` keys limited to `bold`, `italic`, `underline`, `strikethrough`
+- [ ] Each key uses `{ enable: boolean }`
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#text-formatting - Text Formatting
+- https://docs.velt.dev/api-reference/sdk/models/data-models#formatconfig - FormatConfig
 
 ---
 
@@ -8869,20 +11133,64 @@ subscription?.unsubscribe();
 
 Other sidebar events: `commentSidebarDataInit`, `sidebarOpen`, `sidebarClose`, `fullscreenClick`. With client-provided data, quick-filter, category-filter, and data changes emit `commentSidebarDataUpdate` with the filtered list. V1 also accepts the `onCommentClick` / `onCommentNavigationButtonClick` component props; V2 uses the event bus.
 
+**Sidebar Props (V1 + V2):**
+
+| Prop | Type | Description |
+|------|------|-------------|
+| `filterConfig` | `object` | V1 system filter panel config (status, priority, people, location, ...) |
+| `groupConfig` | `{ enable?, name?, groupBy? }` | Grouping configuration |
+| `sortOrder` | `'asc' \| 'desc'` | Sort direction |
+| `sortBy` | `string` | Default sort field |
+| `systemFiltersOperator` | `'and' \| 'or'` | How different filter fields combine |
+| `defaultMinimalFilter` | `string` | Default quick filter (`'all'`, `'read'`, `'unread'`, `'resolved'`, `'open'`, `'reset'`; V2 also `'assignedToMe'`) |
+| `searchPlaceholder` | `string` | Search input placeholder |
+| `commentPlaceholder` / `replyPlaceholder` / `pageModePlaceholder` | `string` | Composer placeholders |
+| `editPlaceholder` / `editCommentPlaceholder` / `editReplyPlaceholder` | `string` | Edit-composer placeholders (specific variants win over `editPlaceholder`) |
+| `sidebarButtonCountType` | `'default' \| 'filter'` | Sidebar button badge source |
+| `commentCountType` | `'total' \| 'unread'` | V1 sidebar / sidebar-button count type |
+| `floatingMode` | `boolean` | Floating overlay sidebar |
+| `fullScreen` | `boolean` | Fullscreen toggle in the header |
+| `expandOnSelection` | `boolean` | Auto-expand on comment selection (default `true`) |
+| `filterPanelLayout` | `'bottomSheet' \| 'menu'` | Filter panel layout |
+| `filterOptionLayout` | `'dropdown' \| 'checkbox'` | Option rendering inside a filter section |
+| `filterCount` | `boolean` | Per-option counts (default `true`) |
+| `dialogSelection` | `boolean` | `false` emits `commentClick` only, with no inline expansion |
+| `currentLocationSuffix` | `boolean` | Adds "(This page)" to the current location's group |
+| `excludeLocationIds` | `string[]` | Hide comments from these locations (API: `excludeLocationIdsFromSidebar()`) |
+| `filterGhostCommentsInSidebar` | `boolean` | Hide ghost comments |
+
 **Edit Composer Placeholders:**
 
-```html
+Props set on the root `VeltComments` propagate to all dialogs. Priority: `editCommentPlaceholder` / `editReplyPlaceholder` > `editPlaceholder` > `commentPlaceholder` / `replyPlaceholder` > SDK defaults.
+
+```jsx
 <VeltComments
   editPlaceholder="Edit your message…"
   editCommentPlaceholder="Edit the original comment…"
   editReplyPlaceholder="Edit your reply…"
 />
+```
+
+```html
 <velt-comments
   edit-placeholder="Edit your message…"
   edit-comment-placeholder="Edit the original comment…"
   edit-reply-placeholder="Edit your reply…"
 ></velt-comments>
 ```
+
+**Verification:**
+- [ ] Filter payloads use `CommentSidebarFilters` keys with object identities for people and locations
+- [ ] Operator values are lowercase `'and'` / `'or'`
+- [ ] Custom actions enabled before calling `setCommentSidebarData()`
+- [ ] Event subscriptions cleaned up on unmount
+- [ ] Props match the sidebar version (V1 `filterConfig` vs V2 `filters` / `minimalFilters`)
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v1/customize-behavior - V1 customize behavior
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/customize-behavior#setcommentsidebarfilters - setCommentSidebarFilters
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#event-subscription - Comment event table
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#setcommentsidebardata - setCommentSidebarData()
 
 ---
 
@@ -8913,6 +11221,9 @@ commentElement.enableCommentToNearestAllowedElement();
 
 // Custom cursor in comment mode: 32 x 32 pixel image as a base64 string
 commentElement.setPinCursorImage(BASE64_IMAGE_STRING);
+```
+
+```jsx
 <VeltComments
   allowedElementIds={['some-element']}
   allowedElementClassNames={['class-name-1', 'class-name-2']}
@@ -8930,10 +11241,26 @@ commentElement.setPinCursorImage(BASE64_IMAGE_STRING);
 
 **sourceId for duplicate DOM IDs:**
 
-```html
+When the same element ID appears more than once (for example, a data component rendered in several places), give each `VeltCommentTool` a session-unique `sourceId` so the dialog opens on the instance the user clicked.
+
+```jsx
 <VeltCommentTool sourceId="sourceId1" />
+```
+
+```html
 <velt-comment-tool source-id="sourceId1"></velt-comment-tool>
 ```
+
+**Verification:**
+- [ ] Allowed lists cover every element that should accept comments
+- [ ] `data-velt-comment-disabled` on elements that must never be commented on
+- [ ] `setPinCursorImage()` receives a 32 x 32 base64 image
+- [ ] `sourceId` is unique per instance when DOM IDs repeat
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#dom-controls - DOM Controls
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#commenttonearestallowedelement - commentToNearestAllowedElement
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#setpincursorimage - setPinCursorImage
 
 ---
 
@@ -9004,7 +11331,7 @@ commentElement.enableGhostCommentsIndicator();   // default true
 
 **Draft Mode, Draft Confirmation, and Lazy-Loading Resolved Comments:**
 
-```html
+```jsx
 // draftMode defaults to true: partial comments are saved with isDraft: true on close
 commentElement.enableDraftMode();
 
@@ -9016,8 +11343,14 @@ commentElement.disableDraftConfirmation();
 // Opt-in (default false): skip fetching resolved (terminal-status) comments on initial load
 commentElement.enableLazyLoadResolvedComments();
 commentElement.disableLazyLoadResolvedComments();
+```
+
+```jsx
 // Same flags as props
 <VeltComments draftMode={true} draftConfirmation={true} lazyLoadResolvedComments={true} />
+```
+
+```html
 <velt-comments draft-mode="true" draft-confirmation="true" lazy-load-resolved-comments="true"></velt-comments>
 ```
 
@@ -9039,6 +11372,9 @@ commentElement.enableForceCloseAllOnEsc();       // ESC exits persistent comment
 ```jsx
 commentElement.enableMobileMode();
 commentElement.enableSignInButton();             // default false
+```
+
+```jsx
 // onSignIn is a component event, not a commentElement method
 <VeltComments signInButton={true} onSignIn={() => yourSignInMethod()} />
 ```
@@ -9072,6 +11408,8 @@ commentElement.enableDeleteReplyConfirmation();
 ```
 
 **Confirm Dialog Variant CSS Classes:**
+
+The confirm dialog host receives a BEM modifier based on its type: `velt-confirm-dialog--comment`, `velt-confirm-dialog--reply`, and `velt-confirm-dialog--draft` (draft confirmation popup). The base class `velt-confirm-dialog` is always present.
 
 ```css
 .velt-confirm-dialog--comment { border-left: 4px solid red; }
@@ -9150,7 +11488,13 @@ commentElement.setAllowedRecordings('audio,screen'); // omit 'video' to disable 
 commentElement.enableRecordingTranscription();
 ```
 
+**Edit Draft Preservation (v5.0.2-beta.18+):**
+
+When a user dismisses the edit composer without submitting, the in-progress edits are kept in memory as a draft. The collapsed thread card shows a `(DRAFT)` badge, and clicking it re-opens the edit composer pre-filled. Drafts are session-only and are cleared on submit, Escape, or page refresh. There is no API surface for this behavior.
+
 **Collapsed Replies Preview (v5.0.2-beta.37+):**
+
+When enabled, a non-selected dialog shows the collapsed teaser (first comment, a "Show N replies…" divider, last comment) instead of only the first comment. Defaults to disabled.
 
 ```jsx
 commentElement.enableCollapsedRepliesPreview();
@@ -9158,6 +11502,26 @@ commentElement.disableCollapsedRepliesPreview();
 ```
 
 Also settable as `<VeltComments collapsedRepliesPreview={true} />` or `<velt-comments collapsed-replies-preview="true"></velt-comments>`. Boolean HTML attributes need an explicit `="true"` / `="false"`; a bare attribute is treated as disabled.
+
+**Key details:**
+- All toggle methods have corresponding `disable` variants.
+- Call configuration methods after `getCommentElement()` is available (inside a `useEffect` with `client` as a dependency in React).
+- In Other Frameworks, use `Velt.getCommentElement()` and `Velt.excludeLocationIds()`.
+
+**Verification:**
+- [ ] No invented signatures (`showCommentsOnDom(true)`, `svgAsImg(true)`, `composerMode(...)`, `enableMultithread()`)
+- [ ] `excludeLocationIds()` called on `client` / `Velt`, not on the comment element
+- [ ] `draftConfirmation` only enabled together with `draftMode`
+- [ ] `lazyLoadResolvedComments` UI accounts for terminal statuses showing no count until unlocked
+- [ ] `setAllowedRecordings()` receives a comma-separated string, not an array
+- [ ] Hotkeys don't conflict with application shortcuts
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#uiux - UI/UX
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#draftconfirmation - draftConfirmation
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#lazyloadresolvedcomments - lazyLoadResolvedComments
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#excludelocationids - excludeLocationIds
+- https://docs.velt.dev/ui-customization/features/async/comments/confirm-dialog - Confirm dialog wireframes and modifier classes
 
 ---
 
@@ -9212,6 +11576,34 @@ commentElement.setCommentSidebarFilters(filters);
 
 **Custom filter dropdown in wireframe:** If you build a custom privacy filter dropdown inside `<velt-comments-sidebar-wireframe>`, drive `accessModes` through the same `setCommentSidebarFilters()` API, or bind your state to a call that writes the selected values. `setCommentSidebarFilters()` is a partial update: included keys replace their selections, omitted keys are preserved, and **Reset** clears them.
 
+**Full filter options reference:**
+
+| Filter Key | Value Type | Description |
+|-----------|-----------|-------------|
+| `location` | `[{ id: string }]` | Filter by location |
+| `document` | `[{ id: string }]` | Filter by document |
+| `people` | `[{ userId: string }]` | Filter by comment author |
+| `involved` | `[{ userId: string }]` | Author, mentioned, or assigned |
+| `tagged` | `[{ userId: string }]` | Mentioned users |
+| `assigned` | `[{ userId: string }]` | Assigned users |
+| `priority` | `string[]` | e.g. `['P0', 'P1']` |
+| `category` | `string[]` | e.g. `['bug', 'feedback']` |
+| `status` | `string[]` | e.g. `['OPEN', 'IN_PROGRESS']` |
+| `version` | `[{ id: string }]` | Filter by version |
+| `accessModes` | `('public' \| 'private')[]` | Privacy filter |
+
+For V2, `people` / `assigned` / `tagged` / `involved` match by `userId` (falling back to `email`) and `location` matches by `id` (falling back to `locationName`).
+
+**Verification Checklist:**
+- [ ] Privacy filtering uses `accessModes`, not a status or custom field
+- [ ] Values are `'public'` and/or `'private'` (both legacy `iam.accessMode` and `visibilityConfig.type` of `restricted` / `organizationPrivate` count as private)
+- [ ] User and location filter values are objects, not bare id strings
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v1/customize-behavior#setcommentsidebarfilters - setCommentSidebarFilters (V1)
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/customize-behavior#setcommentsidebarfilters - setCommentSidebarFilters (V2)
+- https://docs.velt.dev/api-reference/sdk/models/data-models#commentsidebarfilters - CommentSidebarFilters
+
 ---
 
 ## 12. Events
@@ -9229,6 +11621,8 @@ Subscribe to comment lifecycle events for custom navigation, context injection, 
 > **For agent suggestion accept/reject:** Use `useCommentEventCallback('suggestionAccepted')` and `useCommentEventCallback('suggestionRejected')` — these are the correct events, not `commentSaved` with status checks.
 
 **Agent suggestion accept/reject events (for AI agent findings):**
+
+Agent findings (annotations with `sourceType: "agent"` and `type: "suggestion"`) render with Accept and Reject buttons. Use `suggestionAccepted` and `suggestionRejected` to handle the reviewer's decision. The SDK persists the status — applying the actual change is your code's responsibility.
 
 ```tsx
 import { useCommentEventCallback } from '@veltdev/react';
@@ -9293,6 +11687,8 @@ commentElement.on('veltButtonClick').subscribe(handler);        // wrong element
 
 **Correct (add context when a thread is created with `addCommentAnnotation` + `addContext()`):**
 
+`addContext()` is available on the `addCommentAnnotation` and `addCommentAnnotationDraft` event payloads. `onCommentAdd` is not an event name for `on()` or `useCommentEventCallback`; it only exists as the legacy `<VeltComments onCommentAdd>` prop / `useCommentAddHandler()` hook.
+
 ```tsx
 // Hook
 const addEvent = useCommentEventCallback('addCommentAnnotation');
@@ -9310,6 +11706,8 @@ subscription?.unsubscribe();
 ```
 
 **Detect assignment changes (`isAssigneeChanged`, v6.0.15+):**
+
+The `addComment`, `addCommentAnnotation`, and `updateComment` payloads carry `isAssigneeChanged`: `true` when the event assigned a new user or removed the assignee. Read the current assignee from `commentAnnotation.assignedTo`. Through `commentElement.updateComment()` it is always `false`; listen to `assignUser` for assignments made separately.
 
 ```tsx
 // Hook
@@ -9345,6 +11743,12 @@ const sidebarOpen = useCommentEventCallback('sidebarOpen');
 // Client-level UI events
 const veltEvent = useVeltEventCallback('veltButtonClick');
 ```
+
+**addCommentDraft event (abandoned reply/edit drafts):**
+
+The `addCommentDraft` event fires when a user abandons a reply or edit composer without saving — for example, by clicking outside the dialog, closing the sidebar, or navigating away. It fires only on existing threads that already have at least one committed comment; brand-new pin drafts do not trigger it. The payload includes the unsaved text, HTML, attachments, recordings, and the parent annotation — use it to recover or log lost work.
+
+Do not rely on this event for brand-new pin placements. Those do not trigger `addCommentDraft`.
 
 **Correct (React — subscribe to abandoned draft):**
 
@@ -9384,6 +11788,19 @@ const subscription = commentElement.on('addCommentDraft').subscribe((event) => {
 subscription.unsubscribe();
 ```
 
+**AddCommentDraftEvent payload:**
+
+| Property | Type | Required | Description |
+| --- | --- | --- | --- |
+| `annotationId` | `string` | Yes | ID of the annotation to which the abandoned draft belongs |
+| `commentAnnotation` | `CommentAnnotation` | Yes | The full parent thread object |
+| `comment` | `Comment` | Yes | Snapshot of unsaved composer content (reply mode: pending text/HTML/attachments/recordings; edit mode: original fields merged with unsaved edits, `commentId` preserved) |
+| `metadata` | `VeltEventMetadata` | Yes | Event metadata |
+
+**Comment Sidebar V2 fullscreen toggle (`fullscreenClick` event):**
+
+The `fullscreenClick` event fires when a user clicks the fullscreen toggle in the Comment Sidebar V2 header (`fullScreen={true}` prop must be enabled to render the button). The payload is a `FullscreenClickEvent` whose `fullScreen` field is the **post-toggle** state — `true` means the sidebar just entered fullscreen. Use this event as the standard event-API pathway; the component-level `onFullscreenClick` output on `VeltCommentSidebarV2FullscreenButton` remains available for callers wiring the primitive directly. Both pathways coexist — pick one; do not wire both for the same handler.
+
 **Correct (React — subscribe to fullscreen toggle):**
 
 ```jsx
@@ -9416,6 +11833,33 @@ const subscription = commentElement.on('fullscreenClick').subscribe((event) => {
 // Clean up on teardown
 subscription.unsubscribe();
 ```
+
+**Key details:**
+- `addContext()` lives on the `addCommentAnnotation` / `addCommentAnnotationDraft` payloads; use it to inject metadata before the annotation is saved
+- `commentPinClicked` fires when a pin on the page is clicked
+- `veltButtonClick` fires for custom buttons added via wireframes and is subscribed on the client (`client.on` / `Velt.on` / `useVeltEventCallback`)
+- `isAssigneeChanged` on `addComment` / `addCommentAnnotation` / `updateComment` tells you an assignment changed
+- `addCommentDraft` fires only when the thread already has at least one committed comment — enum value `ADD_COMMENT_DRAFT`
+- `suggestionAccepted` / `suggestionRejected` fire when a reviewer clicks Accept or Reject on an agent suggestion — the payload includes `commentAnnotation` (the full finding); rejected also includes `rejectReason`
+- `fullscreenClick` fires when the Comment Sidebar V2 fullscreen toggle is clicked; `event.fullScreen` is the state **after** the toggle. Alternative pathway to the primitive-level `onFullscreenClick` output on `VeltCommentSidebarV2FullscreenButton` — both surfaces coexist, choose one per handler
+- All subscriptions must be cleaned up on unmount
+- `useCommentEventCallback` returns the event object directly (no subscription needed)
+
+**Verification:**
+- [ ] Event subscriptions cleaned up on component unmount
+- [ ] `addContext()` called synchronously in the `addCommentAnnotation` handler
+- [ ] `veltButtonClick` subscribed on the client, not on the comment element
+- [ ] Event names match exactly (case-sensitive)
+- [ ] addCommentDraft handler checks that the thread has existing comments before acting (brand-new pins do not fire this event)
+- [ ] `fullscreenClick` handler treats `event.fullScreen` as the post-toggle state (not the previous state); handler is not double-wired to both the event API and the component-level `onFullscreenClick` output
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#event-subscription - Comment event table
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#addcontext - addContext
+- https://docs.velt.dev/api-reference/sdk/models/data-models#addcommentevent - AddCommentEvent (`isAssigneeChanged`)
+- https://docs.velt.dev/api-reference/sdk/models/data-models#addcommentdraftevent - AddCommentDraftEvent
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/customize-behavior#fullscreenclick - fullscreenClick
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v1/customize-behavior#custom-filtering-sorting-and-grouping - veltButtonClick
 
 ---
 
@@ -9470,7 +11914,10 @@ import {
 </VeltWireframe>
 ```
 
+#### Component Config (panel-level state)
+
 Available inside every Autocomplete primitive. **Always read via the full `componentConfig.<path>` form.**
+
 | Variable | Type | Notes |
 |---|---|---|
 | `componentConfig.flattenedItems` | `FlattenedItem[]` | Visible options after grouping / filtering. `length === 0` drives the empty-state gate. |
@@ -9487,13 +11934,20 @@ Available inside every Autocomplete primitive. **Always read via the full `compo
 | `componentConfig.onOptionClick` | `Function` | Click handler for a custom option — wire this from your custom option markup. |
 | `componentConfig.trackByFlattenedItem` | `Function` | Internal virtual-scroll track-by. |
 | `componentConfig.autoCompleteScrollConfig.itemSize` | `number` | Internal virtual-scroll item-size config. |
+
+#### Context-Specific Variables (loop scope)
+
 These resolve as **bare names** — only inside the iteration tag that owns them.
+
 | Variable | Type | Available in | Notes |
 |---|---|---|---|
 | `option` | `SelectorDataListItem` | `<velt-autocomplete-option-wireframe>`, `<velt-autocomplete-group-option-wireframe>`, and their child tags | Current row. |
 | `option.user` | `User` | Same as above | Set when the option represents a user. |
 | `option.group` | `GroupData` | Same as above | Set when the option represents a group. Use `velt-class="'is-group': {option.group}"` to branch. |
 | `chip` | `AutocompleteChipConfig` | `<velt-autocomplete-chip-wireframe>` and its tooltip child tags | Inline chip in the composer. |
+
+#### Wireframe tags
+
 | Wireframe tag | React component | Notes |
 |---|---|---|
 | (none) | — | The panel itself (`<velt-autocomplete-panel>`) is a live custom element, not a `-wireframe` slot. Register the slot wireframes below directly inside `VeltWireframe` / `<velt-wireframe style="display:none;">`. |
@@ -9502,19 +11956,41 @@ These resolve as **bare names** — only inside the iteration tag that owns them
 | `<velt-autocomplete-group-option-wireframe>` | `<VeltAutocompleteGroupOptionWireframe>` | Group-of-users row — only when `customGroupsEnabled` is true or mention groups are present. |
 | `<velt-autocomplete-chip-wireframe>` | — | Inline chip in the contenteditable composer. Composes `*-chip-tooltip` / `*-chip-tooltip-name` / `*-chip-tooltip-description` / `*-chip-tooltip-icon`. The generated Wireframe components appendix lists only the `-chip-tooltip*` tags, so confirm the chip root tag renders before relying on it. |
 | `<velt-autocomplete-panel-search-icon-wireframe>` | — | Magnifying-glass icon in the panel's search input. |
+
 The `<velt-autocomplete-tool>` trigger button itself has **no** `<velt-autocomplete-tool-wireframe>` registration — its appearance is controlled by the parent composer's wireframe (e.g. the comment-dialog composer-action-button).
+
 **Option child tags** (resolve parent `option` context):
+
 | Tag | Bind |
 |---|---|
 | `<velt-autocomplete-option-name-wireframe>` | `<velt-data field="option.name" />` |
 | `<velt-autocomplete-option-description-wireframe>` | `<velt-data field="option.email" />` |
 | `<velt-autocomplete-option-icon-wireframe>` | `<velt-data field="option.user.photoUrl" />` |
 | `<velt-autocomplete-option-error-icon-wireframe>` | `velt-if="{option.invalid}"` |
+
 **Chip tooltip tags** (resolve parent `chip` context): `*-chip-tooltip-wireframe`, `*-chip-tooltip-name-wireframe`, `*-chip-tooltip-description-wireframe`, `*-chip-tooltip-icon-wireframe` — bind `chip.name` / `chip.description` / `chip.icon`.
+
+#### Common mistakes — DO NOT
+
 **1. DO NOT bare-name panel-level state.** This family uses flat-config access. `<velt-data field="flattenedItems.length" />` resolves to nothing — use `<velt-data field="componentConfig.flattenedItems.length" />`. The bare-name exception is the loop-scope variables `option` and `chip`.
+
 **2. DO NOT re-implement filtering / grouping over your own contact list.** The panel already produces `componentConfig.flattenedItems`. Read it; don't rebuild it.
+
 **3. DO NOT nest `<velt-autocomplete-group-option-wireframe>` inside `<velt-autocomplete-option-wireframe>`.** They are sibling iteration roots — the panel decides which to render based on `option.group` / `customGroupsEnabled`.
+
 **4. DO NOT bind `chip.*` outside a chip wireframe.** The `chip` iteration context only exists inside `<velt-autocomplete-chip-wireframe>` and its tooltip descendants.
+
+**Verification:**
+- [ ] Panel-level state is read via `componentConfig.<path>` (not bare names)
+- [ ] `option` / `chip` are only referenced inside their owning iteration tag
+- [ ] Empty-state is gated by the wireframe's `shouldShow` (or `componentConfig.flattenedItems.length === 0`) — not by ad-hoc rendering above the panel
+- [ ] Group-option branch is gated by `componentConfig.customGroupsEnabled` (or the presence of `option.group`)
+- [ ] `componentConfig.onOptionClick` is wired from custom option markup when overriding the click target
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/async/comments/autocomplete-wireframe-variables — "Autocomplete Wireframe Variables"
+- https://docs.velt.dev/ui-customization/template-variables — "Template Variables overview"
+- Cross-reference: `ui/ui-autocomplete-primitives.md` (standalone autocomplete primitives), `wireframe-variables/wireframe-variables-comment-dialog.md` (parent composer that mounts the panel)
 
 ---
 
@@ -9582,12 +12058,18 @@ import { VeltCommentBubbleWireframe } from '@veltdev/react';
 </velt-comment-bubble-wireframe>
 ```
 
+#### Variable namespaces
+
 The Comment Bubble injects four namespaces at the root of every slot.
+
 **App State** — globally resolved identity:
+
 | Variable | Type | Notes |
 |---|---|---|
 | `globalConfigSignal.appState.user` | `User \| null` | Currently identified end-user. Use the explicit path — `user` is *not* aliased here. |
+
 **Data State** — annotation context for this bubble:
+
 | Variable | Type | Notes |
 |---|---|---|
 | `annotation` | `CommentAnnotation \| null` | Annotation this bubble represents. Gate everything with `velt-if="{annotation}"`. |
@@ -9604,7 +12086,9 @@ The Comment Bubble injects four namespaces at the root of every slot.
 | `unreadCount` | `number` | Unread-comment count for this bubble's annotation. |
 | `data.folderId` | `string` | Folder id the annotation belongs to. |
 | `data.context` | `Record<string, any>` | Free-form annotation context (read via bracket / dotted paths). |
+
 **UI State** — per-bubble flags driven by the bubble itself:
+
 | Variable | Type | Notes |
 |---|---|---|
 | `uiState.commentPinSelected` | `boolean` | Pin associated with this bubble is currently selected. |
@@ -9618,16 +12102,48 @@ The Comment Bubble injects four namespaces at the root of every slot.
 | `readOnly` | `boolean` | Per-render read-only flag. |
 | `showAvatar` | `boolean` | Avatar should render. |
 | `commentCountType` | `'total' \| 'unread'` | Which count drives the badge. |
+
 **Feature State** — workspace capability flags. These names collide with mappings used elsewhere, so they must be read via the **full path**:
+
 | Variable | Type | Notes |
 |---|---|---|
 | `globalConfigSignal.featureState.customStatusesShown` | `boolean` | Custom-status decoration enabled on bubbles. |
 | `globalConfigSignal.featureState.groupMatchedComments` | `boolean` | Matched comments are grouped on the page. |
 | `globalConfigSignal.featureState.resolvedCommentsOnDom` | `boolean` | Resolved annotations still render bubbles. |
 | `globalConfigSignal.featureState.readOnly` | `boolean` | Workspace read-only mode is active (distinct from the per-render `readOnly`). |
+
+#### Wireframe tags
+
 The Comment Bubble proper has 4 slots; the related Comment Pin has 7 deeply-nested tags. Pin tags read from the *same* `annotation` context.
 
 **Comment Bubble slots:**
+
+| Wireframe tag | React component | Notes |
+|---|---|---|
+| `<velt-comment-bubble-wireframe>` | `<VeltCommentBubbleWireframe>` | Root. One per non-resolved annotation; resolved bubbles render only when `globalConfigSignal.featureState.resolvedCommentsOnDom === true`. |
+| `<velt-comment-bubble-avatar-wireframe>` | `<VeltCommentBubbleWireframe.Avatar>` | Author avatar (`annotation.from.photoUrl` / `annotation.from.name`). |
+| `<velt-comment-bubble-comments-count-wireframe>` | `<VeltCommentBubbleWireframe.CommentsCount>` | "N" badge. `shouldShow` requires `annotation.comments.length > 1`. |
+| `<velt-comment-bubble-unread-icon-wireframe>` | `<VeltCommentBubbleWireframe.UnreadIcon>` | Unread indicator. `shouldShow` requires `unreadCount > 0` (or `annotation.unread`, depending on `commentCountType`). |
+
+**Comment Pin slots** (separate primitive, same `annotation` binding):
+
+| Wireframe tag | Notes |
+|---|---|
+| `<velt-comment-pin-wireframe>` | Root pin element. |
+| `<velt-comment-pin-triangle-wireframe>` | Pointing-arrow triangle below the pin (visual only — no data binding). |
+| `<velt-comment-pin-index-wireframe>` | Place-order index — bind `<velt-data field="annotation.annotationIndex" />`. |
+| `<velt-comment-pin-number-wireframe>` | Auto-generated number — bind `<velt-data field="annotation.annotationNumber" />`. |
+| `<velt-comment-pin-unread-comment-indicator-wireframe>` | Unread dot — gate with `velt-if="{annotation.unread}"`. |
+| `<velt-comment-pin-private-comment-indicator-wireframe>` | Private-mode lock — gate with `velt-if="{annotation.iam.accessMode} === 'private'"`. |
+| `<velt-comment-pin-ghost-comment-indicator-wireframe>` | Ghost-comment indicator — gate with `velt-if="{annotation.ghostComment}"`. |
+
+#### `defaultCondition` and Angular signal inputs
+
+| React Prop | HTML Attribute | Type | Default | Behavior |
+|---|---|---|---|---|
+| `defaultCondition` | `default-condition` | `boolean \| "true" \| "false"` | `true` | When `false`, the component renders regardless of its internal `shouldShow` gate. Use to force-show a slot you would otherwise hide (e.g. render the comments-count badge even at length `1`). |
+
+**Angular signal inputs** (parent-to-child wiring; React/HTML do not require these):
 
 ```typescript
 // On any <velt-comment-bubble-...-wireframe> in an Angular template
@@ -9638,6 +12154,9 @@ The Comment Bubble proper has 4 slots; the related Comment Pin has 7 deeply-nest
 ```
 
 The root `<velt-comment-bubble>` element additionally accepts host attributes that map onto local UI state: `dark-mode`, `variant`, `show-avatar`, `comment-count-type`, `shadow-dom`.
+
+#### `shouldShow` gates worth remembering
+
 | Slot | `shouldShow` |
 |---|---|
 | `comment-bubble-wireframe` (root) | One per non-resolved annotation. Resolved annotations render only when `globalConfigSignal.featureState.resolvedCommentsOnDom === true`. |
@@ -9646,18 +12165,43 @@ The root `<velt-comment-bubble>` element additionally accepts host attributes th
 | `comment-pin-unread-comment-indicator-wireframe` | `annotation.unread === true` |
 | `comment-pin-private-comment-indicator-wireframe` | `annotation.iam.accessMode === 'private'` |
 | `comment-pin-ghost-comment-indicator-wireframe` | `annotation.ghostComment != null` |
+
 Override any of them with `defaultCondition={false}` (React) / `default-condition="false"` (HTML) when you need the slot to render unconditionally.
+
+#### Naming conflicts — use the full path
+
 Three names collide with mappings used by other features. Inside a Comment Bubble wireframe, prefer the explicit path:
+
 | Conflicting name | Use this in Comment Bubble |
 |---|---|
 | `customStatusesShown` | `globalConfigSignal.featureState.customStatusesShown` |
 | `resolvedCommentsOnDom` | `globalConfigSignal.featureState.resolvedCommentsOnDom` |
 | `readOnly` | `globalConfigSignal.featureState.readOnly` (workspace) **or** `{readOnly}` (per-render local) |
+
+#### Common mistakes — DO NOT
+
 **1. DO NOT prefix mapped variables with `componentConfig.`** Variables are mapped to short names. `<velt-data field="componentConfig.annotation.from.name" />` resolves to nothing — use `<velt-data field="annotation.from.name" />`. The exception is the *feature-state* names listed above, which **require** the `globalConfigSignal.featureState.<name>` path.
+
 **2. DO NOT confuse `annotation.unread` with `uiState.commentPinSelected`.** `annotation.unread` is data-state (this annotation has unread comments for me). `uiState.commentPinSelected` is UI-state (this bubble's pin is the currently selected one). They drive different visuals.
+
 **3. DO NOT compare `selectedAnnotationsMap` to a boolean directly.** It is a map. Bracket-lookup the current annotation: `{selectedAnnotationsMap[annotation.annotationId]}`.
+
 **4. DO NOT mix `defaultCondition` with `velt-if` to mean the same thing.** `defaultCondition={false}` disables the slot's internal gate (forcing render). `velt-if` adds a new gate on top. Combining them inverts the semantics you probably want.
+
 **5. DO NOT bind to `parentLocalUIState.shadowDom` from inside the wireframe to *enable* shadow-DOM.** Shadow-DOM is set via the host attribute `shadow-dom="true"` on `<velt-comment-bubble>`. The variable only reports the current state.
+
+**Verification:**
+- [ ] Wireframe slots reference mapped variables by short name (not `componentConfig.var`)
+- [ ] Feature-state reads use the full `globalConfigSignal.featureState.<name>` path for the four conflicting names
+- [ ] Selection state uses `{selectedAnnotationsMap[annotation.annotationId]}` (bracket-lookup), not a boolean alias
+- [ ] Comment-pin tags are used only when implementing a custom pin — the bubble tags do not nest pin tags
+- [ ] `defaultCondition` / `default-condition` is used only to override an unwanted `shouldShow` gate
+- [ ] Angular usage wires `[componentConfigSignal]` and `[parentLocalUIState]` from the parent — React/HTML usage does not
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-bubble/wireframe-variables — "Comment Bubble Wireframe Variables"
+- https://docs.velt.dev/ui-customization/template-variables — "Template Variables overview"
+- Cross-reference: `ui/ui-wireframes.md` (structural wireframe catalog), `ui/ui-comment-bubble.md` (bubble customization patterns)
 
 ---
 
@@ -9762,15 +12306,21 @@ import { VeltCommentDialogWireframe } from '@veltdev/react';
 </velt-comment-dialog-wireframe>
 ```
 
+#### Variable namespaces
+
 The dialog injects four root namespaces plus context-specific (loop-scoped) variables.
+
 **App State** — identity:
+
 | Variable | Type | Notes |
 |---|---|---|
 | `user` | `User` | Currently identified end-user. |
 | `isUserAdmin` | `boolean` | `user.isAdmin === true`. |
 | `isKnownUser` | `boolean` | User has been identified (vs. anonymous). |
 | `repliesUniqueUsers` | `User[]` | Distinct authors of replies on the current annotation. |
+
 **Data State** — annotation, composer staging, edit state, attachments, recordings:
+
 | Variable | Type | Notes |
 |---|---|---|
 | `annotation` | `CommentAnnotation` | Annotation this dialog represents. Aliased as `commentAnnotation`. |
@@ -9793,7 +12343,9 @@ The dialog injects four root namespaces plus context-specific (loop-scoped) vari
 | `editCommentIndex` | `number \| null` | Index of the comment being edited. |
 | `localRecordedData` | `RecordedData[]` | Recordings staged in the composer. |
 | `attachmentsToDelete` | `any[]` | Attachments queued for deletion on save. |
+
 **UI State — layout modes** (mutually-styled, sometimes co-active):
+
 | Variable | Type | Notes |
 |---|---|---|
 | `sidebarMode` | `boolean` | Rendered inside the comments sidebar. |
@@ -9824,7 +12376,9 @@ The dialog injects four root namespaces plus context-specific (loop-scoped) vari
 | `selectedVisibility` | `CommentVisibilityOptionType` | Selected visibility option. |
 | `selectedVisibilityUsers` | `any[]` | Users selected when `selectedVisibility === 'selected_people'`. |
 | `locationVersion` | `string` | Annotation location version. |
+
 **UI State — composer state** (driven by the composer):
+
 | Variable | Type | Notes |
 |---|---|---|
 | `composerContent` | `string` | Plain-text composer draft. Aliased as `newComment`. |
@@ -9839,6 +12393,233 @@ The dialog injects four root namespaces plus context-specific (loop-scoped) vari
 
 **UI State — reactions, replies, dropdowns:**
 
+| Variable | Type | Notes |
+|---|---|---|
+| `showReplies` | `boolean` | Reply list is currently shown. |
+| `collapsedComments` | `boolean` | Comments are collapsed. |
+| `showAllComments` | `boolean` | "Show all" mode is active. |
+| `showReplyComposer` | `boolean` | Reply composer is visible. |
+| `maxReplyAvatars` | `number` | Max reply avatars to show before "+N". |
+| `showSuggestionModeActions` | `boolean` | Suggestion-mode accept/reject visible. |
+| `reactionToolOpenIndex` | `number` | Comment index whose reaction picker is open (`-1` if none). |
+| `openDropdownIndexValue` | `number` | Comment index whose options dropdown is open (`-1` if none). |
+| `hasReactionsByCommentId` | `Record<string, boolean>` | Map keyed by `commentId` — bracket-lookup. |
+| `assignToMenuOpened` | `boolean` | Assign-to menu is open. |
+| `isPrivateComment` | `boolean` | Annotation is in private mode. |
+| `showGhostCommentMessage` | `boolean` | Ghost-comment banner should show. |
+| `playVideoInFullScreen` | `boolean` | Recordings play full-screen. |
+| `shouldScrollToBottom` | `boolean` | Internal transient signal — not typically used in wireframes. |
+| `showScreenSizeInfo` | `boolean` | Screen-size information overlay visible. |
+| `sidebarButtonOnCommentDialogVisible` | `boolean` | "View all comments" sidebar button visible. |
+
+**Feature State** — workspace capability flags (all shared across dialog instances for the same annotation):
+
+| Variable | Type | Notes |
+|---|---|---|
+| `canResolveAnnotation` / `canUnresolveAnnotation` | `boolean` | Current user is allowed to (un)resolve. |
+| `dialogSelectedByKnownUser` | `boolean` | Selected dialog belongs to an identified user. |
+| `enableResolve` | `boolean` | Resolve action enabled by config. |
+| `resolveStatusAccessAdminOnly` | `boolean` | Only admins can change resolve status. |
+| `enableSignInButton` / `enableUpgradeButton` | `boolean` | Sign-in / upgrade buttons rendered. |
+| `enableGhostCommentsMessage` | `boolean` | Ghost-comment banner enabled. |
+| `replyAvatars` | `boolean` | Reply-avatars strip enabled. |
+| `collapsedRepliesPreview` | `boolean` | Surface the collapsed teaser (first comment + "Show N replies…" divider + last comment) even while the dialog is non-selected/preview. Mirrors the `collapsedRepliesPreview` prop / `collapsed-replies-preview` attribute. Default `false`. |
+| `userMentions` | `boolean` | @-mention autocomplete enabled. |
+| `recordingSummaryEnabled` | `boolean` | Recording AI-summary feature enabled. |
+| `enableAttachment` | `boolean` | File attachments enabled. |
+| `allowedFileTypes` | `string[]` | File-type allow-list. |
+| `allowedRecordings` | `string[]` | Recording types enabled (`'audio'` / `'video'` / `'screen'`). |
+| `screenSharingSupported` | `boolean` | Browser supports screen-sharing. |
+| `enterKeyToSubmit` | `boolean` | Enter submits (vs. newline). |
+| `deleteOnBackspace` | `boolean` | Backspace on empty composer deletes the comment. |
+| `enableReactions` | `boolean` | Emoji reactions enabled. |
+| `isInsidePdfViewer` | `boolean` | Dialog is inside a PDF viewer. |
+| `enableStatus` / `enablePriority` | `boolean` | Status / Priority dropdowns enabled. |
+| `customStatusesShown` | `boolean` | Custom-status decoration enabled. |
+| `statusOptions` / `priorityOptions` | `CustomStatus[]` / `CustomPriority[]` | Available options. |
+| `visibilityOptions` | `boolean` | Visibility dropdown enabled. |
+| `enableAssignment` | `boolean` | Assign-to dropdown enabled. |
+| `enableNotifications` | `boolean` | Notification toggle enabled. |
+| `enableEdit` / `enableDelete` | `boolean` | Edit / delete actions enabled. |
+| `enablePrivateMode` | `boolean` | Private-mode toggle enabled. |
+| `deleteThreadWithFirstComment` | `boolean` | Deleting the first comment cascades to thread. |
+| `seenByUsers` | `boolean` | "Seen by" feature enabled. |
+| `commentAcceptedStatus` / `commentRejectedStatus` | `CustomStatus` | Suggestion-mode terminal-status objects. |
+| `enableAutoCategorize` | `boolean` | Auto-categorize feature enabled. |
+| `suggestionMode` / `moderatorMode` | `boolean` | Suggestion / moderator modes active. |
+| `isPlanExpired` | `boolean` | Workspace plan is expired. |
+
+#### Loop-scope (context-specific) variables
+
+These resolve only inside their owning iteration slot — referencing them outside returns `undefined`.
+
+| Variable | Type | Available in |
+|---|---|---|
+| `commentObj` / `comment` | `Comment` | `<velt-comment-dialog-thread-card-wireframe>` and descendants. Aliases. |
+| `commentIndex` | `number` | Same as above. `0` on the parent comment. |
+| `commentAnnotation` / `commentAnnotations` | `CommentAnnotation` / `CommentAnnotation[]` | Available everywhere (aliases of `annotation` / `annotations`). |
+| `userContact` | `UserContact` | User-selector items (visibility-banner dropdown, assign-user). |
+| `context` | `Record<string, any>` | Inline-comment-section context (cross-references `mode/mode-inline-comments.md`). |
+
+**Aliases:** `commentObj` ↔ `comment`, `annotation` ↔ `commentAnnotation`, `annotations` ↔ `commentAnnotations`. Prefer the short form.
+
+#### Root-Level Properties (Use Full Path)
+
+These live at the root of `componentConfigSignal` and are **not** entries in the variable map — they require the full path:
+
+| Variable | Type | Notes |
+|---|---|---|
+| `componentConfigSignal.unreadCommentsMap` | `Record<string, number> \| null` | Map keyed by `annotationId` → unread count. Combine with bracket notation: `{componentConfigSignal.unreadCommentsMap[annotation.annotationId]}`. |
+| `componentConfigSignal.unreadIndicatorMode` | `'minimal' \| 'detailed'` | Unread-indicator display mode. |
+| `componentConfigSignal.commentplaceholder` | `string` | Placeholder for the new-comment composer. |
+| `componentConfigSignal.replyplaceholder` | `string` | Placeholder for the reply composer. |
+| `componentConfigSignal.editplaceholder` | `string` | Placeholder for the generic edit composer. |
+| `componentConfigSignal.editcommentplaceholder` | `string` | Placeholder for the edit-comment composer. |
+| `componentConfigSignal.editreplyplaceholder` | `string` | Placeholder for the edit-reply composer. |
+| `componentConfigSignal.placeholder` | `string` | Generic placeholder; takes priority over the others. |
+
+One root-level helper **is** mapped: `unreadCommentAnnotationCount` (read as `{unreadCommentAnnotationCount}` — populated for the unread counter on dialog/sidebar entry-points).
+
+#### Version 1 backward-compatibility aliases
+
+Inherited from v4 SDK config signals. Mapped so v4 wireframes keep working:
+
+| v1 Alias | Maps to | Notes |
+|---|---|---|
+| `allowAssignment` | `enableAssignment` | Was in `CommentDialogOptionsDropdownConfig`. |
+| `allowToggleNotification` | `enableNotifications` | Per-comment notification toggle flag. |
+| `allowEdit` | `enableEdit` | Per-comment edit-permission flag. |
+| `allowChangeCommentAccessMode` | `enablePrivateMode` | Access-mode toggle flag. |
+| `notificationEnabled` | `notificationEnabled` (passthrough) | Data context must provide it. |
+| `mainCommentId` | `annotation.comments.0.commentId` | First comment's id. |
+
+The resolver also unwraps two legacy signal-name prefixes — `commentDialogOptionsDropdownConfigSignal.*` and `commentDialogStatusDropdownConfigSignal.*` — so an old wireframe like `{commentDialogOptionsDropdownConfigSignal.allowAssignment}` keeps working. **Prefer the v5 names in new code.**
+
+#### Wireframe tags by region
+
+The dialog exposes roughly 110 slot tags. They are grouped here by region; the full structural tree is catalogued in `ui/ui-wireframes.md`. The React component path is `<VeltCommentDialogWireframe.X.Y>` matching the kebab-case tag.
+
+**Root / structural** (4 tags):
+
+| Wireframe tag | Notes |
+|---|---|
+| `<velt-comment-dialog-wireframe>` | Root. `shouldShow` requires `annotation` to resolve. |
+| `<velt-comment-dialog-header-wireframe>` | Top region — typically wraps `close-button`, `resolve-button`, dropdowns. |
+| `<velt-comment-dialog-body-wireframe>` | Middle region — wraps `threads` and banners. |
+| `<velt-comment-dialog-close-button-wireframe>` | Close button. |
+
+**Threads region** (iteration root + 11 thread-card slots):
+
+| Wireframe tag | Loop-scope | Notes |
+|---|---|---|
+| `<velt-comment-dialog-threads-wireframe>` | — | Iteration root over `annotation.comments`. |
+| `<velt-comment-dialog-thread-card-wireframe>` | injects `comment`, `commentObj`, `commentIndex` | Per-comment card. All children below inherit the loop-scope. |
+| `<velt-comment-dialog-thread-card-avatar-wireframe>` | inherits | Author avatar — bind `comment.from.photoUrl`. |
+| `<velt-comment-dialog-thread-card-name-wireframe>` | inherits | Author name — bind `comment.from.name`. |
+| `<velt-comment-dialog-thread-card-time-wireframe>` | inherits | Timestamp — bind `comment.createdAt`. |
+| `<velt-comment-dialog-thread-card-message-wireframe>` | inherits | Comment text. Has `…-show-more-wireframe` / `…-show-less-wireframe` children for long messages. |
+| `<velt-comment-dialog-thread-card-edited-wireframe>` | inherits | "(edited)" indicator. |
+| `<velt-comment-dialog-thread-card-options-wireframe>` | inherits | Per-comment options menu trigger. |
+| `<velt-comment-dialog-thread-card-reactions-wireframe>` | inherits | Emoji reactions strip. `shouldShow` requires `{enableReactions} && {hasReactionsByCommentId[comment.commentId]}`. |
+| `<velt-comment-dialog-thread-card-recordings-wireframe>` | inherits | Per-comment recordings list. |
+| `<velt-comment-dialog-thread-card-attachments-wireframe>` | inherits | Per-comment attachments list. |
+| `<velt-comment-dialog-thread-card-seen-dropdown-wireframe>` | inherits | "Seen by" dropdown trigger. Children: `…-content-item-avatar/name/time-wireframe`. |
+
+**Composer region** (10 top-level + attachment / format-toolbar subtrees):
+
+| Wireframe tag | Notes |
+|---|---|
+| `<velt-comment-dialog-composer-wireframe>` | Composer root. Reads `composerContent` / `composerContentHTML`. |
+| `<velt-comment-dialog-composer-input-wireframe>` | The contenteditable input. |
+| `<velt-comment-dialog-composer-avatar-wireframe>` | Current-user avatar (`user.photoUrl`). |
+| `<velt-comment-dialog-composer-action-button-wireframe>` | Submit / send button. `shouldShow` requires `{showCommentButtons}`. |
+| `<velt-comment-dialog-composer-format-toolbar-wireframe>` | Rich-text format toolbar. |
+| `<velt-comment-dialog-composer-assign-user-wireframe>` | Assign-user trigger. `shouldShow` requires `{enableAssignment}`. |
+| `<velt-comment-dialog-composer-private-badge-wireframe>` | Private-mode badge. `shouldShow` requires `{isPrivateComment}`. |
+| `<velt-comment-dialog-composer-recordings-wireframe>` | Recordings staged in composer — iterates `localRecordedData`. |
+| `<velt-comment-dialog-composer-attachments-wireframe>` | Attachments root — wraps the subtree below. |
+| `<velt-comment-dialog-composer-attachments-selected-wireframe>` | Selected-attachments iteration root. |
+
+**Composer attachment subtree** (per-file slots — image vs. other vs. invalid):
+
+| Wireframe tag | Notes |
+|---|---|
+| `…-attachments-image-wireframe` (+ `-preview`, `-loading`, `-download`, `-delete` children) | Image file slot. |
+| `…-attachments-other-wireframe` (+ `-icon`, `-name`, `-size`, `-loading`, `-download`, `-delete` children) | Non-image file slot. |
+| `…-attachments-invalid-wireframe` (+ `-item-preview`, `-item-message`, `-item-delete` children) | Validation-failed file slot. Gate the root with `velt-if="{invalidSelectedFiles.length} > 0"`. |
+
+**Status / Priority / Custom-annotation dropdown subtrees** — each has a `…-dropdown-wireframe` trigger plus `…-content-item-icon/name(/label)/tick-wireframe` per-row children. Loop-scope inside the per-row slots is the option object (`statusOptions[i]`, `priorityOptions[i]`, `customChipData.items[i]`).
+
+| Wireframe tag | Notes |
+|---|---|
+| `<velt-comment-dialog-status-dropdown-wireframe>` (+ content children) | `shouldShow` requires `{enableStatus}`. |
+| `<velt-comment-dialog-priority-dropdown-wireframe>` (+ content children) | `shouldShow` requires `{enablePriority}`. |
+| `<velt-comment-dialog-custom-annotation-dropdown-wireframe>` (+ content / trigger-list-item children) | `shouldShow` requires `customChipData != null`. |
+| `<velt-comment-dialog-options-dropdown-wireframe>` (+ 8 content variants — `delete-comment`, `delete-thread`, `make-private-enable/disable`, `mark-as-read-mark-read/mark-unread`, `notification-subscribe/unsubscribe`) | Per-comment options. Gate variants by current-state flags. |
+
+**Action buttons** (8 tags — each is its own primitive, gated by feature/capability flags):
+
+| Wireframe tag | `shouldShow` |
+|---|---|
+| `<velt-comment-dialog-resolve-button-wireframe>` | `{enableResolve} && {canResolveAnnotation} && (!{resolveStatusAccessAdminOnly} || {isUserAdmin})` |
+| `<velt-comment-dialog-unresolve-button-wireframe>` | `{canUnresolveAnnotation}` |
+| `<velt-comment-dialog-private-button-wireframe>` | `{enablePrivateMode}` |
+| `<velt-comment-dialog-delete-button-wireframe>` | `{enableDelete}` |
+| `<velt-comment-dialog-approve-wireframe>` | `{moderatorMode}` |
+| `<velt-comment-dialog-sign-in-wireframe>` | `{enableSignInButton} && !{isKnownUser}` |
+| `<velt-comment-dialog-upgrade-wireframe>` | `{enableUpgradeButton} && {isPlanExpired}` |
+
+**Banners** (4 tags + visibility-banner dropdown subtree):
+
+| Wireframe tag | `shouldShow` |
+|---|---|
+| `<velt-comment-dialog-assignee-banner-wireframe>` (+ `-user-avatar`, `-user-name`, `-resolve-button` children) | `assignTo != null` |
+| `<velt-comment-dialog-private-banner-wireframe>` | `{isPrivateComment}` |
+| `<velt-comment-dialog-ghost-banner-wireframe>` | `{enableGhostCommentsMessage} && {showGhostCommentMessage}` |
+| `<velt-comment-dialog-visibility-banner-wireframe>` (+ `-icon`, `-text`, full dropdown subtree below) | `{visibilityOptions}` |
+
+The **visibility-banner dropdown subtree** mirrors the status / priority dropdown shape — a trigger (with avatar-list-item / remaining-count / icon / label children) and a content list (with per-item icon / label children). Loop-scope is `userContact` (avatar list) or the visibility option (`{option.value}` / `{option.label}` / `{option.icon}`) inside the per-item slots.
+
+**Metadata / per-comment indicator tags** (4 tags — each renders a small badge in the thread-card header):
+
+| Wireframe tag | Notes |
+|---|---|
+| `<velt-comment-dialog-metadata-wireframe>` | Wraps the four below. |
+| `<velt-comment-dialog-comment-category-wireframe>` | Auto-categorize chip. `shouldShow` requires `{enableAutoCategorize}`. |
+| `<velt-comment-dialog-comment-index-wireframe>` | "1 of N" indicator. |
+| `<velt-comment-dialog-comment-number-wireframe>` | Auto-generated comment number. |
+| `<velt-comment-dialog-comment-suggestion-status-wireframe>` | Suggestion-mode terminal status. |
+
+**Reply navigation** (5 tags):
+
+| Wireframe tag | Notes |
+|---|---|
+| `<velt-comment-dialog-reply-avatars-wireframe>` (+ `-list-item-wireframe` child) | Strip of reply-author avatars. `shouldShow` requires `{replyAvatars}`. |
+| `<velt-comment-dialog-toggle-reply-wireframe>` (+ `-count`, `-icon`, `-text` children) | "View replies (N)" toggle. `shouldShow` = `!isDialogSelected` **and** `!collapsedRepliesPreview` **and** `annotation.comments.length > 0`, so it never renders next to an open composer or the "N more replies" divider (matches the default dialog since v6.0.11; no markup change needed). |
+| `<velt-comment-dialog-hide-reply-wireframe>` | "Hide replies" toggle. |
+| `<velt-comment-dialog-more-reply-wireframe>` (+ `-count-wireframe` / `-text-wireframe` children) | "Show N replies…" expander between the first comment and the rest — label composed as `Show` + `Count` + `Text`. `shouldShow` = (`isDialogSelected` **or** `collapsedRepliesPreview`) **and** `!showAllComments` **and** `annotation.comments.length > 2`. The `-count` child renders the hidden-reply count (`annotation.comments.length - 2`, clamped ≥ 0); the `-text` child renders the pluralized noun (`reply` / `replies`). Exposed in React as `VeltCommentDialogWireframe.MoreReply.Count` / `.Text`. |
+| `<velt-comment-dialog-navigation-button-wireframe>` | Inter-thread navigation. |
+
+**Auxiliary** (3 tags):
+
+| Wireframe tag | Notes |
+|---|---|
+| `<velt-comment-dialog-all-comment-wireframe>` | "View all comments" link. `shouldShow` requires `{sidebarButtonOnCommentDialogVisible}`. |
+| `<velt-comment-dialog-copy-link-wireframe>` | Copy-link button. |
+| Suggestion card slots | The suggestion card (Accept / Reject, header, banner) and the Progress / Actions rows are documented on the Comment Dialog wireframes page, not in the template-variables reference. See `ui-agent-suggestion-primitives.md`, `data-comment-progress.md`, and `data-comment-actions.md`. |
+
+For the *exhaustive* per-slot prose (sample markup, props, classes), see the docs source linked at the bottom.
+
+#### `defaultCondition` and Angular signal inputs
+
+| React Prop | HTML Attribute | Type | Default | Behavior |
+|---|---|---|---|---|
+| `annotationId` | `annotation-id` | `string` | — | Standalone mode — pin this primitive to an annotation id. |
+| `inlineCommentSectionMode` | `inline-comment-section-mode` | `boolean \| "true" \| "false"` | `false` | Switch to inline-section behavior. |
+| `defaultCondition` | `default-condition` | `boolean \| "true" \| "false"` | `true` | When `false`, bypasses the slot's `shouldShow` so it always renders. |
+
+**Angular signal inputs** (parent-to-child wiring; React/HTML do not require these):
+
 ```typescript
 // On any <velt-comment-dialog-...-wireframe> in an Angular template
 [componentConfigSignal]="config()"   // shared per-annotation config signal
@@ -9846,14 +12627,40 @@ The dialog injects four root namespaces plus context-specific (loop-scoped) vari
 ```
 
 The root `<velt-comment-dialog>` element additionally accepts host attributes that map onto local UI state — `dark-mode`, `variant`, `disabled`, `read-only`, `composer-position`, `dialog-shadow-dom`, etc.
+
+#### Common mistakes — DO NOT
+
 **1. DO NOT prefix mapped variables with `componentConfig.` or `componentConfigSignal.`.** The dialog exposes ~250 mapped names. `<velt-data field="componentConfigSignal.annotation.from.name" />` resolves to nothing — use `<velt-data field="annotation.from.name" />`. The exception is the **eight unmapped root-level properties** (`componentConfigSignal.unreadCommentsMap`, the five `*placeholder` strings, `componentConfigSignal.unreadIndicatorMode`, `componentConfigSignal.placeholder`) which **must** use the full path.
+
 **2. DO NOT reference loop-scope variables outside their slot.** `{comment}` / `{commentObj}` / `{commentIndex}` are defined only inside `<velt-comment-dialog-thread-card-wireframe>` and its descendants. Referencing them from the header or composer returns `undefined`.
+
 **3. DO NOT gate the resolve button with only `{enableResolve}` or only `{canResolveAnnotation}`.** Both are required, plus the admin-only override: `velt-if="{enableResolve} && {canResolveAnnotation} && (!{resolveStatusAccessAdminOnly} || {isUserAdmin})"`.
+
 **4. DO NOT compare `reactionToolOpenIndex` / `openDropdownIndexValue` directly to a boolean.** They are numeric indices (`-1` when closed). Compare to `{commentIndex}`: `velt-class="'reaction-open': '{reactionToolOpenIndex} === {commentIndex}'"`.
+
 **5. DO NOT bracket-lookup `hasReactionsByCommentId` / `unreadCommentsMap` without the `commentId` / `annotationId` in scope.** Inside thread-card use `{hasReactionsByCommentId[comment.commentId]}`. Inside the dialog root use `{componentConfigSignal.unreadCommentsMap[annotation.annotationId]}`.
+
 **6. DO NOT mix `defaultCondition` with `velt-if` to mean the same thing.** `defaultCondition={false}` disables the slot's internal `shouldShow` (forcing render). `velt-if` adds a new gate on top. Combining them inverts the semantics you probably want.
+
 **7. DO NOT remount the dialog wireframe to switch layout modes.** `sidebarMode` / `inboxMode` / `dialogMode` / `inlineCommentMode` / `focusedThreadMode` are exposed as variables — toggle a class with `velt-class`, do not unmount.
+
 **8. DO NOT depend on legacy `commentDialogOptionsDropdownConfigSignal.*` / `commentDialogStatusDropdownConfigSignal.*` prefixes in new code.** They are kept working by the resolver but the v5 short names (`enableAssignment`, `enableEdit`, `statusOptions`, …) are canonical.
+
+**Verification:**
+- [ ] Wireframe slots reference mapped variables by short name — `{annotation}`, `{enableResolve}`, `{composerContent}` — never `componentConfigSignal.<mapped-name>`
+- [ ] The eight unmapped root-level properties (`unreadCommentsMap`, the `*placeholder` set, `unreadIndicatorMode`) are read with the full `componentConfigSignal.<name>` path
+- [ ] Loop-scope (`comment`, `commentObj`, `commentIndex`, `userContact`) is used only inside the owning iteration slot
+- [ ] Resolve / delete / private / suggestion buttons combine the capability flag (`enable*`) **and** the per-user permission (`can*` / `is*Admin`) — not one or the other
+- [ ] Index-based dropdown / reaction state uses `=== {commentIndex}` (not a boolean coercion)
+- [ ] `hasReactionsByCommentId` / `unreadCommentsMap` are bracket-looked-up against `comment.commentId` / `annotation.annotationId`
+- [ ] Layout-mode switching is done via `velt-class`, not by remounting the wireframe
+- [ ] Angular usage wires `[componentConfigSignal]` and `[parentLocalUIState]` from the parent — React/HTML usage does not
+- [ ] v5 short names (`enableAssignment`, `enableEdit`, `enableNotifications`, `enablePrivateMode`) are preferred over the v1 aliases (`allowAssignment`, `allowEdit`, `allowToggleNotification`, `allowChangeCommentAccessMode`)
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/wireframe-variables — "Comment Dialog Wireframe Variables" (full per-slot reference)
+- https://docs.velt.dev/ui-customization/template-variables — "Template Variables overview"
+- Cross-reference: `ui/ui-wireframes.md` (structural catalog of all dialog tags), `ui/ui-comment-dialog.md` (dialog customization), `mode/mode-inline-comments.md` (`{context.someProperty}` patterns in inline-section composers)
 
 ---
 
@@ -9912,16 +12719,23 @@ import { VeltSidebarButtonWireframe } from '@veltdev/react';
 </velt-sidebar-button-wireframe>
 ```
 
+#### Variable namespaces (flat-config — full path required)
+
 **Global Feature State** — cross-document:
+
 | Variable | Type | Notes |
 |---|---|---|
 | `globalConfig.featureState.sidebarVisible` | `boolean` | Linked sidebar is currently open. Drives the active state on the button. |
+
 **Per-instance Data** — counts for this button:
+
 | Variable | Type | Notes |
 |---|---|---|
 | `componentConfig.data.annotations` | `CommentAnnotation[] \| undefined` | All annotations in scope. `.length` drives the total-count badge. |
 | `componentConfig.data.unreadCount` | `number \| null` | Unread-count badge value. Also gates the unread-icon slot. |
+
 **Per-instance UI State** — layout flags:
+
 | Variable | Type | Notes |
 |---|---|---|
 | `componentConfig.uiState.showDefaultBtn` | `boolean` | Default built-in button should render. Set to `false` when a wireframe overrides the button entirely. |
@@ -9929,23 +12743,46 @@ import { VeltSidebarButtonWireframe } from '@veltdev/react';
 | `componentConfig.uiState.floatingModeSidebarVisible` | `boolean` | Floating-mode sidebar is currently open. |
 | `componentConfig.uiState.darkMode` | `boolean` | Dark mode is active for this instance. |
 | `componentConfig.uiState.commentCountType` | `'total' \| 'unread'` | Which count drives the badge. Compare with `===`, do not coerce to boolean. |
+
 **Per-instance Local UI State** — host-attribute reflections:
+
 | Variable | Type | Notes |
 |---|---|---|
 | `parentLocalUIState.darkMode` | `boolean` | Local dark-mode flag (host attribute). |
 | `parentLocalUIState.variant` | `string` | Per-instance variant tag set on the host element. |
 | `parentLocalUIState.shadowDom` | `boolean` | Shadow-DOM rendering is enabled (read-only — set via the host attribute). |
+
+#### Wireframe tags
+
 | Wireframe tag | React component | `shouldShow` |
 |---|---|---|
 | `<velt-sidebar-button-wireframe>` | `<VeltSidebarButtonWireframe>` | Root. |
 | `<velt-sidebar-button-icon-wireframe>` | `<VeltSidebarButtonWireframe.Icon>` | Default chat icon. |
 | `<velt-sidebar-button-comments-count-wireframe>` | `<VeltSidebarButtonWireframe.CommentsCount>` | Branches on `componentConfig.uiState.commentCountType` — `'total'` shows `annotations.length`, `'unread'` shows `unreadCount`. |
 | `<velt-sidebar-button-unread-icon-wireframe>` | `<VeltSidebarButtonWireframe.UnreadIcon>` | `componentConfig.data.unreadCount > 0`. |
+
 Override any gate with `defaultCondition={false}` (React) / `default-condition="false"` (HTML).
+
+#### Common mistakes — DO NOT
+
 **1. DO NOT drop the namespace prefix.** This wireframe is flat-config — `<velt-data field="unreadCount" />` resolves to nothing. Use the full path: `<velt-data field="componentConfig.data.unreadCount" />`.
+
 **2. DO NOT confuse `globalConfig.featureState.sidebarVisible` with `componentConfig.uiState.floatingModeSidebarVisible`.** The first is the global linked-sidebar state; the second is the floating-overlay variant. They are independent — the floating mode can be open while the docked sidebar is closed.
+
 **3. DO NOT compare `commentCountType` to a boolean.** It is a string enum (`'total'` / `'unread'`). Compare explicitly: `velt-if="{componentConfig.uiState.commentCountType} === 'total'"`.
+
 **4. DO NOT bind to `parentLocalUIState.shadowDom` to *enable* shadow-DOM.** Shadow-DOM is set via the host attribute `shadow-dom="true"` on `<velt-sidebar-button>`. The variable only reports the current state.
+
+**Verification:**
+- [ ] All bindings use the full flat-config path (`globalConfig.featureState.*`, `componentConfig.data.*`, `componentConfig.uiState.*`, `parentLocalUIState.*`)
+- [ ] Total-vs-unread badge switching compares `commentCountType` with `===`, not a boolean coercion
+- [ ] Unread-icon slot is gated by `{componentConfig.data.unreadCount} > 0`
+- [ ] Active-state styling reads `globalConfig.featureState.sidebarVisible` (docked) or `componentConfig.uiState.floatingModeSidebarVisible` (floating), not both at once
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar-button/wireframe-variables — "Comment Sidebar Button Wireframe Variables"
+- https://docs.velt.dev/ui-customization/template-variables — "Template Variables overview"
+- Cross-reference: `ui/ui-wireframes.md` (structural wireframe catalog), `surface/surface-sidebar-button.md` (toggle button surface), `wireframe-variables-comment-sidebar.md` (the sidebar this button opens)
 
 ---
 
@@ -10053,21 +12890,284 @@ import { VeltWireframe, VeltCommentsSidebarWireframe, VeltIf, VeltData } from '@
 </velt-wireframe>
 ```
 
+#### Mapped variables (bare short names)
+
+**Sidebar-specific:**
+
+| Variable | Type | Notes |
+|---|---|---|
+| `focusedAnnotation` | `CommentAnnotation` | Currently-focused annotation in focused-thread view. Only resolves inside `<velt-comments-sidebar-focused-thread-wireframe>` and descendants. |
+| `selectedMinimalFilterDropdownOption` | `{ filter: string; sort: string }` | Current option in the minimal filter / sort dropdown. |
+| `appliedFiltersCount` | `number` | Number of filters currently applied — drives the badge on the filter button. |
+| `filteredCommentAnnotationsCount` | `number` | Count of annotations after filtering. |
+| `unreadCommentAnnotationCount` | `number` | Unread-annotation count on the current document (also exposed inside Comment Dialog). |
+
+**Inherited from Comment Dialog** (resolve as short names everywhere):
+
+- App state: `user`, `isUserAdmin`, `isKnownUser`.
+- Per-instance UI: `darkMode`, `variant`.
+- Comment data: `annotation`, `annotations`, `allAnnotations`, `commentAnnotation`, `commentAnnotations`.
+
+Inside a sidebar wireframe that nests a comment-dialog wireframe (list-item dialogs, focused-thread dialog, page-mode composer), the **full Comment Dialog variable surface** becomes available — see `wireframe-variables-comment-dialog.md`.
+
+#### Flat `componentConfig.*` properties (full path required)
+
+The sidebar's underlying shape is flat — these properties sit directly on `componentConfig`, **not** under `appState` / `data` / `uiState` / `featureState`. Grouped by area:
+
+**Layout / mode:**
+
+| Variable | Type | Notes |
+|---|---|---|
+| `componentConfig.darkMode` | `boolean` | Per-sidebar dark-mode flag. |
+| `componentConfig.variant` | `string` | Wireframe variant id (default `'sidebar'`). |
+| `componentConfig.fullScreen` | `boolean` | Sidebar rendered full-screen. |
+| `componentConfig.embedMode` | `string \| null` | Embedded layout id (e.g. `'figma'`). |
+| `componentConfig.floatingMode` | `boolean` | Floating-overlay layout. |
+| `componentConfig.pageMode` | `boolean` | Page-mode layout (includes top-level composer). |
+| `componentConfig.readOnly` | `boolean` | Read-only mode. |
+| `componentConfig.sidebarVisible` | `boolean` | Master visibility toggle (floating mode). |
+| `componentConfig.sidebarReadMode` | `boolean` | Read-mode flag. |
+| `componentConfig.fullExpanded` | `boolean` | Sidebar fully expanded. |
+| `componentConfig.isFirstComponent` | `boolean` | This is the first sidebar instance — gates root `shouldShow`. |
+
+**Loading / empty state:**
+
+| Variable | Type | Notes |
+|---|---|---|
+| `componentConfig.skeletonLoading` | `boolean` | Skeleton loader active. Gate the skeleton; hide the list. |
+| `componentConfig.noCommentsFound` | `boolean` | No annotations exist in scope. |
+| `componentConfig.noCommentsFoundForAppliedFilters` | `boolean` | Filters reduced the list to zero. |
+
+**Filter state:**
+
+| Variable | Type | Notes |
+|---|---|---|
+| `componentConfig.moreFiltersVisible` | `boolean` | Expanded filter panel is open. |
+| `componentConfig.filterConfig` | `CommentSidebarFilterConfig` | Filter-panel configuration (`layout`, ordering, …). `layout === 'minimal'` swaps to the compact dropdown. |
+| `componentConfig.filters` | `Record<string, any[]>` | Currently-selected values per category. |
+| `componentConfig.systemFiltersOperator` | `'AND' \| 'OR'` | How filter categories compose. |
+
+**List data:**
+
+| Variable | Type | Notes |
+|---|---|---|
+| `componentConfig.virtualScrollData` | `{ type: string; data: any }[]` | Virtual-scroll items (annotations + section dividers). |
+| `componentConfig.commentAnnotationsCountByFilters` | `Record<string, Record<string, number>>` | Per-filter-category-and-id annotation count. |
+
+**Callbacks** (wired into custom triggers, not bound with `velt-data`):
+
+- `componentConfig.openMoreFilters` — open the filter panel.
+- `componentConfig.toggleMoreFilters` — toggle the filter panel.
+
+#### Loop-scope (context-specific) variables
+
+These resolve only inside their owning iteration slot — referencing them outside returns `undefined`.
+
+| Variable | Type | Available in |
+|---|---|---|
+| `focusedAnnotation` | `CommentAnnotation` | `<velt-comments-sidebar-focused-thread-wireframe>` and descendants. |
+| `sidebarRef` | `HTMLElement` | Focused-thread context — DOM reference (internal positioning; rarely read in user wireframes). |
+| `filter` | `{ name: string }` | Per-filter-category tags (`<velt-comments-sidebar-filter-name-wireframe>` and friends). |
+| `item` | `{ name: string; count: number; selected: boolean }` | Per-option-row tags — filter-item children, status / location / document dropdown content-items. |
+| `group` | `{ name: string; count: number; expanded: boolean }` | `<velt-comments-sidebar-list-item-group-wireframe>` and children. |
+| `tag` | `{ name: string }` | Filter-search-tag children (`<velt-comments-sidebar-filter-search-tags-item-wireframe>` and friends). |
+
+#### Wireframe tags by region
+
+The full tag set runs to ~80 wireframe tags. The structural tree lives in `ui/ui-wireframes.md`; below is a navigable summary.
+
+**Root / wrapper** (4 tags):
+
+| Wireframe tag | Notes |
+|---|---|
+| `<velt-comments-sidebar-wireframe>` | Root. `shouldShow` = `componentConfig.isFirstComponent \|\| componentConfig.floatingMode \|\| componentConfig.embedMode`; floating mode additionally requires `componentConfig.sidebarVisible`. |
+| `<velt-comments-sidebar-wrapper>` | Visible-content wrapper (a public element registered through its own template, not a `-wireframe` slot you fill). |
+| `<velt-comments-sidebar-panel-wireframe>` | Panel container. |
+| `<velt-comments-sidebar-page-mode-wireframe>` | Page-mode wrapper variant. Gate with `velt-if="{componentConfig.pageMode}"`. |
+
+**Header** (5 tags — title row + action buttons):
+
+| Wireframe tag | Notes |
+|---|---|
+| `<velt-comment-sidebar-header-wireframe>` (also `<velt-comments-sidebar-header-wireframe>`) | Header row. |
+| `<velt-comments-sidebar-filter-button-wireframe>` | Opens the filter panel. Decorate with `{appliedFiltersCount} > 0`. |
+| `<velt-comment-sidebar-close-button-wireframe>` / `<velt-comments-sidebar-close-button-wireframe>` | Close button. |
+| `<velt-comment-sidebar-fullscreen-button-wireframe>` / `<velt-comments-sidebar-fullscreen-button-wireframe>` | Fullscreen toggle. |
+| `<velt-comment-sidebar-search-wireframe>` / `<velt-comments-sidebar-search-wireframe>` | Search input row. |
+| `<velt-comments-sidebar-toggle-button-wireframe>` | Open / close toggle. |
+
+**List** (8 tags — `virtualScrollData` iteration + grouped-section variants):
+
+| Wireframe tag | Loop-scope | Notes |
+|---|---|---|
+| `<velt-comment-sidebar-list-wireframe>` / `<velt-comments-sidebar-list-wireframe>` | — | Iterates `componentConfig.virtualScrollData`. Renders a nested comment-dialog (sidebar mode) per annotation row. |
+| `<velt-comments-sidebar-list-item-wireframe>` | inherits `annotation` | Per-annotation row. |
+| `<velt-comments-sidebar-list-item-dialog-container-wireframe>` | inherits `annotation` | Container for the inline comment-dialog inside a list item — all Comment Dialog variables resolve inside. |
+| `<velt-comments-sidebar-list-item-group-wireframe>` | injects `group` | Section divider for grouped lists. |
+| `<velt-comments-sidebar-list-item-group-name-wireframe>` | inherits `group` | Group name label. |
+| `<velt-comments-sidebar-list-item-group-count-wireframe>` | inherits `group` | Count badge. |
+| `<velt-comments-sidebar-list-item-group-arrow-wireframe>` | inherits `group` | Expand / collapse chevron — gate with `{group.expanded}`. |
+
+**Empty / skeleton** (2 tags):
+
+| Wireframe tag | `shouldShow` |
+|---|---|
+| `<velt-comments-sidebar-empty-placeholder-wireframe>` | `componentConfig.noCommentsFound \|\| componentConfig.noCommentsFoundForAppliedFilters` |
+| `<velt-comment-sidebar-skeleton-wireframe>` / `<velt-comments-sidebar-skeleton-wireframe>` | `componentConfig.skeletonLoading === true` |
+
+**Focused thread + page-mode composer** (3 tags — both nest a comment-dialog):
+
+| Wireframe tag | Notes |
+|---|---|
+| `<velt-comments-sidebar-focused-thread-wireframe>` | `shouldShow` = `!componentConfig.skeletonLoading && componentConfig.focusedAnnotation`. Injects `focusedAnnotation` for descendants. |
+| `<velt-comments-sidebar-focused-thread-dialog-container-wireframe>` | Container for the focused-thread comment-dialog (full Comment Dialog scope resolves inside). |
+| `<velt-comment-sidebar-page-mode-composer-wireframe>` | Page-level "Add comment" composer — delegates to the Comment Dialog composer subtree. |
+
+**Filter panel** (16 tags — category sub-panels + done / reset / view-all + per-category roots):
+
+| Wireframe tag | Notes |
+|---|---|
+| `<velt-comments-sidebar-filter-wireframe>` | Expanded filter panel root. Gate with `{componentConfig.moreFiltersVisible}`. |
+| `<velt-comments-sidebar-filter-title-wireframe>` / `…-close-button-…` / `…-done-button-…` / `…-reset-button-…` / `…-view-all-…` | Panel chrome + actions. The reset button is meaningful only when `{appliedFiltersCount} > 0`. |
+| `<velt-comments-sidebar-filter-name-wireframe>` | Category label — bind `{filter.name}` (loop-scope). |
+| `<velt-comments-sidebar-filter-status-wireframe>` / `…-priority-…` / `…-people-…` / `…-assigned-…` / `…-tagged-…` / `…-involved-…` / `…-document-…` / `…-location-…` / `…-versions-…` / `…-comment-type-…` / `…-category-…` / `…-custom-…` / `…-group-by-…` | Per-category sub-panel roots. Compose per-option rows below. |
+
+**Filter-item + filter-search** (15 tags — per-option rows + checkbox variants + selected-tag pills):
+
+| Wireframe tag | Notes |
+|---|---|
+| `<velt-comments-sidebar-filter-item-wireframe>` (+ `-name`, `-count`, `-checkbox` children) | Per-option row. Loop-scope `item` — gate with `{item.selected}`. |
+| `<velt-comments-sidebar-filter-item-checkbox-checked-wireframe>` / `…-unchecked-…` | Two-variant checkbox. Gate with `velt-if="{item.selected}"` / `velt-if="!{item.selected}"`. |
+| `<velt-comments-sidebar-filter-search-wireframe>` (+ `-input`, `-dropdown-icon`, `-tags`, `-tags-item`, `-tags-item-name`, `-tags-item-close`, `-hidden-count` children) | Filter-search row + selected-tag pills. Loop-scope `tag` inside the tag-item subtree. |
+
+**Standalone filter dropdowns** (status / location / document — 13 tags):
+
+| Wireframe tag | Notes |
+|---|---|
+| `<velt-comments-sidebar-status-wireframe>` (+ `-dropdown-trigger`, `-dropdown-trigger-name`, `-dropdown-trigger-arrow`, `-dropdown-trigger-indicator`, `-dropdown-content`, `-dropdown-content-item`, `-…-item-name`, `-…-item-icon`, `-…-item-count`, `-…-item-checkbox`(+ checked / unchecked) children) | Standalone status filter, placeable outside the main panel. Per-row loop-scope `item`. |
+| `<velt-comments-sidebar-document-filter-dropdown-trigger-wireframe>` (+ `-trigger-label`, `-content`, `-content-item` children) | Standalone document filter. |
+| `<velt-comments-sidebar-location-filter-dropdown-wireframe>` (+ trigger / trigger-label / content / content-item children) | Standalone location filter. |
+
+**Minimal filter / actions dropdowns** (15 tags — compact layout):
+
+| Wireframe tag | Notes |
+|---|---|
+| `<velt-comments-sidebar-minimal-filter-dropdown-trigger-wireframe>` (+ `-content` child) | Compact filter + sort UI. Used when `componentConfig.filterConfig.layout === 'minimal'`. |
+| `<velt-comments-sidebar-minimal-filter-dropdown-content-filter-all-wireframe>` / `…-open` / `…-resolved` / `…-read` / `…-unread` / `…-assigned-to-me` / `…-reset-wireframe>` | Per-filter rows. Compare with `{selectedMinimalFilterDropdownOption.filter} === 'open'` etc. |
+| `<velt-comments-sidebar-minimal-filter-dropdown-content-selected-icon-wireframe>` | Per-row selected tick. Gate with `{item.selected}`. |
+| `<velt-comments-sidebar-minimal-filter-dropdown-content-sort-date-wireframe>` / `…-sort-unread-wireframe>` | Sort rows. Compare `{selectedMinimalFilterDropdownOption.sort}`. |
+| `<velt-comments-sidebar-minimal-actions-dropdown-trigger-wireframe>` (+ `-content`, `-content-mark-all-read`, `-content-mark-all-resolved` children) | "⋯" actions dropdown. |
+
+**Auxiliary** (3 tags):
+
+| Wireframe tag | Notes |
+|---|---|
+| `<velt-comments-sidebar-reset-filter-button-wireframe>` | Reset-filters button (used in empty placeholder). Gate with `{appliedFiltersCount} > 0`. |
+| `<velt-comment-sidebar-action-button-wireframe>` / `<velt-comment-sidebar-reset-filter-button-wireframe>` | Generic action / reset primitives used in placeholders. |
+
+#### V2 wireframe slots — Search, FilterButton, FilterContainer, FullscreenButton, ListGroupHeader
+
+The V2 sidebar wireframe family (`VeltCommentsSidebarV2Wireframe.*` / `<velt-comments-sidebar-*-v2-wireframe>`) introduces five new bindable slot subtrees on top of the V1 surface above. Each leaf wireframe exposes its own per-slot variables — **bind dynamic data on the leaf, not its container** (signals only update live when bound to the leaf signal).
+
+**Header — Search / FilterButton / FullscreenButton:**
+
+| Wireframe tag | Exposed variables / `shouldShow` | Notes |
+|---|---|---|
+| `<velt-comments-sidebar-search-v2-wireframe>` (+ `-icon-`, `-input-` leaves) | `placeholder`, `searchable` | Header search row. Bind `placeholder` on `-input-` to customize the search placeholder live. |
+| `<velt-comments-sidebar-filter-button-v2-wireframe>` (+ `-applied-icon-` leaf) | `isFilterActive`, `appliedCount` | Opens the Main Filter container. Drive the badge with `appliedCount`; gate the `-applied-icon-` leaf with `velt-if="{isFilterActive}"`. |
+| `<velt-comments-sidebar-fullscreen-button-v2-wireframe>` | — | Header fullscreen toggle; emits the `onFullscreenClick` event upstream. |
+
+**FilterContainer (Main Filter bottom-sheet/menu subtree):**
+
+The `FilterContainer` wireframe is the new bottom-sheet/menu surface — distinct from the existing `FilterDropdown` header dropdown. Available variables across these leaves: `value`, `label`, `count`, `mode`, `selected`, `group`, `groupingEnabled`, `groupByOptions`, `chips`, `searchable`, `placeholder`, `isFilterActive`, `appliedCount`.
+
+| Wireframe tag | Exposed variables / `shouldShow` | Notes |
+|---|---|---|
+| `<velt-comments-sidebar-filter-container-v2-wireframe>` | `isFilterActive`, `appliedCount` | Root container — holds title, group-by, section list, reset/apply/close. |
+| `<velt-comments-sidebar-filter-container-v2-title-wireframe>` | `label` | Panel title. |
+| `<velt-comments-sidebar-filter-container-v2-group-by-wireframe>` | `groupByOptions`, `groupingEnabled` | Renders only when grouping is enabled. Bind `groupByOptions` for its option list. |
+| `<velt-comments-sidebar-filter-container-v2-section-list-wireframe>` → `…-section-wireframe>` (loop) | inherits `section` (one per filter section) | Per-section iteration. |
+| `<velt-comments-sidebar-filter-container-v2-section-label-wireframe>` | `label`, `count` | Section header label + count. |
+| `<velt-comments-sidebar-filter-container-v2-section-field-wireframe>` | `searchable`, `mode` | Field container; `searchable` toggles the per-section search box. |
+| `<velt-comments-sidebar-filter-container-v2-section-control-wireframe>` (+ `-chevron-`, `-value-`, `-chip-list-` → `-chip-`, `-search-` leaves) | `value`, `chips`, `searchable`, `placeholder` | Section control row — chips list and inline search. |
+| `<velt-comments-sidebar-filter-container-v2-section-option-list-wireframe>` → `-section-option-wireframe>` (loop) | inherits `option` per row | Per-option iteration. |
+| `<velt-comments-sidebar-filter-container-v2-section-option-checkbox-wireframe>` | `selected` | Per-option checkbox state. Gate with `velt-if="{selected}"` (or the unchecked sibling). |
+| `<velt-comments-sidebar-filter-container-v2-section-option-name-wireframe>` | `label` | Option label. |
+| `<velt-comments-sidebar-filter-container-v2-section-option-count-wireframe>` | `count` | Option facet count. Gate with `velt-if="{componentConfig.filterCount}"` if you want to honor the `filterCount` prop. |
+| `<velt-comments-sidebar-filter-container-v2-reset-button-wireframe>` / `…-apply-button-…` / `…-close-button-…` | `appliedCount`, `isFilterActive` | Footer actions. The reset button is meaningful only when `{appliedCount} > 0`. |
+
+**List groups — ListGroupHeader:**
+
+| Wireframe tag | Exposed variables | Notes |
+|---|---|---|
+| `<velt-comments-sidebar-list-group-header-v2-wireframe>` | injects `group` (one per group when grouping is enabled) | Renders once per group inside `<velt-comments-sidebar-list-v2-wireframe>`. |
+| `<velt-comments-sidebar-list-group-header-v2-label-wireframe>` | `group.label` | Group display label. |
+| `<velt-comments-sidebar-list-group-header-v2-count-wireframe>` | `group.count` | Group annotation count. |
+| `<velt-comments-sidebar-list-group-header-v2-chevron-wireframe>` | inherits `group.isExpanded` | Expand / collapse chevron — drive direction with `velt-class="'collapsed': !{group.isExpanded}"`. |
+| `<velt-comments-sidebar-list-group-header-v2-separator-wireframe>` | — | Inter-group separator. |
+
 **FilterDropdown subtree leaves (new this release):**
+
+| Wireframe tag | Exposed variables |
+|---|---|
+| `<velt-comments-sidebar-filter-dropdown-content-list-item-count-v2-wireframe>` | per-item `count` (new — surfaces per-option facet count alongside the existing indicator + label leaves). |
+| `<velt-comments-sidebar-filter-dropdown-content-list-category-label-v2-wireframe>` | category `label` (new — sibling to the existing `Category.Content` leaf). |
+
+> **Breaking change (V2 — current release):** the `velt-comments-sidebar-minimal-actions-dropdown-v2-wireframe` family (Trigger / Content / MarkAllRead / MarkAllResolved) is removed. Mark-all-read and mark-all-resolved are now exposed by the combined `actions` filter-dropdown configured via the `minimalFilters` input on `VeltCommentsSidebarV2` — bind those rows inside the existing `FilterDropdown` subtree (`<velt-comments-sidebar-filter-dropdown-content-list-item-v2-wireframe>` + `…-item-count-v2-wireframe`).
+
+#### `defaultCondition` and Common Props
+
+| React Prop | HTML Attribute | Type | Default | Behavior |
+|---|---|---|---|---|
+| `defaultCondition` | `default-condition` | `boolean \| "true" \| "false"` | `true` | When `false`, bypasses the slot's `shouldShow` for previews. |
+| `fullScreen` / `embedMode` / `floatingMode` / `pageMode` / `darkMode` / `readOnly` / `variant` | matching kebab attributes | — | — | Layout flags. Reflected onto `componentConfig.*` (read inside wireframes via the full path). |
+| `dialogVariant` / `focusedThreadDialogVariant` / `pageModeComposerVariant` | matching kebab attributes | `string` | — | Variant ids forwarded to nested comment-dialogs. |
+| `sortBy` / `sortOrder` / `sortData` / `systemFiltersOperator` / `currentLocationSuffix` / `selection` / `expandOnSelection` / `queryParamsComments` | matching kebab attributes | — | — | Behavioral props (operator default `'AND'`). |
+
+**Signal inputs** (Angular parent-to-child wiring; React/HTML do not require these):
 
 ```typescript
 // On any <velt-comments-sidebar-...-wireframe> in an Angular template
 [componentConfigSignal]="config()"   // shared per-sidebar config signal
 ```
 
+#### Common mistakes — DO NOT
+
 **1. DO NOT drop the `componentConfig.` prefix on flat properties.** The sidebar is hybrid — mapped names (`focusedAnnotation`, `appliedFiltersCount`, `annotation`, `user`, `darkMode`, `variant`, `unreadCommentAnnotationCount`, …) resolve as bare short names; **everything else** lives flat on `componentConfig`. `<velt-data field="skeletonLoading" />` returns nothing — use `<velt-data field="componentConfig.skeletonLoading" />`. Similarly: `componentConfig.virtualScrollData`, `componentConfig.moreFiltersVisible`, `componentConfig.filterConfig.layout`, `componentConfig.noCommentsFound`, …
+
 **2. DO NOT reference `focusedAnnotation` outside the focused-thread subtree.** It's loop-scope — only resolves inside `<velt-comments-sidebar-focused-thread-wireframe>` (and the focused-thread-dialog container). Referencing it from the list or filter panel returns `undefined`.
+
 **3. DO NOT confuse `componentConfig.noCommentsFound` with `componentConfig.noCommentsFoundForAppliedFilters`.** The first is "no annotations exist on the document"; the second is "filters reduced the list to zero". Empty-state copy + the reset-filter button should branch on the second.
+
 **4. DO NOT confuse the two prefixes.** Both `<velt-comments-sidebar-...>` (plural, sidebar-level) and `<velt-comment-sidebar-...>` (singular, header / search / list-level) appear in the catalog. The format guide is consistent inside each subtree — copy the tag name exactly from the docs source; don't infer.
+
 **5. DO NOT bind `componentConfig.openMoreFilters` / `toggleMoreFilters` with `velt-data`.** They are callback functions — wire them into a custom click handler in your host code, not into the template-variable resolver.
+
 **6. DO NOT mix `defaultCondition` with `velt-if` to mean the same thing.** `defaultCondition={false}` disables the slot's internal `shouldShow` (forcing render). `velt-if` adds a new gate on top. Combining them inverts the semantics you probably want.
+
 **7. DO NOT compare `selectedMinimalFilterDropdownOption.filter` directly to a boolean.** It is a string (`'all'`, `'open'`, `'resolved'`, `'read'`, `'unread'`, `'assigned-to-me'`). Compare with `===` inside the per-row gate: `velt-class="'selected': '{selectedMinimalFilterDropdownOption.filter} === \'open\''"`.
+
 **8. DO NOT remount the sidebar to switch between docked / floating / page-mode / embed layouts.** `componentConfig.floatingMode` / `componentConfig.pageMode` / `componentConfig.embedMode` / `componentConfig.fullScreen` are exposed as variables — toggle classes with `velt-class`, don't unmount.
+
+**Verification:**
+- [ ] Mapped names (`focusedAnnotation`, `appliedFiltersCount`, `filteredCommentAnnotationsCount`, `unreadCommentAnnotationCount`, `selectedMinimalFilterDropdownOption`, `annotation`, `annotations`, `user`, `darkMode`, `variant`) are referenced as bare short names
+- [ ] Every other property uses the full `componentConfig.<name>` path (skeleton / empty / filter / virtual-scroll / mode state)
+- [ ] Loop-scope (`focusedAnnotation` inside focused-thread, `filter` / `item` / `group` / `tag` inside their owning iteration, `group` inside `list-group-header-v2`) is used only inside the owning slot
+- [ ] Empty-state copy + reset-filter button branch on `noCommentsFoundForAppliedFilters` (not `noCommentsFound`) when filters are applied
+- [ ] Skeleton vs. list mutual exclusion uses `{componentConfig.skeletonLoading}` to gate the skeleton — the list does not need an explicit `velt-if` (the wireframe handles it)
+- [ ] Nested comment-dialog wireframes (list-item, focused-thread, page-mode composer) use the full Comment Dialog variable surface — see `wireframe-variables-comment-dialog.md`
+- [ ] Tag names are copied verbatim — both `velt-comments-sidebar-…` and `velt-comment-sidebar-…` prefixes are valid depending on the subtree
+- [ ] Minimal-filter row gating compares `selectedMinimalFilterDropdownOption.filter` / `.sort` with `===`, not boolean coercion
+- [ ] V2 FilterContainer leaves bind `value` / `label` / `count` / `selected` / `chips` / `placeholder` on the leaf wireframe (not its container) so signals update live
+- [ ] V2 `FilterButton.AppliedIcon` is gated on `{isFilterActive}` and the badge text is driven by `{appliedCount}`
+- [ ] V2 `ListGroupHeader.Chevron` is class-toggled on `{group.isExpanded}` (not unmounted) so collapse-state is reversible
+- [ ] No references remain to the removed `velt-comments-sidebar-minimal-actions-dropdown-v2-wireframe` family — migrate to the `actions` filter-dropdown configured via `minimalFilters`
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-wireframe-variables — "Comment Sidebar Wireframe Variables" (full per-slot reference)
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-v2-wireframes — "V2 Sidebar Wireframes" (Search / FilterButton / FilterContainer / FullscreenButton / ListGroupHeader new-slot bindings)
+- https://docs.velt.dev/ui-customization/template-variables — "Template Variables overview"
+- Cross-reference: `ui/ui-wireframes.md` (structural catalog), `surface/surface-sidebar.md` (sidebar surface), `surface/surface-sidebar-v2.md` (V2 primitives + declarative filter model), `wireframe-variables-comment-dialog.md` (variables that resolve inside nested dialog tags rendered by the list / focused-thread / page-mode composer), `wireframe-variables-comment-sidebar-button.md` (the button that opens this sidebar)
 
 ---
 
@@ -10125,7 +13225,7 @@ import { VeltCommentToolWireframe } from '@veltdev/react';
 
 **HTML / web-component equivalent:**
 
-```typescript
+```html
 <velt-comment-tool-wireframe>
   <button class="my-tool"
           velt-class="'is-active': {addCommentMode}, 'is-off': '!{commentToolEnabled}'">
@@ -10134,20 +13234,23 @@ import { VeltCommentToolWireframe } from '@veltdev/react';
     <span velt-if="{addCommentMode}">Click anywhere to comment</span>
   </button>
 </velt-comment-tool-wireframe>
-// On <velt-comment-tool-wireframe> in an Angular template
-[componentConfigSignal]="config()"      // featureState, data, uiState
-[parentLocalUIState]="localUI()"        // darkMode, variant, shadowDom
 ```
 
+#### Variable namespaces
+
 The Comment Tool exposes a flat-config surface with three explicit prefixes. The flat compatibility names (right column) resolve to the same values.
+
 **Global feature state** (`globalConfig.featureState.*` — workspace-level capability flags):
+
 | Variable | Type | Flat alias | Notes |
 |---|---|---|---|
 | `globalConfig.featureState.commentToolEnabled` | `boolean` | `{commentToolEnabled}` | Tool enabled at the workspace level. Gate the inner button with `velt-class="'is-off': '!{commentToolEnabled}'"`. |
 | `globalConfig.featureState.addCommentMode` | `boolean` | `{addCommentMode}` | Add-comment mode is active — next click anywhere drops a pin. |
 | `globalConfig.featureState.popoverMode` | `boolean` | — | Popover comment mode is enabled. |
 | `globalConfig.featureState.groupMatchedComments` | `boolean` | — | Matched comments are grouped on the page. |
+
 **Per-instance data** (`componentConfig.data.*` — annotation context bound to this tool instance):
+
 | Variable | Type | Notes |
 |---|---|---|
 | `componentConfig.data.commentAnnotationAvailable` | `boolean` | An annotation is currently associated with this tool instance. |
@@ -10161,7 +13264,9 @@ The Comment Tool exposes a flat-config surface with three explicit prefixes. The
 | `componentConfig.data.targetElementId` | `string \| null` | DOM target the next annotation will anchor onto. |
 | `componentConfig.data.sourceId` | `string \| null` | Source id from the host application. |
 | `componentConfig.data.disabled` | `boolean` | Tool is disabled by host configuration. Flat alias: `{disabled}`. |
+
 **Per-instance UI state** (`componentConfig.uiState.*`):
+
 | Variable | Type | Notes |
 |---|---|---|
 | `componentConfig.uiState.showDefaultBtn` | `boolean` | Default built-in button should render. Set to `false` when a wireframe overrides the button. |
@@ -10170,30 +13275,71 @@ The Comment Tool exposes a flat-config surface with three explicit prefixes. The
 | `componentConfig.uiState.addCommentMode` | `boolean` | Per-instance mirror of the global add-comment-mode flag. |
 | `componentConfig.uiState.contextInPageModeComposer` | `boolean` | Tool is rendering inside a page-mode composer. |
 | `componentConfig.uiState.commentToolEnabled` | `boolean` | Per-instance mirror of the global enabled flag. |
+
 **Parent local UI state** (`parentLocalUIState.*` — host-attribute mirrors):
+
 | Variable | Type | Notes |
 |---|---|---|
 | `parentLocalUIState.darkMode` | `boolean` | Local dark-mode flag (set on the host element). |
 | `parentLocalUIState.variant` | `string` | Per-instance variant tag from the host element. |
 | `parentLocalUIState.shadowDom` | `boolean` | Local shadow-DOM flag. |
+
+#### Wireframe tag
+
 The Comment Tool has a single wireframe primitive — the tool button itself.
+
 | Public element | Wireframe tag | React component |
 |---|---|---|
 | `<velt-comments-tool>` | `<velt-comment-tool-wireframe>` *(singular)* | `<VeltCommentToolWireframe>` |
+
 Children of `<VeltCommentToolWireframe>` are the host-app markup the customer supplies — there are no sub-component slots. The inner default button paints these classes automatically: `velt-comment-tool`, `velt-tool--action-btn`, `active` (when `addCommentMode`), `velt-tool--action-btn-disabled` (when `!commentToolEnabled`), `velt-tool--action-btn-icon`, `velt-comment-tool--custom-btn`.
+
+#### `defaultCondition` and Angular signal inputs
+
 | React Prop | HTML Attribute | Type | Default | Behavior |
 |---|---|---|---|---|
 | `defaultCondition` | `default-condition` | `boolean \| "true" \| "false"` | `true` | When `false`, the component renders regardless of its internal `shouldShow` gate. The root tool always renders by default; the disabled state is rendered via a CSS class, not an unmount, so `defaultCondition` is rarely needed here. |
+
 **Angular signal inputs** (parent-to-child wiring; React/HTML do not require these):
+
+```typescript
+// On <velt-comment-tool-wireframe> in an Angular template
+[componentConfigSignal]="config()"      // featureState, data, uiState
+[parentLocalUIState]="localUI()"        // darkMode, variant, shadowDom
+```
+
 The root `<velt-comments-tool>` element additionally accepts host attributes that map onto local UI state: `dark-mode`, `variant`, `shadow-dom`.
+
+#### `shouldShow` reference
+
 | Slot | `shouldShow` |
 |---|---|
 | `comment-tool-wireframe` (root) | Always renders. The *inner default button* visually disables (does not unmount) when `commentToolEnabled === false`. |
+
 If you want the tool to disappear entirely when disabled, gate it yourself: `velt-if="{commentToolEnabled}"`.
+
+#### Common mistakes — DO NOT
+
 **1. DO NOT confuse `commentToolEnabled` with `addCommentMode`.** `commentToolEnabled` is the workspace capability flag (can the tool be used at all). `addCommentMode` is the transient state (is the user about to drop a pin). Style with `addCommentMode`; gate visibility with `commentToolEnabled`.
+
 **2. DO NOT subscribe to SDK state to drive the button.** The wireframe injects `addCommentMode` and `commentToolEnabled` automatically. Reading them via the host signal and re-rendering breaks the wireframe contract and double-paints state.
+
 **3. DO NOT pass `componentConfig.uiState.shadowDom` through the wireframe.** `shadowDom` is a host-element attribute (`shadow-dom="true"` on `<velt-comments-tool>`), not a wireframe-bound knob.
+
 **4. DO NOT mix `defaultCondition` with `velt-if` to mean the same thing.** `defaultCondition={false}` disables the slot's internal gate (forcing render). `velt-if` adds a new gate on top. Combining them inverts the semantics you probably want.
+
+**Verification:**
+- [ ] The wireframe root has no `velt-if` gate (the tool button should remain mounted so add-comment mode can be toggled)
+- [ ] Active styling uses `{addCommentMode}` (not a host-React `useState`)
+- [ ] Disabled styling uses `'!{commentToolEnabled}'` (string-quoted negation — required for the parser)
+- [ ] `componentConfig.*` paths are used when explicitness is desired; flat aliases are used only for the three documented names (`commentToolEnabled`, `addCommentMode`, `disabled`)
+- [ ] Angular usage wires `[componentConfigSignal]` and `[parentLocalUIState]` from the parent — React/HTML usage does not
+- [ ] `shadow-dom`, `dark-mode`, `variant` are set on the host element, not inside the wireframe
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-tool-wireframe-variables — "Comment Tool Wireframe Variables"
+- https://docs.velt.dev/ui-customization/template-variables — "Template Variables overview"
+- Cross-reference: `ui/ui-wireframes.md` (structural catalog), `mode/mode-inline-comments.md` (`{context.someProperty}` patterns in inline-section composers)
 
 ---
 
@@ -10278,11 +13424,16 @@ import { VeltInlineCommentsSectionWireframe } from '@veltdev/react';
 </velt-inline-comments-section-wireframe>
 ```
 
+#### Variable namespaces
+
 **App State** — identity:
+
 | Variable | Type | Notes |
 |---|---|---|
 | `user` | `User` | Currently identified end-user. |
+
 **Data State** — annotations + composer + statuses:
+
 | Variable | Type | Notes |
 |---|---|---|
 | `annotations` | `CommentAnnotation[]` | Annotations rendered after filter / sort. Drives the count badge and the `List` iteration. |
@@ -10290,7 +13441,106 @@ import { VeltInlineCommentsSectionWireframe } from '@veltdev/react';
 | `composerCommentAnnotation` | `CommentAnnotation \| undefined` | Draft annotation being composed in this section. Gate the composer with `velt-if="{composerCommentAnnotation}"` when you need to know it exists. |
 | `statuses` | `CustomStatus[]` | Available status options for the filter dropdown. |
 
+**UI State — filter/sort, layout, identity wiring:**
+
+| Variable | Type | Notes |
+|---|---|---|
+| `skeletonLoading` | `boolean` | Skeleton loader is active. Drives `skeleton-wireframe` `shouldShow`. |
+| `darkMode` | `boolean` | Dark mode is active. |
+| `variant` | `string` | Per-instance variant tag from the host element. |
+| `uiState.componentId` | `string` | Unique id of this section instance. Use the full path — `componentId` is conflicting. |
+| `filterState` / `filterState.filters` / `filterState.filterDropdownOpen` | `InlineSectionFilterState` | Combined filter state — per-status rows + dropdown-open flag. |
+| `sortState` / `sortState.sortBy` / `sortState.sortOrder` / `sortState.activeSortOption` / `sortState.sortingDropdownOpen` | `InlineSectionSortState` | Combined sort state. |
+| `isResolvedCommentsOnDomFilterSelected` | `boolean` | "Show resolved" filter is currently selected. |
+| `resolvedCommentsOnDom` | `boolean` | Resolved annotations are rendered. |
+| `selectedAnnotationsMap` | `SelectedAnnotationsMap` | Map keyed by `annotationId` → selected flag. Use bracket lookup: `{selectedAnnotationsMap[annotation.annotationId]}`. |
+| `selectedAnnotationsLocationMap` | `SelectedAnnotationsLocationMap` | Internal selection bookkeeping by location — bracket-lookup individual entries if needed. |
+| `parentLocalUIState.shadowDom` | `boolean` | Shadow-DOM rendering is enabled. |
+| `dialogVariant` / `composerVariant` | `string` | Variants forwarded to nested comment-dialogs / composer. |
+| `composerPosition` | `'top' \| 'bottom'` | Composer placement. |
+| `multiThread` | `boolean` | Multi-thread layout is active. |
+| `fullExpanded` | `boolean` | Section is fully expanded. |
+| `commentPlaceholder` / `replyPlaceholder` / `composerPlaceholder` / `editPlaceholder` / `editCommentPlaceholder` / `editReplyPlaceholder` | `string` | Placeholder strings for each composer surface. |
+| `targetElementId` | `string` | DOM target the section is anchored to. |
+| `folderId` / `veltFolderId` / `clientDocumentId` / `documentId` / `locationId` | `string` | Folder / document / location wiring. |
+| `context` | `Record<string, any>` | Free-form annotation context. Cross-reference `mode/mode-inline-comments.md` for `{context.someProperty}` patterns. |
+| `contextOptions` | `ContextOptions` | Context-options config for new annotations. |
+| `readOnly` | `boolean` | Per-instance read-only flag. **Prefer `featureState.readOnly`** (see conflicts). |
+| `messageTruncation` | `boolean` | Per-instance truncation flag. **Prefer `featureState.messageTruncation`** (see conflicts). |
+| `messageTruncationLines` | `number` | Per-instance truncation line count. **Prefer `featureState.messageTruncationLines`** (see conflicts). |
+
+**Feature State** — workspace capability flags:
+
+| Variable | Type | Notes |
+|---|---|---|
+| `featureState.readOnly` | `boolean` | Section is in read-only mode (workspace-wide). |
+| `featureState.anonymousEmail` | `boolean` | Anonymous-email capture is enabled. |
+| `featureState.messageTruncation` | `boolean` | Long messages are truncated. |
+| `featureState.messageTruncationLines` | `number` | Line count for truncation. |
+
+#### Loop-scope (context-specific) variables
+
+These resolve only inside their owning iteration slot — referencing them outside returns `undefined`.
+
+| Variable | Type | Available in |
+|---|---|---|
+| `filter` / `filter.id` / `filter.isSelected` / `filter.metadata` | `InlineSectionFilterItem<CustomStatus>` | Filter-dropdown list-item / checkbox / label tags. |
+| `sortOption` | `InlineSortingCriteria` | Sorting-dropdown content-item / -icon / -tick tags. |
+| `sortOptionText` | `string` | Sorting-dropdown content-item / -name tags. |
+| `isActive` | `boolean` | Sorting-dropdown content-item (this is the active sort option). |
+| `isAscending` | `boolean` | Sorting-dropdown content-item-icon (current sort is ascending). |
+
+Inside the nested `List` and `ComposerContainer` slots, the standard Comment Dialog loop-scope (`comment`, `commentObj`, `commentIndex`, `commentAnnotation`) resolves — see `wireframe-variables-comment-dialog.md`.
+
+#### Naming conflicts — use the full path
+
+Four names collide with mappings used elsewhere. Inside an Inline Comments Section wireframe, prefer the explicit path:
+
+| Conflicting name | Use this in Inline Comments Section |
+|---|---|
+| `readOnly` | `featureState.readOnly` (workspace) **or** `{readOnly}` (per-instance local) |
+| `messageTruncation` | `featureState.messageTruncation` |
+| `messageTruncationLines` | `featureState.messageTruncationLines` |
+| `componentId` | `uiState.componentId` |
+
+#### Wireframe tags
+
+The section has a root primitive, a panel container, a skeleton, a count label, a list (iteration), a composer container, and two dropdowns (filter + sort). The full structural tree is catalogued in `ui/ui-wireframes.md`.
+
 **Root + structural:**
+
+| Wireframe tag | React component | Notes |
+|---|---|---|
+| `<velt-inline-comments-section-wireframe>` | `<VeltInlineCommentsSectionWireframe>` | Root. Always renders when present. |
+| `<velt-inline-comments-section-panel-wireframe>` | `<VeltInlineCommentsSectionWireframe.Panel>` | Wrapper container — composes header + list + composer. |
+| `<velt-inline-comments-section-skeleton-wireframe>` | `<VeltInlineCommentsSectionWireframe.Skeleton>` | Skeleton loader. `shouldShow` requires `skeletonLoading === true`. |
+| `<velt-inline-comments-section-comment-count-wireframe>` | `<VeltInlineCommentsSectionWireframe.CommentCount>` | "N comments" label — bind `<velt-data field="annotations.length" />`. |
+| `<velt-inline-comments-section-list-wireframe>` | `<VeltInlineCommentsSectionWireframe.List>` | Iterates `annotations`. Renders Comment Dialog primitives per entry — nested tags resolve dialog variables. |
+| `<velt-inline-comments-section-composer-container-wireframe>` | `<VeltInlineCommentsSectionWireframe.ComposerContainer>` | Per-section composer. Nested composer slots resolve Comment Dialog composer variables. |
+
+**Filter dropdown subtree** (per-status rows expose `filter`):
+
+| Wireframe tag | Notes |
+|---|---|
+| `<velt-inline-comments-section-filter-dropdown-wireframe>` | Root. |
+| `<velt-inline-comments-section-filter-dropdown-trigger-wireframe>` (+ `-name`, `-arrow` children) | Trigger pill — bind `{filterState.filters.length}` on `-name`. |
+| `<velt-inline-comments-section-filter-dropdown-content-wireframe>` (+ `-list`, `-list-item`, `-list-item-checkbox`, `-list-item-label`, `-apply-button` children) | Open menu. Per-row tags expose `filter`. |
+
+**Sorting dropdown subtree** (per-row tags expose `sortOption` / `sortOptionText` / `isActive` / `isAscending`):
+
+| Wireframe tag | Notes |
+|---|---|
+| `<velt-inline-comments-section-sorting-dropdown-wireframe>` | Root. |
+| `<velt-inline-comments-section-sorting-dropdown-trigger-wireframe>` (+ `-icon`, `-name` children) | Trigger pill. |
+| `<velt-inline-comments-section-sorting-dropdown-content-wireframe>` (+ `-item`, `-item-icon`, `-item-name`, `-item-tick` children) | Open menu. Per-row tags carry loop-scope; `-item-tick` is gated by `isActive`. |
+
+#### `defaultCondition` and Angular signal inputs
+
+| React Prop | HTML Attribute | Type | Default | Behavior |
+|---|---|---|---|---|
+| `defaultCondition` | `default-condition` | `boolean \| "true" \| "false"` | `true` | When `false`, the component renders regardless of its internal `shouldShow` gate. Use to force-show the skeleton outside its load window or a sort-tick when `isActive` is false. |
+
+**Angular signal inputs** (parent-to-child wiring; React/HTML do not require these):
 
 ```typescript
 // On any <velt-inline-comments-section-...-wireframe> in an Angular template
@@ -10299,13 +13549,36 @@ import { VeltInlineCommentsSectionWireframe } from '@veltdev/react';
 ```
 
 The root `<velt-inline-comments-section>` element additionally accepts host attributes that map onto config and local UI state: `target-element-id`, `folder-id`, `document-id`, `location-id`, `context`, `dialog-variant`, `composer-variant`, `composer-position`, `comment-placeholder` / `reply-placeholder` / `composer-placeholder` / `edit-placeholder`, `multi-thread`, `full-expanded`, `read-only`, `message-truncation`, `message-truncation-lines`, `dark-mode`, `variant`, `shadow-dom`.
+
+#### Common mistakes — DO NOT
+
 **1. DO NOT prefix mapped variables with `componentConfig.`.** Variables are mapped to short names. `<velt-data field="componentConfig.annotations.length" />` resolves to nothing — use `<velt-data field="annotations.length" />`. The exception is the four conflicting names above, which **require** their explicit path.
+
 **2. DO NOT read `readOnly` / `messageTruncation` / `messageTruncationLines` at the short name when you mean the workspace-wide flag.** The short names are the per-instance local copies; the workspace flags live under `featureState.*`. They can disagree.
+
 **3. DO NOT remount the section to switch between filter values.** `filterState.filters`, `sortState.sortBy`, and `sortState.sortOrder` are exposed as variables — toggle classes with `velt-class`, do not unmount.
+
 **4. DO NOT iterate `annotations` yourself.** The `<velt-inline-comments-section-list-wireframe>` iterates and mounts the standard Comment Dialog primitives per annotation, injecting the per-annotation context that nested dialog tags read.
+
 **5. DO NOT compare `selectedAnnotationsMap` to a boolean directly.** It is a map. Bracket-lookup the current annotation: `{selectedAnnotationsMap[annotation.annotationId]}` (inside an iteration where `annotation` is in scope).
+
 **6. DO NOT reference `filter` / `sortOption` / `sortOptionText` / `isActive` / `isAscending` outside their owning dropdown row tag.** They are loop-scoped — referencing them from the header or the list returns `undefined`.
+
 **7. DO NOT mix `defaultCondition` with `velt-if` to mean the same thing.** `defaultCondition={false}` disables the slot's internal `shouldShow` (forcing render). `velt-if` adds a new gate on top. Combining them inverts the semantics you probably want.
+
+**Verification:**
+- [ ] Wireframe slots reference mapped variables by short name — `{annotations}`, `{filterState}`, `{sortState}`, `{composerPosition}` — never `componentConfig.<mapped-name>`
+- [ ] The four conflicting names use their explicit path: `featureState.readOnly`, `featureState.messageTruncation`, `featureState.messageTruncationLines`, `uiState.componentId`
+- [ ] Loop-scope (`filter`, `sortOption`, `sortOptionText`, `isActive`, `isAscending`) is used only inside the owning filter/sort row tag
+- [ ] `selectedAnnotationsMap` is bracket-looked-up against `annotation.annotationId`, not coerced to a boolean
+- [ ] The list and composer rely on the standard Comment Dialog wireframe variables (see `wireframe-variables-comment-dialog.md`) — do not iterate `annotations` by hand
+- [ ] `defaultCondition` / `default-condition` is used only to override an unwanted `shouldShow` gate
+- [ ] Angular usage wires `[componentConfigSignal]` and `[parentLocalUIState]` from the parent — React/HTML usage does not
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/async/comments/inline-comments-section/wireframe-variables — "Inline Comments Section Wireframe Variables"
+- https://docs.velt.dev/ui-customization/template-variables — "Template Variables overview"
+- Cross-reference: `ui/ui-wireframes.md` (structural catalog), `mode/mode-inline-comments.md` (Inline Comments mode setup + `{context.*}` patterns), `wireframe-variables-comment-dialog.md` (variables that resolve inside the nested list / composer dialog tags)
 
 ---
 
@@ -10396,7 +13669,10 @@ import { VeltMultiThreadCommentDialogPanelWireframe, VeltMultiThreadCommentDialo
 </velt-multi-thread-comment-dialog-panel-wireframe>
 ```
 
+#### Variable namespaces
+
 **Data State** — annotation list + focus + host wiring:
+
 | Variable | Type | Notes |
 |---|---|---|
 | `annotation` / `annotation.annotationId` | `CommentAnnotation \| null` | Currently focused annotation. Gate with `velt-if="{annotation}"`. |
@@ -10410,7 +13686,90 @@ import { VeltMultiThreadCommentDialogPanelWireframe, VeltMultiThreadCommentDialo
 | `context` | `any` | Free-form annotation context. |
 | `data.contextId` | `string \| null` | Context id linking this dialog to a host context. |
 
+**UI State — layout + filter/sort + empty-state:**
+
+| Variable | Type | Notes |
+|---|---|---|
+| `commentPinSelected` | `boolean` | Pin associated with the focused annotation is selected. |
+| `commentPinType` | `string \| null` | Pin shape (`'pin'`, `'bubble'`, etc.). |
+| `inboxMode` | `boolean` | Inbox-style layout is active. |
+| `readOnly` | `boolean` | Dialog is in read-only mode. |
+| `hideMultiThreadAnnotationComposer` | `boolean` | Anchor-annotation composer should be hidden. Drives `composer-container-wireframe` `shouldShow` via `!hideMultiThreadAnnotationComposer`. |
+| `dialogVariant` | `string` | Variant forwarded to nested comment-dialogs. |
+| `minimalFilter` | `'all' \| 'read' \| 'unread' \| 'resolved'` | Currently selected filter row. |
+| `selectedMinimalFilterDropdownOption.sorting` | `SidebarSortingCriteria` | Currently selected sort row. |
+| `selectedMinimalFilterDropdownOption.filter` | `'all' \| 'read' \| 'unread' \| 'resolved'` | Selected filter — mirrors `minimalFilter`. |
+| `minimalFilterDropdownOpen` | `boolean` | Filter+sort dropdown menu is open. |
+| `minimalActionsDropdownOpen` | `boolean` | Bulk-actions dropdown menu is open. |
+| `noCommentsFoundForAppliedFilters` | `boolean` | Filters reduced the list to zero. |
+| `noCommentsFound` | `boolean` | No annotations exist in scope (unfiltered). |
+| `darkMode` | `boolean` | Dark mode is active. |
+| `variant` | `string \| null` | Per-instance variant tag from the host element. |
+| `uiState.shadowDom` | `boolean` | Shadow-DOM rendering is enabled (per-instance). Use the full path — `shadowDom` is conflicting. |
+| `parentLocalUIState.darkMode` / `parentLocalUIState.variant` / `parentLocalUIState.shadowDom` | `boolean` / `string` / `boolean` | Per-render aliases for `darkMode` / `variant` / `shadowDom`. Set via host attributes. |
+
+#### Loop-scope (context-specific) variables
+
+These resolve only inside their owning iteration slot — referencing them outside returns `undefined`.
+
+| Variable | Type | Available in |
+|---|---|---|
+| `isSelected` | `boolean` | All six `*-minimal-filter-dropdown-content-{filter,sort}-*` row tags. |
+
+Inside the `List` and `ComposerContainer`, the standard Comment Dialog loop-scope (`comment`, `commentObj`, `commentIndex`, `commentAnnotation`) resolves — see `wireframe-variables-comment-dialog.md`.
+
+#### Naming conflicts — use the full path
+
+Two names collide with mappings used by Comment Dialog. Inside a Multithread Comments wireframe, prefer the explicit path:
+
+| Conflicting name | Use this in Multithread Comments |
+|---|---|
+| `user` | `data.user` |
+| `shadowDom` | `parentLocalUIState.shadowDom` (per-render) **or** `uiState.shadowDom` (per-instance) |
+
+#### Wireframe tags
+
 **Root + structural:**
+
+| Wireframe tag | React component | Notes |
+|---|---|---|
+| `<velt-multi-thread-comment-dialog-wireframe>` | `<VeltMultiThreadCommentDialogWireframe>` | Outer wireframe — wraps the entire panel. |
+| `<velt-multi-thread-comment-dialog-panel-wireframe>` | `<VeltMultiThreadCommentDialogPanelWireframe>` | Visible container. |
+| `<velt-multi-thread-comment-dialog-list-wireframe>` | `<VeltMultiThreadCommentDialogWireframe.List>` | Iterates `filteredAnnotations`. Renders Comment Dialog primitives per entry — nested tags resolve dialog variables. |
+| `<velt-multi-thread-comment-dialog-comment-count-wireframe>` | `<VeltMultiThreadCommentDialogWireframe.CommentCount>` | Count label — bind `<velt-data field="nonDraftCommentsCount" />`. |
+| `<velt-multi-thread-comment-dialog-empty-placeholder-wireframe>` | `<VeltMultiThreadCommentDialogWireframe.EmptyPlaceholder>` | Empty-state. `shouldShow` requires `noCommentsFound || noCommentsFoundForAppliedFilters`. |
+| `<velt-multi-thread-comment-dialog-close-button-wireframe>` | `<VeltMultiThreadCommentDialogWireframe.CloseButton>` | Close button. |
+| `<velt-multi-thread-comment-dialog-new-thread-button-wireframe>` | `<VeltMultiThreadCommentDialogWireframe.NewThreadButton>` | Add-thread button. |
+| `<velt-multi-thread-comment-dialog-reset-filter-button-wireframe>` | `<VeltMultiThreadCommentDialogWireframe.ResetFilterButton>` | Inside the empty placeholder. `shouldShow` requires `noCommentsFoundForAppliedFilters`. |
+| `<velt-multi-thread-comment-dialog-composer-container-wireframe>` | `<VeltMultiThreadCommentDialogWireframe.ComposerContainer>` | New-thread composer. `shouldShow` requires `!hideMultiThreadAnnotationComposer`. Nested composer slots resolve Comment Dialog composer variables. |
+
+**Minimal filter dropdown subtree** (per-row tags expose `isSelected`):
+
+| Wireframe tag | Notes |
+|---|---|
+| `<velt-multi-thread-comment-dialog-minimal-filter-dropdown-wireframe>` | Root. |
+| `<velt-multi-thread-comment-dialog-minimal-filter-dropdown-trigger-wireframe>` | Trigger pill. |
+| `<velt-multi-thread-comment-dialog-minimal-filter-dropdown-content-wireframe>` | Open menu — gate with `{minimalFilterDropdownOpen}`. |
+| `…-content-filter-all-wireframe` / `…-filter-read-wireframe` / `…-filter-unread-wireframe` / `…-filter-resolved-wireframe` | Per-filter rows. Each exposes `isSelected`. |
+| `…-content-selected-icon-wireframe` | Per-row selected tick — gate with `velt-if="{isSelected}"`. |
+| `…-content-sort-date-wireframe` / `…-sort-unread-wireframe` | Per-sort rows. Each exposes `isSelected`. |
+
+**Minimal actions dropdown subtree** (bulk-actions):
+
+| Wireframe tag | Notes |
+|---|---|
+| `<velt-multi-thread-comment-dialog-minimal-actions-dropdown-wireframe>` | Root. |
+| `<velt-multi-thread-comment-dialog-minimal-actions-dropdown-trigger-wireframe>` | Trigger ("⋯"). |
+| `<velt-multi-thread-comment-dialog-minimal-actions-dropdown-content-wireframe>` | Open menu — gate with `{minimalActionsDropdownOpen}`. |
+| `…-content-mark-all-read-wireframe` / `…-mark-all-resolved-wireframe` | Action rows. |
+
+#### `defaultCondition` and Angular signal inputs
+
+| React Prop | HTML Attribute | Type | Default | Behavior |
+|---|---|---|---|---|
+| `defaultCondition` | `default-condition` | `boolean \| "true" \| "false"` | `true` | When `false`, the component renders regardless of its internal `shouldShow` gate. Use to force-show the empty placeholder, the reset-filter button, or the composer container outside their normal gates. |
+
+**Angular signal inputs** (parent-to-child wiring; React/HTML do not require these):
 
 ```typescript
 // On any <velt-multi-thread-comment-dialog-...-wireframe> in an Angular template
@@ -10418,20 +13777,49 @@ import { VeltMultiThreadCommentDialogPanelWireframe, VeltMultiThreadCommentDialo
 [parentLocalUIState]="localUI()"     // darkMode, variant, shadowDom
 ```
 
+#### `shouldShow` gates worth remembering
+
 | Slot | `shouldShow` |
 |---|---|
 | `empty-placeholder-wireframe` | `noCommentsFound \|\| noCommentsFoundForAppliedFilters` |
 | `reset-filter-button-wireframe` | `noCommentsFoundForAppliedFilters` |
 | `composer-container-wireframe` | `!hideMultiThreadAnnotationComposer` |
+
 Override any of them with `defaultCondition={false}` (React) / `default-condition="false"` (HTML).
+
+#### Common mistakes — DO NOT
+
 **1. DO NOT prefix mapped variables with `componentConfig.`.** Variables are mapped to short names. `<velt-data field="componentConfig.nonDraftCommentsCount" />` resolves to nothing — use `<velt-data field="nonDraftCommentsCount" />`. The exception is the two conflicting names above, which **require** their explicit path (`data.user`, `parentLocalUIState.shadowDom` / `uiState.shadowDom`).
+
 **2. DO NOT read `user` directly inside a Multithread Comments wireframe.** `user` is a conflicting name — use `data.user` (and `data.user.name`, `data.user.photoUrl`).
+
 **3. DO NOT compute the thread count from `annotations.length` or `filteredAnnotations.length`.** The display value is `nonDraftCommentsCount` — it excludes in-progress drafts and matches what the default UI shows.
+
 **4. DO NOT show the empty placeholder with only `velt-if="{noCommentsFound}"`.** It must also cover the filtered case: `velt-if="{noCommentsFound} || {noCommentsFoundForAppliedFilters}"`. Otherwise the placeholder disappears as soon as the user applies a filter that yields zero results.
+
 **5. DO NOT show the reset-filter button outside the filtered-empty case.** Its `shouldShow` is specifically `noCommentsFoundForAppliedFilters` — `noCommentsFound` (truly empty) should not offer "reset filter" since no filter is to blame.
+
 **6. DO NOT reference `isSelected` outside a filter / sort row tag.** It is loop-scoped — referencing it from the panel root or trigger returns `undefined`.
+
 **7. DO NOT iterate `filteredAnnotations` yourself.** The `<velt-multi-thread-comment-dialog-list-wireframe>` iterates and mounts the standard Comment Dialog primitives per annotation, injecting the per-annotation context that nested dialog tags read.
+
 **8. DO NOT mix `defaultCondition` with `velt-if` to mean the same thing.** `defaultCondition={false}` disables the slot's internal `shouldShow` (forcing render). `velt-if` adds a new gate on top. Combining them inverts the semantics you probably want.
+
+**Verification:**
+- [ ] Wireframe slots reference mapped variables by short name — `{nonDraftCommentsCount}`, `{minimalFilter}`, `{filteredAnnotations}` — never `componentConfig.<mapped-name>`
+- [ ] The two conflicting names use their explicit path: `data.user`, `parentLocalUIState.shadowDom` (per-render) or `uiState.shadowDom` (per-instance)
+- [ ] Thread count comes from `{nonDraftCommentsCount}`, not `{annotations.length}` or `{filteredAnnotations.length}`
+- [ ] Empty placeholder gates on `{noCommentsFound} || {noCommentsFoundForAppliedFilters}`
+- [ ] Reset-filter button gates on `{noCommentsFoundForAppliedFilters}` only
+- [ ] Loop-scope (`isSelected`) is used only inside the owning filter / sort row tag
+- [ ] The list and composer rely on the standard Comment Dialog wireframe variables (see `wireframe-variables-comment-dialog.md`) — do not iterate `filteredAnnotations` by hand
+- [ ] `defaultCondition` / `default-condition` is used only to override an unwanted `shouldShow` gate
+- [ ] Angular usage wires `[componentConfigSignal]` and `[parentLocalUIState]` from the parent — React/HTML usage does not
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/async/comments/multithread-comments/wireframe-variables — "Multithread Comments Wireframe Variables"
+- https://docs.velt.dev/ui-customization/template-variables — "Template Variables overview"
+- Cross-reference: `ui/ui-wireframes.md` (structural catalog), `wireframe-variables-comment-dialog.md` (variables that resolve inside the nested list / composer dialog tags), sibling rules `wireframe-variables-comment-bubble.md` / `wireframe-variables-comment-tool.md` / `wireframe-variables-inline-comments-section.md`
 
 ---
 
@@ -10466,7 +13854,7 @@ import { VeltTextCommentToolWireframe, VeltTextCommentToolbarWireframe } from '@
 
 **HTML / web-component equivalent:**
 
-```typescript
+```html
 <velt-text-comment-tool-wireframe
   velt-if="{isUserAllowed} && {enableTextComments}"
   velt-class="'has-words': {selectedWordsCount} > 0">
@@ -10482,14 +13870,12 @@ import { VeltTextCommentToolWireframe, VeltTextCommentToolbarWireframe } from '@
     </velt-text-comment-toolbar-copywriter-wireframe>
   </velt-text-comment-toolbar-wireframe>
 </velt-text-comment-tool-wireframe>
-// On any <velt-text-comment-...-wireframe> in an Angular template
-[componentConfigSignal]="config()"      // position, selectedWordsCount,
-                                         // selectedCharactersCount, data.user,
-                                         // allowedElementIds, contextId
-[parentLocalUIState]="localUI()"         // darkMode, variant, shadowDom
 ```
 
+#### Variable namespaces
+
 **Data State** — selection metrics, position, identity:
+
 | Variable | Type | Notes |
 |---|---|---|
 | `position` / `position.top` / `position.left` | `{ top: number, left: number }` | Absolute viewport position of the floating toolbar. |
@@ -10498,7 +13884,9 @@ import { VeltTextCommentToolWireframe, VeltTextCommentToolbarWireframe } from '@
 | `allowedElementIds` | `string[]` | Element ids the selection must originate from for the tool to render. |
 | `contextId` | `string \| null` | Context id linking this tool to a host context. |
 | `data.user` | `User \| null` | Currently identified end-user. Use the explicit `data.user` path — `user` is a conflicting name (see below). |
+
 **UI State** — per-instance flags + min/max thresholds:
+
 | Variable | Type | Notes |
 |---|---|---|
 | `showAdder` | `boolean` | Floating "add comment" adder is visible for the current selection. |
@@ -10516,7 +13904,11 @@ import { VeltTextCommentToolWireframe, VeltTextCommentToolbarWireframe } from '@
 | `uiState.left` | `number` | Raw horizontal offset (before `position` resolution). Use the full path — `left` is conflicting. |
 | `uiState.isPlanExpired` | `boolean` | Workspace plan is expired. Use the full path — `isPlanExpired` is conflicting. |
 | `parentLocalUIState.shadowDom` | `boolean` | Shadow-DOM rendering is enabled. Set via the `shadow-dom` host attribute — the variable only reports state. |
+
+#### Naming conflicts — use the full path
+
 Five names collide with mappings used by Comment Dialog. Inside a Text Comment wireframe, prefer the explicit path:
+
 | Conflicting name | Use this in Text Comment |
 |---|---|
 | `user` | `data.user` |
@@ -10524,7 +13916,11 @@ Five names collide with mappings used by Comment Dialog. Inside a Text Comment w
 | `left` | `uiState.left` |
 | `isPlanExpired` | `uiState.isPlanExpired` |
 | `shadowDom` | `parentLocalUIState.shadowDom` |
+
+#### Wireframe tags
+
 The Text Comment family has a root tool plus a toolbar with four action slots.
+
 | Wireframe tag | React component | Notes |
 |---|---|---|
 | `<velt-text-comment-wireframe>` | — | Outer wireframe — wraps the tool. |
@@ -10534,22 +13930,60 @@ The Text Comment family has a root tool plus a toolbar with four action slots.
 | `<velt-text-comment-toolbar-copywriter-wireframe>` | `<VeltTextCommentToolbarWireframe.Copywriter>` | AI-rewrite action. `shouldShow` requires `rewriterEnabled === true`. |
 | `<velt-text-comment-toolbar-generic-wireframe>` | `<VeltTextCommentToolbarWireframe.Generic>` | Generic, customizable position for an extra button. |
 | `<velt-text-comment-toolbar-divider-wireframe>` | `<VeltTextCommentToolbarWireframe.Divider>` | Vertical separator between toolbar items. |
+
+#### `defaultCondition` and Angular signal inputs
+
 | React Prop | HTML Attribute | Type | Default | Behavior |
 |---|---|---|---|---|
 | `defaultCondition` | `default-condition` | `boolean \| "true" \| "false"` | `true` | When `false`, the component renders regardless of its internal `shouldShow` gate. Use to force-show the Copywriter button when `rewriterEnabled` is false, or the tool itself outside the min/max range. |
+
 **Angular signal inputs** (parent-to-child wiring; React/HTML do not require these):
+
+```typescript
+// On any <velt-text-comment-...-wireframe> in an Angular template
+[componentConfigSignal]="config()"      // position, selectedWordsCount,
+                                         // selectedCharactersCount, data.user,
+                                         // allowedElementIds, contextId
+[parentLocalUIState]="localUI()"         // darkMode, variant, shadowDom
+```
+
 The root `<velt-text-comment>` element additionally accepts host attributes that map onto local UI state: `dark-mode`, `variant`, `shadow-dom`.
+
+#### `shouldShow` gates worth remembering
+
 | Slot | `shouldShow` |
 |---|---|
 | `text-comment-tool-wireframe` (root) | Active selection inside an `allowedElementIds` element **and** `selectedWordsCount >= MIN_ALLOWED_WORDS_COUNT` **and** `selectedCharactersCount` between `MIN_ALLOWED_CHARACTERS_COUNT` and `MAX_ALLOWED_CHARACTERS_COUNT`. |
 | `text-comment-toolbar-copywriter-wireframe` | `rewriterEnabled === true` |
+
 Override either with `defaultCondition={false}` (React) / `default-condition="false"` (HTML) when you need the slot to render unconditionally.
+
+#### Common mistakes — DO NOT
+
 **1. DO NOT prefix mapped variables with `componentConfig.`.** Variables are mapped to short names. `<velt-data field="componentConfig.selectedWordsCount" />` resolves to nothing — use `<velt-data field="selectedWordsCount" />`. The exception is the five conflicting names above, which **require** their explicit path (`data.user`, `uiState.disabled`, `uiState.left`, `uiState.isPlanExpired`, `parentLocalUIState.shadowDom`).
+
 **2. DO NOT read `user` directly inside a Text Comment wireframe.** `user` is mapped elsewhere — use `data.user` (and `data.user.name`, `data.user.photoUrl`, etc.) to read the identified end-user here.
+
 **3. DO NOT gate the Copywriter button with only `velt-if="{rewriterEnabled}"` when you also want the default UI hidden.** The toolbar slot's own `shouldShow` covers `rewriterEnabled`. If you are providing a custom rewriter UI, check `rewriterDefaultUIEnabled` separately — they are not the same flag.
+
 **4. DO NOT compute the toolbar position from `uiState.left` directly.** `uiState.left` is the raw value before resolution; the placed `position` / `position.left` is what the tool actually uses for layout.
+
 **5. DO NOT mix `defaultCondition` with `velt-if` to mean the same thing.** `defaultCondition={false}` disables the slot's internal `shouldShow` (forcing render). `velt-if` adds a new gate on top. Combining them inverts the semantics you probably want.
+
 **6. DO NOT bind to `parentLocalUIState.shadowDom` from inside the wireframe to *enable* shadow-DOM.** Shadow-DOM is set via the host attribute `shadow-dom="true"` on `<velt-text-comment>`. The variable only reports the current state.
+
+**Verification:**
+- [ ] Wireframe slots reference mapped variables by short name (not `componentConfig.var`)
+- [ ] The five conflicting names use their explicit path: `data.user`, `uiState.disabled`, `uiState.left`, `uiState.isPlanExpired`, `parentLocalUIState.shadowDom`
+- [ ] Toolbar position uses `{position.top}` / `{position.left}`, not `{uiState.left}`
+- [ ] Copywriter gate either relies on the slot's own `shouldShow` *or* uses `velt-if="{rewriterEnabled}"` — not both, and not combined with `defaultCondition`
+- [ ] `defaultCondition` / `default-condition` is used only to override an unwanted `shouldShow` gate
+- [ ] Angular usage wires `[componentConfigSignal]` and `[parentLocalUIState]` from the parent — React/HTML usage does not
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/async/comments/text-comment-wireframe-variables — "Text Comment Wireframe Variables"
+- https://docs.velt.dev/ui-customization/template-variables — "Template Variables overview"
+- Cross-reference: `ui/ui-wireframes.md` (structural wireframe catalog), `wireframe-variables-comment-bubble.md` / `wireframe-variables-comment-dialog.md` / `wireframe-variables-comment-tool.md` (sibling wireframe-variable rules)
 
 ---
 

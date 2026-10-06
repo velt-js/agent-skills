@@ -120,6 +120,16 @@ Velt.setVeltAuthProvider({
 
 After authentication, initialize the document (`client.setDocuments([...])` or `useSetDocument(...)`); the SDK does not work until a document is set.
 
+**Verification Checklist:**
+- [ ] `authProvider` is an object with `user` (and `generateToken` for production), not a callback
+- [ ] `user` includes `userId`, `organizationId`, `name`, `email`, and `photoUrl`
+- [ ] A document is set after authentication
+- [ ] Comments are set up, because suggestions render on the comment dialog
+
+**Source Pointers:**
+- https://docs.velt.dev/get-started/quickstart — "Authenticate Users" (`authProvider` on `VeltProvider`, `Velt.setVeltAuthProvider`) and "Initialize Document"
+- https://docs.velt.dev/async-collaboration/suggestions/overview — "Overview" (Comments prerequisite)
+
 ---
 
 ### 1.2 Understand the Suggestions pipeline and its Comments prerequisite
@@ -127,6 +137,14 @@ After authentication, initialize the document (`client.setDocuments([...])` or `
 **Impact: CRITICAL (Suggestions are comment annotations with type 'suggestion'; skipping Comments or the apply step means reviewers see nothing or accepted changes never land)**
 
 Suggestion mode turns edits on tagged elements into proposed changes that a reviewer accepts or rejects from the Velt comment dialog. A suggestion is a regular `CommentAnnotation` with `type: 'suggestion'` and a populated `suggestion` field; there is no separate suggestions store. The accept/reject UI renders on the comment dialog, so Velt Comments must already be set up. The feature is in Beta.
+
+**How it works:**
+
+1. You enable suggestion mode. The SDK watches every element tagged with `data-velt-suggestion-target="<targetId>"`, including elements added later.
+2. A user focuses a target. The SDK snapshots the current value as `oldValue`.
+3. The user commits the edit (blur for text-like inputs, `change` for selects, checkboxes, and radios). If the value changed, the SDK creates a **pending** suggestion. Since v6.0.0-beta.13 this happens automatically by default (`autoCommit: true`).
+4. A reviewer accepts or rejects from the comment dialog. The outcome is emitted on the **comment element** as `suggestionAccepted` / `suggestionRejected`.
+5. Your app applies the change. The SDK never mutates your data.
 
 **Incorrect (expects the SDK to write the accepted value):**
 
@@ -138,16 +156,36 @@ enableSuggestionMode();
 
 **Correct (get the element once and reuse it):**
 
-```js
+```jsx
 // React / Next.js
 import { useSuggestionUtils } from '@veltdev/react';
 
 const suggestionElement = useSuggestionUtils();
+```
+
+```js
 // Other Frameworks
 const suggestionElement = Velt.getSuggestionElement();
 ```
 
 In React, the dedicated hooks (`useEnableSuggestionMode`, `useCommitSuggestion`, `useSuggestions`, and others) wrap the element, so you rarely need it directly.
+
+**Properties to remember:**
+- Suggestion mode is global for the current user and **not persisted**; a reload returns to normal editing.
+- Unchanged values never create suggestions (focus and blur without editing is ignored).
+- An annotation marked `type: 'suggestion'` (or `commentType: 'suggestion'`) without a full `suggestion` payload, for example one created over REST, is backfilled to a pending state at render time, so accept and reject still work.
+- The suggestion card renders for any `type: 'suggestion'` annotation, human- or agent-authored.
+
+**Verification Checklist:**
+- [ ] Velt Comments is set up and renders the comment dialog
+- [ ] Targets are tagged, suggestion mode is enabled, and a `suggestionAccepted` handler applies `newValue`
+- [ ] The suggestion element comes from `useSuggestionUtils()` (React) or `Velt.getSuggestionElement()`
+- [ ] Do not confuse the Suggestions `enableSuggestionMode()` on the suggestion element with the older comment-element `enableSuggestionMode()` listed under Comments in the API reference
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/suggestions/overview — "Overview", "How it works", "Properties"
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#getsuggestionelement — `getSuggestionElement()`
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#usesuggestionutils — `useSuggestionUtils()`
 
 ---
 
@@ -220,6 +258,16 @@ suggestionElement.unregisterTarget('row.123');
 
 Read from the DOM (`input.value`), or for controlled inputs that update state on every keystroke, from that state. `registerTarget()` returns `void`; remove a registration with `unregisterTarget(targetId)`.
 
+**Verification Checklist:**
+- [ ] The getter returns live, edit-time values (DOM or per-keystroke state)
+- [ ] The getter returns the same shape every time
+- [ ] React code unregisters in the `useEffect` cleanup
+- [ ] The wrapper element carries the same `data-velt-suggestion-target` as the registered `targetId`
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/suggestions/overview — "1. Define Suggestion Targets" (getter Warning and Note)
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#registertarget — `registerTarget()` / `unregisterTarget()`
+
 ---
 
 ### 2.2 Tag suggestion targets with a stable data-velt-suggestion-target ID
@@ -248,6 +296,20 @@ A target is any element tagged with `data-velt-suggestion-target="<targetId>"`. 
 ```
 
 **How values are read:** the SDK checks a registered getter first, then the form value (`.value` / `.checked`), then `textContent`. A plain `<input>`, `<textarea>`, `<select>`, or contenteditable needs no `registerTarget` call. Use a getter only when one target spans several inputs (see `targets-register-getter`).
+
+**When an edit commits:**
+- Text-like inputs (text, number, date, textarea, contenteditable) commit on `focusout`, so each focus session produces at most one suggestion.
+- Dropdowns, checkboxes, and radios commit on `change`.
+
+The SDK installs delegated `focusin` / `change` / `focusout` listeners, so elements added to the DOM later are tracked automatically.
+
+**Verification Checklist:**
+- [ ] Every editable element that should produce suggestions has `data-velt-suggestion-target`
+- [ ] `targetId` values map to your data model (`row.123.qty`, `field.title`) and never use `Math.random()` or `crypto.randomUUID()`
+- [ ] Single primitive inputs do not register a getter unnecessarily
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/suggestions/overview — "1. Define Suggestion Targets" and "Properties"
 
 ---
 
@@ -305,6 +367,16 @@ suggestionElement.disableSuggestionMode();
 
 If your app relies on detect-only mode, pass `{ autoCommit: false }` on **every** `enableSuggestionMode()` call, including after a reload or a disable.
 
+**Verification Checklist:**
+- [ ] Suggestion mode is enabled from a user action or on mount when the app needs it after reload
+- [ ] Every `enableSuggestionMode()` call passes the same config (handler or `autoCommit: false`) the app depends on
+- [ ] Manual `commitSuggestion` calls happen only while suggestion mode is on (it rejects otherwise)
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/suggestions/overview — "2. Enable Suggestion Mode" and the `autoCommit` Note under "3. Capture Edits as Suggestions"
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#enablesuggestionmode-1 — `enableSuggestionMode()` / `disableSuggestionMode()`
+- https://docs.velt.dev/api-reference/sdk/models/data-models#enablesuggestionmodeconfig — `EnableSuggestionModeConfig`
+
 ---
 
 ### 3.2 Observe suggestion mode reactively for toggle UI
@@ -345,6 +417,15 @@ const subscription = suggestionElement.isSuggestionModeEnabled$().subscribe((isE
 // On teardown:
 subscription?.unsubscribe();
 ```
+
+**Verification Checklist:**
+- [ ] React UI uses `useSuggestionModeState()`
+- [ ] Non-React UI subscribes to `isSuggestionModeEnabled$()` and unsubscribes on teardown
+- [ ] No polling of `isSuggestionModeEnabled()`
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/suggestions/overview — "2. Enable Suggestion Mode"
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#issuggestionmodeenabled — `isSuggestionModeEnabled()` / `isSuggestionModeEnabled$()`
 
 ---
 
@@ -409,7 +490,19 @@ const { id } = await suggestionElement.commitSuggestion({
 - Suggestion mode is off
 - The `targetId` is unknown (not tagged in the DOM and not registered with `registerTarget`)
 - `newValue` is identical to the captured `oldValue`
+
 For a server-side agent that has no browser session, create the suggestion over REST instead (see `data-backend-rest`).
+
+**Verification Checklist:**
+- [ ] Suggestion mode is enabled before `commitSuggestion`
+- [ ] The target is tagged with `data-velt-suggestion-target` or registered with a getter
+- [ ] `startSuggestion(targetId)` runs before `commitSuggestion` so `oldValue` is captured
+- [ ] The promise rejection is handled
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/suggestions/overview#3-capture-edits-as-suggestions — "Option 4: Create suggestions manually"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#commitsuggestionconfigt — `CommitSuggestionConfig<T>`
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#commitsuggestion — `commitSuggestion()`
 
 ---
 
@@ -467,6 +560,16 @@ suggestionElement.enableSuggestionMode({
 ```
 
 If a handler commit fails, it no longer blocks a retry: call the `commitSuggestion` function on the `targetEditCommit` event payload to try again. A successful commit is protected against an accidental double commit.
+
+**Verification Checklist:**
+- [ ] The handler returns (or resolves to) `{ summary, summaryHtml?, metadata? }`, or `null` to skip the edit
+- [ ] Code does not combine `onTargetEditCommit` with `autoCommit: false` expecting detect-only behavior
+- [ ] `onTargetEditStart` is used for side effects only
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/suggestions/overview#3-capture-edits-as-suggestions — "Option 2: Customize each suggestion with `onTargetEditCommit`"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#targeteditcommitresult — `TargetEditCommitResult`
+- https://docs.velt.dev/api-reference/sdk/models/data-models#targeteditcommithandlert — `TargetEditCommitHandler<T>`
 
 ---
 
@@ -535,6 +638,17 @@ subscription?.unsubscribe();
 
 The event's `commitSuggestion` returns `Promise<{ id: string }>`. If an earlier auto-commit or handler commit failed, calling it retries; after a successful commit it is a no-op.
 
+**Verification Checklist:**
+- [ ] `enableSuggestionMode({ autoCommit: false })` is used, with no `onTargetEditCommit`
+- [ ] The subscription is on the suggestion element (`useSuggestionEventCallback` / `suggestionElement.on`), not the comment element
+- [ ] Discarded edits simply skip `commitSuggestion`
+- [ ] Non-React subscriptions are unsubscribed on teardown
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/suggestions/overview#3-capture-edits-as-suggestions — "Option 3: Decide per edit with the `targetEditCommit` event"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#targeteditcommitevent — `TargetEditCommitEvent`
+- https://docs.velt.dev/api-reference/sdk/models/data-models#targeteditcommitbuilder — `TargetEditCommitBuilder`
+
 ---
 
 ### 4.4 Rely on zero-config auto-commit, or opt out with autoCommit false
@@ -580,6 +694,16 @@ suggestionElement.enableSuggestionMode({ autoCommit: false });
 ```
 
 Pick exactly one capture path per target: zero-config auto-commit, `onTargetEditCommit` (`capture-auto-commit`), the gated `targetEditCommit` event (`capture-deferred-commit`), or manual `startSuggestion` / `commitSuggestion` (`capture-manual`). `disableSuggestionMode()` clears the flag, so a later bare `enableSuggestionMode()` auto-commits again.
+
+**Verification Checklist:**
+- [ ] Apps that validate or confirm edits before committing pass `autoCommit: false` and no `onTargetEditCommit`
+- [ ] Apps that want the default diff summary call `enableSuggestionMode()` with no handler
+- [ ] `autoCommit: false` is passed again after every disable or reload
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/suggestions/overview#3-capture-edits-as-suggestions — "Option 1: Zero-config auto-commit (default)"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#enablesuggestionmodeconfig — `autoCommit`
+- https://docs.velt.dev/release-notes/version-6/sdk-changelog — 6.0.0-beta.13 Suggestions entry (auto-commit by default)
 
 ---
 
@@ -630,6 +754,16 @@ Behavior:
 - Only `summary`: `commentHtml` is the HTML-escaped summary wrapped in `<p>`.
 - Neither: the SDK renders a default styled diff (old value in red italic, new value in green italic).
 - `summaryHtml` is sanitized with DOMPurify at render time: `<script>` tags and event-handler attributes are stripped; inline `style` is kept.
+
+**Verification Checklist:**
+- [ ] Rich markup goes in `summaryHtml`, plain text in `summary`
+- [ ] A plain `summary` is still provided as the text fallback
+- [ ] No reliance on scripts or `onclick` attributes inside `summaryHtml`
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/suggestions/overview#rich-html-summaries-with-summaryhtml — "Rich HTML summaries with `summaryHtml`"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#commitsuggestionconfigt — `CommitSuggestionConfig<T>.summaryHtml`
+- https://docs.velt.dev/api-reference/sdk/models/data-models#targeteditcommitresult — `TargetEditCommitResult.summaryHtml`
 
 ---
 
@@ -698,7 +832,19 @@ rejectSub?.unsubscribe();
 ```
 
 **Make the handler idempotent.** It can run more than once (after reconnects, in multiple tabs, and on every client viewing the document). Set the field to `newValue` rather than incrementing it. If the handler throws while applying, the SDK marks the suggestion `apply_failed`.
+
 Payloads: `SuggestionAcceptEvent` has `annotationId`, `commentAnnotation`, `metadata`, `actionUser`; `SuggestionRejectEvent` adds optional `rejectReason`.
+
+**Verification Checklist:**
+- [ ] Subscriptions use `useCommentEventCallback` or `commentElement.on()`, not the suggestion element
+- [ ] The handler reads `commentAnnotation.suggestion.targetId` and `.newValue`
+- [ ] Applying the value is safe to repeat
+- [ ] Non-React subscriptions are unsubscribed on teardown
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/suggestions/overview#4-apply-accepted-suggestions — "4. Apply Accepted Suggestions"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#suggestionacceptevent — `SuggestionAcceptEvent`
+- https://docs.velt.dev/api-reference/sdk/models/data-models#suggestionrejectevent — `SuggestionRejectEvent`
 
 ---
 
@@ -746,7 +892,18 @@ subscription?.unsubscribe();
 ```
 
 **Drift detection (best-effort):** on accept, if a getter is registered, the SDK compares the live value with `oldValue`. A mismatch sets `driftDetected: true` on the suggestion. v1 only records the flag; there is no confirmation prompt yet. Check `suggestion.driftDetected` in your accept handler if you want to warn before overwriting.
+
 **apply_failed:** if your accept handler throws while applying `newValue`, the SDK marks the suggestion `apply_failed`. It is a status only; there is no dedicated event in v1.
+
+**Verification Checklist:**
+- [ ] `suggestionStale` is subscribed on the suggestion element
+- [ ] The UI explains stale suggestions to the reviewer
+- [ ] The accept handler checks `driftDetected` where overwriting a changed value matters
+- [ ] The accept handler catches its own errors to avoid unexpected `apply_failed`
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/suggestions/overview — "Properties" (drift and stale) and the Note under "4. Apply Accepted Suggestions"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#suggestionstaleevent — `SuggestionStaleEvent`
 
 ---
 
@@ -793,6 +950,18 @@ await commentElement.rejectSuggestion({ annotationId, reason: 'Not applicable' }
 
 The request field is `reason`; the emitted `SuggestionRejectEvent` exposes it as `rejectReason`. Your `suggestionAccepted` handler (see `lifecycle-accept-reject`) still applies `newValue`, whether the accept came from the dialog or from these methods. A typical caller is a custom action chip on the suggestion card (the `actions` array on a comment or annotation replaces the built-in Accept/Reject row and emits `commentActionClicked`).
 
+**Verification Checklist:**
+- [ ] Custom accept/reject UI calls `acceptSuggestion()` / `rejectSuggestion()`, never `acceptCommentAnnotation()` / `rejectCommentAnnotation()`
+- [ ] The reject request passes `reason`, not `rejectReason`
+- [ ] React code uses the hooks or `client.getCommentElement()`; other frameworks use `Velt.getCommentElement()`
+- [ ] The existing `suggestionAccepted` handler remains the single place that applies `newValue`
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/suggestions/overview#resolve-suggestions-programmatically — "Resolve Suggestions Programmatically"
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#acceptsuggestion — `acceptSuggestion()` / `rejectSuggestion()`
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#useacceptsuggestion — `useAcceptSuggestion()` / `useRejectSuggestion()`
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#actions — custom action chips on suggestion cards
+
 ---
 
 ### 5.4 Use the suggestion status lifecycle and the two event sources correctly
@@ -800,6 +969,18 @@ The request field is `reason`; the emitted `SuggestionRejectEvent` exposes it as
 **Impact: HIGH (Status values and event names must match the shipped SDK exactly ('accepted', not 'approved'); subscribing on the wrong element misses events)**
 
 A suggestion moves forward only through these states:
+
+```typescript
+type SuggestionStatus = 'pending' | 'accepted' | 'rejected' | 'stale' | 'apply_failed';
+```
+
+| Status | Meaning |
+|---|---|
+| `pending` | Created and awaiting review |
+| `accepted` | A reviewer accepted it; your `suggestionAccepted` handler applies `newValue` |
+| `rejected` | A reviewer rejected it (optional `rejectReason`); nothing is applied |
+| `stale` | The target DOM node could not be resolved at accept time |
+| `apply_failed` | Your accept handler threw while applying; status only, no event in v1 |
 
 **Incorrect (invented status value and wrong element):**
 
@@ -811,7 +992,7 @@ suggestionElement.on('suggestionApproved').subscribe(apply);
 
 **Correct (subscribe on the element that emits each event):**
 
-```js
+```jsx
 // React / Next.js
 // Hook: suggestion element events
 const created = useSuggestionEventCallback('suggestionCreated');
@@ -821,6 +1002,9 @@ const accepted = useCommentEventCallback('suggestionAccepted');
 // API Method
 client.getSuggestionElement().on('suggestionCreated').subscribe(handleCreated);
 client.getCommentElement().on('suggestionAccepted').subscribe(handleAccepted);
+```
+
+```js
 // Other Frameworks
 Velt.getSuggestionElement().on('suggestionCreated').subscribe(handleCreated);
 Velt.getCommentElement().on('suggestionAccepted').subscribe(handleAccepted);
@@ -834,7 +1018,19 @@ Velt.getCommentElement().on('suggestionAccepted').subscribe(handleAccepted);
 | Suggestion element | `suggestionStale` | `SuggestionStaleEvent` (`suggestion`) |
 | Suggestion element | `targetEditStart` | `TargetEditStartEvent` (`details`) |
 | Suggestion element | `targetEditCommit` | `TargetEditCommitEvent` (`details`, `commitSuggestion`) |
+
 The data-model `SuggestionEventTypesMap` also lists `suggestionApproved` / `suggestionRejected` keys for the suggestion element, but the Suggestions guide documents review outcomes on the comment element. Build accept/reject handling on `suggestionAccepted` / `suggestionRejected` from the comment element.
+
+**Verification Checklist:**
+- [ ] Status comparisons use the exact literals above
+- [ ] Accept/reject handling subscribes on the comment element
+- [ ] Creation, stale, and edit events subscribe on the suggestion element
+- [ ] Every `.subscribe()` has a matching `unsubscribe()` on teardown
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/suggestions/overview#event-subscription — "Event subscription"
+- https://docs.velt.dev/async-collaboration/suggestions/overview#lifecycle — "Lifecycle"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#suggestionstatus — `SuggestionStatus`
 
 ---
 
@@ -901,6 +1097,22 @@ Suggestions are stored as comment annotations, so your backend manages them with
 
 Send it with the `x-velt-api-key` and `x-velt-auth-token` headers. Any `type: "suggestion"` annotation renders the suggestion card (header, diff body, accept/reject actions) in the comment dialog; a human-authored one shows the author's avatar instead of an agent identity. An annotation without a full `suggestion` payload is backfilled to a pending state at render time.
 
+**Querying and cleanup:**
+- Get Comment Annotations (v2) with `agentSuggestions: true` returns only fresh (unaccepted) agent suggestions. Only one agent filter may be supplied per request.
+- Update Comment Annotations changes annotation-level fields; Delete Comment Annotations removes suggestion threads.
+
+**Verification Checklist:**
+- [ ] Requests set annotation-level `type: "suggestion"`, not only `commentType`
+- [ ] No `status` is sent inside `suggestion`
+- [ ] `targetId` matches the frontend `data-velt-suggestion-target` so the accept handler can apply `newValue`
+- [ ] Agent findings put the `agent` block on `commentData[0]`
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/suggestions/overview#backend-apis — "Backend APIs"
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations — `type`, `suggestion`, `agent`, examples
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-v2 — `agentSuggestions` filter
+- https://docs.velt.dev/ai/agent-comments — agent findings walkthrough
+
 ---
 
 ### 6.2 Query suggestions reactively for custom badges and review panels
@@ -952,6 +1164,16 @@ pendingSub?.unsubscribe();
 
 Both filter fields are optional; omit the filter to get every suggestion. `status` takes `'pending' | 'accepted' | 'rejected' | 'stale' | 'apply_failed'`.
 
+**Verification Checklist:**
+- [ ] Live UI uses `useSuggestions` / `usePendingSuggestion` or the `$` observables
+- [ ] Filters use exact `SuggestionStatus` literals
+- [ ] Non-React subscriptions are unsubscribed on teardown
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/suggestions/overview — "5. Get Suggestions"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#suggestiongetsuggestionsfilter — `SuggestionGetSuggestionsFilter`
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#getsuggestions — `getSuggestions()` / `getSuggestions$()` / `getPendingSuggestion$()`
+
 ---
 
 ### 6.3 Type against SuggestionData, the Suggestion union, and the hooks table
@@ -979,6 +1201,8 @@ function resolvedBy(s: Suggestion): string | undefined {
 }
 ```
 
+#### SuggestionData (on `CommentAnnotation.suggestion`)
+
 | Property | Type | Required | Notes |
 |---|---|---|---|
 | `annotationId` | `string` | Yes | Parent `CommentAnnotation` ID |
@@ -992,7 +1216,11 @@ function resolvedBy(s: Suggestion): string | undefined {
 | `createdBy` / `createdAt` | `User` / `number` | Yes | Author and creation time (ms) |
 | `resolvedBy` / `resolvedAt` | `User` / `number` | No | Set on accept or reject |
 | `rejectReason` | `string \| null` | No | Set on reject |
+
 Variants: `PendingSuggestion<T>`, `ApprovedSuggestion<T>` (status `'accepted' | 'apply_failed'`), `RejectedSuggestion<T>`, `StaleSuggestion<T>` (no `resolvedBy` / `resolvedAt`). `CommitSuggestionConfig<T>` and `TargetEditCommitResult` both accept `summary`, `summaryHtml`, and `metadata`. `CommentAnnotationSuggestion` is the comment-side state mutated by `acceptSuggestion()` / `rejectSuggestion()`.
+
+#### React hooks
+
 | Hook | Returns |
 |---|---|
 | `useSuggestionUtils()` | `SuggestionElement` |
@@ -1005,6 +1233,16 @@ Variants: `PendingSuggestion<T>`, `ApprovedSuggestion<T>` (status `'accepted' | 
 | `useSuggestionEventCallback(eventType)` | Latest suggestion-element event payload |
 | `useAcceptSuggestion()` / `useRejectSuggestion()` | `{ acceptSuggestion }` / `{ rejectSuggestion }` (comment element) |
 | `useCommentEventCallback('suggestionAccepted' \| 'suggestionRejected')` | Latest accept / reject payload |
+
+**Verification Checklist:**
+- [ ] Code narrows on `status` before reading `resolvedBy`, `resolvedAt`, or `rejectReason`
+- [ ] Hook names match the table exactly (no `useSuggestionElement`, no `useAcceptCommentAnnotation`)
+- [ ] `apply_failed` is handled as an `ApprovedSuggestion` variant
+
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/sdk/models/data-models#suggestiondata — `SuggestionData` and the `Suggestions` type section
+- https://docs.velt.dev/api-reference/sdk/models/data-models#commentannotationsuggestion — `CommentAnnotationSuggestion`
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#usesuggestionutils — Suggestions hooks
 
 ---
 

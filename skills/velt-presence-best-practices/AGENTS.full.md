@@ -68,6 +68,10 @@ Essential setup patterns for any Velt Presence implementation. Covers authProvid
 
 `VeltCursor` is different: it is Velt-positioned. Mount it once near the app root and Velt paints every remote cursor as an overlay. See the `cursor-setup` rule.
 
+**Why this matters:**
+
+Without presence indicators, users cannot tell who else is active in the same document. This leads to conflicting edits and duplicated work.
+
 **Incorrect (presence inside scrolling content, cursor mounted per section):**
 
 ```jsx
@@ -112,11 +116,33 @@ function App({ authProvider, children }) {
 
 **Modular SDK (v6) note:**
 
+If you pass `featureAllowList` in the init config, only the listed features are allowed to run and preload. Include `'presence'` (and `'cursor'` if you use `VeltCursor`); otherwise the components can be suppressed. Calling `getPresenceElement()` or `preloadPresence()` auto-enables an omitted feature, but listing it is the reliable fix.
+
 ```jsx
 <VeltProvider apiKey="API_KEY" config={{ featureAllowList: ["presence", "cursor", "comment"] }}>
   {/* ... */}
 </VeltProvider>
 ```
+
+**Placement guidelines:**
+
+- Place `VeltPresence` in the toolbar, header, or navigation bar, not inside scrollable content
+- Mount `VeltCursor` once near the root; use `allowedElementIds` to confine cursors to a region
+- Presence requires an identified (non-anonymous) user
+- Test by opening the page in two browsers with two different users
+
+**Verification:**
+- [ ] `VeltPresence` is rendered inside `VeltProvider`
+- [ ] Presence avatars appear in the toolbar or header area
+- [ ] Two different users on the same document see each other's avatars
+- [ ] `VeltCursor` is mounted once (if cursor tracking is needed)
+- [ ] `featureAllowList`, if set, includes `'presence'` (and `'cursor'`)
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/presence/setup - "Presence Setup"
+- https://docs.velt.dev/realtime-collaboration/cursors/setup - "Cursors Setup"
+- https://docs.velt.dev/ui-customization/reference/behaviors/presence-reactions - "Presence, Cursors & Reactions" (positioning and mount-once behavior)
+- https://docs.velt.dev/api-reference/sdk/models/data-models#config - `Config.featureAllowList`
 
 ---
 
@@ -125,6 +151,10 @@ function App({ authProvider, children }) {
 **Impact: CRITICAL (Without a document set after login, presence has no document to attach to and users on different pages are not separated)**
 
 Call `setDocuments` (React: the `setDocuments` function returned by `useSetDocuments()`) after the user is authenticated, and update it whenever the user navigates to a different document. Presence is scoped to the current document, so users viewing "Invoice #42" never see avatars of users "Invoice #99".
+
+**Why this matters:**
+
+You can subscribe to up to 30 documents at once, but realtime features like presence default to the **root document** (the first entry, or `rootDocumentId` in options). Pass the document the user is actually viewing first, or set `rootDocumentId`.
 
 **Incorrect (wrong document key, set before login, not reactive to navigation):**
 
@@ -164,6 +194,26 @@ await Velt.setDocuments([
 ]);
 ```
 
+**Common mistakes to avoid:**
+
+- Calling `useSetDocuments` in the same component that renders `VeltProvider` (the hook needs the provider as a parent)
+- Using `documentId` as the key inside the document object (the key is `id`)
+- Setting the document before the user is authenticated
+- Forgetting to update the document on route changes, which leaves presence attached to the previous document
+- Passing several documents and expecting presence to span all of them (it uses the root document only)
+
+**Verification:**
+- [ ] `setDocuments` is called from a child component of `VeltProvider` (or via `Velt.setDocuments`)
+- [ ] Document objects use `{ id, metadata }`
+- [ ] The document is set only after `useCurrentUser()` returns a user
+- [ ] The document updates when the user navigates
+- [ ] With multiple documents, the one the user is viewing is the root document
+
+**Source Pointers:**
+- https://docs.velt.dev/key-concepts/overview#subscribe-to-documents - "Subscribe to Documents"
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#usesetdocuments - `useSetDocuments()`
+- https://docs.velt.dev/realtime-collaboration/presence/setup - "Presence Setup"
+
 ---
 
 ### 1.3 Use authProvider for Authentication
@@ -171,6 +221,10 @@ await Velt.setDocuments([
 **Impact: CRITICAL (authProvider is the recommended authentication path and the only one with automatic token refresh)**
 
 Authenticate users with the `authProvider` prop on `VeltProvider` (React) or `Velt.setVeltAuthProvider()` (other frameworks). Velt calls your `generateToken` function whenever a token is needed, including on expiry, so the session refreshes itself. The `identify()` method and `useIdentify()` hook still exist, but they require you to refresh tokens yourself; avoid them in new code.
+
+**Why this matters:**
+
+Presence only works for an authenticated user. With `identify()` and no manual refresh, presence avatars disappear or show stale users when the session expires.
 
 **Incorrect (invented callback names, or identify() with no token refresh):**
 
@@ -233,6 +287,25 @@ Velt.setVeltAuthProvider({
 });
 ```
 
+**Key details:**
+- `VeltAuthProvider` fields: `user` (required), `generateToken`, `retryConfig` (`retryCount`, `retryDelay`), `options` (`authToken`, `forceReset`)
+- `generateToken` can be omitted during local development, but provide it in production for security and automatic refresh
+- Generate the JWT on your server; never ship your Velt auth token to the browser
+- Include `organizationId` in the user object
+
+**Verification:**
+- [ ] `authProvider` prop is set on `VeltProvider` (or `Velt.setVeltAuthProvider()` is called)
+- [ ] `authProvider.user` includes `userId`, `organizationId`, and `name`
+- [ ] `generateToken` returns a Velt JWT from your backend
+- [ ] No `getAuthToken` / `onAuthTokenExpire` keys (they do not exist)
+- [ ] No `identify()` / `useIdentify()` calls unless you also implement token refresh
+
+**Source Pointers:**
+- https://docs.velt.dev/key-concepts/overview#authenticate-a-user - "Authenticate a User"
+- https://docs.velt.dev/get-started/quickstart - "Step 5: Authenticate Users"
+- https://docs.velt.dev/get-started/advanced#jwt-authentication-tokens - "JWT Authentication Tokens"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#veltauthprovider - `VeltAuthProvider`
+
 ---
 
 ## 2. Data Access
@@ -246,6 +319,10 @@ Patterns for reading and writing presence state. Covers React hooks (`usePresenc
 **Impact: MEDIUM (Show non-human participants (AI agents, bots, system accounts) in the presence list without faking authenticated sessions)**
 
 Use `presenceElement.addUser()` to show a custom participant, such as an AI agent working on the document, in the presence list. Remove it with `removeUser()` when the work ends. For server-driven agents, use the Presence REST APIs instead.
+
+**Why this matters:**
+
+Authenticating a second Velt session for a bot is wrong: it consumes a user, needs a token, and leaves stale presence when the process dies. `addUser` adds a presence record for the current document directly. `localOnly: true` keeps it on the current client only.
 
 **Incorrect (opening a hidden session to impersonate the agent):**
 
@@ -290,6 +367,28 @@ curl -X POST https://api.velt.dev/v2/presence/add \
 
 Use `POST /v2/presence/update` to change name, email, or status and `POST /v2/presence/delete` to remove users.
 
+**Key details:**
+
+- Params: `{ user: Partial<PresenceUser>, localOnly?: boolean }`; `localOnly` defaults to `false`
+- Returns `void`
+- `PresenceUser.initial` (avatar initial) defaults to the first character of `name`, uppercased, for users added with `addUser`
+- Custom users appear in `getData()` / `usePresenceData()` results and in the `VeltPresence` avatar row
+- Always remove server-added users when the agent finishes, or they stay in the list
+
+**Verification:**
+- [ ] Custom participants use `addUser`, not a second authenticated session
+- [ ] `removeUser` is called with the same `localOnly` value used in `addUser`
+- [ ] Server-driven agents use the Presence REST APIs with `organizationId` and `documentId`
+- [ ] Agents are removed (client or REST) when their work ends
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/presence/customize-behavior#adduser - "addUser()"
+- https://docs.velt.dev/realtime-collaboration/presence/customize-behavior#removeuser - "removeUser()"
+- https://docs.velt.dev/api-reference/rest-apis/v2/presence/add-presence - "Add Presence"
+- https://docs.velt.dev/api-reference/rest-apis/v2/presence/update-presence - "Update Presence"
+- https://docs.velt.dev/api-reference/rest-apis/v2/presence/delete-presence - "Delete Presence"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#presenceuser - `PresenceUser`
+
 ---
 
 ### 2.2 Use React Hooks for Presence Data
@@ -297,6 +396,10 @@ Use `POST /v2/presence/update` to change name, email, or status and `POST /v2/pr
 **Impact: HIGH (React hooks provide the simplest way to subscribe to real-time presence data with automatic cleanup)**
 
 Velt provides three presence hooks: `usePresenceData` (filtered presence users), `usePresenceEventCallback` (latest presence event), and `usePresenceUtils` (the `PresenceElement` for imperative calls). The hooks manage subscription cleanup for you.
+
+**Why this matters:**
+
+`usePresenceEventCallback` does **not** take a callback. It returns the latest event object, which you react to in `useEffect`. Passing a function as the second argument does nothing.
 
 **Incorrect (callback-style usage):**
 
@@ -372,6 +475,27 @@ function PresenceController() {
 
 **Heartbeat (optional):** `useHeartbeat()` (API: `client.getHeartbeat()`) returns `{ data: Heartbeat[] | null }` for the current user, or for any user when you pass `{ userId }`. Use it to monitor active sessions.
 
+**Key patterns:**
+
+- `usePresenceData` returns `{ data }`; `data` is `null` while loading
+- `usePresenceEventCallback(eventType)` returns the latest event; handle it in `useEffect`
+- `usePresenceUtils()` may return `null` before init; guard it
+- Hooks must run in a component rendered inside `VeltProvider`
+
+#### Verification Checklist
+
+- [ ] Component is inside `VeltProvider` with a valid `authProvider`
+- [ ] `setDocuments` has been called to scope presence to a document
+- [ ] Null check exists before reading `presenceData.data`
+- [ ] `usePresenceEventCallback` is used with one argument and handled in `useEffect`
+- [ ] Manual subscriptions made through `usePresenceUtils()` are cleaned up
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/presence/customize-behavior#getdata - "getData" (Using Hook)
+- https://docs.velt.dev/realtime-collaboration/presence/customize-behavior#on - "Event Subscription" (Using Hook)
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#usepresenceeventcallback - `usePresenceEventCallback()`
+- https://docs.velt.dev/realtime-collaboration/presence/overview#heartbeat-monitoring - "Heartbeat Monitoring"
+
 ---
 
 ### 2.3 Use the PresenceElement API for Presence Data
@@ -379,6 +503,10 @@ function PresenceController() {
 **Impact: HIGH (Observable-based API for presence data access in non-React or programmatic contexts)**
 
 Get the `PresenceElement` with `client.getPresenceElement()` (React) or `Velt.getPresenceElement()` (other frameworks). `getData()` and `on()` return Observables: call `.subscribe()` and keep the subscription so you can `.unsubscribe()` on cleanup.
+
+**Why this matters:**
+
+`getData()` emits a `GetPresenceDataResponse` object, not an array. Treating the emission as `PresenceUser[]` is the most common bug: `response.map` throws and the UI never renders.
 
 **Incorrect (treating the response as an array):**
 
@@ -404,6 +532,16 @@ const subscription = presenceElement
 subscription?.unsubscribe();
 ```
 
+**Query options (`PresenceRequestQuery`, all optional):**
+
+| Field | Type | Use |
+|---|---|---|
+| `statuses` | `string[]` | Filter by `'online'`, `'away'`, `'offline'` |
+| `documentId` | `string` | Query a specific document instead of the current one |
+| `organizationId` | `string` | Query a specific organization |
+
+Call `getData()` with no query to get all users.
+
 **Subscribe to state change events:**
 
 ```js
@@ -419,9 +557,32 @@ subscription?.unsubscribe();
 
 **Callback alternative on the component:**
 
+`onPresenceUserChange` fires with the filtered `PresenceUser[]` (after `location` / `locationId` filtering) on load and on every change. The older `onUsersChanged` is a deprecated alias.
+
 ```jsx
 <VeltPresence onPresenceUserChange={(presenceUsers) => setUsers(presenceUsers)} />
 ```
+
+**Key patterns:**
+
+- `getData()` and `on()` return Observables; always `.subscribe()` and `.unsubscribe()`
+- Read `response.data`; it is `null` while loading
+- `getOnlineUsersOnCurrentDocument()` on the presence element is deprecated; use `getData()`
+- In React, prefer `usePresenceData()` and `usePresenceEventCallback()` (see `data-presence-hooks`)
+
+#### Verification Checklist
+
+- [ ] Velt is initialized and the user is authenticated (`authProvider` / `setVeltAuthProvider`)
+- [ ] `setDocuments` has been called to scope presence
+- [ ] Subscribers read `response.data`, with a `null` check
+- [ ] Every `.subscribe()` has a matching `.unsubscribe()`
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/presence/customize-behavior#getdata - "getData"
+- https://docs.velt.dev/realtime-collaboration/presence/customize-behavior#on - "Event Subscription"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#getpresencedataresponse - `GetPresenceDataResponse`
+- https://docs.velt.dev/api-reference/sdk/models/data-models#presencerequestquery - `PresenceRequestQuery`
+- https://docs.velt.dev/ui-customization/reference/behaviors/presence-reactions - `onPresenceUserChange` behavior
 
 ---
 
@@ -439,10 +600,30 @@ Flock mode is Velt's "follow along" feature (similar to Figma's). One user is th
 
 **How it works:**
 
+Flock mode is an extension of VeltPresence. When enabled, clicking on a user's presence avatar starts a follow session with that user as the leader. All followers' viewports sync to the leader's actions until the session ends.
+
+#### Enable Flock Mode
+
+**React: Enable on VeltPresence**
+
 ```jsx
 <VeltPresence flockMode={true} />
+```
+
+**API: Enable programmatically**
+
+```jsx
 const presenceElement = client.getPresenceElement();
 presenceElement.enableFlockMode();
+```
+
+Once enabled, users click on any presence avatar to start following that user.
+
+#### Programmatic Follow Control
+
+Use `startFollowingUser()` and `stopFollowingUser()` when you need to trigger follow sessions from custom UI (buttons, menus) rather than avatar clicks.
+
+```jsx
 const presenceElement = client.getPresenceElement();
 
 // Start following a specific user (the leader's userId)
@@ -453,13 +634,15 @@ presenceElement.startFollowingUser(userId);
 presenceElement.stopFollowingUser();
 ```
 
-**API: Enable programmatically**
-Once enabled, users click on any presence avatar to start following that user.
-Use `startFollowingUser()` and `stopFollowingUser()` when you need to trigger follow sessions from custom UI (buttons, menus) rather than avatar clicks.
 The API reference also lists a second `name` argument (the leader's display name) for `startFollowingUser`; the feature page shows only `userId`.
+
 `enableFlockMode()` accepts optional `FlockOptions` (`useHistoryAPI`, `onNavigate`, `disableDefaultNavigation`, `darkMode`) if you prefer configuring flock mode through the API instead of props.
 
+#### Custom Navigation with onNavigate
+
 **Incorrect (relying on default navigation in a SPA):**
+
+Velt's default flock navigation uses `window.location.href`, which causes full page reloads in single-page apps. In React/Next.js apps with client-side routing, this breaks the SPA experience: state is lost, components remount, and transitions are jarring.
 
 ```jsx
 // Followers hard-reload on every leader navigation
@@ -505,6 +688,8 @@ function Toolbar() {
 }
 ```
 
+#### Props Reference
+
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `flockMode` | `boolean` | `false` | Enable flock mode globally on this presence instance |
@@ -513,11 +698,16 @@ function Toolbar() {
 
 **Other Frameworks (listen for the `onNavigate` event on the element):**
 
-```html
+```js
 const presenceDOMElement = document.querySelector("velt-presence");
 presenceDOMElement.addEventListener("onNavigate", (event) => {
   myRouter.navigate(event.detail.path); // event.detail is the PageInfo
 });
+```
+
+#### HTML Usage
+
+```html
 <velt-presence flock-mode="true"></velt-presence>
 
 <!-- Disable default navigation for custom handling -->
@@ -529,6 +719,27 @@ presenceDOMElement.addEventListener("onNavigate", (event) => {
 
 Note: the HTML attribute for disabling default navigation is `disable-flock-navigation`, while the React prop is `defaultFlockNavigation={false}`. They write the same underlying flag with inverted polarity. The React `disableFlockNavigation` prop is a deprecated alias; don't pass both, because the last one wins.
 
+**Interactions:**
+
+- `onNavigate` and `defaultFlockNavigation` only take effect while flock mode is on
+- With flock mode on, clicking another user's avatar fires `onPresenceUserClick` **and** makes that user the leader; with it off, the click only fires `onPresenceUserClick`
+
+#### Verification
+
+- [ ] `flockMode={true}` is set on VeltPresence
+- [ ] Clicking a user's avatar starts following them
+- [ ] `defaultFlockNavigation={false}` is set when using `onNavigate`
+- [ ] `onNavigate` uses your app's router (not `window.location.href`)
+- [ ] `stopFollowingUser()` properly ends the session
+- [ ] Test with two browsers: follower's screen mirrors leader's navigation
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/flock-mode/overview - "Flock Mode Overview"
+- https://docs.velt.dev/realtime-collaboration/flock-mode/setup - "Flock Mode Setup"
+- https://docs.velt.dev/realtime-collaboration/flock-mode/customize-behavior - "flockMode", "onNavigate", "defaultFlockNavigation", "startFollowingUser()", "stopFollowingUser()"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#flockoptions - `FlockOptions`
+- https://docs.velt.dev/ui-customization/reference/behaviors/presence-reactions - flock prop interactions
+
 ---
 
 ### 3.2 Configure Inactivity and Offline Timeouts
@@ -536,6 +747,14 @@ Note: the HTML attribute for disabling default navigation is `disable-flock-navi
 **Impact: HIGH (Controls when users appear as away or offline in presence)**
 
 Velt moves a user from online to away after `inactivityTime` without mouse or keyboard activity, and to offline after `offlineInactivityTime`. Both values are in **milliseconds**.
+
+**How presence status transitions work:**
+
+| Event | Effect | Default |
+|-------|--------|---------|
+| No mouse or keyboard activity | `onlineStatus` becomes `'away'`, `isUserIdle` becomes `true` | `inactivityTime`: 300000 ms (5 min) |
+| Still inactive, or connection lost | `onlineStatus` becomes `'offline'` | `offlineInactivityTime`: 600000 ms (10 min) |
+| Tab loses focus | `onlineStatus` becomes `'away'`, `isTabAway` becomes `true` | Immediate |
 
 **Incorrect (offline threshold shorter than away threshold, or minutes instead of ms):**
 
@@ -563,11 +782,40 @@ presenceElement.setInactivityTime(30000);
 
 **Correct (Other Frameworks):**
 
-```js
+```html
 <velt-presence inactivity-time="30000" offline-inactivity-time="600000"></velt-presence>
+```
+
+```js
 const presenceElement = Velt.getPresenceElement();
 presenceElement.setInactivityTime(30000);
 ```
+
+**Recommended values by app type:**
+
+| App Type | inactivityTime | offlineInactivityTime |
+|----------|---------------|----------------------|
+| Real-time canvas/whiteboard | 30000 (30s) | 120000 (2 min) |
+| Document editor | 300000 (5 min) | 600000 (10 min) |
+| Dashboard/viewer | 600000 (10 min) | 1800000 (30 min) |
+
+**Key details:**
+
+- `offlineInactivityTime` must be greater than or equal to `inactivityTime`; a smaller value is rejected (logged) and ignored
+- `setInactivityTime()` is the documented API method; set `offlineInactivityTime` through the prop or attribute
+- Tab blur sets `away` immediately, regardless of `inactivityTime`
+- Losing the internet connection also marks the user offline
+
+**Verification:**
+- [ ] Both values are in milliseconds
+- [ ] `offlineInactivityTime` >= `inactivityTime`
+- [ ] Away status appears at the expected time when a user stops interacting
+- [ ] Switching tabs immediately shows the user as away
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/presence/customize-behavior#inactivitytime - "inactivityTime"
+- https://docs.velt.dev/realtime-collaboration/presence/customize-behavior#offlineinactivitytime - "offlineInactivityTime"
+- https://docs.velt.dev/ui-customization/reference/behaviors/presence-reactions - "VeltPresence" prop behavior
 
 ---
 
@@ -579,7 +827,11 @@ When many users are present in a document, showing all avatars can overwhelm you
 
 **Why this matters:**
 
-```html
+In collaborative apps with large teams, 20+ avatars in a row will break your layout and provide no useful information at a glance. Capping visible avatars keeps the UI clean while still communicating the total number of active users.
+
+**React: Set maxUsers**
+
+```jsx
 import { VeltPresence } from "@veltdev/react";
 
 function Toolbar() {
@@ -587,11 +839,29 @@ function Toolbar() {
     <VeltPresence maxUsers={3} />
   );
 }
-<velt-presence max-users="3"></velt-presence>
 ```
 
 This displays 3 avatar icons plus a "+N" badge showing how many additional users are present.
+
 **HTML: Set max-users attribute**
+
+```html
+<velt-presence max-users="3"></velt-presence>
+```
+
+**Choosing the right value:**
+
+| Context | Recommended maxUsers |
+|---------|---------------------|
+| Narrow toolbar or mobile | 3 |
+| Standard desktop header | 5 |
+| Wide collaboration bar | 8-10 |
+
+The default is `5`. Non-numeric values are rejected and the default holds. When `self` is `true` (the default), the current user counts toward the cap.
+
+**Overflow badge behavior:**
+
+The "+N" badge renders only when the filtered user count is greater than `maxUsers`. If `maxUsers` is 3 and there are 8 active users, the badge shows "+5". `maxUsers` only affects rendering; presence data (`getData`, `usePresenceData`) still returns every user.
 
 **Incorrect (relying on an undocumented API method):**
 
@@ -600,6 +870,17 @@ This displays 3 avatar icons plus a "+N" badge showing how many additional users
 presenceElement.setMaxUsers(3);
 ```
 
+**Verification:**
+- [ ] `maxUsers` is set on `VeltPresence` or `<velt-presence>`
+- [ ] Only the specified number of avatars renders in the toolbar
+- [ ] An overflow count badge appears when active users exceed `maxUsers`
+- [ ] Layout does not break when many users are present simultaneously
+- [ ] No calls to `setMaxUsers()` (configure via `maxUsers` / `max-users`)
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/presence/customize-behavior#maxusers - "maxUsers"
+- https://docs.velt.dev/ui-customization/reference/behaviors/presence-reactions - `maxUsers` default and overflow behavior
+
 ---
 
 ### 3.4 Control Current User Visibility in Presence
@@ -607,6 +888,10 @@ presenceElement.setMaxUsers(3);
 **Impact: MEDIUM (Include or exclude the current user from the presence avatar list)**
 
 By default, `VeltPresence` includes the current user's avatar in the presence list. You can hide it with the `self` prop when your UI already displays the current user's identity elsewhere (e.g., a profile menu or account badge).
+
+**Why this matters:**
+
+Showing the current user in presence is redundant when their identity is already visible in the header or navigation. Hiding it frees up an avatar slot for other collaborators and reduces visual clutter. Conversely, in apps where the toolbar is the only identity indicator, keeping it visible ensures the user knows they are connected.
 
 **Incorrect (assuming the current user is excluded by default):**
 
@@ -617,7 +902,7 @@ By default, `VeltPresence` includes the current user's avatar in the presence li
 
 **Correct (React: hide current user):**
 
-```javascript
+```jsx
 import { VeltPresence } from "@veltdev/react";
 
 function Toolbar() {
@@ -625,6 +910,11 @@ function Toolbar() {
     <VeltPresence self={false} />
   );
 }
+```
+
+**React: Show current user (default behavior)**
+
+```jsx
 import { VeltPresence } from "@veltdev/react";
 
 function Toolbar() {
@@ -632,7 +922,17 @@ function Toolbar() {
     <VeltPresence self={true} />
   );
 }
+```
+
+**HTML: Hide current user**
+
+```html
 <velt-presence self="false"></velt-presence>
+```
+
+**API: Toggle programmatically** (React: `client.getPresenceElement()`, other frameworks: `Velt.getPresenceElement()`)
+
+```javascript
 const presenceElement = Velt.getPresenceElement();
 
 // Hide current user from presence
@@ -642,9 +942,29 @@ presenceElement.disableSelf();
 presenceElement.enableSelf();
 ```
 
-**React: Show current user (default behavior)**
-**HTML: Hide current user**
-**API: Toggle programmatically** (React: `client.getPresenceElement()`, other frameworks: `Velt.getPresenceElement()`)
+**When to hide the current user:**
+
+- Your app has a profile avatar or account menu in the header
+- You use `maxUsers` and want to maximize slots for other collaborators
+- The presence bar is in a shared toolbar where self-representation is redundant
+
+**When to keep the current user visible:**
+
+- The presence bar is the only indicator that the user is connected
+- Users need confirmation that their session is active
+- The app has no other profile or identity UI
+
+**Default:** `self={true}`: the current user is shown in the presence list and counts toward `maxUsers`. This default surprises many teams; set `self={false}` for an "others online" pattern.
+
+**Verification:**
+- [ ] `self` prop is set intentionally based on your UI design
+- [ ] When `self={false}`, the current user's avatar does not appear in presence
+- [ ] When `self={true}`, the current user's avatar is included
+- [ ] The `maxUsers` overflow count adjusts correctly based on self visibility
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/presence/customize-behavior#self - "self"
+- https://docs.velt.dev/ui-customization/reference/behaviors/presence-reactions - `self` default and interaction with `maxUsers`
 
 ---
 
@@ -653,6 +973,10 @@ presenceElement.enableSelf();
 **Impact: MEDIUM (Show presence scoped to a specific section or area of a document)**
 
 In multi-section documents, you can scope presence to a specific section using the `locationId` prop. This shows only the users who are active in that particular area, rather than everyone viewing the document.
+
+**Why this matters:**
+
+In apps with distinct sections — such as a spreadsheet with multiple sheets, a slide deck with individual slides, or a document with chapters — global document presence is too coarse. Users need to know who is working in the same section to avoid conflicts and coordinate edits effectively.
 
 **Incorrect (location set on the component, but users never get a location):**
 
@@ -663,7 +987,7 @@ In multi-section documents, you can scope presence to a specific section using t
 
 **Correct (React: presence scoped to a location):**
 
-```html
+```jsx
 import { VeltPresence } from "@veltdev/react";
 
 function SectionHeader({ sectionId, title }) {
@@ -674,6 +998,11 @@ function SectionHeader({ sectionId, title }) {
     </div>
   );
 }
+```
+
+**React: Multiple sections with independent presence**
+
+```jsx
 import { VeltPresence } from "@veltdev/react";
 
 function MultiSectionDocument() {
@@ -697,6 +1026,11 @@ function MultiSectionDocument() {
     </div>
   );
 }
+```
+
+**HTML: Presence scoped to a location**
+
+```html
 <div class="section-header">
   <h2>Introduction</h2>
   <velt-presence location-id="section-intro"></velt-presence>
@@ -708,20 +1042,45 @@ function MultiSectionDocument() {
 </div>
 ```
 
-**React: Multiple sections with independent presence**
-**HTML: Presence scoped to a location**
+**Use cases for location-scoped presence:**
+
+| App Type | Location ID Strategy |
+|----------|---------------------|
+| Spreadsheet | Sheet name or tab ID (`sheet-1`, `sheet-2`) |
+| Slide deck | Slide index or ID (`slide-0`, `slide-5`) |
+| Multi-chapter document | Chapter or section ID (`chapter-intro`) |
+| Kanban board | Column or card ID (`column-in-progress`) |
 
 **How it works:**
 
-```js
+`VeltPresence` filters its avatar list to users whose current location matches. Users get a location when your app calls `setLocations` (or `useSetLocations`) as they move between sections, so set locations for every user, not only the viewer.
+
+```jsx
 // React: set the location the user is currently in
 const { setLocations } = useSetLocations();
 setLocations([{ id: "section-analysis", locationName: "Analysis" }]);
+```
+
+```js
 // Other Frameworks
 await Velt.setLocations([{ id: "section-analysis", locationName: "Analysis" }]);
 ```
 
 You can also pass a full `location` object instead of `locationId`. If both are set, `locationId` wins. A `VeltPresence` with neither still shows all users on the document, so you can combine a global presence bar in the header with per-section indicators.
+
+**Verification:**
+- [ ] `locationId` is set on each section's `VeltPresence` component
+- [ ] Each section shows only users active in that specific location
+- [ ] Location IDs are stable and unique within the document
+- [ ] Global presence (no `locationId`) still works in the main header if needed
+- [ ] Users navigating between sections update presence in real time
+- [ ] Your app calls `setLocations` so each user's current location is known
+- [ ] Only one of `locationId` / `location` is passed (`locationId` takes precedence)
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/presence/customize-behavior#locationid - "locationId"
+- https://docs.velt.dev/key-concepts/overview#subscribe-to-locations - "Subscribe to Locations"
+- https://docs.velt.dev/ui-customization/reference/behaviors/presence-reactions - `location` / `locationId` precedence
 
 ---
 
@@ -736,6 +1095,10 @@ Real-time cursor tracking via the VeltCursor component, mounted once near the ap
 **Impact: HIGH (Real-time cursor sharing for canvas, diagram, and spatial applications)**
 
 `VeltCursor` renders the live cursors of other users on the same document and location. It is best suited for canvas, diagram, and spatial applications (ReactFlow, whiteboards, image editors). Mount it once near the app root; Velt positions every remote cursor itself. For full cursor configuration, see the `velt-cursors-best-practices` skill.
+
+**Why this matters:**
+
+In spatial applications, cursor position is the main signal of what a collaborator is focused on. Velt adapts cursors to different screen sizes and content, so you do not position cursors yourself.
 
 **Incorrect (one VeltCursor per container to "scope" cursors):**
 
@@ -777,6 +1140,33 @@ function FlowEditor({ nodes, edges, authProvider }) {
 </body>
 ```
 
+**When NOT to use VeltCursor:**
+
+- **Text editors (TipTap, Lexical, CodeMirror, BlockNote, etc.):** text carets come from the editor's CRDT collaboration binding, not `VeltCursor`. `VeltCursor` shows mouse pointers, not text carets. See `velt-crdt-best-practices`.
+- **Non-spatial UIs:** in forms and lists, mouse cursors add noise without useful information.
+
+**Key patterns:**
+
+- Mount `VeltCursor` once; duplicate instances are inert
+- `allowedElementIds` takes a JSON-stringified array on the component; the API method `allowedElementIds([...])` takes a plain array
+- Cursors are scoped to the root document set by `setDocuments`
+- Cursors show the user's name by default; set `avatarMode={true}` to show avatars
+- Your own cursor is not rendered back to you
+
+#### Verification Checklist
+
+- [ ] `VeltCursor` is inside `VeltProvider` with a valid `authProvider`
+- [ ] `setDocuments` has been called to scope cursors to the correct document
+- [ ] Only one `VeltCursor` is mounted
+- [ ] `allowedElementIds` is used (stringified) when cursors should be limited to a region
+- [ ] For text editors, CRDT bindings are used instead of `VeltCursor`
+- [ ] Tested with two browsers and two different users
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/cursors/setup - "Cursors Setup"
+- https://docs.velt.dev/realtime-collaboration/cursors/customize-behavior#allowedelementids - "allowedElementIds"
+- https://docs.velt.dev/ui-customization/reference/behaviors/presence-reactions - "VeltCursor" default behaviors
+
 ---
 
 ## 5. Events
@@ -790,6 +1180,10 @@ Subscription patterns for presence lifecycle events. Covers user online/away/off
 **Impact: MEDIUM (React to user online/away/offline transitions for status indicators, logging, and auto-save triggers)**
 
 Velt emits a `userStateChange` event whenever a user transitions between `online`, `away`, and `offline` states. Use this to build status indicators, activity logs, or trigger auto-save when collaborators leave.
+
+**Why this matters:**
+
+Knowing when users change state lets you build responsive UIs -- show "User X went away" banners, log activity for audit trails, or auto-save unsaved changes when the last active user leaves.
 
 **Incorrect (passing a callback to the hook):**
 
@@ -859,6 +1253,40 @@ const subscription = presenceElement
 // subscription.unsubscribe();
 ```
 
+**State transition behavior:**
+
+| Transition | Trigger |
+|---|---|
+| `online` -> `away` | Tab loses focus (immediate), or inactivity timeout reached |
+| `away` -> `online` | Tab regains focus, or user activity detected |
+| `online`/`away` -> `offline` | `offlineInactivityTime` reached, or the user loses their connection |
+
+**Common use cases:**
+
+- **Status indicators:** Update avatar badges or user list entries in real time
+- **Activity logging:** Record when users join/leave for audit trails
+- **Auto-save triggers:** Save document state when the last editor goes offline
+- **Notifications:** Show toast messages when collaborators arrive or leave
+
+**Key patterns:**
+
+- The React hook cleans up on unmount; react to its return value in `useEffect`
+- Tab focus loss triggers `away` immediately (not after a timeout)
+- `inactivityTime` config controls the idle timeout for the online-to-away transition when the tab is focused
+- Events fire for all users in the same document scope (set by `setDocuments`)
+
+#### Verification Checklist
+
+- [ ] Component is inside `<VeltProvider>` with valid `authProvider`
+- [ ] `setDocuments` has been called to scope presence to the correct document
+- [ ] Event handler does not assume any particular transition order
+- [ ] Vanilla JS subscriptions have cleanup via `.unsubscribe()`
+- [ ] No heavy synchronous work inside the callback (use async for API calls)
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/presence/customize-behavior#on - "Event Subscription"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#presenceuserstatechangeevent - `PresenceUserStateChangeEvent`
+
 ---
 
 ## 6. UI Customization
@@ -872,6 +1300,10 @@ Visual customization of the Presence avatar list, tooltip, and overflow badge vi
 **Impact: MEDIUM (Build fully custom presence avatar layouts using wireframe building blocks)**
 
 Use `VeltPresenceWireframe` for the avatar list and `VeltPresenceTooltipWireframe` for the hover tooltip. Wireframes are templates: always wrap them in `VeltWireframe` (React) or `<velt-wireframe style="display:none;">` (HTML) so they never render on their own. Real-time behavior stays intact.
+
+**Why this matters:**
+
+Wireframes placed outside the wrapper render as visible markup or are ignored. Design systems often need custom avatar shapes, tooltips, or overflow badges; wireframes give you that without re-implementing presence subscriptions.
 
 **Incorrect (no wrapper, wrong nesting):**
 
@@ -943,10 +1375,32 @@ function PresenceWireframes() {
 
 **Disable Shadow DOM for custom CSS:**
 
-```html
+```jsx
 <VeltPresence shadowDom={false} />
+```
+
+```html
 <velt-presence shadow-dom="false"></velt-presence>
 ```
+
+**Key patterns and limitations:**
+
+- `AvatarRemainingCount` ("+N") renders only when the user count exceeds `maxUsers`
+- Tooltip slots are status-gated: `UserActive` renders only for `online` users, `UserInactive` only for `away` users, and neither renders for `offline`
+- Use `variant` on `VeltPresence` to switch to a named wireframe variant
+- Shadow DOM is on by default; disable it only when you need selector CSS on internals
+
+#### Verification Checklist
+
+- [ ] All presence wireframes are inside `VeltWireframe` / `<velt-wireframe style="display:none;">`
+- [ ] `AvatarList.Item` is nested inside `AvatarList`
+- [ ] HTML wireframe tags are kebab-case and not self-closing
+- [ ] `shadowDom={false}` is set only when custom CSS needs to reach internals
+- [ ] Tested with more users than `maxUsers` to check the overflow badge
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/realtime/presence - "VeltPresenceWireframe", "VeltPresenceTooltipWireframe", "Styling", "Limitations"
+- https://docs.velt.dev/ui-customization/overview - "UI Customization Concepts"
 
 ---
 
@@ -991,7 +1445,10 @@ const presence = usePresenceData();
 </VeltWireframe>
 ```
 
+#### Component Config (root state)
+
 Available inside every Presence primitive. **Always read via the full `componentConfig.<path>` form.**
+
 | Variable | Type | Notes |
 |---|---|---|
 | `componentConfig.filteredPresenceUsers` | `PresenceUser[]` | Active users after filters — drives the avatar list. `.length` powers the overflow gate. |
@@ -1004,12 +1461,19 @@ Available inside every Presence primitive. **Always read via the full `component
 | `componentConfig.showTooltip` | `Function` | Hover-in handler — wire to `(mouseenter)` on a custom avatar. |
 | `componentConfig.closeTooltip` | `Function` | Hover-out handler. |
 | `componentConfig.onPresenceUserClick` | `Function` | Avatar click handler — wire from custom avatar markup. |
+
+#### Context-Specific Variables (per-iteration / tooltip scope)
+
 These resolve **only** inside the iteration or tooltip tag that owns them — but still via the `componentConfig.<path>` form.
+
 | Variable | Type | Available in | Notes |
 |---|---|---|---|
 | `componentConfig.user` | `PresenceUser` | `<velt-presence-avatar-list-item-wireframe>`, `<velt-presence-tooltip-wireframe>` and tooltip child tags | Per-row / hovered user. |
 | `componentConfig.isActive` | `boolean` | Tooltip context | `true` when the hovered user is currently active. Branch active/inactive slots with `velt-if`. |
 | `componentConfig.lastActiveAt` | `number` | Tooltip context | Unix timestamp the user was last active. |
+
+#### Wireframe tags
+
 | Wireframe tag (HTML) | React component | Notes |
 |---|---|---|
 | `<velt-presence-wireframe>` | `<VeltPresenceWireframe />` | Root — hosts every other tag. No extra variables. |
@@ -1022,11 +1486,31 @@ These resolve **only** inside the iteration or tooltip tag that owns them — bu
 | `<velt-presence-tooltip-user-name-wireframe>` | `<VeltPresenceTooltipWireframe.UserName />` | Hovered user's name — bind `componentConfig.user.name`. |
 | `<velt-presence-tooltip-user-active-wireframe>` | `<VeltPresenceTooltipWireframe.UserActive />` | Built-in gate: renders only for `online` users. |
 | `<velt-presence-tooltip-user-inactive-wireframe>` | `<VeltPresenceTooltipWireframe.UserInactive />` | Built-in gate: renders only for `away` users. Show relative `lastActiveAt` here. |
+
+#### Common mistakes — DO NOT
+
 **1. DO NOT bare-name presence state.** This family is flat-config — `<velt-data field="filteredPresenceUsers.length" />` resolves to nothing. Always use `componentConfig.filteredPresenceUsers.length`.
+
 **2. DO NOT subscribe to `usePresenceData` to render the list manually.** The wireframe already iterates `componentConfig.filteredPresenceUsers` and applies max-users overflow. Hooks are for reading state alongside the wireframe, not for replacing it.
+
 **3. DO NOT bind `isActive` / `lastActiveAt` outside a tooltip tag.** The tooltip iteration context only exists inside `<velt-presence-tooltip-wireframe>` and its descendants.
+
 **4. DO NOT expect a tooltip status slot for offline users.** `tooltip-user-active` renders only for `online` users and `tooltip-user-inactive` only for `away` users; neither renders for `offline`. Inside custom tooltip markup you can still branch with `velt-if="{componentConfig.isActive}"` / `velt-if="!{componentConfig.isActive}"`.
+
 **5. DO NOT forget the wrapper.** Wireframes must sit inside `<VeltWireframe>` (React) or `<velt-wireframe style="display:none;">` (HTML).
+
+**Verification:**
+- [ ] All state is read via `componentConfig.<path>` (no bare names)
+- [ ] Avatar-list iteration uses `componentConfig.user` inside `<velt-presence-avatar-list-item-wireframe>`
+- [ ] Overflow badge is gated by `filteredPresenceUsers.length > maxUsers`
+- [ ] Tooltip status UI accounts for the built-in gating (`online` / `away` only)
+- [ ] `componentConfig.onPresenceUserClick` is wired from custom avatar markup when overriding the click target
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/realtime/presence-wireframe-variables — "Presence Wireframe Variables"
+- https://docs.velt.dev/ui-customization/template-variables — "Template Variables overview"
+- https://docs.velt.dev/ui-customization/features/realtime/presence - "Limitations"
+- Cross-reference: `ui/ui-wireframes.md` (structural Presence wireframe catalog), `core/core-setup.md` (VeltPresence component setup)
 
 ---
 
@@ -1051,11 +1535,12 @@ Common issues and solutions when integrating Velt Presence.
 ```
 
 **Correct:** authenticate, set the document, and allow the feature (details per issue below).
+
 **Issue 1: Presence not showing**
+
 **Symptoms:** `VeltPresence` renders nothing, no avatars appear.
 
 **Solutions:**
-
 ```jsx
 // 1. VeltProvider wraps all Velt components and authenticates the user
 <VeltProvider
@@ -1080,10 +1565,10 @@ setDocuments([{ id: "my-document-id", metadata: { documentName: "My Doc" } }]);
 ```
 
 Anonymous users never see presence; the feature requires an identified user.
+
 **Issue 2: Users stuck on "online" (never go away/offline)**
 
 **Solutions:**
-
 ```jsx
 // inactivityTime is in milliseconds (default 300000 = 5 min)
 <VeltPresence inactivityTime={60000} offlineInactivityTime={600000} />
@@ -1094,7 +1579,6 @@ Anonymous users never see presence; the feature requires an identified user.
 **Issue 3: Users from other pages appear in the presence list**
 
 **Solutions:**
-
 ```jsx
 // Update the document on every route change; presence uses the root (first) document
 const { setDocuments } = useSetDocuments();
@@ -1106,7 +1590,6 @@ useEffect(() => {
 **Issue 4: Avatar click does nothing**
 
 **Solutions:**
-
 ```jsx
 <VeltPresence onPresenceUserClick={(user) => navigateToUserLocation(user)} />
 // Clicking an avatar only starts following when flockMode={true}
@@ -1115,7 +1598,6 @@ useEffect(() => {
 **Issue 5: User count looks wrong**
 
 **Solutions:**
-
 ```jsx
 // self defaults to true: the current user IS included and counts toward maxUsers
 <VeltPresence self={false} /> {/* exclude yourself */}
@@ -1127,6 +1609,8 @@ useEffect(() => {
 // locationId / location filter the list to one location
 ```
 
+#### Debugging Verification Checklist
+
 - [ ] `VeltProvider` renders with a valid `apiKey` and `authProvider`
 - [ ] `authProvider.user` has `userId`, `organizationId`, and `name`
 - [ ] `setDocuments` (via `useSetDocuments()` or `Velt.setDocuments`) is called with `{ id }`
@@ -1136,6 +1620,13 @@ useEffect(() => {
 - [ ] Tested with two browsers and two different users
 - [ ] `inactivityTime` / `offlineInactivityTime` are in milliseconds and ordered correctly
 - [ ] `self` and `maxUsers` match the expected count
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/presence/setup - "Presence Setup"
+- https://docs.velt.dev/realtime-collaboration/presence/customize-behavior - "Customize Behavior"
+- https://docs.velt.dev/ui-customization/features/realtime/presence - "Limitations"
+- https://docs.velt.dev/key-concepts/overview#subscribe-to-documents - "Subscribe to Documents"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#config - `Config.featureAllowList`
 
 ---
 

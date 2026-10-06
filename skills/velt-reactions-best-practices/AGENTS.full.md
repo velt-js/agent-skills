@@ -81,6 +81,9 @@ export function Article() {
 ```
 
 The two forms are equivalent — in React JSX use `targetReactionElementId` (camelCase prop); in HTML / web components use `target-reaction-element-id` (kebab-case attribute). The string must match the container's `id` attribute exactly.
+
+#### Custom reactions — three entry shapes
+
 By default the emoji picker shows a built-in set. To replace or extend it, pass a `customReactions` map. Each entry is keyed by a stable `reactionId` you choose, and the value is one of three shapes:
 
 **Custom reactions map — entry shapes:**
@@ -137,6 +140,9 @@ reactionElement.setCustomReactions({
 ```
 
 The prop and the runtime method are equivalent — the prop is declarative and survives re-renders; the runtime method is useful when the emoji set changes based on app state.
+
+#### Styling — `shadowDom` (default `true`) and `darkMode` (default `false`)
+
 The default Velt component is encapsulated in Shadow DOM so your app's CSS doesn't interfere. Disable it if you want to apply your own CSS to the internals.
 
 **Disable Shadow DOM (React / Next.js):**
@@ -177,6 +183,9 @@ reactionElement.disableDarkMode();
 ```
 
 The prop is the right path when dark mode is part of an initial render; the runtime API is the right path when dark mode toggles in response to user action.
+
+#### Variants
+
 Inline Reactions ships with one pre-defined variant — `"inline"` — that customizes the default components inside the Inline Reactions section. You can also define your own variant names and reuse the same wireframe template in different places.
 
 **Built-in variant (React / Next.js):**
@@ -196,8 +205,40 @@ Inline Reactions ships with one pre-defined variant — `"inline"` — that cust
 ```
 
 Custom variants behave identically — pick a stable name and reference it from the wireframe slot to keep multiple placements in sync.
+
+#### Shared with comment reactions
+
 `setCustomReactions` also exists on `commentElement` (`client.getCommentElement().setCustomReactions(...)`) for the same map shape. If you want one custom emoji set across both inline reactions and comment reactions, set it on whichever element matches the scope of the change — for app-wide custom emojis you typically set it once on the comment element and the inline strip picks up the same set. See `velt-comments-best-practices` for the comments-specific path.
+
+#### v6 modular SDK
+
 If you pass `featureAllowList` in the Velt config, include `'reaction'`, or the reactions chunk is not preloaded and the section renders inert until it loads. `client.preloadReaction()` warms it ahead of first use; calling `getReactionElement()` auto-enables the feature.
+
+**Common pitfalls:**
+- DO NOT omit `targetReactionElementId` — without it the inline strip has nothing to anchor to.
+- DO NOT use a `targetReactionElementId` value that doesn't match any element's `id` — the strip mounts but no reactions render and the misconfiguration is silent.
+- DO NOT pass camelCase `targetReactionElementId` on the HTML `<velt-inline-reactions-section>` element — use the kebab-case `target-reaction-element-id` attribute there.
+- DO NOT mix entry shapes within a single reactionId (e.g., `{ url: ..., emoji: ... }`) — pass exactly one of `url`, `iconUrl`, or `emoji` per entry.
+- DO NOT mount more than one `<VeltInlineReactionsSection>` for the same `targetReactionElementId` — duplicate strips render twice.
+
+**Verification Checklist:**
+- [ ] Container has a stable `id` attribute matching the `targetReactionElementId` value byte-for-byte
+- [ ] In React JSX: `targetReactionElementId` (camelCase). In HTML / web components: `target-reaction-element-id` (kebab-case)
+- [ ] Each custom reaction entry uses exactly one of `url`, `iconUrl`, or `emoji` — never multiple
+- [ ] Custom reactionIds are stable, meaningful strings (used for storage and analytics)
+- [ ] `shadowDom` is only disabled when you intentionally want your own CSS to reach into the component internals
+- [ ] `darkMode` is controlled via the prop OR `enableDarkMode()` / `disableDarkMode()` — not both for the same scope
+- [ ] Inline-reactions and comment-reactions custom emojis are configured at the right scope to avoid drift
+- [ ] React code gets the element from `useReactionElement()` or `client.getReactionElement()`; other frameworks use `Velt.getReactionElement()`
+- [ ] If `featureAllowList` is set, it includes `'reaction'`
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/reactions/setup — `<VeltInlineReactionsSection>` + `targetReactionElementId`
+- https://docs.velt.dev/async-collaboration/reactions/customize-behavior — `setCustomReactions` and the three entry shapes
+- https://docs.velt.dev/ui-customization/features/async/inline-reactions — `shadowDom` / `darkMode` / `variant` props + `enableDarkMode` / `disableDarkMode` runtime methods
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#setcustomreactions — `setCustomReactions()` signature
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#usereactionelement — `useReactionElement()` hook
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#preloadreaction — `preloadReaction()` and `featureAllowList`
 
 ---
 
@@ -213,7 +254,19 @@ Template-variable bindings for the Reactions wireframe family — three primary 
 
 The Reactions feature exposes three primary wireframe tags. Each receives its own `componentConfig.*` data stream, plus there are nested children for the reactions-panel (emoji picker rows) and the reaction-pin (emoji glyph, count badge, hover tooltip with per-reactor rows). All variables use the **flat-config** access pattern — every read is via `componentConfig.<path>`. Dropping the prefix (`<velt-data field="annotation" />`) resolves to nothing.
 
-### Three primary wireframe tags
+#### Three primary wireframe tags
+
+```
+<velt-reaction-tool-wireframe>            The "+" emoji-picker button.
+<velt-reaction-pin-wireframe>             A single placed emoji reaction (pin) on the page or next to a comment.
+<velt-inline-reactions-section-wireframe> The inline strip — hosts the tool + the list of pins for a target.
+```
+
+React equivalents: `VeltReactionToolWireframe`, `VeltReactionPinWireframe`, `VeltInlineReactionsSectionWireframe`.
+
+#### Wireframe templates must be wrapped in `<VeltWireframe>` / `<velt-wireframe>`
+
+All wireframe definitions live inside the top-level wireframe registration tag. The registration tag is hidden from layout — its job is to register the template, not to render in place.
 
 **Wireframe wrapper (React / Next.js):**
 
@@ -234,6 +287,9 @@ import { VeltWireframe } from '@veltdev/react';
 ```
 
 The HTML form requires the inline `style="display:none;"` (the React form hides itself automatically).
+
+#### React dot-notation form for nested wireframe slots
+
 In React, the nested wireframe tags are also exposed as dot-notation members of the parent component. Both forms compile to the same registration; pick whichever reads better in your code:
 
 **Dot-notation (React) — equivalent to the flat tag names:**
@@ -247,6 +303,11 @@ In React, the nested wireframe tags are also exposed as dot-notation members of 
     </VeltInlineReactionsSectionWireframe.Panel>
   </VeltInlineReactionsSectionWireframe>
 </VeltWireframe>
+```
+
+Equivalent to:
+
+```tsx
 <VeltWireframe>
   <VeltInlineReactionsSectionWireframe>
     <VeltInlineReactionsSectionPanelWireframe>
@@ -257,21 +318,24 @@ In React, the nested wireframe tags are also exposed as dot-notation members of 
 </VeltWireframe>
 ```
 
-Equivalent to:
 The dot-notation form is the convention in the official React docs examples; the flat-tag form mirrors the web-component HTML names. Use whichever matches your codebase style.
+
+#### Reaction Tool componentConfig — the "+" picker button
 
 **Tool-scope variables (`<velt-reaction-tool-wireframe>`):**
 
-```typescript
+```
 componentConfig.variant                string                   Wireframe variant id.
 componentConfig.onClickOutside         Function                 Close handler — call from a click-outside region.
 componentConfig.handleEmojiSelected    Function                 Emoji-selection handler. Call with the chosen emoji string.
 componentConfig.excludeReactionIds     string[]                 Reaction ids to hide from the picker.
 ```
 
+#### Reaction Pin componentConfig — a placed emoji
+
 **Pin-scope variables (`<velt-reaction-pin-wireframe>`):**
 
-```typescript
+```
 componentConfig.type                              ReactionPinType     'timeline' | 'comment' | 'standalone' (pin variant).
 componentConfig.annotationId                      string              The reaction-annotation id this pin represents.
 componentConfig.annotation                        ReactionAnnotation  Full annotation: from, emoji, users, createdAt, ...
@@ -332,9 +396,11 @@ import { VeltWireframe, VeltReactionPinWireframe } from '@veltdev/react';
 </velt-wireframe>
 ```
 
+#### Inline Reactions Section componentConfig — the strip
+
 **Inline-section variables (`<velt-inline-reactions-section-wireframe>`):**
 
-```typescript
+```
 componentConfig.targetReactionElementId      string                       Anchor element id (matches the host attr).
 componentConfig.annotations                  ReactionAnnotation[]         Reactions placed on this target.
 componentConfig.user                         User | null                  Currently identified end-user.
@@ -347,11 +413,13 @@ componentConfig.onReactionClick              (ann: ReactionAnnotation) => void  
 componentConfig.reactionAnnotationsTrackByFn Function                     Internal — identity function for list tracking.
 ```
 
+#### Nested decomposition
+
 The reaction-pin and the inline-section / reactions-panel each have their own child wireframe tags. Each child inherits its parent's `componentConfig` and may also expose **context-specific** per-iteration variables that are ONLY resolvable inside specific tags.
 
 **Reaction pin children (`<velt-reaction-pin-wireframe>` → ...):**
 
-```typescript
+```
 <velt-reaction-pin-emoji-wireframe>             The emoji glyph itself.
 <velt-reaction-pin-count-wireframe>             The "+N" count badge when multiple users reacted with the same emoji.
 <velt-reaction-pin-tooltip-users-wireframe>     The hover tooltip wrapper listing all reactors.
@@ -362,7 +430,7 @@ The reaction-pin and the inline-section / reactions-panel each have their own ch
 
 **Inline-section children (`<velt-inline-reactions-section-wireframe>` → ...):**
 
-```typescript
+```
 <velt-inline-reactions-section-tool-container-wireframe>   Wraps the emoji-picker tool.
 <velt-inline-reactions-section-panel-wireframe>            Panel wrapper that hosts the reaction list.
 <velt-inline-reactions-section-list-wireframe>             Iterates componentConfig.annotations; renders one reaction-pin per entry.
@@ -370,10 +438,17 @@ The reaction-pin and the inline-section / reactions-panel each have their own ch
 
 **Reactions Panel children (the emoji picker that opens when the user clicks the tool "+" button):**
 
-```typescript
+```
 <velt-reactions-panel-items-wireframe>          The list wrapper that iterates the filtered emojis.
 <velt-reactions-panel-item-wireframe>           A single emoji row. EXPOSES context vars: `emoji`, `isSelected`.
 <velt-reactions-panel-item-emoji-wireframe>     The emoji glyph itself. EXPOSES context var: `emoji`.
+```
+
+#### Context-specific per-iteration variables
+
+These three are ONLY resolvable inside the specific nested tags noted. They are NOT visible from the parent or sibling wireframes.
+
+```
 user        User                       Inside <velt-reaction-pin-tooltip-user-wireframe> and its children.
                                        Iterated — one per reactor in the tooltip.
 emoji       { key, value, name? }      Inside <velt-reactions-panel-item-wireframe> and -item-emoji-wireframe.
@@ -381,8 +456,6 @@ emoji       { key, value, name? }      Inside <velt-reactions-panel-item-wirefra
 isSelected  boolean                    Inside <velt-reactions-panel-item-wireframe>.
                                        True for the currently-selected emoji row.
 ```
-
-These three are ONLY resolvable inside the specific nested tags noted. They are NOT visible from the parent or sibling wireframes.
 
 **Custom emoji-picker row + tooltip user row (React):**
 
@@ -417,11 +490,35 @@ import {
 </VeltWireframe>
 ```
 
+#### Don't reach across scopes
+
 Each wireframe slot only sees its own `componentConfig` scope plus its assigned per-iteration context variables:
+
 - Tool-scope variables (`handleEmojiSelected`, `excludeReactionIds`) are not visible inside the pin or inline-section wireframes.
 - Pin-scope variables (`annotation`, `isReactionSelectedByCurrentUser`, `tooltipVisible`) are not visible inside the inline-section wireframe.
 - Inline-section variables (`annotations[]`, `skeletonLoading`, `darkMode`) are not visible inside the pin or tool wireframes.
 - The per-iteration `user`, `emoji`, `isSelected` are ONLY visible inside the specific iterated rows.
+
+**Common pitfalls:**
+- DO NOT drop the `componentConfig.` prefix — flat-config requires the full path. (Per-iteration `user` / `emoji` / `isSelected` are the exception — those don't use the prefix because they're context-scoped, not config-scoped.)
+- DO NOT bind `componentConfig.annotation` inside the inline-section wireframe — `annotation` is pin-scope; the inline-section sees `annotations[]` (plural).
+- DO NOT reach into `componentConfig.user` from the tooltip-user-wireframe — there, use the iteration variable `user` directly.
+- DO NOT subscribe via the data hooks (e.g., to enumerate reactions) when you can read `componentConfig.annotations` directly from inside the inline-section wireframe — the wireframe stream is the right seam.
+
+**Verification Checklist:**
+- [ ] All wireframe definitions are wrapped in `<VeltWireframe>` (React) / `<velt-wireframe style="display:none;">` (HTML)
+- [ ] All `componentConfig.*` reads use the full path (never bare names)
+- [ ] Pin-scope variables (`annotation`, `isReactionSelectedByCurrentUser`, `tooltipVisible`) are read only inside the pin wireframe and its children
+- [ ] Tool-scope variables (`handleEmojiSelected`, `excludeReactionIds`) are read only inside the tool wireframe
+- [ ] Inline-section variables (`annotations[]`, `darkMode`) are read only inside the inline-section wireframe
+- [ ] Per-iteration `user` is used inside `<velt-reaction-pin-tooltip-user-wireframe>` and its children, not `componentConfig.user`
+- [ ] Per-iteration `emoji` / `isSelected` are used inside `<velt-reactions-panel-item-wireframe>` and its emoji child, not parent componentConfig
+- [ ] React code may use either the flat tag names (`VeltInlineReactionsSectionPanelWireframe`) or the dot-notation form (`VeltInlineReactionsSectionWireframe.Panel`) — both compile to the same registration
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/async/reactions-wireframe-variables — full variable + subcomponent reference
+- https://docs.velt.dev/ui-customization/features/async/inline-reactions — wireframe overview for the inline-reactions section
+- https://docs.velt.dev/ui-customization/template-variables — `velt-data` / `velt-if` / `velt-class` overview
 
 ---
 
@@ -490,26 +587,67 @@ interface Reaction {
 ```
 
 A single `ReactionAnnotation` can hold multiple `Reaction` entries when multiple users have reacted with the same emoji to the same target. `from` on the annotation is the original creator; `reactions[i].from` is each individual reactor.
+
 `type` defaults to `"reaction"` — narrow on `annotation.type === 'reaction'` to distinguish reactions from other annotation kinds in a mixed-feed subscription.
+
 `commentAnnotationId` is the link to a parent comment when the reaction lives on a comment thread (vs. inline on page content). Inline-section reactions have it `undefined` and use `targetElementId` instead.
+
+#### `ReactionPinType` discriminator
+
 The `ReactionPinType` type distinguishes pin display locations when you're consuming pin-scope wireframe variables (`componentConfig.type` on `<velt-reaction-pin-wireframe>`):
 
 **`ReactionPinType` values (exact docs definition):**
 
 ```typescript
 type ReactionPinType = "timeline" | "comment" | "standalone";
+```
+
+```
 'timeline'     Pin reaction to a timeline view.
 'comment'      Pin reaction to comment context.
 'standalone'   Display reaction independently.
 ```
 
 Note: there is **no** `'inline'` value — that was a common-sense guess that doesn't match the actual type. Narrow on the three documented literals (`'timeline'` / `'comment'` / `'standalone'`).
+
+#### Self-hosting data — cross-reference
+
 If you're self-hosting reaction data, see two sources for the full picture:
+
 - **`velt-self-hosting-data-best-practices`** — Python resolver-request shapes (`SaveReactionResolverRequest`, `DeleteReactionResolverRequest`, `GetReactionResolverRequest`). None of these include `commentId`; the canonical fields are `organizationId`, `documentId`, and (for delete) `reactionId`.
 - **Velt docs `self-hosting/partial/reactions.mdx`** — the comprehensive reactions data-provider page covering the endpoint-based vs function-based `ReactionAnnotationDataProvider`, `getConfig` / `saveConfig` / `deleteConfig` endpoint configs, `resolveTimeout` and retry configs (`getRetryConfig` / `saveRetryConfig` / `deleteRetryConfig`), the `additionalFields` option, `fieldsToRemove`, backend examples (MongoDB / PostgreSQL), and debugging via `client.on('dataProvider')`.
+
 This skill does not duplicate those payload shapes — read the linked sources for the full schemas before implementing a provider.
+
+#### Reactions on private comments
+
 Since v6.0.0-beta.15, reactions on a private comment do not inherit the parent comment's Access Context, and they no longer reach viewers in the same Access Context. Context-scoped queries do not return them. Since v6.0.4, reactions on private comments persist after a reload and stay visible to exactly the people who can read the parent comment. Don't build visibility logic that assumes a reaction's `context` mirrors its comment's.
+
+#### Event-side cross-reference (comments + reactions)
+
 When reactions are attached to comments, the comment-element event stream emits `addReaction`, `deleteReaction`, and `toggleReaction` events. Those events live in the comments skill (`velt-comments-best-practices`) — they aren't part of the inline-reactions surface but you'll encounter them if you're subscribing to comment-element events on documents that also have reactions.
+
+**Common pitfalls:**
+- DO NOT treat `commentAnnotationId` as guaranteed-present — it is only set for reactions attached to comments. Inline-section reactions have it `undefined`.
+- DO NOT treat `from` as required — although typical reactions have it, the type allows `undefined`. Null-guard.
+- DO NOT confuse `targetElement` (the DOM anchor) with `targetElementId` (the string id the host code provided) — both can be present; `targetElementId` is the stable handle.
+- DO NOT assume `type` is exclusively `'reaction'` — narrow on it explicitly when consuming a mixed annotation feed.
+
+**Verification Checklist:**
+- [ ] Code that consumes reaction annotations narrows on `annotation.type === 'reaction'`
+- [ ] Optional fields (`from`, `commentAnnotationId`, `position`, `props`) are null-guarded
+- [ ] Self-hosting resolver payloads use the canonical fields (`organizationId`, `documentId`, `reactionId`) — not `commentId`
+- [ ] Pin-scope `componentConfig.type` is treated as a `ReactionPinType` value drawn from `'timeline' | 'comment' | 'standalone'` (NOT `'inline'`, which is not a valid value)
+
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/sdk/models/data-models#reactionannotation
+- https://docs.velt.dev/api-reference/sdk/models/data-models#reaction
+- https://docs.velt.dev/api-reference/sdk/models/data-models#reactionpintype
+- https://docs.velt.dev/api-reference/sdk/models/data-models#reactionmetadata
+- https://docs.velt.dev/self-hosting/partial/reactions — comprehensive reactions data-provider guide
+- https://docs.velt.dev/release-notes/version-6/sdk-changelog — 6.0.0-beta.15 and 6.0.4 Comments entries (reactions on private comments)
+- velt-self-hosting-data-best-practices — Python resolver-request shapes (`python-users-reactions.md`)
+- velt-comments-best-practices — `addReaction` / `deleteReaction` / `toggleReaction` comment events
 
 ---
 

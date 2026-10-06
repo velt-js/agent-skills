@@ -92,7 +92,9 @@ No `url` or `urlPath` (rejected with the message `agent node requires either a s
 ```
 
 Dispatch with `"triggerContext": { "documentUrl": "https://app.acme.com/docs/123" }` so `urlPath` resolves.
+
 **Agent node `config` fields**
+
 | Field | Notes |
 |---|---|
 | `agentId` | Required. Built-in or custom agent id. `__mock__` is reserved: it returns a synthetic pass, for demos and tests only. |
@@ -106,17 +108,40 @@ Dispatch with `"triggerContext": { "documentUrl": "https://app.acme.com/docs/123
 | `pollIntervalMs` | 5000 to 60000. How often the engine checks the agent's status. Default 15000. |
 | `agentMaxRuntimeMs` | Hard ceiling, up to 24 hours. Default 10 minutes. |
 | `aiConfig` | AI provider and model for every agent run this node starts. Same fields and rules as `aiConfig` on the Agents Run Execution endpoint. |
+
 You must set `url` or `urlPath`. If `urlPath` resolves to nothing at run time and no static `url` is set, the step fails with `agent-url-unresolved`.
+
 **`aiConfig` on the node**
 - Applies to every run the node starts, including scheduled and triggered runs. Omit it to use the provider and model the platform resolves for the agent.
 - Takes `provider`, `model`, `defaultModels`, and `maxToolTurns`, with the same validation as Run Execution: at least one field set, unknown keys rejected, models limited to the allowlist. An invalid value fails create or update with `INVALID_ARGUMENT`.
 - Send `provider` alongside `model` (or use `defaultModels`). On Run Execution, a `model` without `provider` only passes a weaker check and is silently dropped if it does not match the provider the agent resolves to.
 - If the allowlist later stops accepting a saved value, the step drops it and the run uses the platform default. The step does not fail, so do not rely on `aiConfig` to guarantee a model; check the agent execution if it matters.
+
 **Outputs and routing:** the step output carries `agentExecutionStatus`, `agentResultsSummary`, `resolvedUrl`, `agentDurationMs`, and `decision: "approve"` when the agent passed. Route on any of them with an `on: "custom"` predicate. When the agent run does not pass, the step ends `failed` (an `on: "always"` edge fires on `failed`). A completed agent step with `decision: "approve"` counts toward group quorum (see `concepts-groups-quorum`).
+
 **Organization and document:** agent nodes use the dispatch-level `organizationId` and `documentId` when they call the agent. Pass them on `/executions/dispatch` when agent findings should land in a specific organization or document; they are not validated against the definition's `scope` and are not returned by any read endpoint.
+
 **`__mock__`:** completes inline and emits `step.completed` data `{ agentId, synthetic, decision }` instead of the production agent shape, so a webhook receiver tested only against `__mock__` sees different `data` keys in production. Swap to a real `agentId` before going live.
+
 **Human sign-off on agent findings:** blocking agents (and therefore `/steps/recordAgentResolution`) are not available in beta. Put a `human` node downstream of the agent node instead.
+
 **Relationship to the Agents feature:** `agentId` refers to agents documented under AI Agents. The agents themselves (built-in ids, custom agents, Run Execution, `aiConfig` allowlist) are covered by the `rest-agents` rule in `velt-rest-apis-best-practices`; this skill covers only how a workflow node invokes them.
+
+**Verification Checklist:**
+- [ ] Every agent node sets `url` or `urlPath`, and `urlPath` matches a key you pass in `triggerContext`
+- [ ] No `blocking: true` / `resolutionPolicy` on agent nodes; human review goes in a downstream `human` node
+- [ ] `aiConfig` has at least one of `provider`, `model`, `defaultModels`, `maxToolTurns` and no other keys
+- [ ] `model` is paired with `provider`, or `defaultModels` is used
+- [ ] `agentMaxRuntimeMs` is set when agents may run longer than the 10 minute default (max 24 hours)
+- [ ] `__mock__` agent ids are replaced before production, and webhook receivers handle the production `step.completed` data shape
+- [ ] Dispatch passes `organizationId` / `documentId` when agent findings must target a specific organization or document
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#agent-nodes — agent node fields, `aiConfig`, URL rules, output, blocking warning
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/execution/run — `aiConfig` validation and allowed models
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/executions/dispatch-execution — dispatch `organizationId` / `documentId`
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#event-reference — `__mock__` event data
+- https://docs.velt.dev/ai/agents/overview — the agents that `agent` nodes run
 
 ---
 
@@ -169,20 +194,39 @@ Both `reviewers` and `reviewerIds` are set, no reviewer is mandatory, and the no
 ```
 
 If rejection should simply end the run, route the reject edge to a terminal node explicitly. The engine does not allow it to be implicit.
+
 **Human node `config` fields**
+
 | Field | Notes |
 |---|---|
 | `reviewers` | Preferred. `[{ userId, mandatory }]`. At least one `mandatory: true`; `userId`s unique. |
 | `reviewerIds` | Legacy. Every entry is treated as mandatory. Set exactly one of `reviewers` or `reviewerIds`. |
 | `reviewerEmails` | Up to 50 addresses. Surfaced on `output.reviewerEmails` for your notification UI. |
 | `commentBody` | Up to 8000 chars. Stored on the step output for your reviewer UI to render. |
+
 **Resolution rule:** the step resolves when every mandatory reviewer approves, or when any reviewer rejects.
+
 **Recording decisions**
 - `reviewerId` must match a `userId` declared on the node. An undeclared reviewer does not throw: the call returns `recorded: false` with `rejectionReason: "unknown-responder"`, nothing is stored, and the step keeps waiting. Check `recorded` on every response.
 - Recording the same reviewer twice returns `recorded: false` with `rejectionReason: "idempotent"`.
 - Find the waiting step with `/executions/get` (a step with `status: "waiting"` and `nodeType: "human"`) or from the `step.awaiting-approval` event.
+
 **Schema messages to expect:** `at least one of reviewerIds or reviewers must be provided`, `cannot set both reviewerIds and reviewers, use one`, `reviewer userIds must be unique`, `reviewers must include at least one mandatory reviewer`.
+
 **Run-time failure reasons:** a human step that cannot run emits `step.failed` with `data.reason` of `no-reviewers`, `no-mandatory-reviewers`, `duplicate-reviewer-user-ids`, or `exception`.
+
+**Verification Checklist:**
+- [ ] Exactly one of `reviewers` or `reviewerIds` per human node, with at least one `mandatory: true` reviewer
+- [ ] Every human node, including group members, has an outgoing `on: "reject"` edge (forward route or loop-back)
+- [ ] `reviewerEmails` has at most 50 entries; `commentBody` is at most 8000 chars
+- [ ] Your reviewer UI renders `commentBody` and sends `recordReviewerDecision` with a declared `reviewerId`
+- [ ] Code treats `recorded: false` as "not applied" and inspects `rejectionReason` (only `idempotent` is safe to ignore)
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#human-nodes — fields and the reject-path note
+- https://docs.velt.dev/ai/approval-engine/setup#step-3-record-a-decision — reviewer UI and `reviewerId` matching
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/steps/record-reviewer-decision — "Not Recorded Response"
+- https://docs.velt.dev/ai/approval-engine/patterns#a-final-human-node-with-no-reject-edge — anti-pattern
 
 ---
 
@@ -233,6 +277,7 @@ A group declares member nodes that run in parallel and share an approval thresho
 ```
 
 **Group fields**
+
 | Field | Notes |
 |---|---|
 | `groupId` | Required. 1 to 64 chars. |
@@ -241,22 +286,41 @@ A group declares member nodes that run in parallel and share an approval thresho
 | `quorum` | Required. 1 to `expectedSteps`. Approvals needed to fire the policy. |
 | `onQuorumMet` | `waitAll` (default), `cancelOnQuorum`, or `joinOnQuorum`. |
 | `requiredNodeIds` | Members that must approve. Each in `memberNodeIds`; length at most `quorum`. |
+
 **Quorum counts approvals, not completions.** A member counts only when it ends `completed` with `output.decision === "approve"`. Rejections, failures, breaches, and cancellations advance the completion counter only.
 - **Agent members do count.** An agent step that passes (or is skipped) completes with `decision: "approve"`. A failed agent step never counts, so with `quorum === expectedSteps` one agent failure blocks the group like one human rejection.
 - **A reject does not block group completion;** it only stops the approval counter.
 - **`requiredNodeIds`:** quorum needs every listed node approved AND the numeric `quorum` reached.
+
 **`onQuorumMet` policies**
+
 | Policy | On first quorum | Per-member fan-out |
 |---|---|---|
 | `waitAll` | Emits `group.quorum-met` only. | Each member's edges fire on its own completion; two members pointing at one node create two steps. |
 | `cancelOnQuorum` | Emits `group.quorum-met`, cancels siblings still `waiting` (`actorId: "system:group-quorum"`, reason `group-quorum-met`). Requires `quorum < expectedSteps`. | Completed members still fan out; cancelled ones do not. |
 | `joinOnQuorum` | Emits `group.quorum-met`, cancels waiting siblings, fires one group-owned successor per shared target. Members must share the same outgoing target set. | Suppressed. Successor step id `group_<groupId>__to__<childNodeId>`, input `{ groupOutputs, groupId, quorum, totalApproved }`. |
+
 **Groups as edge sources (`from: { kind: "group", groupId }`)**
 - `waitAll`: waits for all members, then takes one branch by unanimity (`approve` only if every member approved, else `reject`). Provide both branches. A routed collective reject is not a failed run; the rejecting member ends `completed` with `decision: "reject"`.
 - `cancelOnQuorum` / `joinOnQuorum`: fire one collective approve successor on quorum. A forward `on: "reject"` from them is a dead edge and is rejected (`APPROVAL_GROUP_FROM_REJECT_REQUIRES_LOOP`).
 - A group-source reject loop-back requires `joinOnQuorum` (`APPROVAL_GROUP_FROM_LOOP_REQUIRES_JOINONQUORUM`).
 - Edges into a group (`to: { kind: "group", groupId }`) expand to one edge per member for every policy. Group-to-group edges are rejected.
 - A per-member `on: "reject"` edge on a `joinOnQuorum` member satisfies the reject-path rule but never fires (fan-out is suppressed). For per-rejecter routing use `waitAll` or `cancelOnQuorum`.
+
+**Verification Checklist:**
+- [ ] `expectedSteps === memberNodeIds.length` and `1 <= quorum <= expectedSteps`
+- [ ] No node is in two groups; `requiredNodeIds` are members and number at most `quorum`
+- [ ] `cancelOnQuorum` groups use `quorum < expectedSteps`; `joinOnQuorum` members share one successor set
+- [ ] A "run once after quorum" step hangs off a `joinOnQuorum` group, not off each member under `waitAll`
+- [ ] Forward `on: "reject"` from a group only on `waitAll`; group reject loop-backs only on `joinOnQuorum`
+- [ ] Agent members are expected to count toward quorum when they pass
+- [ ] `joinOnQuorum` successors read member results from `input.groupOutputs[memberNodeId]`
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#parallel-groups-and-quorum-policies — fields, quorum counting, policies, `requiredNodeIds`
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#groups-as-edge-sources — collective branches
+- https://docs.velt.dev/ai/approval-engine/patterns#choosing-a-parallel-review-policy — which policy to pick, `joinOnQuorum` member reject warning
+- https://docs.velt.dev/ai/approval-engine/patterns#assuming-an-agent-in-a-quorum-group-never-counts — agent quorum counting
 
 ---
 
@@ -298,20 +362,25 @@ Every transition is one entry in `edges[]`: approve routing, reject routing, rev
 ```
 
 **Edge fields**
+
 | Field | Required | Notes |
 |---|---|---|
 | `from` / `to` | yes | `EdgeEndpoint`: bare node-id string, `{ "kind": "node", "nodeId" }`, or `{ "kind": "group", "groupId" }`. |
 | `on` | no (default `always`) | `approve`, `reject`, `always`, `exhausted`, or `custom`. `approve` / `reject` compile their own predicates. |
 | `when` | only with `on: "custom"` | JSON-AST string, up to 1000 chars. Rejected on any other role. |
 | `loop` | only on an `on: "reject"` back-edge | `{ "maxIterations": 1..20 }`. Marks the edge as a loop-back. |
+
 Edges round-trip exactly: what you POST is what `/definitions/get` returns.
+
 **Roles**
 - `always`: fires whenever the source reaches a fan-out-eligible status: `completed`, `skipped`, `breached`, or `failed`.
 - `approve` / `reject`: fire on `output.decision == 'approve'` / `'reject'`. A reject edge never fires on a breach.
 - `reject` + `loop`: `to` must be an ancestor of `from`. The server derives a loop region.
 - `exhausted`: sibling of a reject loop-back from the same `from`; fires when the loop hits its cap. Without it, an exhausted loop rolls the execution up to `failed`.
 - `custom`: fires when `when` evaluates true.
+
 **`when` JSON-AST shapes**
+
 | Goal | `when` value |
 |---|---|
 | equality | `{"op":"eq","args":[{"var":"output.decision"},"approve"]}` |
@@ -319,7 +388,9 @@ Edges round-trip exactly: what you POST is what `/definitions/get` returns.
 | boolean AND / OR | `{"op":"and","args":[<a>,<b>]}` / `{"op":"or","args":[<a>,<b>]}` |
 | negation | `{"op":"not","args":[<a>]}` |
 | regex | `{"op":"regex","args":[{"var":"output.body"},"^urgent"]}` |
+
 Also supported: comparison, `includes`, `startsWith`, `endsWith`, `length`, `isEmpty`. Path roots: `output.*` (source step's terminal output), `step.*` (`stepId`, `nodeId`, `status`, `retryCount`), `execution.input.*` (the dispatch `triggerContext`). The engine parses `when` as JSON and walks it safely; it never evaluates JavaScript.
+
 **Loop regions are derived, not declared:** there is no top-level `loops[]` input. The derived region is returned read-only in `compiled.loops[]` as `{ loopId, entryNodeId, bodyNodeIds, maxIterations, onExhausted }`, where `entryNodeId` is the reject edge's `to` and `onExhausted` is `{ routeToNodeId }` or `null`.
 - The iteration predicate is fixed: `decision == 'reject' && rejectorMandatory == true`. Custom loop predicates are not supported.
 - `rejectorMandatory` is only set by `/steps/recordReviewerDecision`. Rejections forced through `/steps/resolve` (`reviewer-reject`, `force-reject`) do not set it, so the loop does not iterate.
@@ -327,8 +398,25 @@ Also supported: comparison, `includes`, `startsWith`, `endsWith`, `length`, `isE
 - The entry step of iteration N+1 receives `{ iteration, loopId, previousAttempts: [{ iteration, authorOutput, rejectedBy, rejectorMandatory, rejectionReason, rejectedAt }] }`. Feed `previousAttempts` to the drafting agent so it can address the rejection.
 - A group inside a loop body gets fresh quorum state on each iteration.
 - Keep `on: "exhausted"` targets as leaves with no other incoming edges, or they can run twice (see `patterns-rejection-and-loops`).
+
 **SLA and breach handling:** `slaMs` (up to 7 days) moves an unfinished step to `breached` and emits `step.breached`. A node with `slaMs` and outgoing edges must have an edge that routes on the breach: an `on: "always"` edge, or an `on: "custom"` edge whose `when` tests for `breached`. A terminal node with no outgoing edges is accepted; if it breaches, the execution fails. Agent nodes also stop at `agentMaxRuntimeMs` (default 10 minutes).
+
 **The compiled view:** every `DefinitionView` returns `compiled.forwardEdges` (group endpoints expanded, `on` roles compiled to predicate ASTs, with `role`, `when`, optional `fromGroupId` / `toGroupId`) and `compiled.loops`. Render workflow graphs from `compiled` instead of re-implementing the compiler client-side.
+
+**Verification Checklist:**
+- [ ] `when` appears only on `on: "custom"` edges and is a JSON-AST string (escaped JSON), never JavaScript
+- [ ] Every reject edge to an ancestor carries `loop.maxIterations` (1 to 20); every `on: "exhausted"` edge has a sibling reject loop-back from the same `from`
+- [ ] Every node with `slaMs` and outgoing edges has an `on: "always"` edge or a custom breach edge
+- [ ] Loop bodies are single-terminal or group-bounded `joinOnQuorum` with `quorum === expectedSteps`
+- [ ] Loop-back workflows record rejections with `recordReviewerDecision`, not `/steps/resolve`
+- [ ] Graph UIs render from `compiled.forwardEdges` / `compiled.loops`
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#edge-model — fields, roles, reject / loop-back / exhausted
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#custom-predicates — JSON-AST shapes and path roots
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#loop-regions — derived regions, body shape, `previousAttempts`
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#sla-and-breach-handling — breach routing
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/definitions/get-definition#the-compiled-block — `compiled` schema
 
 ---
 
@@ -372,16 +460,22 @@ One entry declares two mechanisms (`APPROVAL_APP_TRIGGER_EXCLUSIVE`), the schedu
 ```
 
 **Trigger entry fields:** `triggerId` (required, 1 to 128 chars, also the idempotency-key prefix), `eventName` (optional label, up to 128 chars), `filters` (free-form), and at most one of `inboundWebhook`, `schedule`, `appTrigger`. A definition holds up to 50 entries.
+
 **Scope is always inherited.** A triggered run carries the owning definition's `scope`: an organization- or document-scoped definition fires runs with the same `organizationId` / `documentId`. IDs inside a webhook body never set a run's scope.
+
 **`schedule` (cron)**
+
 | Field | Notes |
 |---|---|
 | `cron` | Required. Standard 5-field expression, validated at write time. |
 | `timezone` | Required. IANA zone such as `America/Los_Angeles`. DST handled. |
 | `enabled` | Required. Only enabled schedules fire; `false` removes the schedule. |
 | `payloadTemplate` | Static object merged into `triggerContext` under `schedule.payload`. |
+
 The run's `triggerContext.schedule` is `{ triggerId, scheduledAt, payload }`. A schedule fires at most once per instant, and missed runs are not replayed. Updating `triggers` replaces the stored array.
+
 **`appTrigger` (GitHub App or Vercel Integration):** connect the installation once from the Velt dashboard to get an `installationRef` (GitHub `installation.id` or Vercel `configuration.id`), then reference it. No per-repo webhook or secret.
+
 | Field | Notes |
 |---|---|
 | `provider` | Required. `github` or `vercel`. |
@@ -390,9 +484,26 @@ The run's `triggerContext.schedule` is `{ triggerId, scheduledAt, payload }`. A 
 | `projectFilter` | Vercel project id or name allowlist, up to 200. |
 | `allowedEvents` | 1 to 50 names such as `push` or `deployment.succeeded`. |
 | `payloadFilters` | Up to 20 `{ path, in }` entries; every filter must match. |
+
 Deliveries are deduplicated on the provider's delivery id. App triggers require a Superflow-platform workspace; elsewhere create fails with `FAILED_PRECONDITION` (`APPROVAL_APP_PLATFORM_NOT_SUPPORTED`).
+
 **`inboundWebhook`:** exposes the definition at `POST /v2/workflow/webhook-inbound/trigger` for external systems. See `webhooks-inbound-handler` for the contract.
+
 **Copying a definition copies its triggers.** A duplicated definition with the same `schedule` runs twice a night; drop or rename triggers on copies (see `patterns-copy-update-versioning`).
+
+**Verification Checklist:**
+- [ ] Each trigger entry declares exactly one of `inboundWebhook`, `schedule`, `appTrigger`
+- [ ] `schedule` has `cron`, `timezone`, and `enabled`
+- [ ] `appTrigger.installationRef` is connected to the workspace before the definition is created
+- [ ] No external cron job or relay also dispatches the same definition
+- [ ] Triggered runs rely on the definition `scope` for `organizationId` / `documentId`
+- [ ] Copies of a definition do not keep the original's triggers unchanged
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#triggers — trigger fields and scope inheritance
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#scheduled-cron-trigger — schedule fields
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#app-trigger — GitHub App and Vercel Integration
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/definitions/update-definition — triggers replace on update
 
 ---
 
@@ -451,7 +562,9 @@ The model was refactored: rejection routing now lives entirely on edges (`on: "r
 ```
 
 Approving has no outgoing edge, so the run completes after approval. Rejecting routes to the agent.
+
 **Building blocks**
+
 | Term | What it is |
 |---|---|
 | Definition | `nodes` (1 to 100) + `edges` (0 to 500) + optional `groups` (0 to 100), `triggers` (0 to 50), `webhookConfig`, `scope`, `tags` (0 to 20), `custom`. `definitionId` matches `^[a-z0-9][a-z0-9-]{2,63}$`. |
@@ -460,20 +573,25 @@ Approving has no outgoing edge, so the run completes after approval. Rejecting r
 | Group | Members that run in parallel and share an approval quorum. See `concepts-groups-quorum`. |
 | Execution | One live run of a definition, with an `executionId` and a `steps[]` array. |
 | Step | One runtime instance of a node inside an execution. |
+
 **Fields every node accepts**
+
 | Field | Notes |
 |---|---|
 | `slaMs` | Deadline for the step, up to 7 days. Needs a breach route (see `concepts-edge-model`). |
 | `requireNonEmptyOutput` | Effective on sync `webhook` nodes only: fails the step with `webhook-node-empty-response` on an empty body. Accepted with no runtime effect elsewhere. |
 | `name` | Cosmetic label, 1 to 200 chars. |
 | `description` | Cosmetic, up to 2000 chars. |
+
 **Node types (all four run)**
+
 | Type | What it does | Parks in `waiting`? | Rule |
 |---|---|---|---|
 | `agent` | Runs a Velt agent against a URL, then routes on the result. | Yes, while the agent runs; resumes on its own. | `concepts-agent-node` |
 | `human` | Waits for reviewers to approve or reject. | Yes, until you record decisions. | `concepts-human-node` |
 | `notification` | Sends an email or Slack message built from the previous step's output. | No. | `concepts-notification-webhook-nodes` |
 | `webhook` | Calls your own HTTPS endpoint. | Only in `mode: "async"`, until your callback. | `concepts-notification-webhook-nodes` |
+
 The graph is a DAG. The single exception is a reject edge marked with `loop` that points back to an ancestor, which creates a bounded revision loop.
 
 **Lifecycles:**
@@ -494,14 +612,33 @@ Group-owned fan-out:            group_<groupId>__to__<childNodeId>
 ```
 
 **Ways to start a run:** your backend calls `/executions/dispatch`, or a `triggers[]` entry starts runs for you (inbound webhook, cron schedule, or installed GitHub / Vercel app). See `rest-executions` and `concepts-triggers`.
+
 **Scope:** `scope.level` is `apiKey` (default, workspace-wide), `organization` (one `organizationId`), or `document` (one `documentId` under an organization). Scope does NOT select between definitions: you always dispatch a specific `definitionId`, and `/definitions/list` returns every level. Scope sets the `organizationId` / `documentId` that trigger-started runs inherit.
+
 **Versioning:** every update bumps `version`. A run pins the version that was current at dispatch (`definitionVersion`) and finishes on it; edits never migrate in-flight runs. Old versions cannot be read and there is no rollback (see `patterns-copy-update-versioning`).
+
 **Tenant partitioning:** state is partitioned per tenant (`storeDbId`); each tenant's definitions, executions, and events live in that tenant's own database. Never assume an `executionId` or `definitionId` is portable across tenants or API keys.
+
 **Beta limitations (from the overview)**
 - Definitions are authored as JSON; there is no visual builder.
 - You host the reviewer UI: render the waiting step and call `recordReviewerDecision`.
 - `blocking: true` on an agent node is rejected at run time; put a `human` node downstream instead.
 - Editing a definition affects only new runs.
+
+**Verification Checklist:**
+- [ ] No `onReject`, top-level `loops[]`, or `blocking: true` in authored definitions
+- [ ] Every node `type` is one of `agent`, `human`, `notification`, `webhook`, and its `config` has no unknown fields
+- [ ] Every `human` node has an outgoing `on: "reject"` edge; every `agent` node sets `url` or `urlPath`
+- [ ] Definition stays within limits: 100 nodes, 500 edges, 100 groups, 50 triggers
+- [ ] Code reading steps handles `waiting` for agent, human, and async webhook steps
+- [ ] Scope is chosen for trigger inheritance, not as a definition selector
+- [ ] IDs are never reused across tenants or API keys
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/approval-engine/overview — "What is the Review Workflow Builder?", "Building blocks", "Node types", "Lifecycles", "Scope", "Limitations in beta"
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#node-configuration — common node fields
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#step-ids — step ID shapes
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/definitions/create-definition — field limits and `definitionId` pattern
 
 ---
 
@@ -560,7 +697,9 @@ Email without `recipients`, `slack-blocks` on email, `${...}` instead of `{{...}
 ```
 
 For `authMode: "token"`, pass the token at dispatch time in `triggerContext.webhookAuth["erp-sync"]` so the secret never lives in the definition.
+
 **Notification node `config`**
+
 | Field | Notes |
 |---|---|
 | `channel` | Required. `email` or `slack`. |
@@ -569,9 +708,13 @@ For `authMode: "token"`, pass the token at dispatch time in `triggerContext.webh
 | `subjectTemplate` | Email subject, up to 2000 chars. |
 | `slackTarget` | Required for `slack`. Channel id (such as `C0123`) or an `https` incoming-webhook URL. |
 | `format` | `text` (default), `html`, or `slack-blocks` (Slack only; the rendered body must be a JSON array of Block Kit blocks). |
+
 Templating is dot-path substitution only, with no code execution. Missing tokens render empty; objects and arrays are JSON-stringified. Roots: `input.*` (previous step's output), `execution.*` (`executionId`, `definitionId`, `correlationId`, `triggerContext`), `step.*` (this step's metadata).
+
 Delivery: email goes through your workspace's SendGrid configuration; delivering to at least one recipient completes the step, none fails and retries. Slack to a channel id needs a workspace bot token. Slack config errors (`channel_not_found`, `invalid_auth`) are terminal; 5xx, network errors, and `rate_limited` are retried.
+
 **Webhook node `config`**
+
 | Field | Notes |
 |---|---|
 | `url` | Required. `https` only, host-allowlisted, up to 2000 chars. |
@@ -583,6 +726,7 @@ Delivery: email goes through your workspace's SendGrid configuration; delivering
 | `expectedStatusCodes` | Up to 20 codes treated as success instead of 2xx. |
 | `bodyTemplate` | `envelope` (default), `pass-through`, or `none` (`none` requires `method: "GET"`). |
 | `requestHeaders` | Extra headers. `x-velt-*` and reserved names are rejected. |
+
 - **`sync`:** 2xx (or a listed `expectedStatusCodes` value) completes the step. 4xx fails it terminally. 5xx, timeout, or network error fails it with retry budget remaining. Set node-level `requireNonEmptyOutput: true` to fail on an empty body (`webhook-node-empty-response`).
 - **`async`:** the engine posts, then parks the step in `waiting`. The `envelope` body carries `callback.url`, `callback.token`, `callback.tokenHeader`; `pass-through` nests them as `_velt.callbackUrl`, `_velt.callbackToken`, `_velt.callbackTokenHeader`. Complete the step by POSTing to the callback URL with the token in `x-velt-callback-token` and a body of `{ "status": "completed" | "failed", "output"?: {}, "error"?: {} }`. Async mode needs a `webhookSecret` on the execution to sign the callback token.
 - **`hmac`:** the engine signs the outbound body with the execution's `webhookSecret` in `x-velt-signature` (verify it the same way as outbound event deliveries, see `webhooks-delivery`).
@@ -601,6 +745,20 @@ await fetch(payload.callback.url, {
   body: JSON.stringify({ status: 'completed', output: { erpRecordId: 'PO-1042' } }),
 });
 ```
+
+**Verification Checklist:**
+- [ ] Email notifications set `recipients`; Slack notifications set `slackTarget`; `slack-blocks` only on Slack
+- [ ] Templates use `{{input.*}}`, `{{execution.*}}`, or `{{step.*}}` paths only
+- [ ] Webhook node URLs are `https` and not private, loopback, link-local, or `*.internal`
+- [ ] `authMode: "token"` sets `authTokenHeader`, and dispatch passes `triggerContext.webhookAuth[<nodeId>]`
+- [ ] Async webhook nodes run on executions that have a `webhookSecret` (dispatch pair or `webhookConfig`)
+- [ ] Your async receiver calls back with `x-velt-callback-token` and a `status` of `completed` or `failed`
+- [ ] `requestHeaders` contains no `x-velt-*` or reserved header names
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#notification-nodes — fields, templating, delivery notes
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#webhook-nodes — sync and async modes, callback contract, auth modes, output
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#schema-validation-messages — notification and webhook node messages
 
 ---
 
@@ -648,6 +806,7 @@ No `idempotencyKey` (a network retry starts a second run), and `webhookUrl` with
 ```
 
 **Dispatch** (`/executions/dispatch`):
+
 | Field | Notes |
 |---|---|
 | `definitionId` | Required. Must be `active`. |
@@ -657,7 +816,9 @@ No `idempotencyKey` (a network retry starts a second run), and `webhookUrl` with
 | `organizationId` / `documentId` | Used by agent nodes when they call the agent. Not validated against `scope` and never returned by a read (write-only). |
 | `folderId` | Optional folder association. |
 | `webhookUrl` + `webhookSecret` | Paired. `https` only, secret 16 to 512 chars. Validated at the schema boundary and re-checked at delivery (DNS re-resolved, no redirects). Overrides the definition's `webhookConfig` for this run. |
+
 Errors: `NOT_FOUND` (no such definition), `FAILED_PRECONDITION` (definition tombstoned, or it has no root nodes), `INVALID_ARGUMENT` (schema, including an unpaired webhook field). A soft-deleted definition returns `FAILED_PRECONDITION`, not `NOT_FOUND`.
+
 **Get** (`/executions/get`): `{ executionId }` returns `ExecutionView` with every step's view model (`steps[]`). Use it to find waiting steps and to read `steps[].error`.
 
 **List (`/executions/list`):**
@@ -668,6 +829,7 @@ Errors: `NOT_FOUND` (no such definition), `FAILED_PRECONDITION` (definition tomb
 ```
 
 Filters: `definitionId`, `status` (`pending` / `running` / `completed` / `failed` / `cancelled`). `pageSize` 1 to 500 (default 50). `cursor` is the previous `nextCursor` string, passed back unchanged; `nextCursor` is `null` when the page is not full. No `organizationId` / `documentId` filters. List items return `steps: []`; call `/executions/get` for step detail.
+
 **Cancel** (`/executions/cancel`): `{ executionId, reason? }` (`reason` up to 500 chars, surfaced on `execution.cancelled`). Returns `{ cancelled: true, executionId }`. Cancelling a run that is already terminal is a no-op. Successors of cancelled steps are never scheduled. Errors: `NOT_FOUND`, `INVALID_ARGUMENT`.
 
 **Get events (`/executions/getEvents`):**
@@ -678,7 +840,25 @@ Filters: `definitionId`, `status` (`pending` / `running` / `completed` / `failed
 ```
 
 Returns external events with `seq > sinceSeq` (default 0), `pageSize` 1 to 500 (default 100). Page while `hasMore` is true. Only the 12 external event types are returned (see `webhooks-delivery`); internal events consume `seq` numbers, so gaps are normal. The run is done when you see `execution.completed`, `execution.failed`, or `execution.cancelled`.
+
 **Recovery pattern:** store the highest processed `seq` per execution; after an outage call `getEvents` with it and feed the events through the same idempotent handler as your webhook receiver, keyed on `(executionId, seq)`.
+
+**Verification Checklist:**
+- [ ] Every dispatch sends an `idempotencyKey` derived from a stable upstream id; `deduplicated: true` is success
+- [ ] `webhookUrl` and `webhookSecret` (16+ chars) are sent together, or neither
+- [ ] Dispatch passes `organizationId` / `documentId` when agent nodes need them, and nothing reads them back
+- [ ] `FAILED_PRECONDITION` on dispatch is handled as "definition tombstoned or has no roots"
+- [ ] List callers read `result.items`, pass `nextCursor` back as a string, stop at `null`, and call get for steps
+- [ ] Cancel callers do not expect an error for already-terminal runs
+- [ ] Event catch-up pages with `pageSize` / `hasMore` and tolerates `seq` gaps
+
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/executions/dispatch-execution
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/executions/get-execution
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/executions/list-executions
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/executions/cancel-execution
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/executions/get-execution-events
+- https://docs.velt.dev/ai/approval-engine/setup#step-2-dispatch-an-execution — dispatch walkthrough
 
 ---
 
@@ -716,9 +896,13 @@ if (!r.recorded && r.rejectionReason !== 'idempotent') {
 - `recorded: false` reasons: `idempotent` (already recorded, safe to ignore), `already-terminal`, `unknown-responder`, `aggregator-missing`.
 - Errors: `FAILED_PRECONDITION` (step not `waiting`, not a human node, or the legacy comment-resolution variant), `NOT_FOUND`, `INVALID_ARGUMENT`.
 - This is the only path that sets `rejectedBy` / `rejectorMandatory`, which reject loop-backs need.
+
 **recordAgentResolution** (`/steps/recordAgentResolution`): not usable in beta. It resolves blocking agent steps, but `blocking: true` agents are rejected at run time with `agent-blocking-not-supported`, so no step ever parks for it. Documented fields for reference: `executionId`, `stepId`, `responseId` (idempotent per `(stepId, responseId)`), `resolution` (`resolved` / `rejected`), `actorId`, optional `reason`. Use a downstream `human` node and `recordReviewerDecision` instead.
+
 **cancel** (`/steps/cancel`): `executionId`, `stepId`, required `actorId` (1 to 256 chars, recorded on the `step.cancelled` event), optional `reason` (up to 500 chars). Returns `{ cancelled: true, executionId, stepId }`. No downstream edges fire from a cancelled step. Errors: `INVALID_ARGUMENT`, `FAILED_PRECONDITION` (already terminal), `NOT_FOUND`. To stop the whole run use `/executions/cancel`.
+
 **resolve** (`/steps/resolve`): `executionId`, `stepId`, required `action`, required `actorId` (1 to 256), optional `output`, optional `reason` (up to 2000). Returns `{ resolved: true, executionId, stepId, action }`. Every resolve writes an internal `step.overridden` audit event.
+
 | `action` | Allowed step states | Result | Notes |
 |---|---|---|---|
 | `force-approve` | `waiting`, any node type | `completed`, `decision: "approve"` | Also resolves waiting agent and async webhook steps. |
@@ -727,10 +911,13 @@ if (!r.recorded && r.rejectionReason !== 'idempotent') {
 | `force-fail` | `running` or `waiting` | `failed` | Fires edges that route on `failed` (for example `on: "always"`). |
 | `reviewer-approve` | `waiting`, human only | `completed` | `actorId` must be a declared reviewer or `PERMISSION_DENIED`. Audit-distinct from `force-approve`. |
 | `reviewer-reject` | `waiting`, human only | `completed` | Same gate; audit-distinct from `force-reject`. |
+
 - For approve / reject actions the engine computes `decision`, `approved`, and `approvalReply` (and `overriddenAt`) itself; caller-supplied keys with those names are overwritten, other `output` keys pass through.
 - `reviewer-reject` and `force-reject` do NOT set `output.rejectedBy` / `output.rejectorMandatory`, so the fixed loop predicate does not fire and a reject loop-back will not iterate.
 - Errors: `INVALID_ARGUMENT`, `PERMISSION_DENIED` (reviewer actions), `FAILED_PRECONDITION` (terminal step, disallowed state, reviewer action on a non-human step, CAS conflict, and for `force-*` also a nonexistent step: `resolveStep not applied: step-not-found`), `NOT_FOUND` (reviewer actions only).
+
 **Choosing the endpoint**
+
 | Situation | Endpoint |
 |---|---|
 | Reviewer acts in your UI | `recordReviewerDecision` |
@@ -739,6 +926,23 @@ if (!r.recorded && r.rejectionReason !== 'idempotent') {
 | Step with no approve / reject concept must finish | `resolve` with `force-complete` or `force-fail` |
 | Stop one step, leave siblings running | `/steps/cancel` |
 | Stop the whole run | `/executions/cancel` |
+
+**Verification Checklist:**
+- [ ] `decision` is lowercase `approve` or `reject`; `reviewerId` is declared on the node
+- [ ] Every `recordReviewerDecision` response checks `recorded` and `rejectionReason`
+- [ ] No production code depends on `recordAgentResolution`
+- [ ] `/steps/cancel` and `/steps/resolve` always send `actorId`; access is restricted in your app
+- [ ] `force-approve` / `force-reject` / reviewer actions only target `waiting` steps
+- [ ] Loop-back workflows never rely on `/steps/resolve` reject actions
+- [ ] `output` sent to resolve does not try to set `decision`, `approved`, or `approvalReply`
+- [ ] Missing steps on `force-*` are detected via `FAILED_PRECONDITION`, not only `NOT_FOUND`
+
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/steps/record-reviewer-decision
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/steps/record-agent-resolution
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/steps/cancel-step
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/steps/resolve-step
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#cancelling-and-overriding — which endpoint to use
 
 ---
 
@@ -773,8 +977,11 @@ await workflowApi('definitions/update', { ...body, ifVersion: version }, creds);
 ```
 
 **Create** (`/definitions/create`): required `definitionId` (`^[a-z0-9][a-z0-9-]{2,63}$`), `name` (1 to 200), `nodes` (1 to 100), `edges` (0 to 500). Optional `description` (up to 2000), `scope` (default `{ level: "apiKey" }`), `groups` (0 to 100), `triggers` (0 to 50), `webhookConfig` (`{ url, secret, eventTypes? }`), `tags` (0 to 20, each up to 64 chars), `custom`, and top-level `organizationId` / `documentId` (required for `organization` / `document` scope). Returns a `DefinitionView` with `version: 1` and `status: "active"`. Errors: `INVALID_ARGUMENT`, `ALREADY_EXISTS`.
+
 **Update** (`/definitions/update`): every create field plus required `ifVersion`. A stale `ifVersion` fails with `FAILED_PRECONDITION` (`Version conflict: expected 4, current 5`); re-read and re-apply, never blind-retry. Omitting `scope` demotes an organization- or document-scoped definition to `apiKey`. Updating `triggers` replaces the array. In-flight runs keep their pinned version. Errors: `NOT_FOUND`, `FAILED_PRECONDITION`, `INVALID_ARGUMENT`.
+
 **Round-tripping a read:** strip `version`, `createdAt`, `updatedAt`, `status`, `compiled`, and every `null` (`description`, `groups`, `triggers`, `tags`, `custom`, and `scope.organizationId` / `scope.documentId`). A leftover null or server-owned field fails with `INVALID_ARGUMENT`. `edges` and `scope` IDs round-trip exactly as you sent them.
+
 **Get** (`/definitions/get`): `{ definitionId }`. `organizationId` / `documentId` are accepted but ignored. Returns `DefinitionView` (including the read-only `compiled` block, excluding `webhookConfig`). Tombstoned definitions return `NOT_FOUND`.
 
 **List (`/definitions/list`):**
@@ -785,6 +992,7 @@ await workflowApi('definitions/update', { ...body, ifVersion: version }, creds);
 ```
 
 `pageSize` 1 to 500 (default 50); `cursor` is the previous `nextCursor` (an integer, the last item's `updatedAt`). Returns active definitions ordered by `updatedAt` DESC across every scope; there are no scope, status, or tag filters, so filter `item.scope` client-side. Loop until `nextCursor` is `null`.
+
 **Delete** (`/definitions/delete`): `{ definitionId, purge? }`. Default is a soft delete (tombstone: hidden from get/list, cannot be dispatched); `purge: true` also removes version snapshots. Returns `{ deleted: true, purged, definitionId }`. Fails with `FAILED_PRECONDITION` while in-flight runs exist. The `definitionId` is reusable afterwards and restarts at `version: 1`.
 
 **Linter codes (19), in `error.message`:**
@@ -801,7 +1009,25 @@ Loops:   loop-node-in-multiple-loops (overlapping reject back-edges; use one gro
 ```
 
 **Edge-contract rules** (the message carries the rule text; the doc names are internal): custom without `when`, `when` on a non-custom edge, `loop` on a non-reject edge, a loop-back whose `to` is not an ancestor, a reject to an ancestor without `loop`, `exhausted` without a sibling loop-back, a human node with no reject edge, an agent node without `url` / `urlPath`, group-to-group edges, forward reject from a `joinOnQuorum` / `cancelOnQuorum` group, a group reject loop-back on a non-`joinOnQuorum` group, and a trigger entry with more than one mechanism.
+
 The linter does not check run-time feasibility; surface its codes to the author instead of retrying.
+
+**Verification Checklist:**
+- [ ] Every update sends `ifVersion`, `name`, `nodes`, `edges`, and the current `scope`, `triggers`, and `webhookConfig`
+- [ ] Read responses are stripped of server-owned fields and nulls before create or update
+- [ ] `FAILED_PRECONDITION` on update triggers a re-read and re-apply, not a blind retry
+- [ ] List uses `pageSize` / `cursor`, reads `result.items`, and stops when `nextCursor` is `null`
+- [ ] Scope filtering on list happens client-side
+- [ ] Delete runs only after in-flight executions finish or are cancelled; `purge` used deliberately
+- [ ] Linter codes are parsed from `error.message` and shown to the author
+
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/definitions/create-definition
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/definitions/update-definition
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/definitions/get-definition
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/definitions/list-definitions
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/definitions/delete-definition
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#linter-rules — linter codes and edge validation errors
 
 ---
 
@@ -941,6 +1167,20 @@ interface ApprovalEventView {
 
 `decision` / `approved` are what `on: "approve"` / `on: "reject"` edges and quorum counting key off. A step's `{ code, message }` error lives on `StepView.error`, not in event `data`.
 
+**Verification Checklist:**
+- [ ] `StepView.nodeType` handling covers `agent`, `human`, `notification`, and `webhook`
+- [ ] Graph rendering uses `compiled.forwardEdges` / `compiled.loops`, not a client-side compiler
+- [ ] Code never expects `webhookConfig` on a `DefinitionView`
+- [ ] `ApprovalEventView.timestamp` is treated as epoch ms
+- [ ] Step failure detail is read from `steps[].error` via `/executions/get`
+- [ ] `joinOnQuorum` successors read `input.groupOutputs[memberNodeId]`
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#object-reference — interfaces, human step output, `joinOnQuorum` input
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/definitions/get-definition#the-compiled-block — `compiled` fields
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#agent-nodes — agent output keys
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#webhook-nodes — webhook output keys
+
 ---
 
 ### 2.5 Use the shared auth headers, data envelope, error codes, and linter-failure parsing on every Approval Engine endpoint
@@ -1009,7 +1249,9 @@ async function workflowApi(path, data, { apiKey, authToken }) {
 - **Rule-based schema failures:** the message names the rule, for example `every human node must have at least one outgoing edge with on="reject" (a forward reject route or a reject back-edge): manager-approval` or `agent node requires either a static "url" or a "urlPath"`.
 - **Plain schema failures:** `error.details.issues` is an array of Zod `{ code, path, message }`; a missing field returns the bare Zod message such as `Required`.
 - `APPROVAL_*` names in the docs are internal rule identifiers and never appear in a response.
+
 **Canonical error codes**
+
 | Code | Meaning |
 |---|---|
 | `INVALID_ARGUMENT` | Schema, edge-contract, or linter failure, or a missing `x-velt-auth-token` (flat message `Auth token is required`). |
@@ -1038,6 +1280,20 @@ inboundWebhook with provider="custom" and authMode="hmac" requires signatureHead
 schedule.cron must be a valid 5-field cron expression
 schedule.timezone must be a valid IANA timezone name (e.g. America/Los_Angeles)
 ```
+
+**Verification Checklist:**
+- [ ] All three headers on every request; no credentials in the body
+- [ ] Request fields wrapped in `data`; responses read from `result` only when `error` is absent
+- [ ] Linter codes parsed from `error.message` after `Definition linter failed:`; schema issues read from `error.details.issues`
+- [ ] Code never matches on `APPROVAL_*` identifiers in responses
+- [ ] `RESOURCE_EXHAUSTED` and `DEADLINE_EXCEEDED` retried with backoff (dispatch with the same `idempotencyKey`); other codes surfaced, not retried
+- [ ] `PERMISSION_DENIED` treated as an unregistered auth token (or reviewer mismatch on resolve), not as missing admin scope
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/approval-engine/setup#before-you-start — headers and envelope
+- https://docs.velt.dev/ai/approval-engine/setup#common-errors — error codes and linter message format
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#errors — canonical codes and schema validation messages
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#rate-limiting — rate limits
 
 ---
 
@@ -1104,8 +1360,11 @@ app.post('/velt/approvals', express.raw({ type: 'application/json' }), async (re
 ```
 
 **Delivery headers:** `x-velt-signature` (`sha256=<hex>` of the raw body), `x-velt-event-id` (stable across retries), `x-velt-attempt` (0-based). The same `eventId` and `seq` appear on every retry.
+
 **Retry schedule:** initial attempt, then 2 s, 8 s, 32 s, 2 min, 8 min, then dead-letter. Any non-2xx within the 10 s timeout triggers the next attempt. Recover anything dead-lettered with `/executions/getEvents` and `sinceSeq` through the same handler.
+
 **Event catalog (12 external types, also returned by `getEvents`)**
+
 | Event | When | `data` highlights |
 |---|---|---|
 | `execution.dispatched` | Run created, first steps scheduled | `{ definitionId, definitionVersion, rootStepIds }` |
@@ -1120,9 +1379,26 @@ app.post('/velt/approvals', express.raw({ type: 'application/json' }), async (re
 | `group.quorum-met` | Group approval threshold first met | `{ groupId, total, quorum, completedTotal, expectedSteps }` |
 | `loop.iteration-started` | Rejected iteration spawned the next one | `{ loopId, iteration, triggeredBy: 'rejection' }` |
 | `loop.exhausted` | Loop hit `maxIterations` | `{ loopId, iteration, lastRejectedBy?, lastRejectionReason? }` |
+
 - The `{ code, message }` error object is not in event `data`; route on `event.type`, then read `steps[].error` from `/executions/get`.
 - Internal events (`step.scheduled`, `step.started`, `step.retried`, `step.overridden`, and others) consume `seq` numbers but are never delivered, so `seq` gaps are normal.
 - `step.cancelled` `data.reason` is an open set: `group-quorum-met` (`actorId: "system:group-quorum"`), `loop-restart` (`actorId: "system:loop-restart"`), or the admin-supplied reason. Switch on `event.type`, not `data.reason`.
+
+**Verification Checklist:**
+- [ ] Receiver configured once via `webhookConfig`, or per run via the dispatch pair, knowing the pair replaces `webhookConfig` and its `eventTypes`
+- [ ] `webhookConfig` is re-sent on every definition update
+- [ ] Route uses raw-body middleware; HMAC is computed over the raw bytes and compared with `crypto.timingSafeEqual`
+- [ ] Handler dedups on `x-velt-event-id` or `(executionId, seq)` in a durable store and returns 2xx on duplicates
+- [ ] Handler responds 2xx within 10 s and does heavy work asynchronously
+- [ ] Agent and human `step.completed` / `step.awaiting-approval` data shapes are both handled; tests do not rely only on `__mock__` data
+- [ ] Outage recovery calls `/executions/getEvents` with the last processed `seq` and tolerates gaps
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#webhook-delivery — `webhookConfig` vs dispatch pair, retry policy
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#event-reference — event catalog and `data` shapes
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#cancellation-reasons — `step.cancelled` reasons
+- https://docs.velt.dev/ai/approval-engine/setup#step-4-get-the-outcome — headers and signature verification
+- https://docs.velt.dev/ai/approval-engine/patterns#duplicating-a-workflow — `webhookConfig` is write-only and dispatch overrides
 
 ---
 
@@ -1168,6 +1444,7 @@ await fetch('https://api.velt.dev/v2/workflow/webhook-inbound/trigger', {
 ```
 
 **Trigger config (`inboundWebhook`)**
+
 | Field | Notes |
 |---|---|
 | `authMode` | Required. `hmac` (body signature) or `bearer` (`Authorization: Bearer <secret>`, `velt` provider only). |
@@ -1177,21 +1454,38 @@ await fetch('https://api.velt.dev/v2/workflow/webhook-inbound/trigger', {
 | `allowedEvents` | 1 to 50 event names. Non-matching events return HTTP 200 `{ ok: false, code: "event-ignored" }`. If the event name cannot be resolved, the event is dropped (fails closed). |
 | `idempotencyHeader` / `idempotencyBodyPath` | Where to read the source event id. |
 | `payloadMapping` | `pass-through` (default) or `wrap` (nests the payload under `source`). |
+
 **Provider presets**
+
 | `provider` | Signature header | Algorithm | Prefix | Event name from |
 |---|---|---|---|---|
 | `velt` | `x-velt-signature` | HMAC-SHA256 | `sha256=` | body `type` |
 | `github` | `x-hub-signature-256` | HMAC-SHA256 | `sha256=` | `x-github-event` header |
 | `vercel` | `x-vercel-signature` | HMAC-SHA1 | none | `x-vercel-deployment-event` header, then body `type` |
 | `custom` | `signatureHeader` | `signatureAlgorithm` | `signaturePrefix` | `eventNameHeader` |
+
 **Request rules**
 - **API key:** `x-velt-api-key` header, or `?apiKey=` for providers that cannot set headers (the header wins if both are sent).
 - **Identifiers:** `definitionId` and `triggerId` in the body for `velt`, or as `?definitionId=` and `?triggerId=` query params (needed for GitHub, Vercel, custom).
 - **Body:** JSON object up to 1 MB (larger returns HTTP 413 `body-too-large`). For `velt`, `payload` becomes `triggerContext`; for every other provider the entire body does.
 - **Idempotency:** the source event id becomes the run's `idempotencyKey` as `trig:<triggerId>:<id>`, deduplicated for 24 hours. Without one, the engine uses a per-request key, so configure `idempotencyHeader` (for example `x-github-delivery`) or `idempotencyBodyPath`.
 - **Responses:** success is `{ ok: true, code: "accepted", executionId, deduplicated }`.
+
 **What the endpoint does NOT do:** it applies no per-source rate limiting (add your own throttling if the source can burst), and URL values inside the payload are not screened. The SSRF allowlist applies only to outbound destinations you configure: webhook node `url`, `webhookConfig.url`, dispatch `webhookUrl`, and a URL-valued `slackTarget`. Validate any URL from the payload before an agent node uses it via `urlPath`.
+
 Keep the surfaces straight: this endpoint pushes events into the engine; outbound delivery (`webhooks-delivery`) pushes run events out to your receiver; a `webhook` node (`concepts-notification-webhook-nodes`) calls your API as a step.
+
+**Verification Checklist:**
+- [ ] Inbound bodies are raw JSON, never wrapped in `data`
+- [ ] The trigger `secret` is 16 to 512 chars and the sender signs (or bears) it per the provider preset
+- [ ] GitHub, Vercel, and custom providers use `authMode: "hmac"` and pass `definitionId` / `triggerId` as query params
+- [ ] `idempotencyHeader` or `idempotencyBodyPath` is set so provider retries do not start duplicate runs
+- [ ] Callers handle `event-ignored` (HTTP 200) and `body-too-large` (HTTP 413)
+- [ ] You throttle bursty sources and validate payload URLs yourself
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#inbound-webhook-trigger — fields, presets, request rules, limits
+- https://docs.velt.dev/ai/approval-engine/overview#four-ways-to-start-a-run — inbound webhook as a start mechanism
 
 ---
 
@@ -1237,12 +1531,27 @@ await workflowApi('definitions/create', copy, creds); // starts at version 1
 ```
 
 **Copying checklist (four steps):** fetch with get; change `definitionId` (two active definitions cannot share one) and `name`; strip the five server-owned fields and every `null` (`description`, `groups`, `triggers`, `tags`, `custom`, `scope.organizationId`, `scope.documentId`); POST to create. `edges` and `scope` round-trip exactly, so routing cannot change silently.
+
 **Updating:** update is a full replace with required `ifVersion`. Re-send `scope` (omitting it resets to `apiKey`), `triggers` (replaced wholesale), and `webhookConfig` (write-only; a get, edit, update round trip clears it otherwise).
+
 **What versioning gives you**
 - `ifVersion` conflicts fail with `FAILED_PRECONDITION` (`Version conflict: expected 4, current 5`) instead of overwriting a coworker's edit.
 - Runs pin the version current at dispatch and finish on it; only new runs see the new version.
 - Delete and recreate restarts the counter at `version: 1`.
+
 **What it does not give you:** no endpoint lists or reads old versions, no rollback (resubmit your own copy of the old content as a new version), no draft vs live distinction, and no way to dispatch a specific version (new runs always get the latest).
+
+**Verification Checklist:**
+- [ ] Definitions live in source control; the API is only the deployment target
+- [ ] Copies change `definitionId` and `name`, strip server-owned fields and nulls, and handle `triggers` deliberately
+- [ ] Copies and updates re-send `webhookConfig` with its secret when one is needed
+- [ ] Updates re-send `scope` and the full `triggers` array with `ifVersion`
+- [ ] Rollback is done by resubmitting stored content, not by expecting an API
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/approval-engine/patterns#duplicating-a-workflow — four-step copy, triggers warning, `webhookConfig` write-only
+- https://docs.velt.dev/ai/approval-engine/patterns#versioning-and-what-it-does-not-do — versioning guarantees and gaps
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/definitions/update-definition — full-replace semantics
 
 ---
 
@@ -1298,6 +1607,7 @@ A group-source reject back-edge is `joinOnQuorum`-only, and a group-bounded loop
 ```
 
 For "send it somewhere else", replace the loop-back with `{ "from": "human-boss", "to": "human-rework-team", "on": "reject" }`. If rejection should end the run, point the reject edge at a terminal node.
+
 **Anti-patterns**
 - **Final human node with no reject edge:** rejected (`every human node must have at least one outgoing edge with on="reject"...`). Route the rejection to a terminal node explicitly.
 - **`slaMs` with only a reject edge:** a reject edge never fires on a breach, so the linter returns `missing-breach-edge`. Add an `on: "always"` edge or a custom edge whose `when` tests for `breached`.
@@ -1305,6 +1615,20 @@ For "send it somewhere else", replace the loop-back with `{ "from": "human-boss"
 - **An `on: "exhausted"` target that is reachable another way:** accepted, but if the escalation node is also the target of a normal edge, it is spawned once by that edge and again when the loop hits its cap, with different step ids, so both run. Keep exhausted targets as leaves with no other incoming edges and chain from them.
 - **Driving loop rejections through `/steps/resolve`:** `reviewer-reject` and `force-reject` do not set `rejectorMandatory`, so the loop does not iterate. Use `recordReviewerDecision`.
 - **No exhausted edge:** allowed, but an exhausted loop then fails the execution. Add one if the cap should escalate instead.
+
+**Verification Checklist:**
+- [ ] Every human node, including group members, has a reject route (forward edge, own loop-back, or group-source back-edge)
+- [ ] Parallel reviewers that rewind together share one `joinOnQuorum` group-source back-edge, not one back-edge each
+- [ ] Every loop-back has `maxIterations` 1 to 20 and, where escalation is wanted, a sibling `on: "exhausted"` edge
+- [ ] Exhausted targets have no other incoming edges
+- [ ] Nodes with `slaMs` have a breach-capable edge in addition to the reject edge
+- [ ] Rejections that should loop are recorded via `recordReviewerDecision`
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/approval-engine/patterns#choosing-a-rejection-strategy — three rejection shapes
+- https://docs.velt.dev/ai/approval-engine/patterns#anti-patterns — back-edge per reviewer, `slaMs` with only reject, final human node, exhausted target reachable another way
+- https://docs.velt.dev/ai/approval-engine/patterns#choosing-sla-and-breach-handling — breach routing
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/steps/resolve-step — reject actions and loop predicates
 
 ---
 
@@ -1341,7 +1665,9 @@ Default `waitAll` keeps per-member fan-out, so `publish` runs once per approver 
 ```
 
 Each human member still needs a reject route (see `patterns-rejection-and-loops`).
+
 **I want X, use Y**
+
 | You want to model | Use |
 |---|---|
 | One reviewer; on reject retry up to N times, then escalate | `on: "reject"` back-edge with `loop.maxIterations`, plus a sibling `on: "exhausted"` edge |
@@ -1364,7 +1690,20 @@ Each human member still needs a reject route (see `patterns-rejection-and-loops`
 | Email or Slack from inside the workflow | `notification` node |
 | Admin acts on a reviewer's behalf, visible in the audit log | `/steps/resolve` with `reviewer-approve` / `reviewer-reject` |
 | Admin finishes a step with no approve / reject concept | `/steps/resolve` with `force-complete` / `force-fail` |
+
 **Webhooks or polling:** they are complementary. Use webhooks for liveness and `getEvents` with `sinceSeq` for recovery; polling alone suits a read-only tool that should not host an HTTPS receiver.
+
+**Verification Checklist:**
+- [ ] Each requirement in the spec maps to one row above before any JSON is written
+- [ ] "Run once after quorum" uses `joinOnQuorum`, not `waitAll` per-member edges
+- [ ] Agent findings that need sign-off go to a downstream `human` node
+- [ ] Production integrations use both webhooks and `getEvents` catch-up
+- [ ] Runs started by external systems or schedules use triggers, not a custom relay
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/approval-engine/patterns#i-want-x-use-y — decision table
+- https://docs.velt.dev/ai/approval-engine/patterns#choosing-a-parallel-review-policy — policy choice
+- https://docs.velt.dev/ai/approval-engine/patterns#webhooks-or-polling — complementary delivery
 
 ---
 

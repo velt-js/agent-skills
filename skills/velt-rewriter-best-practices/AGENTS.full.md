@@ -86,6 +86,20 @@ rewriterElement.on('textSelected').subscribe(async (event) => {
 const result = await rewriterElement.addComment({ text: aiResponse.text, event });
 ```
 
+**Pitfalls:**
+- DO NOT confuse `addComment` (Rewriter API, anchored to a text range from a `textSelected` event) with the comments-feature `addComment` you might use elsewhere — they are different methods with different anchoring semantics.
+- DO NOT pass arbitrary user text into `addComment` without the corresponding `event` — annotation anchoring requires the event metadata.
+
+**Verification Checklist:**
+- [ ] The full `event` from `textSelected` is passed through
+- [ ] `result.success` is checked before reading `result.annotationId`
+- [ ] If both anchoring and replacement are needed, `addComment` and `replaceText` are sequenced (typically comment first, replace on approval)
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/rewriter/setup — Step 4 Option B: Add a comment to selected text
+- https://docs.velt.dev/api-reference/sdk/models/data-models#rewriteraddcommentrequest — `RewriterAddCommentRequest`
+- https://docs.velt.dev/api-reference/sdk/models/data-models#rewriteraddcommentresponse — `RewriterAddCommentResponse`
+
 ---
 
 ### 1.2 Apply AI output to the DOM with replaceText
@@ -143,6 +157,25 @@ rewriterElement.on('textSelected').subscribe(async (event) => {
 const result = await rewriterElement.replaceText({ text: aiResponse.text, event });
 ```
 
+**Pitfalls:**
+- DO NOT try to use `document.querySelector` + `innerHTML` / `replaceChild` to apply AI output — you'll lose Velt's anchor tracking and break any anchored comments.
+- DO NOT pass `event.text` (the string) instead of `event` (the full event object). The string alone is insufficient context for safe replacement.
+- DO NOT check `result.text` — the success-path field is `result.replacedText` (and `result.originalText` for the prior content).
+- DO NOT rely on `replaceText` for content inside TipTap or other ProseMirror-based editors. It returns `success: false` there and leaves the editor untouched.
+
+**Verification Checklist:**
+- [ ] The full `event` from the `textSelected` subscription is passed through (not just `event.text`)
+- [ ] `result.success` is checked before reading `result.originalText` / `result.replacedText`
+- [ ] No manual DOM manipulation (`innerHTML` / `replaceChild`) is being used in place of `replaceText`
+- [ ] `replaceText` is called from inside the `textSelected` handler so the event is fresh
+- [ ] The `success: false` path is handled (for example, no "applied" UI), including selections inside TipTap / ProseMirror editors
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/rewriter/setup — Step 4 Option A: Replace selected text
+- https://docs.velt.dev/api-reference/sdk/models/data-models#rewriterreplacetextrequest — `RewriterReplaceTextRequest`
+- https://docs.velt.dev/api-reference/sdk/models/data-models#rewriterreplacetextresponse — `RewriterReplaceTextResponse`
+- https://docs.velt.dev/ai/rewriter/customize-behavior#replacetext — TipTap / ProseMirror note (6.0.16-beta.1)
+
 ---
 
 ### 1.3 Call askAi to generate rewrites — provider is auto-routed by model prefix
@@ -198,6 +231,25 @@ const response = await rewriterElement.askAi({
 });
 ```
 
+**Pitfalls:**
+- DO NOT add a `provider` field to the request — there is no such field. Provider is inferred from the `model` prefix.
+- DO NOT hardcode an API key in the client. If you need custom keys, configure them in the Velt Console and call `askAi` normally.
+- DO NOT assume `response.text` is set before checking `response.success` — the response is a discriminated success/failure shape.
+- DO NOT confuse this with `sdk.api.rewriter.askAi` (server-side Python SDK) — that's a separate code path documented in `velt-self-hosting-data-best-practices`.
+
+**Verification Checklist:**
+- [ ] `model` field uses a prefix that matches the desired provider (`gpt-*`/`o1-*`/`o3-*`/`o4-*`/`claude-*`/`gemini-*`)
+- [ ] `selectedText` is passed through from `event.text`, not from `window.getSelection()`
+- [ ] `response.success` is checked before reading `response.text`
+- [ ] No `provider` field is included in the request
+- [ ] Custom LLM keys are configured in the Velt Console, not embedded in the client
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/rewriter/setup — Step 3: Send a prompt to AI
+- https://docs.velt.dev/api-reference/sdk/models/data-models#rewriteraskairequest — `RewriterAskAiRequest`
+- https://docs.velt.dev/api-reference/sdk/models/data-models#rewriteraskairesponse — `RewriterAskAiResponse`
+- https://console.velt.dev/ — configure custom LLM API keys
+
 ---
 
 ### 1.4 Control the Default Rewriter Toolbar with enableDefaultUI / disableDefaultUI
@@ -246,6 +298,15 @@ rewriterElement.disableDefaultUI();
 // Re-enable later if needed
 // rewriterElement.enableDefaultUI();
 ```
+
+**Verification Checklist:**
+- [ ] `getRewriterElement()` is called after `client` is available (inside `useEffect` with client dependency for React)
+- [ ] `disableDefaultUI()` is used instead of CSS hiding so events remain active
+- [ ] A custom selection UI or event handler is wired up when the default UI is disabled
+- [ ] `enableDefaultUI()` is available to restore the toolbar if toggling dynamically
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/rewriter/customize-behavior#enabledefaultui - `enableDefaultUI` / `disableDefaultUI` API reference
 
 ---
 
@@ -324,6 +385,19 @@ if (Velt) {
 }
 ```
 
+**Verification Checklist:**
+- [ ] `enableRewriter()` is called before subscribing to `textSelected` or calling `askAi` / `replaceText` / `addComment`
+- [ ] Feature toggle (`enableRewriter` / `disableRewriter`) is not confused with toolbar toggle (`enableDefaultUI` / `disableDefaultUI`)
+- [ ] In React, the call lives inside a `useEffect` guarded on `client`, with `disableRewriter()` in the cleanup
+- [ ] `getRewriterElement()` / `useAIRewriterUtils()` is used only after the Velt client is initialized
+- [ ] If `featureAllowList` is set, it includes `'rewriter'`
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/rewriter/setup — Step 1: Enable Rewriter
+- https://docs.velt.dev/ai/rewriter/customize-behavior#enablerewriter — API reference
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#useairewriterutils — `useAIRewriterUtils()` hook
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#preloadrewriter — `preloadRewriter()` and `featureAllowList`
+
 ---
 
 ### 1.6 Subscribe to text selection with on('textSelected')
@@ -385,6 +459,27 @@ const subscription = rewriterElement.on('textSelected').subscribe((event) => {
 
 // Later: subscription.unsubscribe();
 ```
+
+**Pitfalls:**
+- DO NOT try to read the user's selection from `window.getSelection()` — you'll lose the Velt-managed anchor metadata that `replaceText` / `addComment` need. Use the event.
+- DO NOT subscribe before `enableRewriter()` is called — no events will fire.
+- DO NOT forget to `unsubscribe()` on cleanup; otherwise stale handlers accumulate.
+- DO NOT expect `textSelected` for selections inside TipTap or other ProseMirror-based editors; it does not fire there.
+- DO NOT look for a `useRewriterEventCallback` hook; it does not exist. Use `useAIRewriterUtils()` and `on('textSelected')`.
+
+**Verification Checklist:**
+- [ ] `enableRewriter()` is called before this subscription is set up
+- [ ] `subscribe()` is called on the Observable returned from `on('textSelected')`
+- [ ] The full `event` (not just `event.text`) is passed forward to `replaceText` / `addComment`
+- [ ] In React, the subscription is created inside `useEffect` and disposed in the cleanup
+- [ ] No manual DOM range tracking — Velt's event is the source of truth
+- [ ] Rewriter-enabled text lives outside TipTap / ProseMirror editors (selections inside them emit no `textSelected` event)
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/rewriter/setup — Step 2: Subscribe to text selection events
+- https://docs.velt.dev/api-reference/sdk/models/data-models#textselectedevent — `TextSelectedEvent` shape
+- https://docs.velt.dev/ai/rewriter/customize-behavior#on — `on('textSelected')` and the TipTap / ProseMirror note
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#useairewriterutils — `useAIRewriterUtils()` hook
 
 ---
 
@@ -481,6 +576,29 @@ rewriterElement.on('textSelected').subscribe(async (event) => {
 });
 ```
 
+**Common mistakes:**
+
+1. **Forgetting `enableRewriter()`** — no events fire and nothing happens. Symptoms: the `subscribe` handler never runs even when the user selects text.
+2. **Subscribing before enabling** — the order matters less in practice (the subscription is hot), but always call `enableRewriter()` first to keep the mental model clear.
+3. **Threading `event.text` into `replaceText`** — must pass the full `event`, not just the string.
+4. **Confusing `disableDefaultUI()` with `disableRewriter()`** — the former hides the toolbar only; the latter shuts the feature off. Pick based on whether you still want events.
+5. **Not unsubscribing on unmount** — in React, leaks an Observable subscription per render of the parent.
+6. **Targeting text inside TipTap or another ProseMirror-based editor** — since v6.0.16-beta.1, `textSelected` does not fire there and `replaceText()` returns `success: false`. Use the Rewriter on plain DOM text, and handle `success: false` in step 4.
+
+**Verification Checklist:**
+- [ ] `enableRewriter()` is called before any subscription / `askAi` / `replaceText` / `addComment`
+- [ ] The `textSelected` subscription is alive for as long as the feature should be active
+- [ ] `event.text` is used as the `selectedText` argument to `askAi`
+- [ ] The full `event` object (not just `event.text`) is passed to `replaceText` / `addComment`
+- [ ] `response.success` is checked before reading downstream fields
+- [ ] In React, the pipeline lives in a single `useEffect` with a cleanup that disposes the subscription and disables the feature
+- [ ] The result of `replaceText` / `addComment` is checked (`success: false` is expected for TipTap / ProseMirror selections)
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/rewriter/setup — full setup walkthrough
+- https://docs.velt.dev/ai/rewriter/overview — How it works (the four-step pipeline)
+- https://docs.velt.dev/ai/rewriter/customize-behavior#replacetext — TipTap / ProseMirror limitation
+
 ---
 
 ## 3. Types
@@ -513,6 +631,21 @@ const request: RewriterAskAiRequest = {
   // model: 'my-fine-tuned-model',         // still valid — union is open
 };
 ```
+
+**Additional Context:**
+
+The union is intentionally open. Passing a model string that is not in the enumerated set still compiles — TypeScript treats it as the `(string & NonNullable<unknown>)` branch rather than an error. This means upgrading to a newly released model identifier requires no library update on the consumer side.
+
+See the full list of enumerated model identifiers in the `AiModel` type definition at the data-models reference below.
+
+**Verification Checklist:**
+- [ ] `model` field is typed as `AiModel` (or inferred via `RewriterAskAiRequest`) rather than a bare `string`
+- [ ] IDE autocomplete is being used to select from the enumerated model list
+- [ ] Non-standard model strings are passed as-is (no cast needed — union is open)
+- [ ] `RewriterAskAiRequest` is imported from `@veltdev/types` or the relevant Velt types package
+
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/sdk/models/data-models#rewriteraskairequest - RewriterAskAiRequest data model and AiModel union definition
 
 ---
 
@@ -566,14 +699,19 @@ import { VeltRewriterDialogWireframe } from '@veltdev/react';
 </velt-rewriter-dialog-wireframe>
 ```
 
+#### Variable sets per primitive
+
 **`<velt-rewriter-text-portal-wireframe>`** — the inline highlight over the target text:
+
 | Variable | Type | Use |
 |---|---|---|
 | `componentConfig.rewriterPinAnnotation` | `RewriterAnnotation` | The annotation this portal represents. Drill into `.from.name`, `.targetText`, `.options`. |
 | `componentConfig.first` | `boolean` | First annotation in a stack. Pair with `velt-class="'is-first': {componentConfig.first}"`. |
 | `componentConfig.last` | `boolean` | Last annotation in a stack. |
 | `componentConfig.isPhone` | `boolean` | Mobile layout flag. |
+
 **`<velt-rewriter-dialog-wireframe>` / `<velt-rewriter-bottom-sheet-wireframe>`** — same data, desktop popover vs. mobile bottom-sheet:
+
 | Variable | Type | Use |
 |---|---|---|
 | `componentConfig.searchCount` | `number` | Number of generation requests submitted so far. |
@@ -582,10 +720,27 @@ import { VeltRewriterDialogWireframe } from '@veltdev/react';
 | `componentConfig.options` | `string[]` | AI-generated rewrite options. Iterate or index (`options.0`, `options.length`). |
 | `componentConfig.selectedOptionIndex` | `number` | Currently-selected option index, or `-1` when none. |
 | `componentConfig.bottomSheetMode` | `boolean` | Renders as bottom-sheet (mobile). The bottom-sheet primitive's built-in `shouldShow` is gated on this. |
+
 **`<velt-rewriters-container-wireframe>`** — the per-document orchestrator. Renders one portal per active rewriter annotation. Exposes no extra variables at the container level.
+
+#### Common mistakes — DO NOT
+
 **1. DO NOT drop the `componentConfig.` prefix.** The Rewriter uses flat-config — `<velt-data field="loading" />` resolves to nothing. Always write `<velt-data field="componentConfig.loading" />`.
+
 **2. DO NOT reference a variable across primitives.** `componentConfig.loading` is defined on the dialog / bottom-sheet, not on the text portal. Referencing dialog variables from the portal slot returns `undefined` silently.
+
 **3. DO NOT conflate `disableDefaultUI()` with "turn off the rewriter".** `disableDefaultUI()` only hides the built-in selection toolbar — events keep firing and `componentConfig` keeps updating, which is exactly the seam custom wireframe UI relies on.
+
+**Verification:**
+- [ ] All variable reads use the `componentConfig.<path>` form — never the short name alone
+- [ ] Dialog-scoped variables (`loading`, `options`, `apiCalled`, `selectedOptionIndex`, `searchCount`, `bottomSheetMode`) are read only inside the dialog / bottom-sheet slots
+- [ ] Portal-scoped variables (`rewriterPinAnnotation`, `first`, `last`, `isPhone`) are read only inside the text-portal slot
+- [ ] Custom rewriter UI relies on the wireframe variable stream rather than re-subscribing to the `RewriterElement` handle
+- [ ] `disableDefaultUI()` is used in tandem with wireframe slots, not as a kill-switch for the feature
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/async/rewriter/wireframe-variables — "Rewriter Wireframe Variables"
+- https://docs.velt.dev/ui-customization/template-variables — "Template Variables overview"
 
 ---
 

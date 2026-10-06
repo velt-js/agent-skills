@@ -66,6 +66,12 @@ Essential setup for enabling Single Editor Mode. Includes initializing via useLi
 Single Editor Mode restricts editing to one user at a time. Other users see content in read-only mode with live sync. Enable it only after the user and document are initialized (`useVeltInitState()` returns `true` once both are set). In the example below, the first user to load the page claims the editor role; the docs recommend calling `setUserAsEditor()` on an explicit action (for example, when the user starts typing), so pick the trigger that fits your UX.
 
 **Setup requires changes in two places:**
+1. `VeltCollaboration` component — enables SEM, auto-sync, and claims editor role
+2. Document page — renders editor status banner and content area with sync attributes
+
+#### 1. VeltCollaboration Component
+
+Add SEM setup, auto-sync, container scoping, and auto-claim editor role:
 
 ```tsx
 "use client";
@@ -153,6 +159,13 @@ export function VeltCollaboration({ documentId, documentName }: VeltCollaboratio
     </>
   );
 }
+```
+
+#### 2. Document Page — Editor Status Banner + Synced Content
+
+The document content MUST be in a child component of VeltProvider so hooks can access context:
+
+```tsx
 "use client";
 
 import { VeltProvider, useUserEditorState, useEditor } from "@veltdev/react";
@@ -216,9 +229,54 @@ export default function DocumentPage() {
 }
 ```
 
-The document content MUST be in a child component of VeltProvider so hooks can access context:
+**Critical attributes on the content element:**
+- `id="document-content"` — unique ID required for sync and container scoping. MUST match the ID passed to `singleEditorModeContainerIds()` in VeltCollaboration
+- `contentEditable` — ALWAYS set to `true`. NEVER make this conditional on `isEditor`. With `customMode: false`, the Velt SDK auto-manages read-only state for viewers via `data-velt-sync-access`. If you toggle `contentEditable` yourself, you fight the SDK and break sync.
+- `suppressContentEditableWarning` — suppresses React warning for `contentEditable` with children
+- `data-velt-sync-access="true"` — tells the SDK to control read-only state on this element. Viewers automatically get read-only; editor gets editable. This is how SEM enforces exclusive editing WITHOUT conditional `contentEditable`.
+- `data-velt-sync-state="true"` — auto-syncs content between users via Velt backend
 
-Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup (Steps 2 to 4, Notes); https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior; https://docs.velt.dev/get-started/advanced#getveltinitstate (user and document initialized); https://docs.velt.dev/api-reference/sdk/models/data-models#config (`featureAllowList`)
+#### Common Mistakes — DO NOT
+
+These are the most common mistakes when implementing or debugging SEM. Each one will break SEM:
+
+1. **DO NOT add timeouts or delays to `setUserAsEditor()`** — Use `useVeltInitState()` as the ONLY gate. If `veltInitState` is truthy, Velt is ready. Timeouts (500ms, 1s, etc.) are unreliable and mask the real issue.
+
+2. **DO NOT make `contentEditable` conditional on `isEditor`** — With `customMode: false`, the SDK auto-manages read-only state via `data-velt-sync-access="true"`. Writing `contentEditable={isEditor}` fights the SDK and prevents content sync from working. Always use `contentEditable` (which means `contentEditable={true}`).
+
+3. **DO NOT use `useCurrentUser()` to gate `setUserAsEditor()`** — Use `useVeltInitState()` instead. `useCurrentUser()` tells you about user auth, but `useVeltInitState()` tells you when the ENTIRE Velt system (including document context) is ready.
+
+4. **DO NOT inline `VeltInitializeDocument` into `VeltCollaboration`** — Keep it as a separate child component. Inlining and adding state tracking (`documentReady` flags) creates race conditions. The SDK handles initialization timing internally.
+
+5. **DO NOT enable SEM or claim the editor role before Velt is initialized.** The docs require the user and document to be set first; `useVeltInitState()` returning `true` is that signal.
+
+6. **DO NOT leave `'liveStateSync'` out of `featureAllowList`.** Single Editor Mode lives on the Live State Sync element. In the v6 modular SDK, if you pass `featureAllowList`, list `'liveStateSync'` so its chunk preloads (calling `getLiveStateSyncElement()` auto-enables an omitted feature, but listing it avoids an on-demand load).
+
+**If SEM isn't working after implementation:** Re-read this rule file and diff your code against the code examples above line-by-line. The code examples are the canonical implementation — do not deviate from them.
+
+**How it works:**
+- First user loads the page → `setUserAsEditor()` claims editor role → green banner "You are the editor" → can edit content
+- Second user loads → `setUserAsEditor()` returns `another_user_editor` → yellow banner "[Name] is currently editing" → content is read-only but synced live
+- `enableAutoSyncState()` + `data-velt-sync-state="true"` = when editor types, viewers see changes in real-time
+- `singleEditorModeContainerIds(['document-content'])` = only the article is locked for viewers; navigation, toolbar, and comments stay interactive
+
+**Testing:**
+- Open `?user=user-1` (Alice) → should claim editor, green banner
+- Open `?user=user-2` (Bob) → should see "Alice Johnson is currently editing", yellow banner
+- Alice types → Bob sees changes in real-time
+- Bob cannot edit the content area but can click nav and comments
+
+**Verification:**
+- [ ] `useVeltInitState()` gates both `enableSingleEditorMode()` and `setUserAsEditor()`
+- [ ] `featureAllowList`, if set, includes `'liveStateSync'`
+- [ ] `setUserAsEditor()` called with all 3 error codes handled
+- [ ] `enableAutoSyncState()` called for live content sync
+- [ ] `singleEditorModeContainerIds()` scopes SEM to content area
+- [ ] `data-velt-sync-access="true"` and `data-velt-sync-state="true"` on content element
+- [ ] `DocumentContent` is a child of VeltProvider (not sibling)
+- [ ] Editor status banner shows correct state using `useUserEditorState()` + `useEditor()`
+
+**Source Pointer:** https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup (Steps 2 to 4, Notes); https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior; https://docs.velt.dev/get-started/advanced#getveltinitstate (user and document initialized); https://docs.velt.dev/api-reference/sdk/models/data-models#config (`featureAllowList`)
 
 ---
 
@@ -291,7 +349,26 @@ function EditorStatus() {
 }
 ```
 
-Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup - Step 4, Step 6; https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - isUserEditor, getEditor
+**Available hooks:**
+
+| Hook | Returns | Description |
+|------|---------|-------------|
+| `useUserEditorState()` | `{ isEditor, isEditorOnCurrentTab }` | Current user's editor status |
+| `useEditor()` | `User` object or null | Current editor's identity (name, email, userId, photoUrl) |
+| `useLiveStateSyncUtils()` | LiveStateSyncElement | API access for imperative methods |
+
+**Key patterns:**
+- `isEditor && !isEditorOnCurrentTab` — user is editor but on a different tab, show "Edit on this tab" button
+- `!isEditor` — user is a viewer, show "Start Editing" or "Request Access" button
+- `editor?.name` — display who is currently editing to all users
+
+**Verification:**
+- [ ] Using hooks instead of manual Observable subscriptions
+- [ ] Tab locking UX implemented (isEditor && !isEditorOnCurrentTab)
+- [ ] Viewer UX provides path to request or take editor access
+- [ ] Hooks used within components inside VeltProvider
+
+**Source Pointer:** https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup - Step 4, Step 6; https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - isUserEditor, getEditor
 
 ---
 
@@ -360,7 +437,26 @@ if (result?.error) {
 }
 ```
 
-Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior#setuseraseditor - setUserAsEditor, Error handling, editCurrentTab; https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup - Step 3: Set the editor
+**Error codes:**
+
+| Code | Meaning | Suggested Action |
+|------|---------|------------------|
+| `same_user_editor_current_tab` | Already editing on this tab | No action needed |
+| `same_user_editor_different_tab` | Editing on another tab | Call `editCurrentTab()` to switch |
+| `another_user_editor` | Different user is editing | Offer `requestEditorAccess()` |
+
+**Key details:**
+- Always `await` the result — the Promise resolves to `{ error?: ErrorEvent }` or void
+- The docs recommend calling it on an explicit user action (button click, start typing). If you auto-claim on load instead (see `core-setup`), gate it on `useVeltInitState()` and expect `another_user_editor` for everyone after the first user
+- Use `editCurrentTab()` to move editing to the current tab when the user is editor on a different tab
+
+**Verification:**
+- [ ] `setUserAsEditor()` awaited
+- [ ] All 3 error codes handled with appropriate UX
+- [ ] `editCurrentTab()` called for `same_user_editor_different_tab` scenario
+- [ ] Called on explicit user interaction, or gated on `useVeltInitState()` when auto-claiming
+
+**Source Pointer:** https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior#setuseraseditor - setUserAsEditor, Error handling, editCurrentTab; https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup - Step 3: Set the editor
 
 ---
 
@@ -445,7 +541,25 @@ sub.unsubscribe();
 editorSub.unsubscribe();
 ```
 
-Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - isUserEditor, getEditor
+**Return values for `isUserEditor()`:**
+
+| Value | Meaning |
+|-------|---------|
+| `null` | State not available yet (loading) |
+| `undefined` | No current editors in Single Editor Mode |
+| `{ isEditor, isEditorOnCurrentTab }` | User's editor access state |
+
+**Key details:**
+- In React, prefer `useUserEditorState()` and `useEditor()` hooks (see `state-hooks` rule)
+- Both Observables emit reactively on every change
+- Must unsubscribe on cleanup to prevent memory leaks
+
+**Verification:**
+- [ ] Null and undefined return values handled separately
+- [ ] Subscriptions cleaned up on unmount
+- [ ] Editor identity displayed to all users (not just the editor)
+
+**Source Pointer:** https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - isUserEditor, getEditor
 
 ---
 
@@ -509,7 +623,21 @@ function EditorAccessPanel() {
 }
 ```
 
-Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup - Step 5; https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - isEditorAccessRequested
+**Key details:**
+- `useEditorAccessRequestHandler()` returns `EditorRequest | null`
+  - `null` — no active request, user is not editor, or request was canceled
+  - `EditorRequest` — `{ requestStatus: 'requested', requestedBy: User }`
+- Accept/reject methods are on the LiveStateSyncElement, not on the hook return value
+- The viewer side still uses the API Observable pattern (`requestEditorAccess().subscribe()`) — no dedicated viewer hook exists
+- After accepting, the requester becomes editor and the current editor becomes viewer
+
+**Verification:**
+- [ ] Using hook instead of manual Observable subscription
+- [ ] Null check before rendering request UI
+- [ ] Accept/reject wired to `liveStateSyncElement` methods
+- [ ] Only displayed when user is editor (`isEditor === true`)
+
+**Source Pointer:** https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup - Step 5; https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - isEditorAccessRequested
 
 ---
 
@@ -589,7 +717,19 @@ liveStateSyncElement.acceptEditorAccessRequest();
 liveStateSyncElement.rejectEditorAccessRequest();
 ```
 
-Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - isEditorAccessRequested, acceptEditorAccessRequest, rejectEditorAccessRequest
+**Key details:**
+- `isEditorAccessRequested()` returns `null` when: user is not the editor, no active request, or request was canceled
+- The `EditorRequest` object contains `requestStatus` ('requested') and `requestedBy` (User with name, email, userId, photoUrl)
+- After accepting, the requester becomes the new editor and the current editor becomes a viewer
+- In React, prefer `useEditorAccessRequestHandler()` hook (see `access-hooks` rule)
+
+**Verification:**
+- [ ] Subscribed to incoming access requests
+- [ ] Null state handled (no request or not editor)
+- [ ] Accept and reject buttons wired to correct methods
+- [ ] Subscription cleaned up on unmount
+
+**Source Pointer:** https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - isEditorAccessRequested, acceptEditorAccessRequest, rejectEditorAccessRequest
 
 ---
 
@@ -683,7 +823,27 @@ liveStateSyncElement.cancelEditorAccessRequest();
 subscription.unsubscribe();
 ```
 
-Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - requestEditorAccess, cancelEditorAccessRequest
+**Observable return values:**
+
+| Value | Meaning |
+|-------|---------|
+| `null` | Request is pending — waiting for editor response |
+| `true` | Request accepted — user is now the editor |
+| `false` | Request rejected by the editor |
+
+**Key details:**
+- `requestEditorAccess()` returns an Observable — must call `.subscribe()`
+- Store the subscription reference for cleanup and cancellation
+- `cancelEditorAccessRequest()` cancels the pending request (editor sees request disappear)
+- No dedicated React hook exists for viewer-side requests — use the API Observable pattern even in React
+
+**Verification:**
+- [ ] Observable subscribed to (not fire-and-forget)
+- [ ] All 3 states handled (null/pending, true/accepted, false/rejected)
+- [ ] Cancel button available while request is pending
+- [ ] Subscription cleaned up on unmount
+
+**Source Pointer:** https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - requestEditorAccess, cancelEditorAccessRequest
 
 ---
 
@@ -751,7 +911,27 @@ liveStateSyncElement.enableSingleEditorMode({
 });
 ```
 
-Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - Fine tune elements control; https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup - Notes
+**Attributes:**
+
+| Attribute | Purpose |
+|-----------|---------|
+| `data-velt-sync-access="true"` | Element is controlled by SEM (disabled for viewers) |
+| `data-velt-sync-access-disabled="true"` | Element is excluded from SEM (always interactive) |
+
+**Key details:**
+- Both attributes only work on **native HTML elements** (div, button, input, etc.)
+- With `customMode: false` (default) the SDK manages read-only state and the attributes refine it; with `customMode: true` you must mark controlled elements yourself
+- Give elements with sync attributes an `id` for more robust syncing
+- Use `data-velt-sync-access-disabled` to exclude elements like help buttons, navigation, or always-on controls
+- Wrap React components in native elements if you need SEM control over them
+
+**Verification:**
+- [ ] Attributes applied only to native HTML elements, not React components
+- [ ] With `customMode: true`, every element that viewers must not edit has `data-velt-sync-access="true"`
+- [ ] Elements that should always be interactive have `data-velt-sync-access-disabled`
+- [ ] React components wrapped in native elements when SEM control needed
+
+**Source Pointer:** https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - Fine tune elements control; https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup - Notes
 
 ---
 
@@ -821,7 +1001,25 @@ function App() {
 }
 ```
 
-Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - singleEditorModeContainerIds, Auto-Sync Text Elements
+**Supported auto-sync elements:**
+- `<input>` — text inputs
+- `<textarea>` — multi-line text areas
+- ContentEditable `<div>` — rich text areas
+
+**Key details:**
+- `singleEditorModeContainerIds()` accepts an array of HTML element IDs
+- Elements outside the specified containers remain interactive for all users
+- `enableAutoSyncState()` must be called before using `data-velt-sync-state` attribute
+- Each synced element must have a **unique `id`** attribute for proper sync tracking
+- Container scoping and auto-sync can be used together
+
+**Verification:**
+- [ ] Container IDs match actual DOM element IDs
+- [ ] Navigation and shared controls are outside scoped containers
+- [ ] Auto-sync elements have unique `id` attributes
+- [ ] `enableAutoSyncState()` called before using `data-velt-sync-state`
+
+**Source Pointer:** https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - singleEditorModeContainerIds, Auto-Sync Text Elements
 
 ---
 
@@ -885,7 +1083,19 @@ function AccessTimeoutCountdown() {
 }
 ```
 
-Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - getEditorAccessTimer
+**Key details:**
+- Returns `EditorAccessTimer` with `state` ('idle' | 'inProgress' | 'completed') and `durationLeft` (seconds)
+- Updates reactively as the countdown progresses
+- Use `useEffect` watching the timer to handle the `completed` state
+- Combine with `useEditorAccessRequestHandler()` for a complete editor-side timeout + request UI
+
+**Verification:**
+- [ ] Using hook instead of manual Observable subscription
+- [ ] All 3 timer states handled (idle, inProgress, completed)
+- [ ] Countdown displayed during inProgress state
+- [ ] Completion handled in useEffect
+
+**Source Pointer:** https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - getEditorAccessTimer
 
 ---
 
@@ -968,7 +1178,27 @@ liveStateSyncElement.getEditorAccessTimer().subscribe((timer) => {
 });
 ```
 
-Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - setEditorAccessTimeout, enableEditorAccessTransferOnTimeOut, getEditorAccessTimer
+**EditorAccessTimer states:**
+
+| State | Meaning |
+|-------|---------|
+| `'idle'` | No active timeout (no pending request) |
+| `'inProgress'` | Countdown active, show remaining time |
+| `'completed'` | Timeout reached, access may have been transferred |
+
+**Key details:**
+- Default timeout is **5 seconds**; the value is in **seconds** per the Customize Behavior page (`setEditorAccessTimeout(15)` = 15 s). The API Methods reference says milliseconds; verify in your SDK version and keep the unit consistent with your countdown UI (`durationLeft` is in seconds)
+- `enableEditorAccessTransferOnTimeOut()` is enabled by default — when timeout expires, editor access auto-transfers to the requester
+- Call `disableEditorAccessTransferOnTimeOut()` if you want the request to simply expire without transfer
+- In React, prefer `useEditorAccessTimer()` hook (see `timeout-hooks` rule)
+
+**Verification:**
+- [ ] Timeout duration appropriate for the workflow (not too short)
+- [ ] Auto-transfer behavior matches desired UX
+- [ ] Timer state tracked for countdown UI
+- [ ] Subscription cleaned up on unmount
+
+**Source Pointer:** https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - setEditorAccessTimeout, enableEditorAccessTransferOnTimeOut, getEditorAccessTimer
 
 ---
 
@@ -1039,7 +1269,21 @@ function SingleEditorEvents() {
 }
 ```
 
-Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - Event Subscription (Using Hooks)
+**Supported event types:**
+`accessRequested`, `accessRequestCanceled`, `accessAccepted`, `accessRejected`, `editorAssigned`, `viewerAssigned`, `editorOnDifferentTabDetected`
+
+**Key details:**
+- Each event type needs a separate hook call
+- Hook returns event data or null (no event yet)
+- React to changes via `useEffect` with the return value as a dependency
+- Handles subscription lifecycle and cleanup automatically
+
+**Verification:**
+- [ ] Using hook instead of manual `.on().subscribe()` in React
+- [ ] Each event type has its own hook call and useEffect handler
+- [ ] Hook used within component inside VeltProvider
+
+**Source Pointer:** https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - Event Subscription (Using Hooks)
 
 ---
 
@@ -1096,6 +1340,18 @@ liveStateSyncElement.on('editorOnDifferentTabDetected').subscribe((event) => {
 });
 ```
 
+**Complete event reference:**
+
+| Category | Event | Description | Event Object |
+|----------|-------|-------------|--------------|
+| Editor | `accessRequested` | Viewer requests access | AccessRequestEvent |
+| Editor | `accessRequestCanceled` | Viewer cancels their request | AccessRequestEvent |
+| Viewer | `accessAccepted` | Editor accepted the request | AccessRequestEvent |
+| Viewer | `accessRejected` | Editor rejected the request | AccessRequestEvent |
+| Assignment | `editorAssigned` | User becomes the editor | SEMEvent |
+| Assignment | `viewerAssigned` | User becomes a viewer | SEMEvent |
+| Tab | `editorOnDifferentTabDetected` | Editor opened same document in another tab | SEMEvent |
+
 **For non-React frameworks:**
 
 ```js
@@ -1106,7 +1362,18 @@ liveStateSyncElement.on('editorAssigned').subscribe((event) => {
 });
 ```
 
-Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - Event Subscription
+**Key details:**
+- In React, prefer `useLiveStateSyncEventCallback()` hook (see `events-hooks` rule)
+- Each `.on()` call returns an Observable — must call `.subscribe()`
+- Store subscription references for cleanup (`.unsubscribe()`)
+- `editorOnDifferentTabDetected` fires when the editor opens the same document in a second browser tab
+
+**Verification:**
+- [ ] Relevant events subscribed to for UX needs
+- [ ] Subscriptions cleaned up on unmount
+- [ ] Multi-tab event handled when `singleTabEditor: true`
+
+**Source Pointer:** https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - Event Subscription
 
 ---
 
@@ -1124,7 +1391,159 @@ Common issues when integrating Velt Single Editor Mode and how to resolve them.
 
 **Issue 0: Nothing happens at all (v6 modular SDK)**
 
-Reference: https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup - Testing and Debugging, Notes; https://docs.velt.dev/api-reference/sdk/models/data-models#config - featureAllowList; https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - Heartbeat, Presence Heartbeat, resetUserAccess
+```jsx
+// If featureAllowList is set, list liveStateSync so its chunk preloads
+<VeltProvider apiKey="API_KEY" config={{ featureAllowList: ["liveStateSync", "presence"] }} />
+```
+
+**Issue 1: Default UI panel not visible**
+
+```jsx
+// Ensure BOTH are done:
+// 1. Call enableDefaultSingleEditorUI()
+liveStateSyncElement.enableDefaultSingleEditorUI();
+
+// 2. Render the panel component
+<VeltSingleEditorModePanel shadowDom={false} />
+
+// If building custom UI, call disableDefaultSingleEditorUI() instead
+```
+
+**Issue 2: Elements not becoming read-only for viewers**
+
+```jsx
+// If using customMode: true, SDK does NOT auto-manage read-only state
+// You must use data attributes on NATIVE HTML elements:
+
+// Wrong — attributes on React components do nothing:
+<MyButton data-velt-sync-access="true">Edit</MyButton>
+
+// Correct — attributes on native elements:
+<button data-velt-sync-access="true">Edit</button>
+
+// Or wrap React components:
+<div data-velt-sync-access="true">
+  <MyButton>Edit</MyButton>
+</div>
+
+// If customMode: false (default), SDK auto-manages read-only state
+```
+
+**Issue 3: Editor can edit in multiple tabs**
+
+```jsx
+// Verify singleTabEditor is true (default):
+liveStateSyncElement.enableSingleEditorMode({
+  singleTabEditor: true,
+});
+
+// When user is editor on another tab, prompt to switch:
+const { isEditor, isEditorOnCurrentTab } = useUserEditorState();
+if (isEditor && !isEditorOnCurrentTab) {
+  // Show "Edit on this tab" button
+  liveStateSyncElement.editCurrentTab();
+}
+```
+
+**Issue 4: Heartbeat must be disabled BEFORE enabling SEM**
+
+```jsx
+// Incorrect order — disabling after enable has no effect:
+liveStateSyncElement.enableSingleEditorMode();
+liveStateSyncElement.disableHeartbeat(); // Too late
+
+// Correct order:
+liveStateSyncElement.disableHeartbeat();
+liveStateSyncElement.enableSingleEditorMode();
+```
+
+**Issue 5: Ambiguous editor presence detection**
+
+```jsx
+// Use updateUserPresence() as a fallback for presence detection
+liveStateSyncElement.updateUserPresence({
+  sameUserPresentOnTab: false,
+  differentUserPresentOnTab: true,
+  userIds: ['user-2']
+});
+```
+
+**Issue 6: Stuck editor state**
+
+```jsx
+// Reset editor access for all users
+liveStateSyncElement.resetUserAccess();
+// This clears the current editor and allows any user to take over
+```
+
+**Issue 7: Both users show as "viewer" (no one becomes editor)**
+
+The most common cause is `setUserAsEditor()` firing before Velt is fully initialized.
+
+```jsx
+// WRONG — using useCurrentUser() or timeouts to gate setUserAsEditor:
+const veltUser = useCurrentUser();
+useEffect(() => {
+  if (!veltUser) return;
+  setTimeout(() => {
+    liveStateSyncElement.setUserAsEditor(); // Unreliable — Velt may not be ready
+  }, 500);
+}, [veltUser]);
+
+// CORRECT — use useVeltInitState() as the ONLY gate:
+const veltInitState = useVeltInitState();
+useEffect(() => {
+  if (!veltInitState || !liveStateSyncElement) return;
+  const claimEditor = async () => {
+    const result = await liveStateSyncElement.setUserAsEditor();
+    if (result?.error) {
+      // Handle all 3 error codes — see core-setup rule
+    }
+  };
+  claimEditor();
+}, [veltInitState, liveStateSyncElement]);
+```
+
+**Issue 8: Both users can edit despite one being a viewer**
+
+The content element has `contentEditable` but the SDK isn't controlling read-only state.
+
+```jsx
+// WRONG — making contentEditable conditional on isEditor:
+<article contentEditable={isEditor}>  // Fights the SDK, breaks sync
+
+// CORRECT — contentEditable is ALWAYS true, SDK manages read-only:
+<article
+  id="document-content"
+  contentEditable                    // Always true
+  data-velt-sync-access="true"      // SDK controls read-only for viewers
+  data-velt-sync-state="true"       // SDK syncs content between users
+>
+
+// Also verify these are called in VeltCollaboration:
+// - enableSingleEditorMode({ customMode: false }) — customMode MUST be false
+// - singleEditorModeContainerIds(['document-content']) — ID must match
+// - enableAutoSyncState()
+```
+
+**Testing checklist:**
+1. Open the same document as 2 different users in separate browser profiles
+2. Verify only one user can edit at a time
+3. Test access request flow (request → accept/reject)
+4. Test timeout behavior (default 5 seconds)
+5. Test multi-tab behavior with `singleTabEditor: true`
+6. Verify scoped containers work (elements outside scope remain interactive)
+
+**Verification:**
+- [ ] VeltProvider configured with API key and user authenticated
+- [ ] Document ID set via Velt setup
+- [ ] `enableSingleEditorMode()` called with explicit config
+- [ ] Default UI enabled or custom UI implemented
+- [ ] `data-velt-sync-access` attributes on native HTML elements only
+- [ ] Heartbeat disabled before SEM if disabling is needed
+- [ ] Tested with multiple users in separate browser profiles
+
+**Source Pointer:** https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup - Testing and Debugging, Notes; https://docs.velt.dev/api-reference/sdk/models/data-models#config - featureAllowList; https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior - Heartbeat, Presence Heartbeat, resetUserAccess
 
 ---
 
@@ -1139,6 +1558,10 @@ Customizing the default Single Editor Mode panel with VeltSingleEditorModePanelW
 **Impact: MEDIUM (Restyle or rearrange the default editor/viewer panel without rebuilding the access-request flow)**
 
 The default panel (`VeltSingleEditorModePanel` / `<velt-single-editor-mode-panel>`) shows the user's editor or viewer status, access requests, the request countdown, and accept/reject controls. To change its look or layout, define a `VeltSingleEditorModePanelWireframe` inside `VeltWireframe` instead of rebuilding the flow with the APIs.
+
+**Why this matters:**
+
+A custom panel built from scratch must re-implement request, cancel, accept, reject, countdown, and "edit here" states. The wireframe keeps that logic and lets you change only the markup and styling.
 
 **Incorrect (wireframe outside the wrapper, styling the shadow DOM from outside):**
 
@@ -1203,6 +1626,31 @@ function SingleEditorPanel() {
 
 <velt-single-editor-mode-panel shadow-dom="false"></velt-single-editor-mode-panel>
 ```
+
+**Panel props:**
+
+| React prop | HTML attribute | Default | Use |
+|---|---|---|---|
+| `shadowDom` | `shadow-dom` | `true` | Set `false` to style the panel with your own CSS |
+| `darkMode` | `dark-mode` | `false` | Dark theme |
+| `variant` | `variant` | none | Use a named wireframe variant (`variant="custom-ui"`) |
+
+**Key details:**
+
+- Show the panel with `enableDefaultSingleEditorUI()` (enabled by default) and/or by rendering the panel component
+- Only build fully custom UI (with `disableDefaultSingleEditorUI()` plus the editor/viewer APIs) when the wireframe cannot express your design
+- Omit a sub-component from the wireframe to hide that part of the panel
+
+**Verification:**
+- [ ] Wireframe is inside `VeltWireframe` / `<velt-wireframe style="display:none;">`
+- [ ] `VeltSingleEditorModePanel` is rendered (or the default UI is enabled)
+- [ ] `shadowDom={false}` is set when applying custom CSS
+- [ ] Viewer request, editor accept/reject, countdown, and "edit here" states were tested with two users and two tabs
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/realtime/single-editor-mode - "VeltSingleEditorModePanelWireframe", "Styling", "Variants"
+- https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior#enabledefaultsingleeditorui - "enableDefaultSingleEditorUI"
+- https://docs.velt.dev/ui-customization/wireframes/layout-customization#create-custom-variants - "Create Custom Variants"
 
 ---
 
