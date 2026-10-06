@@ -185,6 +185,17 @@ The React TypeScript interface; HTML attributes use the same names in kebab-case
 
 For the V2-only declarative filter / sort surface (`filters`, `miniFilters`, `minimalFilters`, `filterOperator`, `filterPanelLayout`, `filterOptionLayout`, `filterCount`, `filterGhostCommentsInSidebar`, `systemFiltersOperator`, `sortBy`, `sortOrder`, `sortData`, `defaultMinimalFilter`) and the `applyCommentSidebarClientFilters()` API, see `surface/surface-sidebar-v2.md`.
 
+**`setCommentSidebarFilters()` semantics (V1 + V2):**
+
+`setCommentSidebarFilters()` applies values as selected filters in the sidebar UI — the values render as checked options and are cleared by **Reset**. The call is a partial update, not a full overwrite:
+
+- Included keys replace their current selections.
+- Omitted keys are preserved.
+- A present-but-empty array clears one field (e.g. `{ location: [] }`).
+- An empty object `{}` clears every client-provided selection.
+
+This wording is aligned across V1 (`/async-collaboration/comments-sidebar/v1/customize-behavior#setcommentsidebarfilters`) and V2 (`/async-collaboration/comments-sidebar/v2/customize-behavior#setcommentsidebarfilters`), so the same guidance applies regardless of which sidebar version the app mounts. For the V2 `CommentSidebarFilters` payload shape (object identities for `people` / `location` etc.) and facet-count coupling, see `surface/surface-sidebar-v2.md`.
+
 **Verification Checklist:**
 - [ ] `VeltCommentsSidebar` mounted for V1/sidebar-prop usage, or `VeltCommentsSidebarV2` / `<velt-comments-sidebar-v2>` mounted directly for V2 setup
 - [ ] `VeltSidebarButton` provides toggle

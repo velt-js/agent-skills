@@ -137,10 +137,38 @@ commentElement.toggleCommentSidebar();
 
 **V2 Sidebar (primitive-based):**
 
-```jsx
-import { VeltCommentsSidebarV2 } from '@veltdev/react';
+`VeltComments` must be mounted alongside `VeltCommentsSidebarV2` — pin rendering lives inside `VeltComments`, and mounting the sidebar alone leaves pages without on-page pins.
 
-<VeltCommentsSidebarV2 />
+```jsx
+import {
+  VeltProvider,
+  VeltComments,
+  VeltCommentsSidebarV2,
+  VeltSidebarButton,
+  VeltCommentTool,
+} from '@veltdev/react';
+
+export default function App() {
+  return (
+    <VeltProvider apiKey="API_KEY">
+      <VeltComments />
+      <VeltCommentsSidebarV2 />
+      <div className="toolbar">
+        <VeltSidebarButton />
+        <VeltCommentTool />
+      </div>
+    </VeltProvider>
+  );
+}
 ```
 
-V2 replaces the per-category filter panel with a unified `FilterDropdown`. For V2 wireframe customization, see the Comment Sidebar V2 Structure docs.
+**Incorrect (sidebar mounted without VeltComments — pins do not render):**
+
+```jsx
+<VeltProvider apiKey="API_KEY">
+  {/* Missing <VeltComments /> — page-level pins will not render */}
+  <VeltCommentsSidebarV2 />
+</VeltProvider>
+```
+
+V2 replaces the per-category filter panel with a unified `FilterDropdown`. For V2 wireframe customization, see the [Comment Sidebar V2 Wireframes](https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-v2-wireframes) docs (the older `comment-sidebar-structure-v2` path is superseded).

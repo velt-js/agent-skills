@@ -2,7 +2,7 @@
 title: Comment Lifecycle Events — Pin Clicks, Add Events, Button Clicks
 impact: MEDIUM
 impactDescription: Subscribe to comment lifecycle events for custom workflows
-tags: commentPinClicked, onCommentAdd, veltButtonClick, useVeltEventCallback, on, autocompleteSearch, suggestionAccepted, suggestionRejected, events
+tags: commentPinClicked, onCommentAdd, veltButtonClick, useVeltEventCallback, on, autocompleteSearch, suggestionAccepted, suggestionRejected, fullscreenClick, FullscreenClickEvent, events
 ---
 
 ## Comment Lifecycle Events — Pin Clicks, Add Events, Button Clicks, Agent Suggestion Accept/Reject
@@ -156,12 +156,50 @@ subscription.unsubscribe();
 | `comment` | `Comment` | Yes | Snapshot of unsaved composer content (reply mode: pending text/HTML/attachments/recordings; edit mode: original fields merged with unsaved edits, `commentId` preserved) |
 | `metadata` | `VeltEventMetadata` | Yes | Event metadata |
 
+**Comment Sidebar V2 fullscreen toggle (`fullscreenClick` event):**
+
+The `fullscreenClick` event fires when a user clicks the fullscreen toggle in the Comment Sidebar V2 header (`fullScreen={true}` prop must be enabled to render the button). The payload is a `FullscreenClickEvent` whose `fullScreen` field is the **post-toggle** state — `true` means the sidebar just entered fullscreen. Use this event as the standard event-API pathway; the component-level `onFullscreenClick` output on `VeltCommentSidebarV2FullscreenButton` remains available for callers wiring the primitive directly. Both pathways coexist — pick one; do not wire both for the same handler.
+
+**Correct (React — subscribe to fullscreen toggle):**
+
+```jsx
+import { useCommentEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
+
+function FullscreenHandler() {
+  const fullscreenEvent = useCommentEventCallback('fullscreenClick');
+
+  useEffect(() => {
+    if (!fullscreenEvent) return;
+    // fullscreenEvent.fullScreen — post-toggle state (true = now fullscreen)
+    console.log('Sidebar fullscreen:', fullscreenEvent.fullScreen);
+  }, [fullscreenEvent]);
+
+  return null;
+}
+```
+
+**Correct (Other frameworks — subscribe to fullscreen toggle):**
+
+```typescript
+const commentElement = client.getCommentElement();
+const subscription = commentElement.on('fullscreenClick').subscribe((event) => {
+  // event: FullscreenClickEvent
+  // event.fullScreen — post-toggle state; event.metadata — VeltEventMetadata
+  console.log('Sidebar fullscreen:', event.fullScreen);
+});
+
+// Clean up on teardown
+subscription.unsubscribe();
+```
+
 **Key details:**
 - `onCommentAdd` fires BEFORE the comment is persisted — use `addContext()` to inject metadata
 - `commentPinClicked` fires when a pin on the page is clicked
 - `veltButtonClick` fires for custom buttons added via wireframes
 - `addCommentDraft` fires only when the thread already has at least one committed comment — enum value `ADD_COMMENT_DRAFT`
 - `suggestionAccepted` / `suggestionRejected` fire when a reviewer clicks Accept or Reject on an agent suggestion — the payload includes `commentAnnotation` (the full finding); rejected also includes `rejectReason`
+- `fullscreenClick` fires when the Comment Sidebar V2 fullscreen toggle is clicked; `event.fullScreen` is the state **after** the toggle. Alternative pathway to the primitive-level `onFullscreenClick` output on `VeltCommentSidebarV2FullscreenButton` — both surfaces coexist, choose one per handler
 - All subscriptions must be cleaned up on unmount
 - `useCommentEventCallback` returns the event object directly (no subscription needed)
 
@@ -170,6 +208,9 @@ subscription.unsubscribe();
 - [ ] addContext() called synchronously in onCommentAdd handler
 - [ ] Event names match exactly (case-sensitive)
 - [ ] addCommentDraft handler checks that the thread has existing comments before acting (brand-new pins do not fire this event)
+- [ ] `fullscreenClick` handler treats `event.fullScreen` as the post-toggle state (not the previous state); handler is not double-wired to both the event API and the component-level `onFullscreenClick` output
 
 **Source Pointer:** https://docs.velt.dev/async-collaboration/comments/customize-behavior - Events
 **Source Pointer:** https://docs.velt.dev/api-reference/sdk/models/data-models#addcommentdraftevent
+**Source Pointer:** https://docs.velt.dev/async-collaboration/comments-sidebar/v2/customize-behavior#fullscreenclick
+**Source Pointer:** https://docs.velt.dev/api-reference/sdk/models/data-models#fullscreenclickevent
