@@ -15,6 +15,18 @@ For the structural catalog of which wireframe tags exist and how they nest, see 
 
 Do not subscribe to presence data and re-render the list yourself. The wireframe already iterates `componentConfig.filteredPresenceUsers` and applies max-users overflow.
 
+**Incorrect (bare names, rebuilding the list from hooks):**
+
+```jsx
+const presence = usePresenceData();
+<VeltWireframe>
+  <VeltPresenceWireframe>
+    {presence?.data?.map((u) => <span key={u.userId}>{u.name}</span>)}
+    <velt-data field="filteredPresenceUsers.length" /> {/* resolves to nothing */}
+  </VeltPresenceWireframe>
+</VeltWireframe>
+```
+
 **Correct (let the wireframe iterate, read `componentConfig.user` per row, gate overflow with `filteredPresenceUsers.length > maxUsers`):**
 
 ```jsx
@@ -59,14 +71,14 @@ These resolve **only** inside the iteration or tooltip tag that owns them — bu
 |---|---|---|
 | `<velt-presence-wireframe>` | `<VeltPresenceWireframe />` | Root — hosts every other tag. No extra variables. |
 | `<velt-presence-avatar-list-wireframe>` | `<VeltPresenceWireframe.AvatarList />` | List container — iterates `componentConfig.filteredPresenceUsers`. |
-| `<velt-presence-avatar-list-item-wireframe>` | `<VeltPresenceWireframe.AvatarListItem />` | Per-user avatar — `componentConfig.user` rebinds to the iteration's `PresenceUser`. |
+| `<velt-presence-avatar-list-item-wireframe>` | `<VeltPresenceWireframe.AvatarList.Item />` | Per-user avatar — `componentConfig.user` rebinds to the iteration's `PresenceUser`. |
 | `<velt-presence-avatar-remaining-count-wireframe>` | `<VeltPresenceWireframe.AvatarRemainingCount />` | "+N" overflow badge. `shouldShow` requires `filteredPresenceUsers.length > maxUsers`. |
 | `<velt-presence-tooltip-wireframe>` | `<VeltPresenceTooltipWireframe />` | Hover tooltip — exposes `user`, `isActive`, `lastActiveAt`. Composes the five child tags below. |
-| `<velt-presence-tooltip-avatar-wireframe>` | — | Hovered user's avatar — bind `componentConfig.user.photoUrl`. |
-| `<velt-presence-tooltip-status-container-wireframe>` | — | Wrapper for the active/inactive status row. |
-| `<velt-presence-tooltip-user-name-wireframe>` | — | Hovered user's name — bind `componentConfig.user.name`. |
-| `<velt-presence-tooltip-user-active-wireframe>` | `<VeltPresenceWireframe.Tooltip.UserActive>` | Renders when `componentConfig.isActive` is true. |
-| `<velt-presence-tooltip-user-inactive-wireframe>` | `<VeltPresenceWireframe.Tooltip.UserInactive>` | Renders when `componentConfig.isActive` is false — show relative `lastActiveAt` here. |
+| `<velt-presence-tooltip-avatar-wireframe>` | `<VeltPresenceTooltipWireframe.Avatar />` | Hovered user's avatar — bind `componentConfig.user.photoUrl`. |
+| `<velt-presence-tooltip-status-container-wireframe>` | `<VeltPresenceTooltipWireframe.StatusContainer />` | Wrapper for the active/inactive status row. |
+| `<velt-presence-tooltip-user-name-wireframe>` | `<VeltPresenceTooltipWireframe.UserName />` | Hovered user's name — bind `componentConfig.user.name`. |
+| `<velt-presence-tooltip-user-active-wireframe>` | `<VeltPresenceTooltipWireframe.UserActive />` | Built-in gate: renders only for `online` users. |
+| `<velt-presence-tooltip-user-inactive-wireframe>` | `<VeltPresenceTooltipWireframe.UserInactive />` | Built-in gate: renders only for `away` users. Show relative `lastActiveAt` here. |
 
 ### Common mistakes — DO NOT
 
@@ -76,16 +88,19 @@ These resolve **only** inside the iteration or tooltip tag that owns them — bu
 
 **3. DO NOT bind `isActive` / `lastActiveAt` outside a tooltip tag.** The tooltip iteration context only exists inside `<velt-presence-tooltip-wireframe>` and its descendants.
 
-**4. DO NOT render both `tooltip-user-active` and `tooltip-user-inactive` unconditionally.** Each must be gated with `velt-if="{componentConfig.isActive}"` and `velt-if="!{componentConfig.isActive}"` respectively — otherwise both render simultaneously.
+**4. DO NOT expect a tooltip status slot for offline users.** `tooltip-user-active` renders only for `online` users and `tooltip-user-inactive` only for `away` users; neither renders for `offline`. Inside custom tooltip markup you can still branch with `velt-if="{componentConfig.isActive}"` / `velt-if="!{componentConfig.isActive}"`.
+
+**5. DO NOT forget the wrapper.** Wireframes must sit inside `<VeltWireframe>` (React) or `<velt-wireframe style="display:none;">` (HTML).
 
 **Verification:**
 - [ ] All state is read via `componentConfig.<path>` (no bare names)
 - [ ] Avatar-list iteration uses `componentConfig.user` inside `<velt-presence-avatar-list-item-wireframe>`
 - [ ] Overflow badge is gated by `filteredPresenceUsers.length > maxUsers`
-- [ ] Tooltip active/inactive slots are mutually exclusive via `velt-if` on `componentConfig.isActive`
+- [ ] Tooltip status UI accounts for the built-in gating (`online` / `away` only)
 - [ ] `componentConfig.onPresenceUserClick` is wired from custom avatar markup when overriding the click target
 
 **Source Pointers:**
 - https://docs.velt.dev/ui-customization/features/realtime/presence-wireframe-variables — "Presence Wireframe Variables"
 - https://docs.velt.dev/ui-customization/template-variables — "Template Variables overview"
+- https://docs.velt.dev/ui-customization/features/realtime/presence - "Limitations"
 - Cross-reference: `ui/ui-wireframes.md` (structural Presence wireframe catalog), `core/core-setup.md` (VeltPresence component setup)

@@ -34,7 +34,8 @@ velt-single-editor-mode-best-practices/
     │   ├── elements/     # Element control rules
     │   ├── timeout/      # Timeout configuration rules
     │   ├── events/       # Event handling rules
-    │   └── debug/        # Debug & testing rules
+    │   ├── debug/        # Debug & testing rules
+    │   └── ui/           # UI customization rules
     └── react/
         ├── state/        # React editor state hooks
         ├── access/       # React access request hooks
@@ -60,6 +61,7 @@ npm run build
 | Timeout Configuration | `timeout-` |
 | Event Handling | `events-` |
 | Debugging & Testing | `debug-` |
+| UI Customization | `ui-` |
 
 ## Source Documentation
 

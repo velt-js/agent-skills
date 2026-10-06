@@ -94,12 +94,18 @@ interface ResolverConfig {
   saveConfig?: ResolverEndpointConfig;
   deleteConfig?: ResolverEndpointConfig;
   additionalFields?: string[];     // Copy fields to resolver while keeping in Velt storage
-  fieldsToRemove?: string[];       // Strip fields from Velt DB (PII removal)
+  fieldsToRemove?: string[];       // Move custom fields out of Velt DB (comment, reaction, recorder, activity)
+  additionalSaveEvents?: AdditionalSaveEventConfig[]; // Comment resolver only: opt-in non-core save events
+}
+
+interface AdditionalSaveEventConfig {
+  event: CommentResolverSaveEvent; // e.g. 'comment_annotation.status_change' (string-literal union)
 }
 
 interface ResolverEndpointConfig {
   url: string;
-  headers?: Record<string, string>;
+  headers?: Record<string, string> | (() => Promise<Record<string, string>>); // async fn: resolved per request and per retry
+  credentials?: 'include' | 'same-origin' | 'omit';                       // forwarded to fetch()
 }
 
 interface ResolverResponse<T> {
@@ -149,7 +155,9 @@ interface GetCommentResolverRequest {
   organizationId: string; commentAnnotationIds?: string[]; documentIds?: string[]; folderId?: string; allDocuments?: boolean;
 }
 interface SaveCommentResolverRequest {
-  commentAnnotation: Record<string, PartialCommentAnnotation>; metadata?: BaseMetadata; event?: ResolverActions; commentId?: string;
+  commentAnnotation: Record<string, PartialCommentAnnotation>; metadata?: BaseMetadata;
+  event?: ResolverActions | CommentResolverSaveEvent | string; commentId?: string;
+  targetComment?: PartialComment; // request context only; never persist it
 }
 interface DeleteCommentResolverRequest {
   commentAnnotationId: string; metadata?: BaseMetadata; event?: ResolverActions;
@@ -172,10 +180,10 @@ interface DeleteAttachmentResolverRequest { url: string; }
 
 // Recordings
 interface GetRecorderResolverRequest {
-  organizationId: string; recorderAnnotationIds?: string[]; documentIds?: string[]; folderId?: string; allDocuments?: boolean;
+  organizationId: string; recorderAnnotationIds?: string[]; documentIds?: string[];
 }
 interface SaveRecorderResolverRequest {
-  recorderAnnotations: Record<string, PartialRecorderAnnotation>; metadata?: BaseMetadata; event?: ResolverActions;
+  recorderAnnotation: Record<string, PartialRecorderAnnotation>; metadata?: BaseMetadata; event?: ResolverActions;
 }
 interface DeleteRecorderResolverRequest {
   recorderAnnotationId: string; metadata?: BaseMetadata; event?: ResolverActions;
@@ -347,7 +355,7 @@ interface PartialActivityRecord {
   entityData?: unknown;                                  // PartialReaction… / PartialRecorder… — only when matching feature resolver active
   entityTargetData?: unknown;                            // sub-entity PII snapshot (e.g. comment fields)
   displayMessageTemplateData?: Record<string, unknown>;  // custom-activity template values
-  [key: string]: any;                                    // fieldsToRemove custom fields (featureType === 'custom' only)
+  [key: string]: any;                                    // top-level keys listed in fieldsToRemove (all feature types)
 }
 ```
 
@@ -506,4 +514,6 @@ The SDK sets these on the Velt-side record whenever PII was withheld for the cor
 - [ ] `TargetElement.targetText` is kept (sent to Velt); `targetTextRange.text` is stripped to your DB only
 - [ ] Recorder attachment stubs are reduced to `{ attachmentId, name }`; `url` is never sent to Velt
 
-**Source Pointer:** https://docs.velt.dev/api-reference/sdk/models/data-models - Self-Hosting Types; https://docs.velt.dev/self-host-data/field-inventory - "Complete Field Inventory"
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/sdk/models/data-models#resolverconfig - "ResolverConfig", "ResolverEndpointConfig", "AdditionalSaveEventConfig"
+- https://docs.velt.dev/self-hosting/partial/field-inventory - "Complete Field Inventory"

@@ -103,36 +103,54 @@ async function checkpointAndPrune(client: any, docId: string, ydoc: Y.Doc) {
 
 | Method | Signature | Description |
 |--------|-----------|-------------|
-| `getSnapshot` | `(query: { id: string }) => Promise<{ state: Uint8Array; timestamp: number; vector: Uint8Array } \| null>` | Retrieve the latest full-state snapshot as a replay baseline |
-| `getMessages` | `(query: { id: string; afterTs: number }) => Promise<Array<{ data: number[] }>>` | Fetch all messages newer than `afterTs` (Unix ms) for incremental replay |
-| `onMessage` | `(query: { id: string; callback: (msg: { data: number[] }) => void }) => () => void` | Subscribe to real-time incoming messages; returns an unsubscribe function |
-| `pushMessage` | `(query: { id: string; data: number[]; yjsClientId: number; messageType: 'sync' \| 'awareness'; source?: string }) => Promise<void>` | Push a lib0-encoded sync or awareness update to the stream |
-| `saveSnapshot` | `(query: { id: string; state: Uint8Array; vector: Uint8Array; source?: string }) => Promise<void>` | Checkpoint the current Y.Doc state and vector clock |
-| `pruneMessages` | `(query: { id: string; beforeTs: number }) => Promise<void>` | Delete messages older than `beforeTs` (Unix ms) to bound storage |
+| `getSnapshot` | `(query: CrdtGetSnapshotQuery) => Promise<CrdtSnapshotData \| null>` | Retrieve the latest full-state snapshot as a replay baseline |
+| `getMessages` | `(query: CrdtGetMessagesQuery) => Promise<CrdtMessageData[]>` | Fetch messages newer than `afterTs` (Unix ms) for incremental replay |
+| `onMessage` | `(query: CrdtOnMessageQuery) => () => void` | Subscribe to real-time incoming messages; returns an unsubscribe function |
+| `pushMessage` | `(query: CrdtPushMessageQuery) => Promise<void>` | Push a raw Yjs sync or awareness message to the stream |
+| `saveSnapshot` | `(query: CrdtSaveSnapshotQuery) => Promise<void>` | Checkpoint the current Y.Doc state and state vector |
+| `pruneMessages` | `(query: CrdtPruneMessagesQuery) => Promise<void>` | Delete messages older than `beforeTs` (Unix ms) to bound storage |
 
-**Data types:**
+**Data types (from the data-models reference):**
 
 ```typescript
+interface CrdtGetMessagesQuery { id: string; afterTs?: number; }
+interface CrdtOnMessageQuery { id: string; callback: (message: CrdtMessageData) => void; afterTs?: number; }
+interface CrdtPruneMessagesQuery { id: string; beforeTs: number; }
+
 interface CrdtMessageData {
-  data: number[];        // Yjs update bytes (lib0-encoded)
-  source: string;        // Source identifier (e.g., 'tiptap')
-  timestamp: number;     // Unix timestamp (ms)
+  data: number[];        // Raw Yjs message bytes
+  yjsClientId: number;   // Yjs client ID of the sender
+  timestamp: number;     // Unix timestamp when the message was persisted
 }
 
 interface CrdtSnapshotData {
-  state: Uint8Array;     // Encoded Yjs state (Y.encodeStateAsUpdate output)
-  timestamp: number;     // Unix timestamp (ms)
-  vector?: Uint8Array;   // State vector (Y.encodeStateVector output)
+  state?: Uint8Array | number[];   // Encoded Yjs state (Y.encodeStateAsUpdate output)
+  vector?: Uint8Array | number[];  // Encoded state vector (Y.encodeStateVector output)
+  timestamp?: number;              // Unix timestamp when the snapshot was saved
 }
 
 interface CrdtPushMessageQuery {
-  id: string;                    // Document ID
-  data: number[];                // Yjs update bytes
-  yjsClientId: number;          // Yjs client ID (ydoc.clientID)
-  messageType: 'sync' | 'awareness'; // Message type
-  source?: string;               // Source identifier
+  id: string;                          // Document or store ID
+  data: number[];                      // Raw Yjs message bytes
+  yjsClientId: number;                 // ydoc.clientID
+  messageType?: 'sync' | 'awareness';  // Defaults to 'sync'
+  eventData?: unknown;                 // Optional arbitrary event payload
+  type?: string;                       // 'text' | 'map' | 'array' | 'xml' | 'xmltext'
+  contentKey?: string;                 // Content key used in Y.Doc shared types
+  source?: string;                     // Editor/library identifier, e.g. 'tiptap'
+}
+
+interface CrdtSaveSnapshotQuery {
+  id: string;
+  state: Uint8Array | number[];
+  vector: Uint8Array | number[];
+  type?: string;
+  contentKey?: string;
+  source?: string;
 }
 ```
+
+When a Velt multiplayer package exists for your editor (see `editors-choose-package`), use its `CollaborationManager` instead. Reach for the message stream only for a custom Yjs integration that has no Velt package.
 
 **Verification Checklist:**
 - [ ] `getSnapshot` called first on load to establish a baseline before `getMessages`
@@ -141,5 +159,6 @@ interface CrdtPushMessageQuery {
 - [ ] `pruneMessages` is called after `saveSnapshot`, not before, to avoid data loss
 
 **Source Pointers:**
-- https://docs.velt.dev/realtime-collaboration/crdt/setup/core - CRDT Core Setup
-- https://docs.velt.dev/realtime-collaboration/crdt/api-reference - CrdtElement API Reference
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/core#low-level-message-apis - Low-Level Message APIs
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#message-stream - CrdtElement message stream API reference
+- https://docs.velt.dev/api-reference/sdk/models/data-models#crdtpushmessagequery - CrdtPushMessageQuery

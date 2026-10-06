@@ -32,24 +32,24 @@ is not added to Velt Console's Managed Domains list.
 | Environment | Domain Pattern | Example |
 |-------------|----------------|---------|
 | Development | localhost:PORT | `localhost:3000` |
-| Preview | *.vercel.app | `my-app-*.vercel.app` |
+| Preview | *.vercel.app (wildcard subdomain) | `*.vercel.app` |
 | Staging | staging.domain.com | `staging.myapp.com` |
 | Production | domain.com | `myapp.com` |
 
-**Wildcard Patterns:**
+**Wildcard Patterns and Automation:**
 
-Some platforms generate dynamic preview URLs. Check if Velt Console supports wildcards:
+Wildcard subdomains (for example `*.example.com`) are supported. When you manage many environments (preview deployments, per-tenant subdomains), add, list, and remove allowed domains from your backend with the workspace domain REST APIs. They require your API key and Auth Token, so call them server-side only.
 
+```bash
+# Server-side only: requires x-velt-auth-token
+curl -X POST https://api.velt.dev/v2/workspace/domains/add \
+  -H "Content-Type: application/json" \
+  -H "x-velt-api-key: $VELT_API_KEY" \
+  -H "x-velt-auth-token: $VELT_AUTH_TOKEN" \
+  -d '{ "data": { "domains": ["staging.myapp.com", "*.vercel.app"] } }'
 ```
-# If supported:
-*.vercel.app
-*.netlify.app
-*.railway.app
 
-# If not supported, add specific URLs as needed:
-my-app-abc123.vercel.app
-my-app-def456.vercel.app
-```
+The API strips the protocol and `www` prefix and stores bare domains. Up to 100 domains per request.
 
 **Development Setup:**
 
@@ -100,3 +100,6 @@ useEffect(() => {
 
 **Source Pointers:**
 - `https://docs.velt.dev/get-started/quickstart` - Step 3: Safelist Your Domain
+- `https://docs.velt.dev/api-reference/rest-apis/v2/workspace/add-domain` - Add Domains
+- `https://docs.velt.dev/api-reference/rest-apis/v2/workspace/domains-get` - Get Domains
+- `https://docs.velt.dev/api-reference/rest-apis/v2/workspace/delete-domain` - Delete Domains

@@ -2,64 +2,71 @@
 title: Programmatic Composer Control — Submit, Clear, Read State
 impact: HIGH
 impactDescription: Control the comment composer programmatically
-tags: submitComment, clearComposer, getComposerData, composer
+tags: submitComment, clearComposer, getComposerData, targetComposerElementId, composerTextChange, composer
 ---
 
 ## Programmatic Composer Control — Submit, Clear, Read State
 
-Use these methods to control the comment composer without user interaction — submit comments programmatically, clear the composer, or read its current state.
+Submit, clear, or read a composer without user interaction. All three methods target one composer through `targetComposerElementId`, which must match the `targetComposerElementId` prop on `VeltCommentComposer` or `VeltCommentDialogComposer`. Calling them without it does not reach your composer.
 
-**API Methods:**
+**Incorrect (no target id):**
 
-```tsx
-const commentElement = client.getCommentElement();
-
-// Submit the current composer content
-commentElement.submitComment({
-  targetComposerElementId: 'composer-1', // Matches the VeltCommentComposer's targetComposerElementId prop
-});
-
-// Clear the composer (reset to empty)
-commentElement.clearComposer();
-
-// Read current composer state
-const composerData = commentElement.getComposerData();
-// Returns: { text, html, attachments, taggedUsers, ... }
+```jsx
+commentElement.clearComposer();                 // which composer?
+const data = commentElement.getComposerData();  // requires { targetComposerElementId }
 ```
 
-**Usage with VeltCommentComposer:**
+**Correct:**
 
-```tsx
-import { VeltCommentComposer } from '@veltdev/react';
+```jsx
+import { VeltCommentComposer, useVeltClient } from '@veltdev/react';
 
 function CustomSubmitForm() {
   const { client } = useVeltClient();
-
-  const handleSubmit = () => {
-    const commentElement = client?.getCommentElement();
-    commentElement?.submitComment({ targetComposerElementId: 'my-composer' });
-  };
+  const commentElement = client?.getCommentElement(); // or useCommentUtils()
 
   return (
     <>
-      <VeltCommentComposer targetComposerElementId="my-composer" />
-      <button onClick={handleSubmit}>Submit</button>
-      <button onClick={() => client?.getCommentElement()?.clearComposer()}>
+      <VeltCommentComposer targetComposerElementId="composer-1" />
+      <button onClick={() => commentElement?.submitComment({ targetComposerElementId: 'composer-1' })}>
+        Submit
+      </button>
+      <button onClick={() => commentElement?.clearComposer({ targetComposerElementId: 'composer-1' })}>
         Clear
+      </button>
+      <button
+        onClick={() => {
+          // Same shape as the composerTextChange event
+          const data = commentElement?.getComposerData({ targetComposerElementId: 'composer-1' });
+          console.log(data);
+        }}
+      >
+        Inspect
       </button>
     </>
   );
 }
 ```
 
+```html
+<velt-comment-composer target-composer-element-id="composer-1"></velt-comment-composer>
+<script>
+  const commentElement = Velt.getCommentElement();
+  commentElement.submitComment({ targetComposerElementId: 'composer-1' });
+</script>
+```
+
 **Key details:**
-- `targetComposerElementId` must match between `VeltCommentComposer` prop and `submitComment()` call
-- `clearComposer()` clears all composers on the page
-- `getComposerData()` returns the current state synchronously
+- `clearComposer()` resets text, attachments, recordings, tagged users, assignments, and custom lists for that composer.
+- `getComposerData()` returns a `ComposerTextChangeEvent` synchronously; subscribe to `composerTextChange` for live updates.
+- To pre-fill files, use `setComposerFileAttachments({ files, annotationId?, targetElementId? })` (see `config-attachments.md`).
 
 **Verification:**
-- [ ] targetComposerElementId matches between component and API call
-- [ ] Composer clears after submission
-- [ ] getComposerData returns expected structure
+- [ ] `targetComposerElementId` matches between the component and each API call
+- [ ] `clearComposer()` and `getComposerData()` receive `{ targetComposerElementId }`
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/comments/customize-behavior - Composer
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#submitcomment - submitComment
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#clearcomposer - clearComposer
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#getcomposerdata - getComposerData
+- https://docs.velt.dev/async-collaboration/comments/standalone-components/comment-composer/customize-behavior - Comment Composer

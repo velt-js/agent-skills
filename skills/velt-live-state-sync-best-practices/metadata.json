@@ -1,6 +1,6 @@
 {
   "name": "velt-live-state-sync-best-practices",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Velt Live State Sync implementation patterns and best practices for React, Next.js, and web applications.",
   "author": "velt",
   "license": "MIT",

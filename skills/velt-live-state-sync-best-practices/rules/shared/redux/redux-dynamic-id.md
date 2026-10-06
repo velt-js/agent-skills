@@ -1,36 +1,42 @@
 ---
-title: Dynamic liveStateDataId with updateLiveStateDataId
+title: Switch the Redux sync scope with updateLiveStateDataId
 impact: HIGH
-tags: updateLiveStateDataId, dynamic, room, document, context switch
+impactDescription: Actions sync on the current liveStateDataId; forgetting to update it on navigation mixes state across documents or rooms
+tags: updateLiveStateDataId, dynamic, room, document, context switch, createLiveStateMiddleware
 ---
 
-## Dynamic liveStateDataId with updateLiveStateDataId
+## Switch the Redux sync scope with updateLiveStateDataId
 
-`updateLiveStateDataId` lets you switch the sync scope at runtime — for example, when a user navigates between documents or rooms.
+Call the `updateLiveStateDataId(id)` function returned by `createLiveStateMiddleware` whenever the sync scope changes, for example when the user switches rooms. All actions dispatched after the call sync on the new ID path. Set an initial custom `liveStateDataId` in the middleware config first, then change it dynamically.
 
-```tsx
-import { updateLiveStateDataId } from './store';
+**Incorrect (never updates the key on room change):**
 
-function DocumentView({ documentId }: { documentId: string }) {
-  useEffect(() => {
-    updateLiveStateDataId(`doc-${documentId}`);
-  }, [documentId]);
-
-  return <Editor />;
+```jsx
+function Room({ roomId }) {
+  // BUG: actions from every room keep syncing on the initial key
+  return <Canvas />;
 }
 ```
 
-### How It Works
+**Correct (React / Next.js):**
 
-- `createLiveStateMiddleware` returns `{ middleware, updateLiveStateDataId }`
-- Export `updateLiveStateDataId` from your store file
-- Call it whenever the context changes (document switch, room change, etc.)
-- All actions dispatched after the call use the new ID
-- Actions already in flight use the old ID — there is no retroactive update
+```jsx
+import { useEffect } from 'react';
+import { updateLiveStateDataId } from './store';
 
-### Key Points
+function Room({ roomId }) {
+  useEffect(() => {
+    updateLiveStateDataId(`room-${roomId}`);
+  }, [roomId]);
 
-- Always set an initial `liveStateDataId` in the middleware config, then update dynamically — don't rely solely on dynamic updates
-- The ID change takes effect immediately for new dispatches
-- Other clients subscribed to the old ID stop receiving this client's actions; clients on the new ID start receiving them
-- Common pattern: `doc-${documentId}` or `room-${roomId}` to scope state per document/room
+  return <Canvas />;
+}
+```
+
+**Verification Checklist:**
+- [ ] `updateLiveStateDataId` is exported from the store and called when scope changes
+- [ ] The middleware config also sets an initial `liveStateDataId`
+- [ ] The ID follows a stable convention such as `room-${roomId}`
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/redux-middleware — "Step 3: Selectively sync actions" (`updateLiveStateDataId`)

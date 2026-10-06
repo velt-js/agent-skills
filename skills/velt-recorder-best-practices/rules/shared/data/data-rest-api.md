@@ -2,27 +2,26 @@
 title: Retrieve Recordings via REST API Endpoint
 impact: MEDIUM
 impactDescription: Enables server-side retrieval of recording data without the client SDK
-tags: REST API, recordings, GET, v2, pagination, server-side, x-velt-api-key, x-velt-auth-token
+tags: REST API, recordings, v2, pagination, server-side, x-velt-api-key, x-velt-auth-token, recordingIds
 ---
 
 ## Retrieve Recordings via REST API Endpoint
 
-Use the `POST https://api.velt.dev/v2/recordings/get` REST endpoint to retrieve recordings server-side without the client SDK. This is distinct from the client-side `fetchRecordings()` / `getRecordings()` methods (see `data-fetch-subscribe` rule). The endpoint supports pagination and filtering by document or specific recording IDs.
+Use `POST https://api.velt.dev/v2/recordings/get` to retrieve recorder annotations server-side without the client SDK. This is distinct from the client-side `fetchRecordings()` / `getRecordings()` methods (see `data-fetch-subscribe`). Like other v2 REST APIs, the parameters go inside a top-level `data` object, and the response is wrapped in `result`.
 
-**Incorrect (using GET method — endpoint uses POST):**
+**Incorrect (GET method, unwrapped body, wrong pagination field):**
 
 ```typescript
-// Wrong HTTP method — this endpoint requires POST
 const response = await fetch('https://api.velt.dev/v2/recordings/get', {
-  method: 'GET',
+  method: 'GET',                                   // Must be POST
+  body: JSON.stringify({ organizationId: 'org-123' }), // Must be wrapped in { data: { ... } }
 });
+const { nextPageToken } = await response.json();   // Not a field; use result.pageToken
 ```
 
-**Correct (server-side fetch with required headers and body):**
+**Correct (server-side POST with headers and `data` body):**
 
 ```typescript
-// Server-side REST call to retrieve recordings
-// Authentication: x-velt-api-key + x-velt-auth-token headers
 const response = await fetch('https://api.velt.dev/v2/recordings/get', {
   method: 'POST',
   headers: {
@@ -31,39 +30,42 @@ const response = await fetch('https://api.velt.dev/v2/recordings/get', {
     'x-velt-auth-token': process.env.VELT_AUTH_TOKEN!,
   },
   body: JSON.stringify({
-    organizationId: 'YOUR_ORG_ID',   // required
-    documentId: 'YOUR_DOC_ID',       // optional
-    recordingIds: ['RECORDER_ID_1'], // optional — filter by specific recording IDs
-    pageSize: 20,                    // optional
-    pageToken: undefined,            // optional — pass nextPageToken from previous response
+    data: {
+      organizationId: 'org-123',          // required
+      documentId: 'doc-456',              // optional
+      recordingIds: ['rec-1', 'rec-2'],   // optional
+      pageSize: 10,                       // optional, minimum 1
+      // pageToken: previousResult.pageToken,
+    },
   }),
 });
 
-const data = await response.json();
-// data.nextPageToken present when more results are available
+const { result } = await response.json();
+for (const recording of result.data) {
+  // recorder annotation: annotationId, recordingType, mode, recordedTime, displayName,
+  // attachments[] (url, mimeType, name, type, size), latestVersion, metadata
+  console.log(recording.annotationId, recording.attachments?.[0]?.url);
+}
+const nextPageToken = result.pageToken; // present when more results exist
 ```
 
-<!-- TODO (v5.0.2-beta.11): Verify exact response shape for POST /v2/recordings/get. Release note confirms the endpoint path and pagination support but does not specify the response schema (field names, nesting, error format). Validate against official Velt REST API documentation before relying on field names. -->
-
-<!-- TODO (v5.0.2-beta.11): Verify authentication mechanism. x-velt-api-key and x-velt-auth-token headers follow the pattern used by other Velt v2 REST endpoints, but this should be confirmed against the recordings endpoint documentation specifically. -->
-
-<!-- TODO (v5.0.2-beta.11): Verify whether recordingIds is the correct filter parameter name. The release note names it but does not confirm the exact JSON body field name for filtering. -->
-
-**Request body parameters:**
+**Request body (`data`):**
 
 | Parameter | Type | Required | Description |
 |-----------|------|----------|-------------|
-| `organizationId` | `string` | Yes | Organization scope for the recordings query |
-| `documentId` | `string` | No | Filter recordings to a specific document |
+| `organizationId` | `string` | Yes | Organization ID |
+| `documentId` | `string` | No | Filter to a specific document |
 | `recordingIds` | `string[]` | No | Filter to specific recording IDs |
-| `pageSize` | `number` | No | Number of results per page |
-| `pageToken` | `string` | No | Pagination cursor from a previous response |
+| `pageSize` | `number` | No | Results per page (minimum 1) |
+| `pageToken` | `string` | No | Cursor from a previous response's `result.pageToken` |
+
+Errors return `{ error: { status, message } }` (for example `INVALID_ARGUMENT`). The Node and Python backend SDKs wrap the same endpoint.
 
 **Verification:**
-- [ ] Using `POST` method (not `GET`) for this endpoint
-- [ ] `organizationId` included in the request body
-- [ ] `x-velt-api-key` and `x-velt-auth-token` headers set from server-side environment variables (never exposed to the client)
-- [ ] `pageToken` threaded through for paginated result sets
+- [ ] `POST` method with parameters inside `data`
+- [ ] `organizationId` included
+- [ ] `x-velt-api-key` and `x-velt-auth-token` read from server-side environment variables
+- [ ] Results read from `result.data`; pagination continues with `result.pageToken`
 
 **Source Pointers:**
-- https://docs.velt.dev/api-reference/rest-api/recordings/get - GET /v2/recordings/get REST endpoint
+- https://docs.velt.dev/api-reference/rest-apis/v2/recordings/get-recordings - "Get Recordings"

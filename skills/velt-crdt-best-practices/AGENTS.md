@@ -1,5 +1,5 @@
 # Velt Crdt Best Practices
-|v2.1.1|Velt|January 2026
+|v2.2.0|Velt|October 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
 |root: ./rules
 
@@ -24,3 +24,7 @@
 
 ## 5. ReactFlow Integration — HIGH
 |react/reactflow:{reactflow-install.md,reactflow-testing.md,reactflow-handlers.md,reactflow-editor-id.md,reactflow-setup-react.md}
+
+## 6. Multiplayer Editor Integrations — HIGH
+|react/editors:{editors-slate.md,editors-draftjs.md}
+|shared/editors:{editors-prosemirror.md,editors-monaco.md,editors-ckeditor.md,editors-superdoc.md,editors-integration-lifecycle.md,editors-ace.md,editors-tinymce.md,editors-spreadjs.md,editors-nutrient.md,editors-choose-package.md,editors-quill.md,editors-lexical.md,editors-apryse.md}

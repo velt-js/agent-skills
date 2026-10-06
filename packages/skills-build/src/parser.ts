@@ -162,6 +162,19 @@ function extractTitle(body: string): string | null {
 }
 
 /**
+ * Extract the rule body: everything after the first `## ` title heading.
+ * Falls back to the whole body when there is no title heading.
+ */
+function extractBody(body: string): string {
+	const lines = body.split("\n");
+	const titleIndex = lines.findIndex((line) => line.startsWith("## "));
+	return lines
+		.slice(titleIndex + 1)
+		.join("\n")
+		.trim();
+}
+
+/**
  * Extract explanation (content between title and first example)
  */
 function extractExplanation(body: string): string {
@@ -288,6 +301,7 @@ export function parseRuleFile(
 			impact,
 			impactDescription: frontmatter.impactDescription,
 			explanation,
+			body: extractBody(body),
 			examples,
 			references: extractReferences(body),
 			tags: tags.length > 0 ? tags : undefined,

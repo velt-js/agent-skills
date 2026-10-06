@@ -92,6 +92,21 @@ curl -X POST https://api.velt.dev/v2/crdt/update \
 | `type` | string | Yes | `text`, `map`, `array`, or `xml` |
 | `contentKey` | string | No | Yjs content key (default: `content`, use `default` for TipTap) |
 
+**Editor integrations: match the store type and content key the package uses:**
+
+The multiplayer editor guides document these store shapes. Writing REST data with a different `type` or `contentKey` creates data the editor never reads.
+
+| Integration | Store type | Content key / notes |
+|---|---|---|
+| Tiptap | `xml` | `default` |
+| Monaco | `text` | `content` |
+| ProseMirror | XML fragment | `prosemirror` |
+| Draft.js | `xml` | `draftjs`; REST-created content is bridged from the `restContentKey` fragment (default `document-store`) |
+| SpreadJS | `map` | `workbook` (whole-workbook snapshot) |
+| Nutrient | `map` | `document` (Instant JSON snapshot) |
+| Apryse | `map` | `apryse` (XFDF annotation records) |
+| Lexical | n/a | REST-written content is not materialized into the Lexical editor; REST reads of browser edits work |
+
 **Get Response Type:**
 
 ```typescript
@@ -114,9 +129,12 @@ interface CrdtDataObject {
 - [ ] Use `/v2/crdt/add` for new editors and `/v2/crdt/update` for existing ones
 - [ ] `data` field type matches the `type` field (string for text/xml, object for map, array for array)
 - [ ] Response parsed according to your data type (text, map, array, xml)
-- [ ] `contentKey` set to `'default'` for TipTap editors
+- [ ] `contentKey` set to `'default'` for TipTap editors, and to the documented key for other editor integrations
+- [ ] Lexical documents are not seeded through REST writes
 
 **Source Pointers:**
 - https://docs.velt.dev/api-reference/rest-apis/v2/crdt/get-crdt-data - Get CRDT Data
 - https://docs.velt.dev/api-reference/rest-apis/v2/crdt/add-crdt-data - Add CRDT Data
 - https://docs.velt.dev/api-reference/rest-apis/v2/crdt/update-crdt-data - Update CRDT Data
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/draftjs#rest-api-compatibility - Draft.js REST API Compatibility
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/lexical#limitations - Lexical REST limitation

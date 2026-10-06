@@ -1,14 +1,26 @@
 ---
-title: Redux Action Wire Format and Timestamp
+title: Understand the synced Redux action shape and its timestamp
 impact: MEDIUM
-tags: redux, action, timestamp, wire format, id
+impactDescription: The middleware adds the UTC timestamp itself; setting your own or depending on undocumented fields causes confusion when debugging ordering
+tags: redux, action, timestamp, wire format, id, debugging
 ---
 
-## Redux Action Wire Format
+## Understand the synced Redux action shape and its timestamp
 
-The middleware automatically wraps dispatched Redux actions before syncing them. Understanding this format helps when debugging or building custom middleware on top.
+The middleware stores each synced action as `{ id, action: { type, payload }, timestamp }`. `timestamp` is the UTC time in milliseconds when the action was dispatched, added automatically by the middleware to help with ordering and debugging across clients.
 
-### Wire Format
+**Incorrect (adds its own timestamp to every action):**
+
+```js
+dispatch({ type: 'canvas/addShape', payload: { shapeId: 'rect-1' }, timestamp: Date.now() });
+// Unnecessary: the middleware already records a UTC timestamp for each synced action
+```
+
+**Correct:**
+
+```js
+dispatch({ type: 'canvas/addShape', payload: { shapeId: 'rect-1', x: 100, y: 200 } });
+```
 
 ```json
 {
@@ -21,16 +33,10 @@ The middleware automatically wraps dispatched Redux actions before syncing them.
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | `string` | Auto-generated unique action ID |
-| `action.type` | `string` | Original Redux action type |
-| `action.payload` | `any` | Original action payload (if present) |
-| `timestamp` | `number` | UTC milliseconds — added automatically by the middleware |
+**Verification Checklist:**
+- [ ] Actions are plain `{ type, payload }` objects
+- [ ] Debugging tools read `timestamp` from the stored action record
+- [ ] `payload` stays serializable
 
-### Key Points
-
-- The timestamp is server-assigned for conflict resolution (last-write-wins) — do not set it manually
-- Your reducers receive the original unwrapped `{ type, payload }` — the wrapping is transparent
-- The `id` field ensures idempotent replay — the same action won't be applied twice even if delivered multiple times
-- Use the `allowAction` callback if you need to inspect or filter based on the wrapped structure
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/redux-middleware — "Step 4: Action Data Structure"

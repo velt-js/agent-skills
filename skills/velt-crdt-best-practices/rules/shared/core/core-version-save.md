@@ -7,7 +7,7 @@ tags: version, checkpoint, saveVersion, history
 
 ## Save Named Version Checkpoints for State Recovery
 
-Use `saveVersion()` to create named checkpoints that can be restored later. Useful for autosave, undo/redo at document level, or user-triggered saves. The full version lifecycle — `saveVersion` → `getVersions` / `getVersionById` → `restoreVersion` (or `setStateFromVersion` for a local-only preview) — is available on every Velt CRDT store: plain stores (`array`, `map`, `text`, `xml`) and the editor integrations built on top of them (Tiptap, BlockNote, CodeMirror, ReactFlow).
+Use `saveVersion()` to create named checkpoints that can be restored later. Useful for autosave, undo/redo at document level, or user-triggered saves. The full version lifecycle — `saveVersion` → `getVersions` / `getVersionById` → `restoreVersion` (or `setStateFromVersion` for a local-only preview) — is available on every Velt CRDT store: plain stores (`array`, `map`, `text`, `xml`) and the editor integrations built on top of them (Tiptap, BlockNote, CodeMirror, ReactFlow). The multiplayer editor managers (Lexical, Slate, Draft.js, ProseMirror, Quill, TinyMCE, CKEditor, SuperDoc, Monaco, Ace, Apryse, Nutrient, SpreadJS) expose the same `saveVersion` / `getVersions` / `restoreVersion` / `setStateFromVersion` methods on `CollaborationManager`; most of their React hooks also return reactive `versions` plus `saveVersion`, `restoreVersion`, and `refreshVersions()` (Lexical exposes versions through `manager` only).
 
 **When to save versions:**
 - On explicit user action ("Save" button)
@@ -89,8 +89,9 @@ Confusing the two leads to either a preview that unexpectedly wipes everyone els
 - [ ] `getVersions()` returns expected list
 - [ ] "Restore" actions use `restoreVersion(id)` and propagate to every connected collaborator
 - [ ] Preview / diff UIs use `setStateFromVersion(version)` and do **not** persist for other users
-- [ ] The chosen method is consistent whether the store is a plain type (`array`/`map`/`text`/`xml`) or an editor integration (Tiptap, BlockNote, CodeMirror, ReactFlow)
+- [ ] The chosen method is consistent whether the store is a plain type (`array`/`map`/`text`/`xml`) or an editor integration manager
 
 **Source Pointers:**
-- `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Step 6: Save and restore versions)
+- `https://docs.velt.dev/realtime-collaboration/crdt/setup/core#version-methods` (### Version Methods)
 - `https://docs.velt.dev/realtime-collaboration/crdt/overview` — "Version history"
+- `https://docs.velt.dev/realtime-collaboration/crdt/setup/superdoc` - "Step 5: Version Management (Optional)" (manager and hook version APIs)

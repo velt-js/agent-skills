@@ -27,7 +27,21 @@ const userDataProvider = {
 | **Input** | Request object `{ organizationId, ... }` | Plain `string[]` array of userIds |
 | **Return** | `{ data, success, statusCode }` | `Record<string, User>` directly |
 
-DO NOT wrap the user provider's return in `{ data, success, statusCode }` — the SDK expects `Record<string, User>` directly.
+DO NOT wrap the function-based user provider's return in `{ data, success, statusCode }`; the SDK expects `Record<string, User>` directly.
+
+**Endpoint-based variant is different.** With `config.getConfig`, the SDK POSTs `{ organizationId, userIds }` (a `GetUserResolverRequest`, not a bare array) and your endpoint must answer with the standard `ResolverResponse<Record<string, User>>` envelope (`{ data, success, statusCode }`). Use `config.resolveUsersConfig` (`{ organization, folder, document }` booleans) to stop user-resolver requests at scopes you do not need.
+
+```jsx
+const userDataProvider = {
+  config: {
+    getConfig: {
+      url: 'https://your-backend.com/api/velt/users/get',
+      headers: { Authorization: 'Bearer YOUR_TOKEN' },
+    },
+    resolveUsersConfig: { organization: false, folder: false, document: true },
+  },
+};
+```
 
 **Correct (get-only user resolver with TypeScript types):**
 
@@ -117,13 +131,17 @@ useEffect(() => {
 - Must be set before `identify()` is called
 - Users must already exist in your database when Velt calls `get` — seed demo users or persist on login
 - Without this provider, user PII (name, email, photo URL) is stored on Velt servers by default
+- `getRetryConfig` is not supported for the user provider
+- If the user provider fails or omits the logged-in user at page load, Velt (v6.0.0+) falls back to the name from `identify()`, keeps the placeholder out of the user store, and retries in the background, so new comments and notifications still carry the correct name. Still return every requested user
 
 **Verification:**
 - [ ] Only `get` implemented (no save/delete)
-- [ ] `get` receives `string[]` and returns `Record<string, User>` directly (NO `{ data, success, statusCode }` wrapper)
+- [ ] Function-based `get` receives `string[]` and returns `Record<string, User>` directly (no wrapper); endpoint-based `getConfig` receives `{ organizationId, userIds }` and returns `{ data, success, statusCode }`
 - [ ] All requested userIds resolved (missing users show as "Unknown")
 - [ ] Provider set before `identify()` is called
 - [ ] Demo users seeded into database at startup
 - [ ] `saveCurrentUserToDB()` called from auth flow to persist user PII on login
 
-**Source Pointer:** https://docs.velt.dev/self-host-data/users
+**Source Pointers:**
+- https://docs.velt.dev/self-hosting/partial/users - "Endpoint based DataProvider", "Function based DataProvider"
+- https://docs.velt.dev/release-notes/version-6/sdk-changelog - "6.0.0" (user resolver fallback)

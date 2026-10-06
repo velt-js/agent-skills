@@ -65,10 +65,10 @@ npm install --save-dev @veltdev/types
 
 ```html
 <!-- Latest version (recommended for development) -->
-<script src="https://cdn.velt.dev/lib/sdk@latest/velt.js"></script>
+<script type="module" src="https://cdn.velt.dev/lib/sdk@latest/velt.js"></script>
 
-<!-- Specific version (recommended for production) -->
-<script src="https://cdn.velt.dev/lib/sdk@4.6.10/velt.js"></script>
+<!-- Specific version (recommended for production); replace VERSION with a published SDK version -->
+<script type="module" src="https://cdn.velt.dev/lib/sdk@VERSION/velt.js"></script>
 ```
 
 **Prerequisites:**

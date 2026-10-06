@@ -33,8 +33,8 @@ const response = await fetch('https://api.velt.dev/v2/notifications/get', {
   body: JSON.stringify({
     data: {
       organizationId: 'your-org-id',
-      documentId: 'your-doc-id',      // Optional: filter by document
-      userId: 'user-id',               // Optional: filter by user
+      documentId: 'your-doc-id',      // Pass documentId or userId (or both)
+      userId: 'user-id',
       pageSize: 20,                    // Default: 1000
       order: 'desc'                    // 'asc' or 'desc'
     }
@@ -79,8 +79,8 @@ const response = await fetch('https://api.velt.dev/v2/notifications/update', {
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `organizationId` | string | Required. Your organization ID |
-| `documentId` | string | Optional. Filter by document |
-| `userId` | string | Optional. Filter by user |
+| `documentId` | string | Filter by document. Pass this or `userId` |
+| `userId` | string | Filter by user. Pass this or `documentId` |
 | `locationId` | string | Optional. Filter by location |
 | `notificationIds` | string[] | Optional. Get specific notifications (max 30) |
 | `pageSize` | number | Items per page (default: 1000) |
@@ -109,6 +109,8 @@ const response = await fetch('https://api.velt.dev/v2/notifications/update', {
 }
 ```
 
+**Visibility filtering:** Get results are filtered by comment visibility. A notification for a private comment is returned only for users who can see that comment, on top of any Access Context filtering. The Node and Python backend SDKs apply the same filter. Custom notifications are unaffected.
+
 **Delete Notifications:**
 
 ```javascript
@@ -126,17 +128,20 @@ const response = await fetch('https://api.velt.dev/v2/notifications/delete', {
       organizationId: 'your-org-id',
       documentId: 'your-doc-id',             // Optional: delete all for document
       notificationIds: ['notif-1', 'notif-2'] // Optional: delete specific IDs
+      // Also accepts userId and locationId
     }
   })
 });
 ```
 
-At least one of `documentId`, `userId`, or `notificationIds` is required alongside `organizationId`.
+Combine `organizationId` with `documentId`, `userId`, `locationId`, and/or `notificationIds` to scope the delete (see the documented request combinations).
 
-**Prerequisites:**
-- Enable "Advanced Queries" in [Velt Console](https://console.velt.dev/dashboard/config/appconfig)
-- Deploy v4 series of Velt SDK
-- Generate auth token for API access
+**Prerequisites (Get Notifications):**
+- Enable the advanced queries option in the [Velt Console](https://console.velt.dev/dashboard/config/appconfig)
+- Run SDK v4 or later
+- Generate an auth token for API access
+
+**Update options:** each entry in `notifications` takes `id` plus any of `actionUser`, `displayHeadlineMessageTemplate`, `displayHeadlineMessageTemplateData`, `displayBodyMessage`, `notificationSourceData`, `readByUserIds`, and `persistReadForUsers`. Set `verifyUserPermissions: true` on the request to only update for users with document access.
 
 **Verification:**
 - [ ] Advanced Queries enabled in console
@@ -144,4 +149,8 @@ At least one of `documentId`, `userId`, or `notificationIds` is required alongsi
 - [ ] Correct endpoint URL used
 - [ ] Required headers included
 
-**Source Pointer:** https://docs.velt.dev/api-reference/rest-apis/v2/notifications/get-notifications-v2 - Get Notifications API
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/rest-apis/v2/notifications/get-notifications-v2 - "Get Notifications"
+- https://docs.velt.dev/api-reference/rest-apis/v2/notifications/update-notifications - "Update Notifications"
+- https://docs.velt.dev/api-reference/rest-apis/v2/notifications/delete-notifications - "Delete Notifications"
+- https://docs.velt.dev/async-collaboration/notifications/overview#notifications-for-private-comments - "Notifications for Private Comments"

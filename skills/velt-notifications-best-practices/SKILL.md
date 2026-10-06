@@ -1,15 +1,15 @@
 ---
 name: velt-notifications-best-practices
-description: Velt Notifications implementation patterns and best practices for React, Next.js, and web applications. Use when adding in-app notifications, notification panels, email notifications via SendGrid, webhook integrations, user notification preference management, cross-organization notification feeds with enableCrossOrganization/disableCrossOrganization, or binding Notifications Panel / Notifications Tool wireframe slots with template variables (velt-data, velt-if, velt-class).
+description: Velt Notifications implementation patterns and best practices for React, Next.js, and web applications. Use when adding in-app notifications, notification panels, email notifications via SendGrid, webhook integrations (private-comment visibility), user preference management, cross-organization feeds (enableCrossOrganization), user-scoped For You notifications (enableUserScopedNotifications), self-hosted custom notifications, or binding Notifications Panel/Tool wireframe variables.
 license: MIT
 metadata:
   author: velt
-  version: "1.2.0"
+  version: "1.2.1"
 ---
 
 # Velt Notifications Best Practices
 
-Comprehensive implementation guide for Velt's notification system in React and Next.js applications. Contains 18 rules across 10 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's notification system in React and Next.js applications. Contains 21 rules across 10 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
@@ -24,6 +24,9 @@ Reference these guidelines when:
 - Creating custom notifications via REST API
 - Integrating with external services via webhooks
 - Configuring notification delay and batching to reduce noise
+- Keeping unread notifications visible in the For You tab with `enableUserScopedNotifications`
+- Self-hosting custom notification content with a `NotificationDataProvider`
+- Handling notifications for private comments (visibility filtering, `accessDeniedUsers`)
 
 ## Rule Categories by Priority
 
@@ -44,37 +47,41 @@ Reference these guidelines when:
 
 ### 1. Core Setup (CRITICAL)
 
-- `core-setup` — Enable notifications and add VeltNotificationsTool
+- `core-setup` — Enable notifications in the Console, add VeltNotificationsTool, component props and shared-service flags
 
 ### 2. Panel Configuration (HIGH)
 
-- `panel-tabs` — Configure notification panel tabs (forYou, all, documents, people)
-- `panel-display` — Control panel open mode (popover vs sidebar)
+- `panel-tabs` — Configure notification panel tabs (forYou, documents, all) and primitive `listType`
+- `panel-display` — Control panel open mode (popover vs sidebar), embedded panel, pageSize
+- `panel-current-document-only` — Restrict notifications to the current document; primitive `documentId` scoping
 
 ### 3. Data Access (HIGH)
 
 - `data-hooks` — Use React hooks to access notification data
-- `data-rest-api` — Use REST APIs for server-side notification management
-- `data-notification-data-provider` — Register NotificationDataProvider to route custom notification fetch and delete through your own backend; applies only to notificationSource === 'custom' notifications; pipeline order is notification → user → comment
+- `data-rest-api` — Use REST APIs for server-side get, update, and delete (visibility-filtered reads)
+- `data-notification-data-provider` — Self-host custom notification content with a NotificationDataProvider (function or endpoint based); applies only to notificationSource === 'custom'
+- `data-notification-actions` — Mark notifications as read and handle click events
 
 ### 4. Settings Management (MEDIUM-HIGH)
 
-- `settings-channels` — Configure notification delivery channels
-- `settings-config-rest-api` — Read and write per-user notification config at document or org level via REST API
+- `settings-channels` — Configure notification delivery channels and settings UI
+- `settings-config-rest-api` — Read (userId) and write (userIds) per-user notification config at document or org level via REST API
 
 ### 5. Configuration (MEDIUM)
 
-- `config-cross-organization` — Cross-organization notifications: enableCrossOrganization/disableCrossOrganization, CrossOrganizationConfig (organizationIds, excludeOrganizationIds), "For You" feed merging, getCrossOrganizationConfig$() subscription
+- `config-cross-organization` — Cross-organization notifications: enableCrossOrganization/disableCrossOrganization, CrossOrganizationConfig, getCrossOrganizationConfig$()
+- `config-user-scoped-notifications` — enableUserScopedNotifications/disableUserScopedNotifications, UserScopedNotificationsConfig `limit`, For You and unread count outside the recently-active-documents window
 
 ### 6. Notification Triggers (MEDIUM)
 
-- `triggers-custom` — Create custom notifications via REST API
+- `triggers-custom` — Create custom notifications via REST API (notifyAll defaults to true; resolver-eligible writes)
+- `triggers-self-notifications` — Enable or disable notifications for the user's own actions
 
 ### 7. Delivery Channels (MEDIUM)
 
 - `delivery-email` — Set up email notifications with SendGrid
-- `delivery-webhooks` — Integrate with external services via webhooks
-- `delivery-delay-batching` — Configure opt-in server-side delay and batching pipeline
+- `delivery-webhooks` — Forward basic/advanced webhook payloads, honor per-user preferences, drop accessDeniedUsers for private comments
+- `delivery-delay-batching` — Configure opt-in server-side delay and batching pipeline (Console or workspace REST)
 
 ### 8. UI Customization (MEDIUM)
 

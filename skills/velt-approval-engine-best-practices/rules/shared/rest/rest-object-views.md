@@ -1,15 +1,22 @@
 ---
-title: Object reference — ExecutionView, StepView, DefinitionView, ApprovalEventView, and the human / joinOnQuorum payload shapes
+title: Type responses against ExecutionView, StepView, DefinitionView with compiled, ApprovalEventView, and step output shapes
 impact: MEDIUM
-impactDescription: The exact field shapes returned by /executions/get, /definitions/get, /executions/getEvents, and embedded in step outputs — needed for typing client code against responses
-tags: approval-engine, types, ExecutionView, StepView, DefinitionView, ApprovalEventView, output, input, aggregatorStatus, groupOutputs, joinOnQuorum
+impactDescription: Exact field shapes returned by the read endpoints and embedded in step outputs; StepView.nodeType now has four values and DefinitionView carries a read-only compiled block
+tags: approval-engine, types, ExecutionView, StepView, DefinitionView, CompiledGraph, CompiledForwardEdge, CompiledLoopRegion, ApprovalEventView, output, aggregatorStatus, groupOutputs, joinOnQuorum, agent-output, webhook-output
 ---
 
-## Object reference — view types returned by Approval Engine reads
+## Type responses against ExecutionView, StepView, DefinitionView with compiled, ApprovalEventView, and step output shapes
 
-These TypeScript interfaces describe the canonical shapes returned from the read endpoints. They're stable for v1 and safe to type against in client code.
+These interfaces are the canonical shapes from the docs' Object reference. Type client code against them rather than hand-rolled guesses; in particular, branch on `StepView.nodeType` (four values) before reading `output`.
 
-**`ExecutionView` — returned by `/executions/get` and embedded in `/executions/list`:**
+**Incorrect:**
+
+```typescript
+interface StepView { nodeType: 'agent' | 'human'; status: string; output: any } // misses notification and webhook
+const graph = expandGroupsAndRoles(definition.edges, definition.groups);        // re-implements the compiler; read definition.compiled
+```
+
+**Correct:**
 
 ```typescript
 interface ExecutionView {
@@ -19,21 +26,17 @@ interface ExecutionView {
   completedAt: number | null;
   cancelledAt: number | null;
   definitionId: string;
-  definitionVersion: number;     // pinned at dispatch — updates to the definition don't change this
+  definitionVersion: number;     // pinned at dispatch
   correlationId: string;
   idempotencyKey: string;
   failureReason: { code: string; message: string } | null;
-  steps: StepView[];
+  steps: StepView[];             // [] in /executions/list items
 }
-```
 
-**`StepView` — one entry per scheduled or completed step:**
-
-```typescript
 interface StepView {
   stepId: string;
   nodeId: string;
-  nodeType: 'agent' | 'human';
+  nodeType: 'agent' | 'human' | 'notification' | 'webhook';
   status: 'pending' | 'running' | 'waiting' | 'completed' | 'failed' | 'skipped' | 'cancelled' | 'breached';
   groupId: string | null;
   startedAt: number | null;
@@ -41,52 +44,62 @@ interface StepView {
   output: Record<string, unknown>;
   error: { code: string; message: string } | null;
 }
-```
 
-**`DefinitionView` — returned by `/definitions/get` and embedded in `/definitions/list`:**
-
-```typescript
 interface DefinitionView {
   definitionId: string;
   name: string;
   description: string | null;
   version: number;
-  scope: {
-    level: 'apiKey' | 'organization' | 'document';
-    organizationId: string | null;
-    documentId: string | null;
-  };
+  scope: { level: 'apiKey' | 'organization' | 'document'; organizationId: string | null; documentId: string | null };
   nodes: NodeView[];
-  edges: EdgeView[];
+  edges: EdgeView[];             // exactly as authored
   groups: ParallelGroupDef[] | null;
+  compiled: CompiledGraph;       // read-only, server-derived
   triggers: WorkflowTriggerConfig[] | null;
   tags: string[] | null;
   custom: Record<string, unknown> | null;
   createdAt: number;
   updatedAt: number;
   status: 'active' | 'tombstoned';
+  // webhookConfig is write-only and never returned
 }
-```
 
-**`ApprovalEventView` — returned by `/executions/getEvents`:**
+type JsonAst = Record<string, unknown>;
 
-```typescript
+interface CompiledGraph {
+  forwardEdges: CompiledForwardEdge[];
+  loops: CompiledLoopRegion[];
+}
+
+interface CompiledForwardEdge {
+  from: string;
+  to: string;
+  role: 'approve' | 'reject' | 'always' | 'exhausted' | 'custom';
+  when: JsonAst | null;          // null for always
+  fromGroupId?: string;
+  toGroupId?: string;
+}
+
+interface CompiledLoopRegion {
+  loopId: string;
+  entryNodeId: string;
+  bodyNodeIds: string[];
+  maxIterations: number;
+  onExhausted: { routeToNodeId: string } | null;
+}
+
 interface ApprovalEventView {
   eventId: string;
-  seq: number;             // monotonic per-execution
-  type: string;            // external event type — see webhooks-delivery for catalog
+  seq: number;                   // monotonic per execution
+  type: string;                  // external event type, see webhooks-delivery
   stepId: string | null;
-  timestamp: number;       // epoch ms
+  timestamp: number;             // epoch ms
   correlationId: string;
   data?: Record<string, unknown>;
 }
 ```
 
-This shape differs slightly from the webhook payload (webhook deliveries also include `executionId`, `definitionId`, `status`, and use ISO 8601 strings for `timestamp` — see `webhooks-delivery`).
-
-**Human step output (after resume):**
-
-When a `human` step transitions to `completed`, its `output` is the aggregator rollup:
+**Human step `output` (after resume):**
 
 ```typescript
 {
@@ -107,28 +120,35 @@ When a `human` step transitions to `completed`, its `output` is the aggregator r
 }
 ```
 
-`decision` and `approved` are what edge `when` expressions and quorum policies key off — e.g. an edge `when: "output.decision == 'reject'"` will fire only on a human-step rejection.
+**Other step outputs (documented keys)**
+- Agent: `agentExecutionStatus`, `agentResultsSummary`, `resolvedUrl`, `agentDurationMs`, and `decision` (`approve` when the agent passed).
+- Webhook (on success): `httpStatus`, allowlisted `responseHeaders`, `responseJson` (JSON responses), `responseText` (up to 64 KB).
+- Loop entry step input on iteration N+1: `{ iteration, loopId, previousAttempts[] }` (see `concepts-edge-model`).
+- Steps completed via `/steps/resolve`: `overriddenAt` is added.
 
-**`joinOnQuorum` group successor input:**
-
-When a group uses `onQuorumMet: "joinOnQuorum"` and fires its single downstream step, the synthetic step's `input` is:
+**`joinOnQuorum` successor input:**
 
 ```typescript
 {
-  groupOutputs: Record<string /* memberNodeId */, Record<string, unknown> /* member's output */>;
+  groupOutputs: Record<string /* memberNodeId */, Record<string, unknown>>;
   groupId: string;
   quorum: number;
   totalApproved: number;
 }
 ```
 
-This is how a group-owned downstream step sees each member's per-step output without duplicating itself per member.
+`decision` / `approved` are what `on: "approve"` / `on: "reject"` edges and quorum counting key off. A step's `{ code, message }` error lives on `StepView.error`, not in event `data`.
 
 **Verification Checklist:**
-- [ ] Client code types `/executions/get` responses against `ExecutionView` (not a hand-rolled interface)
-- [ ] `StepView.nodeType` is treated as the discriminator for output-shape branching
-- [ ] Code that reads a human step's `output.decision` knows it's `'approve' \| 'reject'`, not a free string
-- [ ] `joinOnQuorum` successor handlers read from `input.groupOutputs[memberNodeId]`, not from a per-step output
+- [ ] `StepView.nodeType` handling covers `agent`, `human`, `notification`, and `webhook`
+- [ ] Graph rendering uses `compiled.forwardEdges` / `compiled.loops`, not a client-side compiler
+- [ ] Code never expects `webhookConfig` on a `DefinitionView`
+- [ ] `ApprovalEventView.timestamp` is treated as epoch ms
+- [ ] Step failure detail is read from `steps[].error` via `/executions/get`
+- [ ] `joinOnQuorum` successors read `input.groupOutputs[memberNodeId]`
 
 **Source Pointers:**
-- https://docs.velt.dev/ai/approval-engine/customize-behavior — Object reference section
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#object-reference — interfaces, human step output, `joinOnQuorum` input
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/definitions/get-definition#the-compiled-block — `compiled` fields
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#agent-nodes — agent output keys
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#webhook-nodes — webhook output keys

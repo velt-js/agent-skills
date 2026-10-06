@@ -1,8 +1,8 @@
 # Velt View Analytics Best Practices
 
-**Version 1.0.0**  
+**Version 1.0.1**  
 Velt  
-May 2026
+October 2026
 
 > **Note:**  
 > This document is mainly for agents and LLMs to follow when maintaining,  
@@ -22,7 +22,7 @@ Velt View Analytics implementation guide — the 'viewed today' indicator with t
 
 1. [API](#1-api) — **HIGH**
    - 1.1 [Place the VeltViewAnalytics component; scope to a sub-document with type='location' + location-id](#11-place-the-veltviewanalytics-component-scope-to-a-sub-document-with-typelocation-location-id)
-   - 1.2 [Read unique view counts — useViewsElement, useUniqueViewsByUser, useUniqueViewsByDate hooks + non-React client.getViewsElement().subscribe pattern](#12-read-unique-view-counts-useviewselement-useuniqueviewsbyuser-useuniqueviewsbydate-hooks-non-react-clientgetviewselementsubscribe-pattern)
+   - 1.2 [Read unique view counts with useUniqueViewsByUser / useUniqueViewsByDate or getViewsElement observables](#12-read-unique-view-counts-with-useuniqueviewsbyuser-useuniqueviewsbydate-or-getviewselement-observables)
 
 2. [Wireframe Variables](#2-wireframe-variables) — **MEDIUM**
    - 2.1 [View Analytics wireframe variables — trigger, dialog, and bottom-sheet componentConfig.* bindings](#21-view-analytics-wireframe-variables-trigger-dialog-and-bottom-sheet-componentconfig-bindings)
@@ -41,7 +41,14 @@ Placement of the `<VeltViewAnalytics>` component (and its `<velt-view-analytics>
 
 The entire feature — the trigger badge, the recent-viewers dialog (desktop), and the bottom sheet (mobile) — is rendered by a single component. Place it wherever you want the badge to appear (usually a toolbar). It does not need to be at the root of the app, but the Velt client must already be initialized (`VeltProvider` wraps your tree).
 
-**Minimal setup (React / Next.js):**
+**Incorrect (location id without the location type):**
+
+```tsx
+// BUG: without type="location", the location id is ignored and counts roll up to the whole document
+<VeltViewAnalytics location-id="tab-3" />
+```
+
+**Correct (React / Next.js): minimal setup:**
 
 ```tsx
 import { VeltViewAnalytics } from '@veltdev/react';
@@ -55,13 +62,15 @@ export function Toolbar() {
 }
 ```
 
-**Minimal setup (Other Frameworks):**
+**Correct (Other Frameworks): minimal setup:**
 
 ```html
 <div class="toolbar">
   <velt-view-analytics></velt-view-analytics>
 </div>
 ```
+
+#### Scope to a sub-document with `type="location"` + `location-id`
 
 By default, the trigger counts views against the **whole document** (the document id you set via `useSetDocument` / `setDocuments`). To scope the count to a sub-region of the document — e.g., a single tab in a multi-tab document — pass `type="location"` plus a `location-id` (or `locationId` in React JSX) string that identifies the sub-region.
 
@@ -82,108 +91,123 @@ The `location-id` value should match the id you use elsewhere when scoping prese
 </velt-view-analytics>
 ```
 
+#### v6 modular SDK
+
+If you pass `featureAllowList` in the Velt config, include `'views'` (the modular key for View Analytics); otherwise its chunk is not preloaded and the tag renders inert until it loads. `client.preloadViews()` warms it ahead of first use, and calling `getViewsElement()` auto-enables the feature.
+
+**Common pitfalls:**
+- DO NOT mount more than one `<VeltViewAnalytics>` instance for the same scope on the same page — duplicates render twice and conflict.
+- DO NOT omit `type="location"` if you are passing `location-id` — without `type="location"` the prop is ignored and counts roll up to the whole document.
+- DO NOT call `getViewsElement()` (the programmatic handle) before the Velt client is ready — in React, guard on `client` from `useVeltClient()`.
+
+**Verification Checklist:**
+- [ ] Exactly one `<VeltViewAnalytics>` per scope is mounted
+- [ ] Toolbar placement is inside a tree that's wrapped by `<VeltProvider>` and has a document set
+- [ ] Location scoping uses BOTH `type="location"` AND a stable `location-id`
+- [ ] The `location-id` value matches the convention used by other Velt features (presence / cursors) on the same sub-region
+- [ ] If `featureAllowList` is set, it includes `'views'`
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/view-analytics/setup — component placement
+- https://docs.velt.dev/async-collaboration/view-analytics/customize-behavior — location props
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#preloadviews — `preloadViews()` and `featureAllowList`
+
 ---
 
-### 1.2 Read unique view counts — useViewsElement, useUniqueViewsByUser, useUniqueViewsByDate hooks + non-React client.getViewsElement().subscribe pattern
+### 1.2 Read unique view counts with useUniqueViewsByUser / useUniqueViewsByDate or getViewsElement observables
 
-**Impact: HIGH (The hooks (React) and observable (non-React) are the only programmatic surface for view counts; the handle is getViewsElement (plural) — getViewElement (singular) is a common hallucination and does not exist)**
+**Impact: HIGH (The hooks (React) and observables (other frameworks) are the only programmatic surface for view counts; the element hook is useViewsUtils and the handle is getViewsElement (plural))**
 
-Two aggregations are exposed: **by user** (one row per viewer) and **by date** (one row per day, useful for trend charts). Both accept an optional `locationId` to scope the read to a sub-region.
+Two aggregations exist: **by user** (one entry per viewer) and **by date** (one entry per day). Both take an optional `locationId` to scope the read to a sub-document. In React, prefer the data hooks; they handle subscription lifecycle. To get the `ViewsElement` itself in React, use `useViewsUtils()`. Other frameworks subscribe to the observables on `getViewsElement()` and unsubscribe manually.
 
-In React, prefer the hooks — they handle lifecycle and re-render. Non-React code uses the same data via the observable form on `client.getViewsElement()`. React also exposes a third hook, `useViewsElement()`, that returns the same `ViewsElement` handle without using `useVeltClient()` — useful when you want to call utility methods on the element directly from a component.
-
-**Return types (from the SDK API reference):**
-
-```typescript
-client.getViewsElement()                              → ViewsElement
-useViewsElement()                                     → ViewsElement
-viewsElement.getUniqueViewsByUser(locationId?)        → Observable<ViewsByUser[]>
-viewsElement.getUniqueViewsByDate(locationId?)        → Observable<ViewsByDate[]>
-useUniqueViewsByUser(locationId?)                     → ViewsByUser[] (or undefined on first render)
-useUniqueViewsByDate(locationId?)                     → ViewsByDate[] (or undefined on first render)
+```
+client.getViewsElement() / Velt.getViewsElement()   → ViewsElement
+useViewsUtils()                                     → ViewsElement
+viewsElement.getUniqueViewsByUser(locationId?)      → Observable<ViewsByUser[]>
+viewsElement.getUniqueViewsByDate(locationId?)      → Observable<ViewsByDate[]>
+useUniqueViewsByUser(locationId?)                   → ViewsByUser[] (null-guard before data arrives)
+useUniqueViewsByDate(locationId?)                   → ViewsByDate[] (null-guard before data arrives)
 ```
 
-The handle is `client.getViewsElement()` — **plural**. `client.getViewElement()` (singular) is a common base-model hallucination and does not exist. Same naming for the methods: `getUniqueViewsByUser` / `getUniqueViewsByDate`.
-Three hooks live on `@veltdev/react`. The two data hooks (`useUniqueViewsByUser`, `useUniqueViewsByDate`) accept an optional `locationId` string to scope to a sub-document; omit it to read whole-document counts. The third hook (`useViewsElement`) returns the `ViewsElement` handle for utility methods.
-
-**React — `useViewsElement`:**
+**Incorrect (hook and handle names that are not exported):**
 
 ```tsx
-import { useViewsElement } from '@veltdev/react';
-
-function ViewsPanel() {
-  const viewsElement = useViewsElement();   // ViewsElement | undefined on first render
-
-  // Once available, you can call the same methods as client.getViewsElement():
-  //   viewsElement?.getUniqueViewsByUser().subscribe(...);
-}
+// BUG: @veltdev/react does not export useViewsElement (the hook is useViewsUtils),
+// and the client method is getViewsElement (plural), not getViewElement.
+const viewsElement = useViewsElement();
+const sameElement = client.getViewElement();
 ```
 
-Use `useViewsElement` when you want the handle inside a React component without threading `useVeltClient()` — e.g., for `subscribe()` calls in effects, or when the data hooks don't fit your data-flow.
-
-**React — `useUniqueViewsByUser`:**
+**Correct (React / Next.js): data hooks:**
 
 ```tsx
-import { useUniqueViewsByUser } from '@veltdev/react';
+import { useUniqueViewsByUser, useUniqueViewsByDate } from '@veltdev/react';
 
 function ViewersCount() {
-  const viewsByUser = useUniqueViewsByUser();          // ViewsByUser[] | undefined
-  // or: const viewsByUser = useUniqueViewsByUser('tab-3'); // location-scoped
+  const viewsByUser = useUniqueViewsByUser();                     // whole document
+  const viewsForTab = useUniqueViewsByUser('tab-3');              // location-scoped
+  const viewsByDate = useUniqueViewsByDate();
 
   return <span>{viewsByUser?.length ?? 0} unique viewers</span>;
 }
 ```
 
-**React — `useUniqueViewsByDate`:**
+**Correct (React / Next.js): element via hook or client:**
 
 ```tsx
-import { useUniqueViewsByDate } from '@veltdev/react';
+import { useViewsUtils, useVeltClient } from '@veltdev/react';
+import { useEffect } from 'react';
 
-function ViewsTrend() {
-  const viewsByDate = useUniqueViewsByDate();         // ViewsByDate[] | undefined
-  // or: const viewsByDate = useUniqueViewsByDate('tab-3');
+function ViewsLogger() {
+  // Hook
+  const viewsElement = useViewsUtils();
+  // API Method (equivalent)
+  const { client } = useVeltClient();
 
-  // viewsByDate is ViewsByDate[] — one entry per day. Null-guard on first render.
-  return <ul>{viewsByDate?.map(d => <li key={d.date}>{d.date}: {d.count}</li>)}</ul>;
+  useEffect(() => {
+    const element = viewsElement ?? client?.getViewsElement();
+    if (!element) return;
+    const subscription = element.getUniqueViewsByDate().subscribe((viewsByDate) => {
+      console.log('Unique views by date:', viewsByDate);
+    });
+    return () => subscription?.unsubscribe();
+  }, [viewsElement, client]);
+
+  return null;
 }
 ```
 
-Both hooks return `undefined` on the very first render before Velt resolves the data — null-guard with `?.` / `?? 0`.
-For non-React frameworks (or framework-agnostic code), subscribe directly. The observable emits whenever views change.
-
-**Non-React — getUniqueViewsByUser observable:**
+**Correct (Other Frameworks):**
 
 ```js
-const viewsElement = client.getViewsElement();   // PLURAL — getViewsElement, not getViewElement
+const viewsElement = Velt.getViewsElement();
 
-const subscription = viewsElement
-  .getUniqueViewsByUser()                        // pass 'your-location-id' to filter
-  .subscribe((viewsByUser) => {
-    console.log('Unique views by user:', viewsByUser);
-  });
+const byUser = viewsElement.getUniqueViewsByUser().subscribe((viewsByUser) => {
+  console.log('Unique views by user:', viewsByUser);
+});
 
-// Later — release the subscription:
-// subscription?.unsubscribe();
+const byDateForTab = viewsElement.getUniqueViewsByDate('tab-3').subscribe((viewsByDate) => {
+  console.log('Unique views by date for tab-3:', viewsByDate);
+});
+
+// When done:
+byUser?.unsubscribe();
+byDateForTab?.unsubscribe();
 ```
 
-**Non-React — getUniqueViewsByDate observable:**
+The docs show `<VeltViewAnalytics>` next to the hook examples. If a hooks-only custom badge always reports zero viewers, confirm that `<VeltViewAnalytics>` is mounted for that scope.
 
-```js
-const viewsElement = client.getViewsElement();
+**Verification Checklist:**
+- [ ] React element access uses `useViewsUtils()` or `client.getViewsElement()`, never `useViewsElement` or `getViewElement`
+- [ ] Data reads use `useUniqueViewsByUser` / `useUniqueViewsByDate` in React, or the observables elsewhere
+- [ ] Observable subscriptions are unsubscribed on teardown
+- [ ] The `locationId` passed to hooks matches the `location-id` on `<VeltViewAnalytics type="location">` when both should show the same scope
+- [ ] Results are null-guarded before data arrives
 
-const subscription = viewsElement
-  .getUniqueViewsByDate('your-location-id')      // optional locationId arg
-  .subscribe((viewsByDate) => {
-    console.log('Unique views by date:', viewsByDate);
-  });
-
-// subscription?.unsubscribe();
-```
-
-Manual `subscription?.unsubscribe()` is required for the observable form — only the React hooks auto-clean.
-The hooks and the observable read from the Velt client directly — they don't require `<VeltViewAnalytics>` to be rendered. In practice this means you can build a fully custom badge using just the hook output.
-**Verify against your setup, though:** the official docs show `<VeltViewAnalytics>` alongside the hook examples without explicitly stating whether mounting it is required for view tracking to *initialize*. If your custom-UI badge consistently shows 0 viewers, mount `<VeltViewAnalytics>` somewhere (it can be visually hidden) and check whether view-tracking starts. Treat the hooks-only path as the default and the hidden-mount fallback as a known recovery for the edge case.
-If you want the default trigger to coexist with custom UI (e.g., your own dropdown alongside the badge), see the `wireframe-variables-view-analytics` rule for the wireframe-tag approach — that's the right surface for "custom UI bound to the same state stream".
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/view-analytics/customize-behavior — "getUniqueViewsByUser" and "getUniqueViewsByDate"
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#view-analytics — return types `Observable<ViewsByUser[]>` / `Observable<ViewsByDate[]>`
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#view-analytics — `useViewsUtils()` / `useUniqueViewsByUser()` / `useUniqueViewsByDate()`
 
 ---
 
@@ -201,11 +225,25 @@ View Analytics exposes three wireframe tags. Each receives a `componentConfig.*`
 
 This feature uses the **flat-config** access pattern — every variable is referenced via the explicit `componentConfig.<path>` form. Dropping the prefix (`<velt-data field="todayViewsCount" />`) resolves to nothing.
 
-### Three wireframe tags
+#### Three wireframe tags
+
+```
+<velt-view-analytics-wireframe>              The trigger badge. Replaces the default <velt-view-analytics> UI.
+<velt-view-analytics-dialog-wireframe>       The desktop popover listing recent viewers.
+<velt-view-analytics-bottom-sheet-wireframe> The mobile bottom-sheet variant of the dialog.
+```
+
+React equivalents: `VeltViewAnalyticsWireframe`, `VeltViewAnalyticsDialogWireframe`, `VeltViewAnalyticsBottomSheetWireframe`.
+
+#### Spelling gotcha — `treadsVisible` (NOT `threadsVisible`)
+
+The boolean for "dialog is open" is `componentConfig.treadsVisible` — spelled `treads`, a legacy SDK-side spelling. Writing `componentConfig.threadsVisible` resolves to `undefined` silently. Bind dialog open/close styling and conditional dialog rendering on `treadsVisible`.
+
+#### Trigger-scope componentConfig variables
 
 **Trigger variables (`<velt-view-analytics-wireframe>`):**
 
-```typescript
+```
 componentConfig.today                  string                        Today's date string (e.g. '2026-05-11').
 componentConfig.todayViews             any                           Today's view records.
 componentConfig.todayViewsCount        number                        Number of users who viewed today.
@@ -216,7 +254,16 @@ componentConfig.customButtonAdded      boolean                       A custom tr
 componentConfig.isPhone                boolean                       Mobile-layout flag.
 ```
 
-**Custom trigger badge (React):**
+**Incorrect (misspelled flag and missing prefix):**
+
+```html
+<velt-view-analytics-wireframe>
+  <!-- BUG: threadsVisible does not exist (it is treadsVisible), and todayViewsCount needs the componentConfig. prefix -->
+  <span velt-class="'open': {componentConfig.threadsVisible}"><velt-data field="todayViewsCount"></velt-data></span>
+</velt-view-analytics-wireframe>
+```
+
+**Correct (React): custom trigger badge:**
 
 ```tsx
 import { VeltViewAnalyticsWireframe } from '@veltdev/react';
@@ -233,7 +280,7 @@ import { VeltViewAnalyticsWireframe } from '@veltdev/react';
 </VeltViewAnalyticsWireframe>
 ```
 
-**Custom trigger badge (Other Frameworks):**
+**Correct (Other Frameworks): custom trigger badge:**
 
 ```html
 <velt-view-analytics-wireframe>
@@ -247,11 +294,13 @@ import { VeltViewAnalyticsWireframe } from '@veltdev/react';
 </velt-view-analytics-wireframe>
 ```
 
+#### Dialog / bottom-sheet componentConfig variables
+
 The dialog and bottom-sheet share the same `componentConfig.*` shape — same data, different presentation. They're separate wireframe tags so you can render different markup for desktop vs. mobile.
 
 **Dialog / bottom-sheet variables:**
 
-```typescript
+```
 componentConfig.views            Views                                          All views by date.
 componentConfig.usersMap         Record<userSnippylyId, User>                  Viewers keyed by user id.
 componentConfig.userViews        { user: User; timestamp: number }[]            Sorted user-view list.
@@ -296,10 +345,31 @@ import { VeltViewAnalyticsBottomSheetWireframe } from '@veltdev/react';
 ```
 
 The `<velt-view-analytics-bottom-sheet>` primitive's built-in `shouldShow` is gated on `componentConfig.bottomSheetMode === true`. In practice, gate the dialog on `velt-if="{componentConfig.treadsVisible} && !{componentConfig.bottomSheetMode}"` and the bottom sheet on `velt-if="{componentConfig.treadsVisible} && {componentConfig.bottomSheetMode}"` so only one renders at a time.
+
+#### Don't reach across wireframes
+
 Each wireframe slot only sees its own `componentConfig` scope:
 - Trigger-only variables (`todayViewsCount`, `treadsVisible`, etc.) are not visible inside the dialog / bottom-sheet wireframes.
 - Dialog/bottom-sheet variables (`userViews`, `usersMap`, `bottomSheetMode`) are not visible inside the trigger wireframe.
+
 If you need a count in the dialog, use `componentConfig.userViews.length` (dialog scope), not `componentConfig.todayViewsCount` (trigger scope).
+
+**Common pitfalls:**
+- DO NOT drop the `componentConfig.` prefix — flat-config requires the full path.
+- DO NOT spell `componentConfig.threadsVisible` — the correct legacy spelling is `treadsVisible`.
+- DO NOT bind dialog-scope variables (`userViews`) inside the trigger wireframe, or vice versa.
+- DO NOT use the hooks (`useUniqueViewsByUser`) to power UI inside wireframes — read directly from `componentConfig.*`. The wireframe stream is the right seam.
+
+**Verification Checklist:**
+- [ ] All variable reads use the `componentConfig.<path>` form (never bare names)
+- [ ] Dialog open/close uses `componentConfig.treadsVisible` (NOT `threadsVisible`)
+- [ ] Dialog and bottom-sheet wireframes are gated by `componentConfig.bottomSheetMode` so only one renders at a time
+- [ ] Trigger-scope and dialog/bottom-sheet-scope variables are not crossed between wireframes
+- [ ] Custom UI built on wireframes does NOT also subscribe via `useUniqueViewsByUser` for the same data
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/async/view-analytics/wireframe-variables — full variable reference + subcomponent list
+- https://docs.velt.dev/ui-customization/template-variables — `velt-data` / `velt-if` / `velt-class` overview
 
 ---
 
@@ -311,3 +381,4 @@ If you need a count in the dialog, use `componentConfig.userViews.length` (dialo
 - https://docs.velt.dev/async-collaboration/view-analytics/customize-behavior
 - https://docs.velt.dev/ui-customization/features/async/view-analytics/wireframe-variables
 - https://docs.velt.dev/api-reference/sdk/api/api-methods#view-analytics
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#view-analytics

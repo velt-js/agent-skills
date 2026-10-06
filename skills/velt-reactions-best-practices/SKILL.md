@@ -1,10 +1,10 @@
 ---
 name: velt-reactions-best-practices
-description: "Best practices for Velt Inline Reactions — the emoji-reaction feature for adding contextual emoji feedback to elements of your app (articles, posts, images, charts, custom UI). Use whenever the user is adding the VeltInlineReactionsSection component, binding it to a target element via targetReactionElementId, configuring custom reaction emojis (image URLs, iconUrl, or unicode emoji) via setCustomReactions, calling client.getReactionElement(), customizing the wireframe primitives (velt-reaction-tool-wireframe, velt-reaction-pin-wireframe, velt-inline-reactions-section-wireframe, and their nested reactions-panel / tooltip children), binding componentConfig.* template variables (annotation, isReactionSelectedByCurrentUser, tooltipVisible, annotations, targetReactionElementId), or reading the ReactionAnnotation data model. Trigger on any task involving Velt reactions, emoji reactions on content, inline-reactions UI, contextual emoji feedback, or VeltInlineReactionsSection — even if the user does not explicitly say 'Velt' or 'reactions'."
+description: "Best practices for Velt Inline Reactions, emoji reactions anchored to elements of your app (articles, posts, images, charts). Use when adding VeltInlineReactionsSection with targetReactionElementId, configuring custom emojis (url, iconUrl, emoji) via customReactions or setCustomReactions, using getReactionElement or useReactionElement, building custom UI with the reaction wireframes and componentConfig variables, or typing ReactionAnnotation. Triggers on Velt reactions or emoji feedback on content."
 license: MIT
 metadata:
   author: velt
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # Velt Reactions Best Practices
@@ -17,7 +17,9 @@ Reference these guidelines when:
 - Adding inline reactions to a page section, post, or any container with a stable element id
 - Binding `<VeltInlineReactionsSection>` to that container via `targetReactionElementId`
 - Configuring custom reaction emojis (image URLs, alternate `iconUrl`, or unicode emoji)
-- Calling `client.getReactionElement().setCustomReactions(...)` from non-React or runtime code
+- Calling `setCustomReactions(...)` on the reaction element from `useReactionElement()`, `client.getReactionElement()`, or `Velt.getReactionElement()`
+- Including `'reaction'` in a v6 `featureAllowList`
+- Reasoning about reactions on private comments (they do not inherit the comment's Access Context)
 - Building custom reaction UI (custom pin, custom emoji picker, custom tooltip) via the wireframe tags
 - Reading `componentConfig.annotation`, `componentConfig.isReactionSelectedByCurrentUser`, `componentConfig.tooltipVisible`, or the per-iteration `user` / `emoji` / `isSelected` context variables
 - Typing against `ReactionAnnotation` / `ReactionPinType`
@@ -38,13 +40,13 @@ Reference these guidelines when:
 ## Quick Reference
 
 ### API (HIGH)
-- `api-setup` — `<VeltInlineReactionsSection targetReactionElementId="...">` placement (must match container `id`); `customReactions` prop + `client.getReactionElement().setCustomReactions()` runtime method; the three custom-emoji entry shapes (`url`, `iconUrl`, `emoji`)
+- `api-setup` — `<VeltInlineReactionsSection targetReactionElementId="...">` placement (must match container `id`); `customReactions` prop + `setCustomReactions()` via `useReactionElement()` / `client.getReactionElement()`; the three custom-emoji entry shapes (`url`, `iconUrl`, `emoji`); `featureAllowList` key `'reaction'`
 
 ### Wireframe Variables (MEDIUM)
 - `wireframe-variables-reactions` — three primary wireframe tags (tool / pin / inline-section); full `componentConfig.*` reference per scope; nested decomposition (reactions-panel items, pin tooltip user rows); context-specific per-iteration variables (`user`, `emoji`, `isSelected`); flat-config access pattern
 
 ### Types (MEDIUM)
-- `types-reaction-annotation` — `ReactionAnnotation` shape (`annotationId`, `from`, `reactions`, `commentAnnotationId`, `targetElement`, `targetElementId`, `position`, `type='reaction'`, etc.); `ReactionPinType` enum (`'comment' | 'inline' | ...`); cross-link to self-hosting resolver-request shapes
+- `types-reaction-annotation` — `ReactionAnnotation` shape (`annotationId`, `from`, `reactions`, `commentAnnotationId`, `targetElement`, `targetElementId`, `position`, `type='reaction'`, etc.); `ReactionPinType` enum (`'comment' | 'inline' | ...`); reactions on private comments and Access Context; cross-link to self-hosting resolver-request shapes and `/self-hosting/partial/reactions`
 
 ## How to Use
 

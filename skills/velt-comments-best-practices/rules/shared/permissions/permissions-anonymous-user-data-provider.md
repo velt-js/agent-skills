@@ -149,5 +149,6 @@ interface ResolverResponse<T> {
 - [ ] Subscription/cleanup is not needed — this is a one-time registration, not an observable
 
 **Source Pointers:**
-- https://docs.velt.dev/async-collaboration/comments/customize-behavior/visibility - Anonymous user data provider registration
-- https://docs.velt.dev/api-reference/sdk/api/models/data-models - AnonymousUserDataProvider and related type definitions
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#setanonymoususerdataprovider - setAnonymousUserDataProvider
+- https://docs.velt.dev/self-hosting/partial/users#anonymous-user-resolution - Anonymous user resolution guide
+- https://docs.velt.dev/api-reference/sdk/models/data-models#anonymoususerdataprovider - AnonymousUserDataProvider and related type definitions

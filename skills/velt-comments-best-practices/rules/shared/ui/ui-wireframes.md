@@ -14,7 +14,7 @@ Velt provides wireframe components that give you complete control over comment U
 | Framework | Pattern | Example |
 |-----------|---------|---------|
 | React | PascalCase | `VeltCommentDialogWireframe.Header` |
-| HTML | kebab-case | `velt-comment-dialog-wireframe-header` |
+| HTML | kebab-case, `-wireframe` suffix | `velt-comment-dialog-header-wireframe` |
 
 **Comment Dialog Wireframe Structure:**
 
@@ -289,11 +289,13 @@ The V2 sidebar wireframe catalog gained five new subtrees and lost the MinimalAc
 **For HTML:**
 
 ```html
-<velt-comment-dialog-wireframe>
-  <velt-comment-dialog-wireframe-header>
-    <velt-comment-dialog-wireframe-status></velt-comment-dialog-wireframe-status>
-  </velt-comment-dialog-wireframe-header>
-</velt-comment-dialog-wireframe>
+<velt-wireframe style="display:none;">
+  <velt-comment-dialog-wireframe>
+    <velt-comment-dialog-header-wireframe>
+      <velt-comment-dialog-status-wireframe></velt-comment-dialog-status-wireframe>
+    </velt-comment-dialog-header-wireframe>
+  </velt-comment-dialog-wireframe>
+</velt-wireframe>
 ```
 
 **Wireframe Data Variables (v5.0.2-beta.11+):**
@@ -380,5 +382,6 @@ These controls only render when a message exceeds the `messageTruncationLines` t
 
 **Source Pointers:**
 - https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog-structure - Dialog wireframe
-- https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar-structure - Sidebar wireframe
-- https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar-structure-v2 - V2 Sidebar wireframe structure (Search / FilterButton / FilterContainer / FullscreenButton / ListGroupHeader)
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-components - Sidebar wireframe (V1)
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-sidebar/comment-sidebar-v2-wireframes - V2 Sidebar wireframe structure (Search / FilterButton / FilterContainer / FullscreenButton / ListGroupHeader)
+- https://docs.velt.dev/ui-customization/reference/wireframe-components - Complete list of wireframe slot elements

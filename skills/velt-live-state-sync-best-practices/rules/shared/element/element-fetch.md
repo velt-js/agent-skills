@@ -1,43 +1,53 @@
 ---
-title: fetchLiveStateData — Promise-Based One-Shot Read
+title: Use fetchLiveStateData for one-shot reads
 impact: HIGH
-tags: fetchLiveStateData, promise, one-shot, SSR, initialization
+impactDescription: fetchLiveStateData returns a Promise snapshot; using it for live UI leaves the UI stale, and using an observable for a one-time check leaks a subscription
+tags: fetchLiveStateData, FetchLiveStateDataRequest, LiveStateDataMap, promise, one-shot, initialization
 ---
 
-## fetchLiveStateData — Promise-Based One-Shot Read
+## Use fetchLiveStateData for one-shot reads
 
-`fetchLiveStateData` returns a **Promise** instead of an observable. Use it for one-time reads where you don't need ongoing updates — component initialization, server-side rendering, or conditional checks before acting.
+`fetchLiveStateData(request?)` returns a **Promise** with the current value instead of an observable. Use it for initialization, conditional checks before a write, or any one-time read. Pass `{ liveStateDataId }` for one entry; omit the request to get all live state data for the document (a `LiveStateDataMap` with your entries under `custom`). It supports a generic type parameter.
 
-```tsx
+**Incorrect (snapshot used as live UI):**
+
+```jsx
+const theme = await liveStateSyncElement.fetchLiveStateData({ liveStateDataId: 'editor-theme' });
+setTheme(theme); // BUG: never updates when another client changes the theme
+```
+
+**Correct (React / Next.js):**
+
+```jsx
+// Hook form of the element
 const liveStateSyncElement = useLiveStateSyncUtils();
 
-// Fetch a specific live state value
-const theme = await liveStateSyncElement.fetchLiveStateData({
-  liveStateDataId: 'editor-theme',
-});
+// One entry
+const theme = await liveStateSyncElement.fetchLiveStateData({ liveStateDataId: 'editor-theme' });
 
-// Fetch ALL live state data (omit the parameter)
-const allData = await liveStateSyncElement.fetchLiveStateData();
+// Everything on the document
+const all = await liveStateSyncElement.fetchLiveStateData();
+
+// API method form
+const element = client.getLiveStateSyncElement();
+const sameTheme = await element.fetchLiveStateData({ liveStateDataId: 'editor-theme' });
 ```
 
-### Signature
+**Correct (Other Frameworks):**
 
-```typescript
-fetchLiveStateData<T>(request?: { liveStateDataId: string }): Promise<T>
+```js
+const liveStateSyncElement = Velt.getLiveStateSyncElement();
+const theme = await liveStateSyncElement.fetchLiveStateData({ liveStateDataId: 'editor-theme' });
 ```
 
-- With `{ liveStateDataId }` — returns the data for that specific ID
-- Without arguments — returns all live state data as a `LiveStateDataMap`
+For values that must stay current, subscribe with `getLiveStateData()` or use the hooks.
 
-### Use Cases
+**Verification Checklist:**
+- [ ] `fetchLiveStateData` is used only for one-time reads
+- [ ] Code that fetches everything reads app data from `LiveStateDataMap.custom`
+- [ ] Reactive UI uses `getLiveStateData()` or the hooks
 
-- **Component initialization**: Load current state once on mount, then switch to `getLiveStateData` subscription for updates
-- **Pre-action check**: Read current state before performing a write to avoid conflicts
-- **Server-side rendering**: Fetch state during SSR where subscriptions aren't appropriate
-- **One-time data retrieval**: When you just need to read a value once without tracking changes
-
-### Key Points
-
-- This is a snapshot — it does NOT update reactively. For reactive updates, use `getLiveStateData().subscribe()` or the hooks
-- Supports generic typing: `fetchLiveStateData<MyType>(...)` returns `Promise<MyType>`
-- Omitting the request parameter returns the entire `LiveStateDataMap` including custom and default (single editor, auto-sync) data
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/setup#fetch-live-data — "Fetch Live Data"
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#fetchlivestatedata — `fetchLiveStateData()`
+- https://docs.velt.dev/api-reference/sdk/models/data-models#livestatedatamap — `LiveStateDataMap`

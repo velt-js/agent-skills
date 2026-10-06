@@ -282,7 +282,7 @@ Both accept Common Inputs only. In React wireframe mode the public primitive is 
 
 **Source Pointers:**
 - https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog-structure - Structure
-- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/styling - Styling
-- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/pre-defined-variants - Variants
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/wireframes#styling - Styling
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/wireframes#pre-defined-variants - Variants
 - https://docs.velt.dev/api-reference/sdk/models/data-models#veltcommentdialogprops - VeltCommentDialogProps full attribute set
 - https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/primitives - Thread-card primitives and options-dropdown enable flags

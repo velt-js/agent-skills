@@ -15,9 +15,15 @@ By default, cursors appear everywhere within the document scope. In apps with to
 
 **GOTCHA: allowedElementIds takes a JSON string, not an array.**
 
-The component prop expects a stringified JSON array. Passing a plain JavaScript array will silently fail.
+The documented contract for the component prop is a stringified JSON array (`JSON.stringify([...])`). The API method takes a plain array.
 
-**React: Restrict cursors to a canvas element**
+**Incorrect (plain array on the component):**
+
+```jsx
+<VeltCursor allowedElementIds={["canvas-area"]} />
+```
+
+**Correct (React: stringified array on the single root VeltCursor):**
 
 ```jsx
 "use client";
@@ -25,15 +31,11 @@ import { VeltCursor } from "@veltdev/react";
 
 function CanvasWithCursors() {
   return (
-    <div>
-      <div id="toolbar">
-        {/* No cursors here */}
-      </div>
-      <div id="canvas-area">
-        <VeltCursor allowedElementIds={JSON.stringify(["canvas-area"])} />
-        {/* Cursors only appear within this div */}
-      </div>
-    </div>
+    <>
+      <VeltCursor allowedElementIds={JSON.stringify(["canvas-area"])} />
+      <div id="toolbar">{/* No cursors here */}</div>
+      <div id="canvas-area">{/* Cursors only appear while hovering this element */}</div>
+    </>
   );
 }
 ```
@@ -54,6 +56,7 @@ function CanvasWithCursors() {
 
 ```jsx
 "use client";
+import { useEffect } from "react";
 import { useCursorUtils } from "@veltdev/react";
 
 function CursorConfig() {
@@ -69,16 +72,17 @@ function CursorConfig() {
 }
 ```
 
-**Vanilla JS:**
+**Other Frameworks:**
 
 ```javascript
-const cursorElement = client.getCursorElement();
+const cursorElement = Velt.getCursorElement();
 cursorElement.allowedElementIds(["canvas-area"]);
 ```
 
 **Key points:**
 
-- The component prop requires `JSON.stringify()` -- passing a plain array will not work
+- The component prop takes `JSON.stringify([...])` (the documented contract)
+- When unset or empty, cursors render anywhere on the page
 - The API method accepts a regular JavaScript array
 - Element IDs must match actual DOM element `id` attributes
 - Multiple IDs can be specified to allow cursors in several areas
@@ -92,4 +96,5 @@ cursorElement.allowedElementIds(["canvas-area"]);
 - [ ] Tested with multiple users to confirm restriction works for all cursors
 
 **Source Pointers:**
-- `https://docs.velt.dev/cursor/customize-behavior/allowed-element-ids` - Allowed element IDs
+- https://docs.velt.dev/realtime-collaboration/cursors/customize-behavior#allowedelementids - "allowedElementIds"
+- https://docs.velt.dev/ui-customization/reference/behaviors/presence-reactions - `allowedElementIds` behavior

@@ -9,6 +9,18 @@ tags: authProvider, authentication, VeltProvider, identify, useIdentify, depreca
 
 VeltProvider requires the `authProvider` prop for authentication. The `useIdentify()` hook and `client.identify()` method are deprecated — they lack automatic token refresh and retry logic. For self-hosting, `dataProviders` must also be set on VeltProvider so that data providers are initialized before authentication occurs.
 
+**Incorrect (identify() after render; providers may not be registered when Velt starts fetching):**
+
+```tsx
+function AuthGate({ user }) {
+  const { client } = useVeltClient();
+  useEffect(() => {
+    if (client && user) client.identify(user); // deprecated; no token refresh or retry
+  }, [client, user]);
+  return null;
+}
+```
+
 **Correct (authProvider + dataProviders on VeltProvider):**
 
 ```tsx
@@ -74,4 +86,4 @@ export default function DocumentPage() {
 - [ ] No calls to `client.identify()` anywhere in the codebase
 
 **Source Pointers:**
-- https://docs.velt.dev/self-hosting-data/overview - Self-Hosting Data Setup
+- https://docs.velt.dev/self-hosting/partial/overview - Self-Hosting Data Setup

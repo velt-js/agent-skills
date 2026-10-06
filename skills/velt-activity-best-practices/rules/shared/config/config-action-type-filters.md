@@ -69,7 +69,7 @@ const activities = useAllActivities({
   featureTypes: ['comment', 'recorder'],
   actionTypes: [
     CommentActivityActionTypes.COMMENT_ADD,
-    RecorderActivityActionTypes.RECORDING_STARTED,
+    RecorderActivityActionTypes.RECORDING_ADD,     // 'recording.add'
   ],
 });
 ```
@@ -123,7 +123,7 @@ const activities = useAllActivities({
 **For non-React frameworks:**
 
 ```js
-// Import constants from the Velt client SDK
+// Use the string values from the tables above (or the exported constants if your build exposes them)
 const activityElement = Velt.getActivityElement();
 activityElement.getAllActivities({
   featureTypes: ['comment'],
@@ -134,14 +134,17 @@ activityElement.getAllActivities({
 ```
 
 **Key details:**
-- Constants are exported from `@veltdev/react` (React) or available on the Velt client SDK
+- The docs name the constant objects and union types (`CommentActivityActionTypes` / `CommentActivityActionType`, etc.) but do not show an import path; if your package does not export them, use the string values from the tables
 - Using constants enables IDE autocomplete and catches typos at compile time
 - Combine `featureTypes` and `actionTypes` filters for precise scoping
-- Custom activities use `featureType: 'custom'` and `actionType: 'custom'` (no constants needed)
+- Custom activities use `featureType: 'custom'` and any `actionType` string you choose (for example `'custom'` or `'deployed_to_production'`); no constants exist for them
+- The Get Activities REST API accepts the same strings in `actionTypes`
 
 **Verification:**
 - [ ] Action type constants imported from SDK (not using raw strings)
 - [ ] Filters match the intended feature and action types
 - [ ] Activity feed returns expected results with filters applied
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/activity/overview - Activity Log Action Types
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/activity/overview#activity-log-action-types - "Activity Log Action Types"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#activity-log-action-type-constants - "Activity Log Action Type Constants"

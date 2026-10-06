@@ -1,35 +1,51 @@
 ---
-title: Live State Sync Feature Overview and API Selection
+title: Choose the right Live State Sync API and plan for persistence
 impact: CRITICAL
-tags: overview, setup, useLiveState, useLiveStateSyncUtils, imports, choosing
+impactDescription: Picking the simplest API avoids manual subscription bugs; live state persists indefinitely, so ephemeral data needs explicit cleanup
+tags: overview, setup, useLiveState, useLiveStateData, useSetLiveStateData, useLiveStateSyncUtils, getLiveStateSyncElement, createLiveStateMiddleware, featureAllowList, preloadLiveStateSync
 ---
 
-## Live State Sync Feature Overview
+## Choose the right Live State Sync API and plan for persistence
 
-Velt Live State Sync provides real-time shared state across clients with extremely low latency (≤10ms typical), optimistic local-first reads/writes, full offline support, and automatic sync on reconnect. Conflict resolution uses server-timestamp last-write-wins. Data persists indefinitely until manually removed — there is no automatic cleanup.
+Live State Sync shares data across every client on the same document with very low latency (typically no more than 10 ms), optimistic local-first reads and writes, offline support with sync on reconnect, and server-timestamp last-write-wins conflict resolution. Data persists indefinitely until you remove it.
 
-### Choosing the Right API
+**Incorrect (hand-rolled subscription for simple shared state):**
 
-Velt offers three tiers of Live State Sync API. Pick the simplest one that fits your use case:
+```jsx
+// Works, but useLiveState already does this with automatic cleanup
+const el = useLiveStateSyncUtils();
+const [count, setCount] = useState(0);
+useEffect(() => {
+  const sub = el.getLiveStateData('counter').subscribe(setCount);
+  return () => sub?.unsubscribe();
+}, [el]);
+```
 
-| API | When to Use | Import |
-|-----|-------------|--------|
-| `useLiveState` hook | Simple shared state (counters, toggles, selections) — works like `useState` | `import { useLiveState } from '@veltdev/react'` |
-| `useSetLiveStateData` / `useLiveStateData` hooks | Separate read/write concerns, merge updates, or listen-to-new-changes-only | `@veltdev/react` (auto-available inside VeltProvider) |
-| `useLiveStateSyncUtils()` element API | Observable subscriptions, promise-based fetch, non-React frameworks, or advanced control | `@veltdev/react` or `Velt.getLiveStateSyncElement()` |
-| Redux middleware | Sync an entire Redux store (or filtered slices) across clients | `import { createLiveStateMiddleware } from '@veltdev/react'` |
+**Correct (start with the simplest API):**
 
-For most React use cases, start with `useLiveState`. Escalate to the element API or Redux middleware only when you need observable subscriptions, one-shot fetches, or full store sync.
+```jsx
+import { useLiveState } from '@veltdev/react';
 
-### Prerequisites
+const [count, setCount] = useLiveState('counter', 0);
+```
 
-- `VeltProvider` with `authProvider` must wrap your app (see `core-auth-provider`)
-- A `documentId` should be set to scope shared state to a specific document/room
-- No additional packages beyond `@veltdev/react` are needed
+| API | Use when | Access |
+|---|---|---|
+| `useLiveState(id, initialValue, options?)` | One component reads and writes, like `useState` | `@veltdev/react` |
+| `useSetLiveStateData` / `useLiveStateData` | Writer and reader are separate, or you need `merge` / `listenToNewChangesOnly` | `@veltdev/react` |
+| `LiveStateSyncElement` | Observables, one-shot `fetchLiveStateData()`, non-React code | `useLiveStateSyncUtils()`, `client.getLiveStateSyncElement()`, `Velt.getLiveStateSyncElement()` |
+| `createLiveStateMiddleware` | Sync Redux actions across clients | `@veltdev/react` |
+| REST / backend SDK broadcast | Server-driven updates | `POST /v2/livestate/broadcast`, `sdk.api.livestate.broadcastEvent` |
 
-### Key Characteristics
+**v6 modular SDK:** if you pass `featureAllowList` in the Velt config, include `'liveStateSync'`; otherwise its chunk is not preloaded. `client.preloadLiveStateSync()` loads it ahead of first use, and calling `getLiveStateSyncElement()` auto-enables the feature.
 
-- **Persistence**: Data persists indefinitely until you manually remove it — plan for cleanup
-- **Conflict resolution**: Last-write-wins based on server timestamps
-- **Offline**: Reads work from local cache; writes queue and sync on reconnect
-- **Latency**: Optimistic local-first — UI updates immediately, server confirms async
+**Verification Checklist:**
+- [ ] `VeltProvider` with `authProvider` wraps the app and a document is set (see `core-auth-provider`)
+- [ ] The simplest API that fits is used
+- [ ] Ephemeral data (cursors, selections, typing flags) has a cleanup plan (see `patterns-best-practices`)
+- [ ] `featureAllowList`, when set, includes `'liveStateSync'`
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/overview — latency, offline support, conflict resolution
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/setup — getter and setter methods, `useLiveState`
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#preloadlivestatesync — `preloadLiveStateSync()` and `featureAllowList`

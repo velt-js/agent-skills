@@ -1,5 +1,5 @@
 # Yjs Best Practices
-|v1.1.1|Velt|May 2026
+|v1.1.2|Velt|October 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
 |root: ./rules
 

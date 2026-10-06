@@ -133,6 +133,25 @@ recorderUtils.setRecordingQualityConstraints({
 });
 ```
 
+**Issue 8: `recorder.done` webhook never arrives**
+
+```js
+// recorder.done is an advanced (V2) webhook event; basic webhooks do not carry it.
+// Check the workspace trigger: triggers.recorder.done must be true.
+// Enabling the webhook service via the Update Webhook Config REST API seeds the
+// recorder triggers off, so re-enable it explicitly.
+// The payload's recording data is under body.data, not body.payload.
+```
+
+**Issue 9: Two components fight over a setting**
+
+```jsx
+// Recorder boolean props set shared recorder-service flags; the last setter wins.
+<VeltRecorderControlPanel recordingTranscription={false} />
+<VeltRecorderNotes recordingTranscription={true} />   // overrides the panel
+// Set each flag in one place, or use the API (e.g. disableRecordingTranscription()).
+```
+
 **Verification:**
 - [ ] All recorder components are within VeltProvider
 - [ ] Device permissions granted before recording
@@ -140,5 +159,11 @@ recorderUtils.setRecordingQualityConstraints({
 - [ ] PiP constraints understood (Chrome + screen + camera)
 - [ ] Video editor explicitly enabled for video/screen recordings
 - [ ] Browser-specific keys used for quality/encoding settings
+- [ ] Shared recorder flags configured from one place
+- [ ] `recorder.done` trigger enabled on an advanced webhook endpoint if you rely on it
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/recorder/setup; https://docs.velt.dev/async-collaboration/recorder/customize-behavior
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/recorder/setup - "Setup"
+- https://docs.velt.dev/async-collaboration/recorder/customize-behavior - "Customize Behavior"
+- https://docs.velt.dev/ui-customization/reference/behaviors/recorder-huddle - shared recorder-service flags
+- https://docs.velt.dev/webhooks/advanced#recorder - "Recorder"

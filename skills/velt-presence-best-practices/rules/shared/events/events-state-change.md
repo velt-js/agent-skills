@@ -13,37 +13,55 @@ Velt emits a `userStateChange` event whenever a user transitions between `online
 
 Knowing when users change state lets you build responsive UIs -- show "User X went away" banners, log activity for audit trails, or auto-save unsaved changes when the last active user leaves.
 
-**React: usePresenceEventCallback**
+**Incorrect (passing a callback to the hook):**
+
+```jsx
+// usePresenceEventCallback takes only the event type; this callback never runs
+usePresenceEventCallback("userStateChange", (event) => triggerAutoSave());
+```
+
+**Correct (React: the hook returns the latest event):**
 
 ```jsx
 "use client";
+import { useEffect } from "react";
 import { usePresenceEventCallback } from "@veltdev/react";
 
 function StateChangeHandler() {
-  usePresenceEventCallback("userStateChange", (event) => {
-    // event shape: PresenceUserStateChangeEvent
-    // { user: PresenceUser, state: 'online' | 'away' | 'offline' }
+  const event = usePresenceEventCallback("userStateChange");
 
+  useEffect(() => {
+    if (!event) return;
+    // PresenceUserStateChangeEvent: { user: PresenceUser, state: 'online' | 'away' | 'offline' }
     switch (event.state) {
       case "online":
         showNotification(`${event.user.name} is back online`);
         break;
       case "away":
-        // Tab focus loss immediately triggers 'away'
-        console.log(`${event.user.name} went away`);
+        console.log(`${event.user.name} went away`); // tab blur triggers 'away' immediately
         break;
       case "offline":
         triggerAutoSave();
-        logActivity(`${event.user.name} left the document`);
         break;
     }
-  });
+  }, [event]);
 
   return null;
 }
 ```
 
-**Vanilla JS: presenceElement.on()**
+**Correct (React: API method):**
+
+```jsx
+const presenceElement = client.getPresenceElement();
+const subscription = presenceElement.on("userStateChange").subscribe((event) => {
+  console.log("userStateChange", event);
+});
+// cleanup
+subscription?.unsubscribe();
+```
+
+**Correct (Other Frameworks):**
 
 ```js
 const presenceElement = Velt.getPresenceElement();
@@ -69,7 +87,7 @@ const subscription = presenceElement
 |---|---|
 | `online` -> `away` | Tab loses focus (immediate), or inactivity timeout reached |
 | `away` -> `online` | Tab regains focus, or user activity detected |
-| `online`/`away` -> `offline` | Browser tab closed, network disconnected, or session timeout |
+| `online`/`away` -> `offline` | `offlineInactivityTime` reached, or the user loses their connection |
 
 **Common use cases:**
 
@@ -80,7 +98,7 @@ const subscription = presenceElement
 
 **Key patterns:**
 
-- The React hook automatically cleans up on unmount -- no manual unsubscribe needed
+- The React hook cleans up on unmount; react to its return value in `useEffect`
 - Tab focus loss triggers `away` immediately (not after a timeout)
 - `inactivityTime` config controls the idle timeout for the online-to-away transition when the tab is focused
 - Events fire for all users in the same document scope (set by `setDocuments`)
@@ -93,4 +111,6 @@ const subscription = presenceElement
 - [ ] Vanilla JS subscriptions have cleanup via `.unsubscribe()`
 - [ ] No heavy synchronous work inside the callback (use async for API calls)
 
-> **Source:** Velt Presence Events API -- `userStateChange` event, `PresenceUserStateChangeEvent` type
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/presence/customize-behavior#on - "Event Subscription"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#presenceuserstatechangeevent - `PresenceUserStateChangeEvent`

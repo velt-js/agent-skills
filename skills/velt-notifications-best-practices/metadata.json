@@ -1,17 +1,23 @@
 {
-  "version": "1.1.3",
+  "version": "1.2.1",
   "organization": "Velt",
-  "date": "January 2026",
+  "date": "October 2026",
   "abstract": "Comprehensive Velt Notifications implementation guide covering in-app notifications, email delivery, webhook integrations, and user preference management. This skill provides evidence-backed patterns for integrating Velt's notification system into React, Next.js, and other web applications. Covers notification panel setup, tab configuration, data access hooks and APIs, settings management, custom notification triggers, and delivery channel routing.",
   "references": [
     "https://docs.velt.dev",
     "https://docs.velt.dev/async-collaboration/notifications/overview",
     "https://docs.velt.dev/async-collaboration/notifications/setup",
     "https://docs.velt.dev/async-collaboration/notifications/customize-behavior",
-    "https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel",
+    "https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel/wireframes",
     "https://console.velt.dev",
     "https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel/wireframe-variables",
     "https://docs.velt.dev/ui-customization/features/async/notifications/notifications-tool/wireframe-variables",
-    "https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel/primitives"
+    "https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel/primitives",
+    "https://docs.velt.dev/self-hosting/partial/notifications",
+    "https://docs.velt.dev/webhooks/basic",
+    "https://docs.velt.dev/webhooks/advanced",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/notifications/get-notifications-v2",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/workspace/notificationconfig-update",
+    "https://docs.velt.dev/ui-customization/reference/behaviors/notifications"
   ]
 }

@@ -1,129 +1,56 @@
 ---
-title: Integrate with External Services via Webhooks
+title: Forward Notifications to External Services via Webhooks
 impact: MEDIUM
-impactDescription: Forward notifications to Slack, Linear, or custom services
-tags: webhooks, slack, linear, integration, external
+impactDescription: Correct payload parsing, per-user preference routing, and private-comment filtering when forwarding notifications to Slack, Linear, or your backend
+tags: webhooks, basic-webhooks, advanced-webhooks, actionType, event, usersOrganizationNotificationsConfig, usersDocumentNotificationsConfig, accessDeniedUsers, visibility, private-comments, slack
 ---
 
-## Integrate with External Services via Webhooks
+## Forward Notifications to External Services via Webhooks
 
-Use webhooks to forward Velt notifications to external services like Slack, Linear, or your own backend.
+Velt webhooks deliver comment, huddle, CRDT (and, on advanced webhooks, recorder) events to your endpoint so you can fan notifications out to Slack, Linear, email, or custom channels. There is no `notification.created` event. Basic (V1) webhooks send a flat payload keyed by `actionType`; advanced (V2, Enterprise) webhooks send `{ event, source, data }`. When users have notification settings, the payload also carries their per-user channel preferences, and private-comment events carry `visibility` (plus `accessDeniedUsers` on basic webhooks) so you never forward a private comment to someone who cannot see it.
 
-**Incorrect (no webhook integration):**
-
-```jsx
-// Notifications only in-app
-// No external service integration
-```
-
-**Correct (configure webhooks in Velt Console):**
-
-**Setup Steps:**
-
-1. **Go to Velt Console**: [console.velt.dev](https://console.velt.dev) > Settings > Webhooks
-2. **Add Webhook URL**: Your endpoint that receives POST requests
-3. **Select Events**: Choose which events trigger the webhook
-4. **Configure Secret**: Add webhook secret for verification
-
-**Webhook Payload Structure:**
-
-```javascript
-// Your webhook endpoint receives:
-{
-  "event": "notification.created",
-  "data": {
-    "id": "notification-id",
-    "organizationId": "org-id",
-    "documentId": "doc-id",
-    "actionUser": {
-      "userId": "user-123",
-      "name": "John Doe",
-      "email": "john@example.com"
-    },
-    "displayHeadlineMessageTemplate": "{actionUser} mentioned you",
-    "displayBodyMessage": "Check this out!",
-    "notifyUsers": ["user-456"],
-    "timestamp": 1722409519944,
-    "notificationSource": "comment",  // or "custom"
-    "notificationSourceData": {
-      // Comment annotation or custom data
-    },
-
-    // Per-user notification config (added in v5.0.1-beta.4)
-    // Exactly ONE of these two fields is present per payload, depending on config scope.
-    // Each is a map of userId → NotificationChannelConfig.
-    // NotificationChannelConfig: Record<channelId, 'ALL' | 'MINE' | 'NONE'>
-    //   e.g. { "inbox": "ALL", "email": "MINE" }
-
-    // Present when an org-level config is active for the notified users:
-    "usersOrganizationNotificationsConfig": {
-      "user-123": { "inbox": "ALL", "email": "MINE" },
-      "user-456": { "inbox": "NONE", "email": "NONE" }
-    },
-
-    // — OR — present when a document-level config is active:
-    "usersDocumentNotificationsConfig": {
-      "user-123": { "inbox": "MINE", "email": "ALL" }
-    }
-  }
-}
-```
-
-**Accessing per-user config in your webhook handler:**
+**Incorrect (invented event name, ignoring preferences and visibility):**
 
 ```javascript
 app.post('/webhooks/velt', async (req, res) => {
   const { event, data } = req.body;
-
-  if (event === 'notification.created') {
-    // Exactly one config field is present per payload
-    const userConfigs =
-      data.usersOrganizationNotificationsConfig ||
-      data.usersDocumentNotificationsConfig;
-
-    if (userConfigs) {
-      // userConfigs is keyed by userId
-      // each value is a map of channel ID → 'ALL' | 'MINE' | 'NONE'
-      Object.entries(userConfigs).forEach(([userId, channelPrefs]) => {
-        console.log(`User ${userId} email pref: ${channelPrefs.email}`);
-      });
-    }
+  if (event === 'notification.created') {   // No such event
+    await postToSlack(data.notifyUsers);    // Ignores channel prefs and accessDeniedUsers
   }
-
   res.status(200).send('OK');
 });
 ```
 
-**Example: Slack Integration**
+**Correct (basic webhooks: Comments action types):**
 
 ```javascript
-// Your webhook handler
+// Basic webhooks: enable under Configurations > Webhook Service in the Velt Console.
+// Optional auth token arrives as "Authorization: Basic YOUR_AUTH_TOKEN".
 app.post('/webhooks/velt', async (req, res) => {
-  const { event, data } = req.body;
-
-  // Verify webhook signature (recommended)
-  const signature = req.headers['x-velt-signature'];
-  if (!verifySignature(req.body, signature)) {
-    return res.status(401).send('Invalid signature');
+  if (req.headers.authorization !== `Basic ${process.env.VELT_WEBHOOK_TOKEN}`) {
+    return res.status(401).send('Unauthorized');
   }
 
-  if (event === 'notification.created') {
-    // Forward to Slack
-    await fetch('https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text: `${data.actionUser.name}: ${data.displayHeadlineMessageTemplate}`,
-        blocks: [
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: `*${data.actionUser.name}* mentioned someone\n${data.displayBodyMessage}`
-            }
-          }
-        ]
-      })
+  const payload = req.body; // Base64-decode / decrypt first if you enabled encoding or encryption
+  const { actionType, notificationSource, commentAnnotation, actionUser, metadata } = payload;
+
+  if (notificationSource === 'comment' && ['newlyAdded', 'added'].includes(actionType)) {
+    // Exactly one of these is present when users have notification settings
+    const prefs =
+      payload.usersOrganizationNotificationsConfig ||
+      payload.usersDocumentNotificationsConfig ||
+      {};
+    // Private comment: drop users who cannot see it
+    const denied = new Set(payload.accessDeniedUsers ?? []);
+
+    const recipients = Object.entries(prefs)
+      .filter(([userId, channels]) => !denied.has(userId) && channels.slack !== 'NONE')
+      .map(([userId]) => userId);
+
+    await notifySlack(recipients, {
+      from: actionUser?.name,
+      document: metadata?.documentName,
+      annotationId: commentAnnotation?.annotationId,
     });
   }
 
@@ -131,63 +58,53 @@ app.post('/webhooks/velt', async (req, res) => {
 });
 ```
 
-**Example: Linear Integration**
+**Correct (advanced webhooks: `event` + `data`, signed with Svix-style headers):**
 
 ```javascript
-// Create Linear issue from notification
-app.post('/webhooks/velt', async (req, res) => {
-  const { event, data } = req.body;
+// Verify webhook-id, webhook-timestamp, webhook-signature against the raw body first
+app.post('/webhooks/velt-advanced', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!verifyVeltSignature(req.headers, req.body)) return res.status(401).end();
 
-  if (event === 'notification.created' && data.notificationSource === 'comment') {
-    await linearClient.issueCreate({
-      title: `Comment from ${data.actionUser.name}`,
-      description: data.displayBodyMessage,
-      teamId: 'your-team-id'
-    });
+  const { event, source, data, usersOrganizationNotificationsConfig } = JSON.parse(req.body);
+
+  if (event === 'comment.add') {
+    // Private comments carry data.visibility; treat it as informational only
+    const visibility = data.visibility; // undefined for public comments
+    await enqueueFanOut({ data, visibility, prefs: usersOrganizationNotificationsConfig });
   }
 
-  res.status(200).send('OK');
+  res.status(200).end(); // Respond with 2xx within 15 seconds; queue heavy work
 });
 ```
 
-**Webhook Events:**
+**Event names:**
 
-| Event | Description |
-|-------|-------------|
-| `notification.created` | New notification created |
-| `comment.added` | New comment added |
-| `comment.updated` | Comment content updated |
-| `comment.deleted` | Comment deleted |
+| Webhook type | Field | Comment values (examples) |
+|---|---|---|
+| Basic (V1) | `actionType` + `notificationSource` | `newlyAdded`, `added`, `updated`, `deleted`, `assigned`, `statusChanged`, `priorityChanged`, `accessModeChanged`, `reactionAdded`, `subscribed`, ... Huddle: `created`, `join`. CRDT: `updateData`. |
+| Advanced (V2) | `event` | `comment_annotation.add`, `comment_annotation.assign`, `comment_annotation.status_change`, `comment.add`, `comment.update`, `comment.delete`, `comment.reaction_add`, `huddle.create`, `huddle.join`, `crdt.update_data`, `recorder.done`, ... |
 
-**Add Channel to Settings:**
+**Per-user notification preferences:** if you configured notification settings, each payload includes exactly one of `usersOrganizationNotificationsConfig` (org-level settings) or `usersDocumentNotificationsConfig` (document-level settings): a map of `userId` to `{ [channelId]: 'ALL' | 'MINE' | 'NONE' }`. Use it to honor custom channels (Slack, Linear) you added with `setSettingsInitialConfig()`.
 
-```jsx
-// Let users control Slack notifications
-notificationElement.setSettingsInitialConfig([
-  {
-    id: 'slack',
-    name: 'Slack',
-    enable: true,
-    default: 'MINE',
-    values: [
-      { id: 'ALL', name: 'All Updates' },
-      { id: 'MINE', name: 'Mentions Only' },
-      { id: 'NONE', name: 'None' }
-    ]
-  }
-]);
-```
+**Private comments:**
+- Velt sends comment notifications for a private comment only to users who can see it, on every channel, including the delete notification.
+- Private-comment payloads carry a `visibility` object: `type` (`'public' | 'organizationPrivate' | 'restricted'`), `userIds`, `organizationIds`, `organizationId`. Public comments and pre-existing notifications have no `visibility` key.
+- Basic webhooks also list `accessDeniedUsers` (client user IDs denied by your Permission Provider or by the comment's visibility). Drop those users from your own fan-out.
+- Treat `visibility` and `accessDeniedUsers` as informational. Velt re-verifies visibility server-side; never use them to widen who you forward to.
 
-**Delay and Batching Carve-Out:**
-
-Webhooks and workflow triggers always fire immediately. They are not subject to the opt-in `delayConfig` or `batchConfig` pipeline introduced in v5.0.1-beta.4 — even if those settings are enabled on the workspace, webhook delivery is unaffected.
+**Delay and batching carve-out:** webhooks and workflow triggers always fire immediately. The opt-in delay and batching pipeline (`delivery-delay-batching`) never holds them.
 
 **Verification:**
-- [ ] Webhook URL configured in Console
-- [ ] Endpoint handles POST requests
-- [ ] Signature verification implemented
-- [ ] External service receives notifications
-- [ ] Confirmed webhooks fire immediately regardless of workspace delay/batch config
-- [ ] Handler checks for `usersOrganizationNotificationsConfig` OR `usersDocumentNotificationsConfig` (exactly one present) when per-user config is active
+- [ ] Handler keys off `actionType` / `notificationSource` (basic) or `event` (advanced); no `notification.created`
+- [ ] Basic webhook `Authorization: Basic <token>` checked, or advanced webhook signature verified on the raw body
+- [ ] Encoded (Base64) or encrypted payloads decoded before parsing, if enabled
+- [ ] Recipients filtered by `usersOrganizationNotificationsConfig` OR `usersDocumentNotificationsConfig` (only one is present)
+- [ ] `accessDeniedUsers` removed from fan-out; `visibility` never used to add recipients
+- [ ] Endpoint returns 2xx quickly (advanced webhooks fail after 15 seconds)
 
-**Source Pointer:** https://docs.velt.dev/webhooks/basic - Webhook setup
+**Source Pointers:**
+- https://docs.velt.dev/webhooks/basic - "Basic Webhooks" (setup, auth token, payload schema, list of action types)
+- https://docs.velt.dev/webhooks/basic#comment-visibility - "Comment Visibility" (`visibility`, `accessDeniedUsers`)
+- https://docs.velt.dev/webhooks/advanced - "Advanced Webhooks" (events, signature verification)
+- https://docs.velt.dev/webhooks/advanced#comment-visibility - "Comment Visibility"
+- https://docs.velt.dev/async-collaboration/notifications/overview#notifications-for-private-comments - "Notifications for Private Comments"

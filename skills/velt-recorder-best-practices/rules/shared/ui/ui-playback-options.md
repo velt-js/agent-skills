@@ -56,7 +56,7 @@ Control how recordings are played back by enabling fullscreen mode for better vi
 ```jsx
 import { useVeltClient } from '@veltdev/react';
 
-const client = useVeltClient();
+const { client } = useVeltClient();
 
 // Enable/disable click-to-play programmatically
 client.getRecorderElement().enablePlaybackOnPreviewClick();

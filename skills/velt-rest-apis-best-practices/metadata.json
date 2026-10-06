@@ -1,11 +1,11 @@
 {
-  "version": "1.0.9",
+  "version": "1.0.10",
   "organization": "Velt",
-  "date": "May 2026",
+  "date": "October 2026",
   "abstract": "Comprehensive guide for integrating Velt's server-side surface: the Velt REST API v2, JWT-based authentication for the frontend SDK, and webhook event handling. Covers the required `x-velt-api-key` and `x-velt-auth-token` header contract, JWT token generation and refresh flows (48h expiry), full CRUD over comment annotations, comments, notifications, users (including GDPR data export/delete), documents, organizations, folders, activity logs and CRDT documents via REST. Also covers v1 webhook setup plus v2 / Svix enterprise webhooks with retries and transformations, payload shapes for comment, huddle and CRDT events, and signature verification. All guidance is evidence-backed from official Velt documentation. For the self-hosted Python SDK (`velt-py`) used to store data on your own infrastructure, see `velt-self-hosting-data-best-practices`.",
   "references": [
     "https://docs.velt.dev",
-    "https://docs.velt.dev/api-reference/rest-apis/v2",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/organizations/get-organizations-v2",
     "https://docs.velt.dev/security/jwt-tokens",
     "https://docs.velt.dev/webhooks/basic",
     "https://docs.velt.dev/webhooks/advanced",
@@ -63,6 +63,25 @@
     "https://docs.velt.dev/api-reference/rest-apis/v2/agents/groups/remove-agents",
     "https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations",
     "https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comments/add-comments",
-    "https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/delete-comment-annotations"
+    "https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/delete-comment-annotations",
+    "https://docs.velt.dev/ai/agents/overview",
+    "https://docs.velt.dev/ai/agents/setup",
+    "https://docs.velt.dev/ai/memory/overview",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/agents/fix-it-everywhere/estimate",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/auth/generate-token",
+    "https://docs.velt.dev/get-started/advanced",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/users/add-users",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/documents/add-documents",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/documents/get-documents-v2",
+    "https://docs.velt.dev/api-reference/rest-apis/v1/documents/delete-documents",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/organizations/add-organizations",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/folders/add-folder",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/activities/add-activities",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/crdt/add-crdt-data",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/livestate/broadcast-event",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/workspace/apikeyconfig-update",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/workspace/webhookconfig-update",
+    "https://docs.velt.dev/security/supported-regions",
+    "https://docs.velt.dev/security/auth-tokens"
   ]
 }

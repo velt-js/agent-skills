@@ -1,5 +1,5 @@
 # Velt Notifications Best Practices
-|v1.1.3|Velt|January 2026
+|v1.2.1|Velt|October 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
 |root: ./rules
 
@@ -17,17 +17,20 @@
 |react/settings:{settings-channels.md}
 |shared/settings:{settings-config-rest-api.md}
 
-## 5. Notification Triggers — MEDIUM
+## 5. Configuration — MEDIUM
+|shared/config:{config-cross-organization.md,config-user-scoped-notifications.md}
+
+## 6. Notification Triggers — MEDIUM
 |shared/triggers:{triggers-custom.md,triggers-self-notifications.md}
 
-## 6. Delivery Channels — MEDIUM
+## 7. Delivery Channels — MEDIUM
 |shared/delivery:{delivery-delay-batching.md,delivery-webhooks.md,delivery-email.md}
 
-## 7. UI Customization — MEDIUM
+## 8. UI Customization — MEDIUM
 |shared/ui:{ui-wireframes.md}
 
-## 8. Wireframe Variables — MEDIUM
+## 9. Wireframe Variables — MEDIUM
 |shared/wireframe-variables:{wireframe-variables-notifications-panel.md,wireframe-variables-notifications-tool.md}
 
-## 9. Debugging & Testing — LOW-MEDIUM
+## 10. Debugging & Testing — LOW-MEDIUM
 |react/debug:{debug-common-issues.md}

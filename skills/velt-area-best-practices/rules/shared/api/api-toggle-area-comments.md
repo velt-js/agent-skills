@@ -13,7 +13,15 @@ There is **no** `<VeltArea>` component, no `getAreaElement()` handle, and no `cl
 
 ### Declarative — the `areaComment` prop on `<VeltComments>`
 
-**Disable area comments (React / Next.js):**
+**Incorrect (invented API):**
+
+```tsx
+// BUG: there is no <VeltArea> component and no getAreaElement() handle
+<VeltArea enabled={false} />
+client.getAreaElement().disable();
+```
+
+**Correct (React / Next.js): disable area comments with the prop:**
 
 ```tsx
 import { VeltComments } from '@veltdev/react';
@@ -21,7 +29,7 @@ import { VeltComments } from '@veltdev/react';
 <VeltComments areaComment={false} />
 ```
 
-**Disable area comments (Other Frameworks):**
+**Correct (Other Frameworks): disable area comments with the attribute:**
 
 ```html
 <velt-comments area-comment="false"></velt-comments>
@@ -53,18 +61,22 @@ The prop is the right path when the toggle is part of an initial render; the run
 
 ### Three Area public elements (rendered automatically)
 
-When area mode is enabled, the comments runtime renders three Area-specific public elements. You typically don't author these yourself — they're produced by the comments machinery — but you target them for CSS and (in one case) wireframe customization:
+When area mode is enabled, the comments runtime renders three Area-specific public elements. You typically don't author these yourself (the comments machinery produces them), but you target them for CSS:
 
 **Area public elements:**
 
 ```
 <velt-area-tool>             The trigger primitive to draw a new area. No wireframe tag.
-<velt-area-pin-portal>       The rendered area pin (the rectangle overlay). Wireframe tag:
-                             <velt-area-pin-portal-wireframe> (React: VeltAreaPinPortalWireframe).
+<velt-area-pin-portal>       The rendered area pin (the rectangle overlay). No dedicated wireframe slot.
 <velt-area-container>        The per-document orchestrator for all area pins. No wireframe tag.
 ```
 
-Today only `area-pin-portal` registers a wireframe tag — see the `wireframe-variables-area` rule. The other two primitives don't yet expose `<velt-...-wireframe>` registrations.
+None of the three registers a usable `<velt-...-wireframe>` slot, and Areas have no `Velt*` React wrapper and no headless hooks. Customize with CSS on these host elements and the area color (default `#625DF5`); see the `wireframe-variables-area` rule.
+
+### Location filters and feature loading
+
+- Since v6.0.7, area annotations follow the same location filters as comment pins: after `setLocations()` or `excludeLocationIds` scopes the view, area rectangles for other locations are hidden too. No API change.
+- In the v6 modular SDK, if you pass `featureAllowList`, include `'area'` (and `'comment'`) or the area chunk is not preloaded; `client.preloadArea()` warms it on demand.
 
 **Common pitfalls — DO NOT:**
 
@@ -92,8 +104,13 @@ Today only `area-pin-portal` registers a wireframe tag — see the `wireframe-va
 - No <VeltArea> or <VeltAreaTool> component is referenced in the React code.
 - If toggling at runtime, the corresponding areaComment prop is omitted so
   the two paths don't fight.
+- No <velt-area-*-wireframe> tag or VeltArea* React wrapper is referenced.
+- If featureAllowList is set, it includes 'area'.
 ```
 
 **Source Pointers:**
 - https://docs.velt.dev/async-collaboration/comments/customize-behavior#enableareacomment — `areaComment` prop + `enableAreaComment` / `disableAreaComment` API
 - https://docs.velt.dev/ui-customization/features/async/area/wireframe-variables — the three Area public elements
+- https://docs.velt.dev/ui-customization/features/annotations-tags-arrows-areas — Areas: no React wrapper, no wireframe slots, no hooks; CSS and area color
+- https://docs.velt.dev/release-notes/version-6/sdk-changelog — 6.0.7 Comments entry (area annotations follow location filters)
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#preloadarea — `preloadArea()` and `featureAllowList`

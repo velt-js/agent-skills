@@ -27,6 +27,8 @@ export interface Rule {
 	impact: ImpactLevel;
 	impactDescription?: string;
 	explanation: string;
+	/** Rule markdown after the `## Title` heading, rendered verbatim in AGENTS.full.md */
+	body: string;
 	examples: CodeExample[];
 	references?: string[];
 	tags?: string[];

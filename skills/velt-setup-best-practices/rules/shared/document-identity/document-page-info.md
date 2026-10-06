@@ -7,7 +7,7 @@ tags: setPageInfo, clearPageInfo, useSetPageInfo, useClearPageInfo, pageInfo, pa
 
 ## Attach Custom Page Info to Newly Created Data
 
-By default Velt derives page info (URL, title, path) from the browser and stamps it onto newly created data — comments, reactions, recordings, presence, and cursors. In apps with client-side routing or custom URL schemes the browser URL may not be the identity you want recorded. `setPageInfo()` opts into supplying your own `PageInfo`; it affects **only newly created data** (existing records are untouched). `clearPageInfo()` reverts to the automatic browser-derived behavior.
+By default Velt derives page info (URL, title, path) from the browser and stamps it onto newly created data: comments, reactions, recordings, presence, and cursors. In apps with client-side routing or custom URL schemes the browser URL may not be the identity you want recorded. `setPageInfo()` opts into supplying your own `PageInfo`; it affects **only newly created data** (existing records are untouched). `clearPageInfo()` reverts to the automatic browser-derived behavior.
 
 **Params:**
 - `pageInfo`: `PageInfo` (see [data-models#pageinfo](https://docs.velt.dev/api-reference/sdk/models/data-models#pageinfo))
@@ -15,7 +15,7 @@ By default Velt derives page info (URL, title, path) from the browser and stamps
 
 **For React / Next.js:**
 
-**Incorrect (relying on browser-derived URL in a client-side-routed app — created data records the wrong page):**
+**Incorrect (relying on browser-derived URL in a client-side-routed app: created data records the wrong page):**
 
 ```jsx
 // SPA route is /doc/42 but the browser URL/title may lag or use a hash scheme;
@@ -26,17 +26,26 @@ By default Velt derives page info (URL, title, path) from the browser and stamps
 **Correct (stamp your own page info via the hook or the client API):**
 
 ```jsx
+import { useEffect } from 'react';
 import { useSetPageInfo, useClearPageInfo } from '@veltdev/react';
 
-const { setPageInfo } = useSetPageInfo();
-setPageInfo({ url: 'https://app.example.com/doc/42', title: 'Design Doc' });
+function DocPageInfo({ docId, title }) {
+  // Hook: returns memoized callbacks that wait until the client is ready
+  const { setPageInfo } = useSetPageInfo();
+  const { clearPageInfo } = useClearPageInfo();
 
-// Or via the client API
+  useEffect(() => {
+    setPageInfo({ url: `https://app.example.com/doc/${docId}`, title });
+    // Revert to automatic browser-derived page info on unmount
+    return () => clearPageInfo();
+  }, [docId, title]);
+
+  return null;
+}
+
+// API Method
 client.setPageInfo({ url: 'https://app.example.com/doc/42', title: 'Design Doc' });
-
-// Revert to automatic browser-derived page info
-const { clearPageInfo } = useClearPageInfo();
-clearPageInfo();
+client.clearPageInfo();
 ```
 
 **For HTML/Vanilla JS:**
@@ -52,10 +61,12 @@ The SDK signature also accepts `options?.documentId` on `setPageInfo()` / `clear
 
 **Verification:**
 - [ ] `setPageInfo` is called only when you need to override the browser-derived page info (it is opt-in)
-- [ ] Callers understand only newly created data is affected — existing comments/reactions/recordings keep their original page info
+- [ ] Callers understand only newly created data is affected; existing comments/reactions/recordings keep their original page info
 - [ ] React uses `useSetPageInfo()` / `useClearPageInfo()` (or `client.setPageInfo` / `client.clearPageInfo`); other frameworks use `Velt.setPageInfo` / `Velt.clearPageInfo`
 - [ ] `clearPageInfo()` is used to return to automatic behavior rather than passing stale values
 - [ ] `options.documentId` is not used as a live per-document scope; it is reserved for future support
 
 **Source Pointers:**
-- https://docs.velt.dev/get-started/advanced — "Set Custom Page Info" / "Clear Custom Page Info"
+- https://docs.velt.dev/get-started/advanced#set-custom-page-info — "Set Custom Page Info" / "Clear Custom Page Info"
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#usesetpageinfo — useSetPageInfo() / useClearPageInfo()
+- https://docs.velt.dev/api-reference/sdk/models/data-models#pageinfo — PageInfo

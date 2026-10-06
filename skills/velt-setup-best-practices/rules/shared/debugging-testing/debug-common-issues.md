@@ -85,6 +85,8 @@ useEffect(() => {
 // Both users should see the same documentId in their URL/logs
 
 // 3. Check document is set AFTER user authentication
+//    (Since v6.0.5 an identical repeat setDocuments() call is ignored,
+//     so calling it again with the same input will not "refresh" anything)
 const veltUser = useCurrentUser();
 useEffect(() => {
   if (!veltUser) return;  // Wait for auth
@@ -102,7 +104,7 @@ Console: "Invalid token" or "Token expired"
 Network tab: 401 errors to /api/velt/token
 ```
 
-**Cause:** Token generation endpoint issues or invalid auth token.
+**Cause:** Token generation endpoint issues, an invalid auth token, "Require JWT Token" not enabled in the Console, or a request body that is not wrapped in `data` (returns `INVALID_ARGUMENT`). Tokens expire after 48 hours: `authProvider.generateToken` is re-called automatically, but with `identify()` you must handle the `token_expired` error event yourself.
 
 **Solution:**
 
@@ -112,8 +114,9 @@ Network tab: 401 errors to /api/velt/token
 const VELT_AUTH_TOKEN = process.env.VELT_AUTH_TOKEN;
 console.log("Auth token defined:", !!VELT_AUTH_TOKEN);  // Should be true
 
-// 2. Check API response format
-const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
+// 2. Check the endpoint and body shape (v2: /v2/auth/generate_token)
+//    Body must be wrapped in `data`; organizationId goes in permissions.resources
+const response = await fetch("https://api.velt.dev/v2/auth/generate_token", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",
@@ -123,9 +126,9 @@ const response = await fetch("https://api.velt.dev/v2/auth/token/get", {
   body: JSON.stringify({
     data: {
       userId,
-      userProperties: {
-        ...(organizationId ? { organizationId } : {}),
-        ...(email ? { email } : {}),
+      userProperties: { name, email },
+      permissions: {
+        resources: [{ type: "organization", id: organizationId }],
       },
     },
   }),
@@ -158,12 +161,12 @@ if (!authProvider) {
 
 return <VeltProvider apiKey="KEY" authProvider={authProvider}>...</VeltProvider>;
 
-// 2. Check user object has all required fields
+// 2. Check user object has the required fields
 const user = {
   userId: "...",           // Required - must not be empty
   organizationId: "...",   // Required - must not be empty
-  name: "...",             // Required
-  email: "...",            // Required
+  name: "...",             // Recommended: shown on avatars and mentions
+  email: "...",            // Recommended: needed for email/Slack notifications
 };
 console.log("User object:", user);
 ```
@@ -291,4 +294,7 @@ Always clear `.next` after modifying SSR patterns or dynamic imports. The old bu
 | ENOENT after import changes | Clear `.next` cache? |
 
 **Source Pointers:**
-- `https://docs.velt.dev/get-started/quickstart` - Setup requirements
+- `https://docs.velt.dev/get-started/quickstart` - Debugging; Notes
+- `https://docs.velt.dev/api-reference/rest-apis/v2/auth/generate-token` - Generate Token (body shape, 48h expiry)
+- `https://docs.velt.dev/get-started/advanced#token-refresh` - Token Refresh
+- `https://docs.velt.dev/api-reference/sdk/api/api-methods#setdocuments` - setDocuments() behavior updates

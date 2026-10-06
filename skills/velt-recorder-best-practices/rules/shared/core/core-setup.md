@@ -91,11 +91,14 @@ function RecorderSetup() {
       {/* 2. Floating control panel — manages active recording state */}
       <VeltRecorderControlPanel mode="floating" />
 
-// 3. Pinned recordings — appear where they were created on the page (like comment pins)
-<VeltRecorderNotes />
+      {/* 3. Pinned recordings — appear where they were created on the page (like comment pins) */}
+      <VeltRecorderNotes />
 
-// 4. Floating playback — shows latest recording in bottom-left corner
-<RecordingPlayback />
+      {/* 4. Floating playback — shows latest recording in bottom-left corner */}
+      <RecordingPlayback />
+    </>
+  );
+}
 ```
 
 **RecordingPlayback component (include in your collaboration component):**
@@ -166,28 +169,38 @@ function RecordingPlayback() {
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
-| `type` | `'all' \| 'audio' \| 'video' \| 'screen'` | `'audio'` | Recording type selector |
-| `buttonLabel` | `string` | — | Custom label for button |
-| `maxLength` | `number` | — | Max duration in seconds |
+| `type` | `'all' \| 'audio' \| 'video' \| 'screen'` | See note | Recording mode. Docs disagree on the default (customize-behavior: `audio`; behaviors reference: `video`), so always set it |
+| `panelId` | `string` | None | Bind this tool to a `VeltRecorderControlPanel` with the same `panelId` |
+| `buttonLabel` | `string` | None | Custom label for the button |
+| `maxLength` | `number` | No limit | Max duration in seconds |
+| `pictureInPicture` | `boolean` | `false` | Enable PiP for screen recordings (Chrome, camera on) |
+| `recordingCountdown` | `boolean` | `true` | Show countdown before recording |
+| `retakeOnVideoEditor` | `boolean` | `false` | Show retake button in the video editor |
 | `darkMode` | `boolean` | `false` | Dark mode styling |
 | `shadowDom` | `boolean` | `true` | Render in shadow DOM (set `false` for custom CSS) |
-| `pictureInPicture` | `boolean` | `false` | Enable PiP mode |
-| `recordingCountdown` | `boolean` | `true` | Show countdown before recording |
-| `recordingTranscription` | `boolean` | `true` | Enable AI transcription |
-| `videoEditor` | `boolean` | `false` | Enable post-recording editor |
-| `retakeOnVideoEditor` | `boolean` | `false` | Show retake button |
-| `summary` | `boolean` | `true` | Display AI summary |
-| `playVideoInFullScreen` | `boolean` | `false` | Fullscreen playback |
+| `variant` | `string` | None | Tool wireframe variant |
 
 **VeltRecorderControlPanel props:**
 
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `mode` | `'floating' \| 'thread'` | `'floating'` | Panel layout mode |
-| `onRecordedData` | `(data: RecordedData) => void` | — | Callback with recorded data on completion |
-| `settingsEmbedded` | `boolean` | `false` | Embed device settings in panel |
+| `panelId` | `string` | None | Identifies this panel when several are mounted |
+| `onRecordedData` | `(data) => void` | None | Legacy completion callback; prefer `useRecorderAddHandler()` or the `recordingDone` event |
+| `recordingCountdown` | `boolean` | `true` | Countdown before capture |
+| `recordingTranscription` | `boolean` | `true` | AI transcription |
+| `settingsEmbedded` | `boolean` | `false` | Embed device settings in the panel instead of a modal |
+| `videoEditor` | `boolean` | `false` | Enable the post-recording editor (gates the next three props) |
 | `autoOpenVideoEditor` | `boolean` | `false` | Auto-open editor after recording |
-| `videoEditorTimelinePreview` | `boolean` | `false` | Show timeline frame previews |
+| `retakeOnVideoEditor` | `boolean` | `false` | Retake button in the editor |
+| `videoEditorTimelinePreview` | `boolean` | `false` | Frame previews on the editor timeline |
+| `playVideoInFullScreen` | `boolean` | unset | Fullscreen playback |
+| `pictureInPicture` | `boolean` | `false` | PiP window during screen recording |
+| `maxLength` | `number` | No limit | Max duration in seconds |
+
+`VeltRecorderNotes` accepts `shadowDom`, `videoEditor`, `recordingCountdown`, `recordingTranscription`, `playVideoInFullScreen`, and `videoEditorTimelinePreview`. `VeltRecorderPlayer` takes `recorderId` (effectively required), `summary`, `videoEditor`, `retakeOnVideoEditor`, `playVideoInFullScreen`, `playbackOnPreviewClick`, `shadowDom`, and `onDelete`.
+
+**Shared flags:** recorder boolean props (countdown, transcription, editor, retake, PiP, fullscreen, max length) set process-wide recorder-service flags. If two components set the same flag to different values, the last one to set it wins. Omitting a boolean prop keeps the service default rather than forcing `false`.
 
 **Verification:**
 - [ ] VeltRecorderTool renders in toolbar and is clickable
@@ -198,4 +211,7 @@ function RecordingPlayback() {
 - [ ] Close button dismisses the playback widget
 - [ ] All components are within VeltProvider
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/recorder/setup - Add Velt Recorder Tool, Add Velt Recorder Control Panel, Render Velt Recorder Player
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/recorder/setup - "Add the Velt Recorder Tool component", "Add the Velt Recorder Control Panel component", "Render recorded data in Velt Recorder Player"
+- https://docs.velt.dev/ui-customization/reference/behaviors/recorder-huddle - per-prop defaults and shared recorder-service flags
+- https://docs.velt.dev/ui-customization/reference/props - recorder component props

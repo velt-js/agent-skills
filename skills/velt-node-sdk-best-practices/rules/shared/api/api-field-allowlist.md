@@ -76,4 +76,5 @@ interface FilterSpec {
 - [ ] Not relied on to apply `isRead`/`isArchived` via `updateNotifications` — those are unsupported by the endpoint
 - [ ] Aware filtering is fail-open: a malformed spec does not block the write, it sends the original payload
 
-**Source Pointer:** `backend-sdks/node.mdx` — "Field Allowlist" (FieldFilterOptions, exported `pickKnownFields`/`filterRequest`/`FilterSpec`, per-endpoint specs)
+**Source Pointers:**
+- https://docs.velt.dev/backend-sdks/node#field-allowlist - "Field Allowlist" (FieldFilterOptions, exported `pickKnownFields` / `filterRequest` / `FilterSpec`, per-endpoint specs)

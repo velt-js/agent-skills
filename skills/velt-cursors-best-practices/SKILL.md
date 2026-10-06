@@ -1,10 +1,10 @@
 ---
 name: velt-cursors-best-practices
-description: "Velt Cursors implementation patterns and best practices for React, Next.js, and web applications. Use when adding real-time cursor tracking, collaborative cursor sharing, avatar-mode cursors, cursor element whitelisting, cursor inactivity timeouts, cursor position subscriptions, customizing the cursor pointer wireframe and its flat-config componentConfig template variables (cursorUser, showAvatar / showAudio / showVideo, huddle-on-cursor flags, helper functions), or customizing the Live Selection remote-user indicator wireframe (VeltSelectionElementPortalWireframe / velt-selection-element-portal, live-selection, selection-element-portal, userIndicatorPosition / userIndicatorType, selections). Triggers on any task involving live cursors, collaborative cursor display, live selection indicators, VeltCursor, VeltCursorPointerWireframe, VeltSelection*, cursor tracking on canvas or whiteboard, or showing where other users are pointing or selecting — even if the user doesn't explicitly say 'cursors' or 'live-selection'."
+description: "Velt Cursors patterns for React, Next.js, and web apps. Use when adding live cursors (VeltCursor), confining cursors with allowedElementIds, avatar mode, cursor inactivity timeouts, useCursorUsers / getOnlineUsersOnCurrentDocument data, onCursorUserChange events, cursor pointer wireframes and componentConfig variables, or Live Selection indicator styling. Triggers on any task showing where other users point or select on a canvas or page, even if the user doesn't say 'cursors'."
 license: MIT
 metadata:
   author: velt
-  version: "1.1.1"
+  version: "1.1.2"
 ---
 
 # Velt Cursors Best Practices
@@ -29,7 +29,7 @@ Reference these guidelines when:
 | 2 | Data Access | HIGH | `data-` |
 | 3 | Configuration | HIGH-MEDIUM | `config-` |
 | 4 | Events | MEDIUM | `events-` |
-| 5 | UI Customization | MEDIUM | `ui-` |
+| 5 | UI Wireframes | MEDIUM | `ui-` |
 | 6 | Wireframe Variables | MEDIUM | `wireframe-variables-` |
 | 7 | Debugging | LOW-MEDIUM | `debug-` |
 
@@ -37,27 +37,27 @@ Reference these guidelines when:
 
 ### Core Setup (CRITICAL)
 - `core-auth-provider` — Use authProvider on VeltProvider, never identify()
-- `core-setup` — Add VeltCursor component inside content area (not toolbar)
+- `core-setup` — Mount one VeltCursor near the app root; confine with allowedElementIds; include 'cursor' in featureAllowList
 - `core-document-setup` — Set document context to scope cursors per document
 
 ### Data Access (HIGH)
-- `data-cursor-hooks` — useCursorUsers, useCursorUtils React hooks
-- `data-cursor-api` — getCursorElement, getOnlineUsersOnCurrentDocument Observable
+- `data-cursor-hooks` — useCursorUsers, useCursorUtils React hooks (positions in `position.top/left`)
+- `data-cursor-api` — getCursorElement, getOnlineUsersOnCurrentDocument Observable, documented methods only
 
 ### Configuration (HIGH-MEDIUM)
 - `config-allowed-elements` — Restrict cursors to specific DOM elements
-- `config-avatar-mode` — Show user avatars instead of name labels
-- `config-inactivity-time` — Configure inactive timeout threshold
+- `config-avatar-mode` — Show user avatars instead of name labels (`avatarMode` prop)
+- `config-inactivity-time` — Set the inactivity timeout explicitly (docs list 5 min and 2 min defaults)
 
 ### Events (MEDIUM)
 - `events-cursor-change` — onCursorUserChange callback for position updates
 
-### UI Customization (MEDIUM)
-- `ui-wireframes` — Cursor pointer wireframe variants (Arrow, Avatar, Default, Huddle)
+### UI Wireframes (MEDIUM)
+- `ui-wireframes` — Cursor pointer wireframe variants (Arrow, Avatar, Default, AudioHuddle, VideoHuddle) inside VeltWireframe
 
 ### Wireframe Variables (MEDIUM)
 - `wireframe-variables-cursors` — Flat-config `componentConfig.<path>` variables for `<velt-cursor>` and `<velt-cursor-pointer-wireframe>` (cursorUser, showAvatar / showAudio / showVideo, huddle flags, helper functions)
-- `wireframe-variables-live-selection` — Flat-config `componentConfig.<path>` variables for `<velt-selection-element-portal-wireframe>` (selections, userIndicatorPosition, userIndicatorType, position) plus `UserIndicatorPosition` / `UserIndicatorType` / `CursorPosition` / `Selection` type reference
+- `wireframe-variables-live-selection` — Live Selection has no wireframe tag yet: style it with CSS classes; runtime model (selections, userIndicatorPosition, userIndicatorType) for reference
 
 ### Debugging (LOW-MEDIUM)
 - `debug-common-issues` — Troubleshooting cursor tracking issues

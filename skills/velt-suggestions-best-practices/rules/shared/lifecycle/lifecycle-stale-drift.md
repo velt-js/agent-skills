@@ -1,41 +1,61 @@
 ---
-title: Stale Suggestions and Drift Detection
+title: Handle stale suggestions, drift, and apply_failed
 impact: MEDIUM
-tags: stale, driftDetected, suggestionStale, apply_failed
+impactDescription: A suggestion accepted after its target left the page becomes stale instead of accepted; ignoring it leaves reviewers with no feedback
+tags: stale, suggestionStale, driftDetected, apply_failed, useSuggestionEventCallback, SuggestionStaleEvent
 ---
 
-## Stale Suggestions and Drift Detection
+## Handle stale suggestions, drift, and apply_failed
 
-### Stale Detection
+If the target DOM node cannot be resolved when a reviewer accepts, the suggestion moves to `stale` instead of `accepted`, and no `suggestionAccepted` event fires for it. Listen for `suggestionStale` on the **suggestion element**. Stale wins over drift: if the node is missing, drift detection is skipped.
 
-If the target DOM node can't be resolved when a reviewer accepts, the suggestion transitions to `stale` instead of `accepted`. Listen for this on the SuggestionElement:
+**Incorrect (only listens for accepts):**
 
-**React / Next.js:**
+```jsx
+// BUG: accepts on a removed target never reach this handler; the user sees nothing happen
+const accepted = useCommentEventCallback('suggestionAccepted');
+```
+
+**Correct (React / Next.js):**
+
 ```jsx
 import { useSuggestionEventCallback } from '@veltdev/react';
+import { useEffect } from 'react';
 
-const staleEvent = useSuggestionEventCallback('suggestionStale');
+function StaleNotice() {
+  const staleEvent = useSuggestionEventCallback('suggestionStale');
+
+  useEffect(() => {
+    if (staleEvent?.suggestion) {
+      notify(`"${staleEvent.suggestion.targetId}" no longer exists, so the change was not applied.`);
+    }
+  }, [staleEvent]);
+
+  return null;
+}
 ```
 
-**Other Frameworks:**
+**Correct (Other Frameworks):**
+
 ```js
-suggestionElement.on('suggestionStale').subscribe((event) => {
-  console.log('Suggestion went stale:', event);
+const subscription = suggestionElement.on('suggestionStale').subscribe(({ suggestion }) => {
+  notify(`"${suggestion.targetId}" no longer exists, so the change was not applied.`);
 });
+
+// On teardown:
+subscription?.unsubscribe();
 ```
 
-Stale wins over drift — if the DOM node is missing, drift detection is skipped entirely.
+**Drift detection (best-effort):** on accept, if a getter is registered, the SDK compares the live value with `oldValue`. A mismatch sets `driftDetected: true` on the suggestion. v1 only records the flag; there is no confirmation prompt yet. Check `suggestion.driftDetected` in your accept handler if you want to warn before overwriting.
 
-### Drift Detection
+**apply_failed:** if your accept handler throws while applying `newValue`, the SDK marks the suggestion `apply_failed`. It is a status only; there is no dedicated event in v1.
 
-On accept, if a getter is registered, the SDK compares the live value against the suggestion's `oldValue`. A mismatch sets `driftDetected: true` on the suggestion. In v1, the SDK records the flag but doesn't surface a confirmation prompt (that's planned for a future release).
+**Verification Checklist:**
+- [ ] `suggestionStale` is subscribed on the suggestion element
+- [ ] The UI explains stale suggestions to the reviewer
+- [ ] The accept handler checks `driftDetected` where overwriting a changed value matters
+- [ ] The accept handler catches its own errors to avoid unexpected `apply_failed`
 
-### apply_failed
-
-If your accept handler throws while applying `newValue`, the SDK marks the suggestion `apply_failed`. There's no separate event for this in v1 — it's only a status.
-
-### Key Points
-
-- Build your app to handle stale gracefully — show a "target no longer exists" message
-- Check `suggestion.driftDetected` if you want to warn users that the target value changed since the suggestion was created
-- Make accept handlers idempotent and catch errors to avoid `apply_failed`
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/suggestions/overview — "Properties" (drift and stale) and the Note under "4. Apply Accepted Suggestions"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#suggestionstaleevent — `SuggestionStaleEvent`

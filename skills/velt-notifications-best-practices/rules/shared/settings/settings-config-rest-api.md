@@ -7,20 +7,19 @@ tags: settings, config, rest-api, getConfig, setConfig, getOrganizationConfig, d
 
 ## Manage Per-User Notification Config via REST API
 
-Use the `getConfig` and `setConfig` REST endpoints to read and write a user's notification channel preferences from your server. Both endpoints support document-level config (scoped to specific documents) and org-level config (applied as the user's default for all documents). Available on v1 and v2 REST APIs.
+Use the Get Config and Set Config REST endpoints to read and write users' notification channel preferences from your server. Both support document-level config (scoped to specific documents) and org-level config (the user's default for all documents). Get Config takes a single `userId`; Set Config takes a `userIds` array. Both require the notification settings feature to be enabled in the [Velt Console](https://console.velt.dev/dashboard/config/notification). Available on v1 and v2 REST APIs.
 
-**Incorrect (assuming documentIds is always required):**
+**Incorrect (singular userId on Set Config, empty documentIds, missing auth token):**
 
 ```javascript
-// setConfig without documentIds fails to apply org-level default
 await fetch('https://api.velt.dev/v2/notifications/config/set', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json', 'x-velt-api-key': 'YOUR_API_KEY' },
   body: JSON.stringify({
     data: {
       organizationId: 'your-org-id',
-      userId: 'user-123',
-      documentIds: [],          // Empty array is not the same as omitting
+      userId: 'user-123',       // Set Config expects userIds: string[]
+      documentIds: [],          // Omit documentIds for an org-level default
       config: { inbox: 'ALL', email: 'MINE' }
     }
   })
@@ -75,7 +74,7 @@ const setDocResponse = await fetch('https://api.velt.dev/v2/notifications/config
   body: JSON.stringify({
     data: {
       organizationId: 'your-org-id',
-      userId: 'user-123',
+      userIds: ['user-123'],
       documentIds: ['doc-id-1'],
       config: { inbox: 'MINE', email: 'NONE' }
     }
@@ -94,7 +93,7 @@ const setOrgResponse = await fetch('https://api.velt.dev/v2/notifications/config
   body: JSON.stringify({
     data: {
       organizationId: 'your-org-id',
-      userId: 'user-123',
+      userIds: ['user-123'],
       config: { inbox: 'ALL', email: 'MINE' }
     }
   })
@@ -106,8 +105,9 @@ const setOrgResponse = await fetch('https://api.velt.dev/v2/notifications/config
 | Parameter | Type | Required | Endpoint | Description |
 |-----------|------|----------|----------|-------------|
 | `organizationId` | string | Yes | Both | Your organization ID. |
-| `userId` | string | Yes | Both | The user whose config is being read or set. |
-| `documentIds` | string[] | No | Both | Document IDs to scope the operation. When omitted on `setConfig`, config is applied at org level. Not required on `getConfig` when `getOrganizationConfig` is true. |
+| `userId` | string | Yes (getConfig) | getConfig | The user whose config is read. |
+| `userIds` | string[] | Yes (setConfig) | setConfig | The users whose config is set. |
+| `documentIds` | string[] | No | Both | Document IDs to scope the operation (max 30 on getConfig). When omitted on `setConfig`, config is applied at org level. Not required on `getConfig` when `getOrganizationConfig` is true. |
 | `getOrganizationConfig` | boolean | No | getConfig only | When true, fetches the org-level config for the user. `documentIds` is not required in this mode. |
 | `config` | NotificationChannelConfig | Yes (setConfig) | setConfig | Channel preference map. Keys are channel IDs (`inbox`, `email`, etc.), values are `'ALL'` \| `'MINE'` \| `'NONE'`. |
 
@@ -126,8 +126,10 @@ POST https://api.velt.dev/v2/notifications/config/set
 - [ ] `getOrganizationConfig: true` used (not `documentIds: []`) when fetching org-level config
 - [ ] `documentIds` omitted (not set to `[]`) when applying org-level default via setConfig
 - [ ] `config` object uses valid values: `'ALL'`, `'MINE'`, or `'NONE'` per channel
+- [ ] Set Config sends `userIds` (array); Get Config sends `userId` (string)
 - [ ] Auth headers (`x-velt-api-key` and `x-velt-auth-token`) included on all requests
 
 **Source Pointers:**
-- https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Notification settings and config
-- https://docs.velt.dev/api-reference/rest-api/notifications - Notifications REST API reference
+- https://docs.velt.dev/api-reference/rest-apis/v2/notifications/get-config - "Get Config"
+- https://docs.velt.dev/api-reference/rest-apis/v2/notifications/set-config - "Set Config"
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#enablesettingsatorganizationlevel - "enableSettingsAtOrganizationLevel"

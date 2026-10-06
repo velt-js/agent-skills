@@ -52,7 +52,10 @@ By default, all three tabs are enabled.
 | `all` | All notifications grouped by document | Enabled |
 | `documents` | Notifications organized by document | Enabled |
 
-**Note:** The `TabPeople` wireframe component exists for UI customization but is not part of the `tabConfig` API.
+**Notes:**
+- A tab stays enabled unless its entry sets `enable: false`, so omitting a key leaves that tab on.
+- If you disable `forYou`, the initially selected tab falls back to `documents`, then `all`.
+- The customize-behavior page documents the three keys above. The behaviors reference also lists a `people` key (same `{ name, enable }` shape) for the People tab, which has a `TabPeople` wireframe. Only rely on `people` if your installed SDK accepts it.
 
 **For HTML:**
 
@@ -114,5 +117,6 @@ import {
 - [ ] When using primitives, `listType` matches the intended feed (`'all'` vs `'for-you'`) on both the list and the load-more button
 
 **Source Pointers:**
-- https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Tab Configuration
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#settabconfig - "setTabConfig"
+- https://docs.velt.dev/ui-customization/reference/behaviors/notifications - "tabConfig" (enable-unless-false rule, default-tab fallback)
 - https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel/primitives - VeltNotificationsPanelContentList, VeltNotificationsPanelContentLoadMore

@@ -1,10 +1,10 @@
 ---
 name: velt-area-best-practices
-description: "Best practices for Velt Area Comments — the rectangle area-annotation feature that lets users draw a region on the page and attach a comment thread to it (Figma-style 'draw a box and comment'). Use whenever the user is toggling area comments on or off (areaComment prop on VeltComments, or commentElement.enableAreaComment / disableAreaComment), customizing the area pin via the velt-area-pin-portal-wireframe tag, binding componentConfig.areaPinAnnotation / componentConfig.selected / componentConfig.isResizing / componentConfig.hideAreaAnnotation template variables, or reading the AreaAnnotation data model (annotationId, from, targetElements, areaProperties, targetAnnotations linking back to comments). Trigger on any task involving Velt area comments, rectangle annotations on documents, draw-a-box-and-comment UI, area pin customization, or the AreaAnnotation / AreaProperty / AreaTargetAnnotation shapes — even if the user does not explicitly say 'Velt' or 'area comments'."
+description: "Best practices for Velt Area Comments, the rectangle annotation mode of Comments where users draw a box and attach a thread to it. Use when toggling area comments (areaComment prop on VeltComments, or commentElement.enableAreaComment / disableAreaComment), styling area pins with CSS, reading the area pin componentConfig model, or typing AreaAnnotation, AreaProperty, and AreaTargetAnnotation (links to comments). Triggers on area comments or draw-a-box-and-comment UI, even without the word Velt."
 license: MIT
 metadata:
   author: velt
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # Velt Area Comments Best Practices
@@ -16,7 +16,8 @@ Implementation guide for Velt Area Comments — the rectangle area-annotation fe
 Reference these guidelines when:
 - Toggling area comments on or off in your app (default is ON)
 - Choosing between the declarative `areaComment` prop on `<VeltComments>` and the imperative `commentElement.enableAreaComment()` / `disableAreaComment()` API
-- Building a custom area pin via the wireframe surface — only `<velt-area-pin-portal-wireframe>` registers; the tool and container do not yet
+- Customizing area visuals: no Area primitive registers a usable wireframe slot, there is no `Velt*` React wrapper and no headless hook, so use CSS on the public host elements and the area color
+- Understanding why area rectangles hide when `setLocations()` / `excludeLocationIds` scope the view (v6.0.7) or including `'area'` in a v6 `featureAllowList`
 - Reading `componentConfig.areaPinAnnotation`, `componentConfig.selected`, `componentConfig.isResizing`, `componentConfig.hideAreaAnnotation`, or the geometry / resize-offset variables
 - Typing against `AreaAnnotation`, `AreaProperty`, `AreaTargetAnnotation`, or `AreaMetadata`
 - Understanding how an `AreaAnnotation` links back to the comment thread(s) it scopes via `targetAnnotations[]`
@@ -36,13 +37,13 @@ There is **no** standalone `<VeltArea>` component. Area annotations are produced
 ## Quick Reference
 
 ### API (HIGH)
-- `api-toggle-area-comments` — `<VeltComments areaComment={false}>` prop and `commentElement.enableAreaComment()` / `disableAreaComment()` runtime methods; the three public Area primitives (tool / pin-portal / container); the "no standalone component" framing
+- `api-toggle-area-comments` — `<VeltComments areaComment={false}>` prop and `commentElement.enableAreaComment()` / `disableAreaComment()` runtime methods; the three public Area primitives (tool / pin-portal / container); the "no standalone component" framing; location filters (v6.0.7); `featureAllowList` key `'area'`
 
 ### Wireframe Variables (MEDIUM)
-- `wireframe-variables-area` — `<velt-area-pin-portal-wireframe>` (the only Area primitive with a wireframe registration today) and its `componentConfig.*` reference (areaPinAnnotation, selected, isResizing, hideAreaAnnotation, areaProperties, resizingOffset, offsetTop/Left, areaAnnotationColor, commentPinAnnotation link)
+- `wireframe-variables-area` — no usable Area wireframe slot (customize with CSS and the area color); the area pin overlay's `componentConfig.*` runtime model (areaPinAnnotation, selected, isResizing, hideAreaAnnotation, areaProperties, resizingOffset, offsetTop/Left, areaAnnotationColor, commentPinAnnotation link)
 
 ### Types (MEDIUM)
-- `types-area-annotation` — `AreaAnnotation` shape with the comment-linkage field `targetAnnotations[]` (`AreaTargetAnnotation[]`); supporting `AreaProperty` (geometry) and `AreaMetadata` (open extras); how area pins attach to comment threads
+- `types-area-annotation` — `AreaAnnotation` shape with the comment-linkage field `targetAnnotations[]` (`AreaTargetAnnotation[]`); supporting `AreaProperty` (geometry) and `AreaMetadata` (open extras); how area pins attach to comment threads; `AreaStatus`; area annotations on private comments
 
 ## How to Use
 

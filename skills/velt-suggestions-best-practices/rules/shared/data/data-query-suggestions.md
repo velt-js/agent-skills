@@ -1,55 +1,63 @@
 ---
-title: Query Suggestions for Custom UI
+title: Query suggestions reactively for custom badges and review panels
 impact: MEDIUM
-tags: useSuggestions, usePendingSuggestion, getSuggestions, filter, status, targetId
+impactDescription: Reactive queries keep pending counts and review panels in sync without polling
+tags: useSuggestions, usePendingSuggestion, getSuggestions, getSuggestions$, getPendingSuggestion$, filter, status, targetId, SuggestionGetSuggestionsFilter
 ---
 
-## Query Suggestions for Custom UI
+## Query suggestions reactively for custom badges and review panels
 
-Beyond the built-in accept/reject buttons, you can query suggestions reactively to build custom indicators (e.g., "1 pending change" badge, custom review panel, count in toolbar).
+Beyond the built-in accept/reject buttons, you can render your own indicators: a "1 pending change" badge on a row, a review panel, or a toolbar count. Query with an optional `SuggestionGetSuggestionsFilter` (`targetId`, `status`), or read the newest pending suggestion for one target.
 
-**React / Next.js:**
+**Incorrect (one-time snapshot used as live UI):**
+
+```jsx
+const pending = client.getSuggestionElement().getSuggestions({ status: 'pending' });
+// BUG: a synchronous snapshot; the badge never updates as suggestions are created or resolved
+return <span>{pending.length} pending</span>;
+```
+
+**Correct (React / Next.js):**
+
 ```jsx
 import { useSuggestions, usePendingSuggestion } from '@veltdev/react';
 
-function SuggestionBadge() {
-  // All suggestions, or filter by target / status
-  const all = useSuggestions();
+function RowBadge() {
   const pendingForRow = useSuggestions({ targetId: 'row.123', status: 'pending' });
+  const newest = usePendingSuggestion('row.123'); // newest pending suggestion, or null
 
-  // The newest pending suggestion for one target (or null)
-  const pending = usePendingSuggestion('row.123');
-
-  return (
-    <div>
-      {pendingForRow?.length > 0 && (
-        <span className="badge">{pendingForRow.length} pending</span>
-      )}
-    </div>
-  );
+  if (!pendingForRow?.length) return null;
+  return <span title={newest?.summary}>{pendingForRow.length} pending</span>;
 }
 ```
 
-**Other Frameworks:**
+**Correct (Other Frameworks):**
+
 ```js
-// Synchronous snapshot
+// Synchronous snapshot (fine for one-off checks)
 const pending = suggestionElement.getSuggestions({ status: 'pending' });
 
-// Reactive stream
-suggestionElement.getSuggestions$({ targetId: 'row.123' }).subscribe((list) => {
+// Reactive streams for UI
+const listSub = suggestionElement.getSuggestions$({ targetId: 'row.123' }).subscribe((list) => {
   renderBadge(list.length);
 });
-
-// Newest pending for a single target
-suggestionElement.getPendingSuggestion$('row.123').subscribe((s) => {
+const pendingSub = suggestionElement.getPendingSuggestion$('row.123').subscribe((s) => {
   highlightTarget('row.123', !!s);
 });
+
+// On teardown:
+listSub?.unsubscribe();
+pendingSub?.unsubscribe();
 ```
 
-### Filter Options
+Both filter fields are optional; omit the filter to get every suggestion. `status` takes `'pending' | 'accepted' | 'rejected' | 'stale' | 'apply_failed'`.
 
-The `SuggestionGetSuggestionsFilter` supports:
-- `targetId` — filter by specific target
-- `status` — filter by `'pending'` | `'accepted'` | `'rejected'` | `'stale'` | `'apply_failed'`
+**Verification Checklist:**
+- [ ] Live UI uses `useSuggestions` / `usePendingSuggestion` or the `$` observables
+- [ ] Filters use exact `SuggestionStatus` literals
+- [ ] Non-React subscriptions are unsubscribed on teardown
 
-Both fields are optional. Omit the filter to get all suggestions.
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/suggestions/overview — "5. Get Suggestions"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#suggestiongetsuggestionsfilter — `SuggestionGetSuggestionsFilter`
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#getsuggestions — `getSuggestions()` / `getSuggestions$()` / `getPendingSuggestion$()`

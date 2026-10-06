@@ -95,4 +95,4 @@ function App() {
 - [ ] Wrapped in ReactFlowProvider
 - [ ] Unique `editorId` provided
 
-**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/reactflow` (### Step 3: Initialize Velt CRDT Extension)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/reactflow#step-3-initialize-velt-crdt-extension` (### Step 3: Initialize Velt CRDT Extension)

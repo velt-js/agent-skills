@@ -2,7 +2,7 @@
 title: Configure Reaction and Recording Data Providers
 impact: MEDIUM
 impactDescription: Self-host reaction emoji data and recording annotation PII
-tags: reaction, recording, CRUD, get, save, delete, pattern, data-provider
+tags: reaction, recorder, recording, CRUD, get, save, delete, pattern, data-provider, fieldsToRemove, additionalFields
 ---
 
 ## Configure Reaction and Recording Data Providers
@@ -140,7 +140,7 @@ export const reactionDataProvider = {
 <VeltProvider apiKey="KEY" dataProviders={{
   comment: commentDataProvider,
   reaction: reactionDataProvider,
-  recording: recordingDataProvider,
+  recorder: recordingDataProvider, // the VeltDataProvider key is `recorder`, not `recording`
 }} />
 ```
 
@@ -151,13 +151,18 @@ export const reactionDataProvider = {
 | Reaction | Emoji type, user who reacted, associated comment |
 | Recording | Recording transcription, user identity, attachment URLs |
 
-**Backend request shapes** (same pattern as comments):
+**Backend request shapes** (what the SDK passes to your handler or POSTs to your endpoint):
 
 ```js
-// Get: { organizationId, documentIds?, reactionAnnotationIds? }
-// Save: { annotations: Record<string, Annotation>, context: { documentId, organizationId } }
-// Delete: { annotationId, metadata: { documentId, organizationId } }
+// Reaction get:    { organizationId, reactionAnnotationIds?, documentIds?, folderId?, allDocuments? }
+// Reaction save:   { reactionAnnotation: Record<string, PartialReactionAnnotation>, metadata?, event? }
+// Reaction delete: { reactionAnnotationId, metadata?, event? }
+// Recorder get:    { organizationId, recorderAnnotationIds?, documentIds? }
+// Recorder save:   { recorderAnnotation: Record<string, PartialRecorderAnnotation>, metadata?, event? }
+// Recorder delete: { recorderAnnotationId, metadata?, event? }
 ```
+
+The `dataProviders` key for recordings is `recorder` (there is no `recording` key).
 
 **Key details:**
 - Both follow the exact same interface as the comment data provider
@@ -175,7 +180,7 @@ The reaction strip is intentionally narrow — only the emoji-code `icon` is wit
 - **`from` is copied-not-moved** — both your DB and Velt's DB receive `from`. The per-element `reactions[].from` is reduced to `{ userId }` (when the `user` provider is active) **only inside Velt's DB** — it is not part of the `Partial` payload.
 - **`position`'s value is never sent to Velt** — written as `null` on every write to Velt's DB regardless of self-hosting. This is independent of the reaction resolver.
 - **Unchanged save short-circuits.** A deep-compare against the cache decides whether to strip at all. If nothing changed, the icon is not re-processed and `isReactionResolverUsed` is not set — your `save` handler is not called either.
-- **No `fieldsToRemove` on the reaction resolver.** The reaction resolver config supports only `additionalFields` (extra `ReactionAnnotation` fields to include in resolver payloads) — there is no `fieldsToRemove`, because the only PII is the emoji-code `icon`, which is stripped automatically.
+- **`icon` is stripped automatically; `fieldsToRemove` is for your own custom fields.** Since v6.0.0-beta.2 the reaction and recorder resolvers support `fieldsToRemove` as well as `additionalFields`. List reaction-specific custom fields (for example `internalRef`, `tenantId`) to move them out of Velt's DB; they are merged back on read. Reaction and recorder providers match on `!== undefined`, so `0`, `false`, and `""` are moved too. You never need to list `icon`.
 
 **Incorrect (treating `iconUrl` as PII and writing it to your DB instead of Velt's):**
 
@@ -209,5 +214,11 @@ const saveReaction = async (request) => {
 - [ ] Backend uses same upsert pattern as comments
 - [ ] `save` handler treats `icon` as the only relocated field; does not strip `iconUrl` / `iconEmoji`
 - [ ] `position` is written as `null` to Velt regardless of self-hosting (do not try to round-trip its value through the resolver)
+- [ ] Recordings are registered under the `recorder` key
+- [ ] `fieldsToRemove` on reaction / recorder configs lists only your own custom fields, never `icon` or structural fields
 
-**Source Pointer:** https://docs.velt.dev/self-host-data/reactions; https://docs.velt.dev/self-host-data/recordings; https://docs.velt.dev/self-host-data/field-inventory - "Reaction strip rules"
+**Source Pointers:**
+- https://docs.velt.dev/self-hosting/partial/reactions - "config" (`additionalFields`, `fieldsToRemove`)
+- https://docs.velt.dev/self-hosting/partial/recordings
+- https://docs.velt.dev/self-hosting/partial/field-inventory - "Reaction strip rules"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#savereactionresolverrequest - "SaveReactionResolverRequest"

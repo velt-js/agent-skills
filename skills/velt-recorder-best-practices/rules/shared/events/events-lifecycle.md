@@ -49,7 +49,7 @@ recorderElement.on('recordingCancelled').subscribe((event) => {
 // Completion events
 recorderElement.on('recordingDoneLocal').subscribe((event) => {
   // Fires immediately after local save, before cloud upload/transcription
-  // event.attachmentUrl is a blob URL (not CDN) — only fires when event.sourceFeature === 'recording'
+  // event.assets[0].url is a local blob URL (not CDN); only fires when event.sourceFeature === 'recording'
   console.log('Local save complete:', event);
 });
 
@@ -80,12 +80,17 @@ recorderElement.on('error').subscribe((event) => {
 
 ```js
 const recorderElement = Velt.getRecorderElement();
-recorderElement.on('recordingDone').subscribe((event) => {
+const doneSub = recorderElement.on('recordingDone').subscribe((event) => {
   console.log('Recording completed:', event);
 });
-recorderElement.on('error').subscribe((event) => {
-  console.error('Recorder error:', event);
+const errorSub = recorderElement.on('error').subscribe((event) => {
+  // event: { type: 'editFailed' | 'recordingFailed' | 'transcriptionFailed', message, recorderId? }
+  console.error('Recorder error:', event.type, event.message);
 });
+
+// Clean up when done
+doneSub?.unsubscribe();
+errorSub?.unsubscribe();
 ```
 
 **Complete event reference:**
@@ -97,7 +102,7 @@ recorderElement.on('error').subscribe((event) => {
 | `recordingResumed` | Recording resumed after pause | RecordingResumedEvent |
 | `recordingStopped` | Recording stopped | RecordingStoppedEvent |
 | `recordingCancelled` | Recording cancelled | RecordingCancelledEvent |
-| `recordingDoneLocal` | Fires immediately after recording annotation saved locally, before cloud processing. Attachment URL is a blob URL. Only fires when sourceFeature === 'recording'. | RecordingDoneLocalEvent |
+| `recordingDoneLocal` | Fires immediately after the recording annotation is saved locally, before cloud upload and transcription. `assets[0].url` is a local blob URL; the permanent CDN URL arrives with `recordingDone`. Only fires when `sourceFeature === 'recording'`. | RecordingDoneLocalEvent |
 | `recordingDone` | Recording completed (permanent CDN URL available) | RecordingDoneEvent |
 | `recordingSaveInitiated` | Recording save started | RecordingSaveInitiatedEvent |
 | `recordingEditDone` | Video editor "Done" clicked | RecordingEditDoneEvent |
@@ -112,4 +117,6 @@ recorderElement.on('error').subscribe((event) => {
 - [ ] Subscribed to `recordingDone` for recording completion flow
 - [ ] Subscriptions cleaned up on component unmount (`.unsubscribe()`)
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/recorder/customize-behavior - Event Subscription, on
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/recorder/customize-behavior#on - "on" (event list)
+- https://docs.velt.dev/api-reference/sdk/models/data-models#recordingerrorevent - "RecordingErrorEvent"

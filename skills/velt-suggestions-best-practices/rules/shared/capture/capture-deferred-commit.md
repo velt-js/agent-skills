@@ -1,19 +1,40 @@
 ---
-title: Deferred Commit with targetEditCommit Event
+title: Gate commits with the targetEditCommit event and autoCommit false
 impact: HIGH
-tags: targetEditCommit, commitSuggestion, deferred, validation, useSuggestionEventCallback
+impactDescription: Without autoCommit false the SDK commits first and the event's commitSuggestion becomes a no-op, so validation and confirmation gates silently stop working
+tags: targetEditCommit, commitSuggestion, autoCommit, detect-only, deferred, validation, useSuggestionEventCallback, TargetEditCommitEvent
 ---
 
-## Deferred Commit with targetEditCommit Event
+## Gate commits with the targetEditCommit event and autoCommit false
 
-If you skip `onTargetEditCommit`, subscribe to the `targetEditCommit` event. Its payload carries a pre-bound `commitSuggestion` builder — call it to finalize, or don't call it to drop the edit. This lets you gate suggestion creation behind validation or user confirmation.
+Use this path when you need to validate a value, ask the user to confirm, or run async logic before a suggestion exists. Enable suggestion mode with `autoCommit: false` and **no** `onTargetEditCommit`, then subscribe to `targetEditCommit` on the suggestion element. The payload carries `details` plus a `commitSuggestion` function already bound to that edit. Call it (optionally overriding `summary`, `summaryHtml`, `metadata`) to create the suggestion, or skip it to discard the edit.
 
-**React / Next.js:**
+**Incorrect (missing the opt-out):**
+
 ```jsx
-import { useSuggestionEventCallback } from '@veltdev/react';
+// BUG: autoCommit defaults to true, so every edit is committed before this effect runs
+const commitEvent = useSuggestionEventCallback('targetEditCommit');
+useEffect(() => {
+  if (commitEvent && isValid(commitEvent.details.newValue)) {
+    commitEvent.commitSuggestion({ summary: 'Validated change' });
+  }
+}, [commitEvent]);
+```
+
+**Correct (React / Next.js):**
+
+```jsx
+import { useEnableSuggestionMode, useSuggestionEventCallback } from '@veltdev/react';
 import { useEffect } from 'react';
 
 function CommitGate() {
+  const { enableSuggestionMode } = useEnableSuggestionMode();
+
+  useEffect(() => {
+    // Detect-only: without this, the SDK auto-commits before your gate runs.
+    enableSuggestionMode({ autoCommit: false });
+  }, []);
+
   const commitEvent = useSuggestionEventCallback('targetEditCommit');
 
   useEffect(() => {
@@ -22,24 +43,38 @@ function CommitGate() {
     if (isValid(details.newValue)) {
       commitSuggestion({ summary: `Update ${details.targetId}` });
     }
-    // Not calling commitSuggestion drops the edit silently
   }, [commitEvent]);
 
   return null;
 }
 ```
 
-**Other Frameworks:**
+**Correct (Other Frameworks):**
+
 ```js
-suggestionElement.on('targetEditCommit').subscribe(({ details, commitSuggestion }) => {
-  if (isValid(details.newValue)) {
-    commitSuggestion({ summary: `Update ${details.targetId}` });
-  }
-});
+suggestionElement.enableSuggestionMode({ autoCommit: false });
+
+const subscription = suggestionElement
+  .on('targetEditCommit')
+  .subscribe(({ details, commitSuggestion }) => {
+    if (isValid(details.newValue)) {
+      commitSuggestion({ summary: `Update ${details.targetId}` });
+    }
+  });
+
+// On teardown:
+subscription?.unsubscribe();
 ```
 
-### When to Use This Over Auto-Commit
+The event's `commitSuggestion` returns `Promise<{ id: string }>`. If an earlier auto-commit or handler commit failed, calling it retries; after a successful commit it is a no-op.
 
-- You need to validate the new value before creating a suggestion
-- You want to show a confirmation dialog before committing
-- You need async logic (API call) before deciding whether to create the suggestion
+**Verification Checklist:**
+- [ ] `enableSuggestionMode({ autoCommit: false })` is used, with no `onTargetEditCommit`
+- [ ] The subscription is on the suggestion element (`useSuggestionEventCallback` / `suggestionElement.on`), not the comment element
+- [ ] Discarded edits simply skip `commitSuggestion`
+- [ ] Non-React subscriptions are unsubscribed on teardown
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/suggestions/overview#3-capture-edits-as-suggestions — "Option 3: Decide per edit with the `targetEditCommit` event"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#targeteditcommitevent — `TargetEditCommitEvent`
+- https://docs.velt.dev/api-reference/sdk/models/data-models#targeteditcommitbuilder — `TargetEditCommitBuilder`

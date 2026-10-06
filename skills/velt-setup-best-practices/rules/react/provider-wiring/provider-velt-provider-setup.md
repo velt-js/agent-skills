@@ -108,14 +108,17 @@ export default function App() {
 | Prop | Type | Required | Description |
 |------|------|----------|-------------|
 | apiKey | string | Yes | API key from console.velt.dev |
-| authProvider | object | Recommended | User + token generator for production |
-| dataProviders | object | No | For self-hosting comment data |
+| authProvider | `VeltAuthProvider` | Recommended | User + token generator for production |
+| config | `VeltProviderConfig` / `Config` | No | SDK-wide options such as `featureAllowList`, `proxyConfig`, `integrity`, `globalStyles`, `usePrefersColorScheme`, `urlAllowList` |
+| dataProviders | object | No | For self-hosting data (comments, notifications, users, etc.) |
+
+The `config` object is the same options object that other frameworks pass as the second argument to `initVelt(apiKey, config)`. `authProvider` and `config` are sibling props; do not nest one inside the other.
 
 **Key Rules:**
 
 1. Place VeltProvider in page component (not layout) for Next.js App Router
 2. The file must have `'use client'` directive for Next.js
-3. Do not call auth hooks or setDocument() in the same file as VeltProvider — use child components
+3. Do not call auth hooks or setDocuments() in the same component that renders VeltProvider; use child components
 4. Use child components for authentication and document setup
 
 **Verification:**
@@ -127,3 +130,5 @@ export default function App() {
 
 **Source Pointers:**
 - `https://docs.velt.dev/get-started/quickstart` - Step 4: Initialize Velt
+- `https://docs.velt.dev/api-reference/sdk/models/data-models#config` - Config (`featureAllowList`, `globalStyles`, `usePrefersColorScheme`)
+- `https://docs.velt.dev/api-reference/sdk/models/data-models#veltproviderconfig` - VeltProviderConfig (`proxyConfig`, `integrity`)

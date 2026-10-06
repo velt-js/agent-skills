@@ -2,127 +2,68 @@
 title: Users and Reactions Management via Python SDK
 impact: MEDIUM
 impactDescription: Incorrect request types prevent user lookups and reaction sync
-tags: python, users, reactions, self-hosting
+tags: python, users, reactions, self-hosting, from_dict, resolveUserIdsByEmail, ResolveUserIdsByEmailRequest, PartialReactionAnnotation, from_
 ---
 
 ## Users and Reactions Management via Python SDK
 
-The Python SDK provides methods to manage users and reactions through `sdk.selfHosting.users` and `sdk.selfHosting.reactions`. Each operation uses a typed request object.
+`sdk.selfHosting.users` exposes `getUsers` and `resolveUserIdsByEmail`; `sdk.selfHosting.reactions` exposes `getReactions`, `saveReactions`, and `deleteReaction`. As with comments, parse the frontend body with `from_dict`, call the SDK, and return its response dict unchanged.
 
-**Incorrect (missing request type imports):**
-
-```python
-# This will throw an error — request types are required
-users = sdk.selfHosting.users.getUsers({
-    "organizationId": "org_123"
-})
-```
-
-**Correct (get users):**
+**Incorrect (raw dicts and re-wrapped responses):**
 
 ```python
-from velt_py import GetUserResolverRequest
+# WRONG: methods take typed request objects built from the frontend body
+users = sdk.selfHosting.users.getUsers({"organizationId": "org_123"})
 
-request = GetUserResolverRequest(
-    organization_id="org_123"
-)
-
-response = sdk.selfHosting.users.getUsers(request)
-
-# response is a plain dict with camelCase keys
-if response['success']:
-    users = response['data']
-    for user in users:
-        print(f"User: {user['userId']} - {user['email']}")
-else:
-    print(f"Error: {response['error']}")
+# WRONG: re-shaping the SDK response drops success/statusCode that the frontend expects
+result = sdk.selfHosting.reactions.getReactions(GetReactionResolverRequest.from_dict(body))
+return {"reactions": result["data"]}
 ```
 
-**Correct (get reactions):**
-
-```python
-from velt_py import GetReactionResolverRequest
-
-request = GetReactionResolverRequest(
-    organization_id="org_123",
-    document_id="doc_456"
-)
-
-response = sdk.selfHosting.reactions.getReactions(request)
-
-if response['success']:
-    reactions = response['data']
-    print(f"Found {len(reactions)} reactions")
-```
-
-**Correct (save reactions):**
-
-```python
-from velt_py import SaveReactionResolverRequest
-
-request = SaveReactionResolverRequest(
-    organization_id="org_123",
-    document_id="doc_456",
-    reactions=[
-        {
-            "reactionId": "reaction_1",
-            "emoji": "thumbsup",
-            "userId": "user_789"
-        }
-    ]
-)
-
-response = sdk.selfHosting.reactions.saveReactions(request)
-
-if response['success']:
-    print("Reactions saved")
-```
-
-**Correct (delete reaction):**
-
-```python
-from velt_py import DeleteReactionResolverRequest
-
-request = DeleteReactionResolverRequest(
-    organization_id="org_123",
-    document_id="doc_456",
-    reaction_id="reaction_1"
-)
-
-response = sdk.selfHosting.reactions.deleteReaction(request)
-
-if response['success']:
-    print("Reaction deleted")
-```
-
-**Available request type imports:**
+**Correct:**
 
 ```python
 from velt_py import (
     GetUserResolverRequest,
-    GetReactionResolverRequest,
-    SaveReactionResolverRequest,
-    DeleteReactionResolverRequest
+    GetReactionResolverRequest, SaveReactionResolverRequest, DeleteReactionResolverRequest,
 )
+from velt_py.models.user import ResolveUserIdsByEmailRequest
+
+def get_users(body: dict) -> dict:
+    return sdk.selfHosting.users.getUsers(GetUserResolverRequest.from_dict(body))
+
+def resolve_user_ids_by_email(body: dict) -> dict:
+    # Backs the frontend anonymousUser data provider.
+    # data is {email: userId}; unmatched emails are absent, repeats de-duplicated,
+    # blank or None entries dropped, and user_schema mappings honored.
+    return sdk.selfHosting.users.resolveUserIdsByEmail(ResolveUserIdsByEmailRequest.from_dict(body))
+
+def get_reactions(body: dict) -> dict:
+    return sdk.selfHosting.reactions.getReactions(GetReactionResolverRequest.from_dict(body))
+
+def save_reactions(body: dict) -> dict:
+    return sdk.selfHosting.reactions.saveReactions(SaveReactionResolverRequest.from_dict(body))
+
+def delete_reaction(body: dict) -> dict:
+    return sdk.selfHosting.reactions.deleteReaction(DeleteReactionResolverRequest.from_dict(body))
 ```
 
 **Key points:**
 
-- All methods require typed request objects, not raw dictionaries.
-- `getUsers` only needs `organization_id`. Reaction methods need `organization_id` and `document_id` — there is no `comment_id` field on any reaction request type.
-- `saveReactions` accepts a `reactions` list for batch operations.
-- `deleteReaction` requires `reaction_id` only (no `comment_id`).
-- `VeltSelfHostingResponse` is a plain Python dict — use `response['success']`, `response['data']`, `response['errorCode']` (not attribute access).
-- Always check `response['success']` before accessing `response['data']`.
+- Users are read-only through the SDK resolvers; seed your users collection (or table) yourself, using the field names mapped in `user_schema`.
+- `resolveUserIdsByEmail` is new in v0.1.15; `ResolveUserIdsByEmailRequest` lives in `velt_py.models.user`.
+- `VeltSelfHostingResponse` is a plain dict: use `response['success']`, `response['data']`, `response['errorCode']`.
+- Return the SDK response to the client as-is so the frontend receives `success`, `statusCode`, and `data`.
 
 **Verification:**
-- [ ] Request types are imported from `velt_py`
-- [ ] Typed request objects are passed, not raw dicts
-- [ ] Reaction requests use `organization_id` and `document_id` only (no `comment_id`)
-- [ ] Response is accessed as a dict: `response['success']`, `response['data']`, `response['errorCode']`
-- [ ] Error handling uses `response['error']` and `response['errorCode']`
+- [ ] Request objects are built with `from_dict(body)` from the unmodified frontend body
+- [ ] The anonymous-user provider endpoint calls `resolveUserIdsByEmail`
+- [ ] Responses are returned unchanged, with `statusCode` as the HTTP status
+- [ ] Reaction code uses `from_` (wire key `from`), never `user` (see below)
 
-**Source Pointer:** `https://docs.velt.dev/api-reference/sdk/python/users` (## Python SDK > ### Users & Reactions)
+**Source Pointers:**
+- https://docs.velt.dev/backend-sdks/python#users - "Users" (getUsers, resolveUserIdsByEmail)
+- https://docs.velt.dev/backend-sdks/python#reactions - "Reactions"
 
 ---
 
@@ -212,4 +153,4 @@ ann.to_dict()['from']    # {'userId': 'u-legacy'}  (re-serialized as `from`)
 - [ ] `from_dict()` paths are left as-is — they already accept the legacy `user` key
 - [ ] `velt-py` is pinned to `>= 0.1.12`
 
-**Source Pointer:** `https://docs.velt.dev/backend-sdks/python` (### `PartialReactionAnnotation`)
+**Source Pointer:** https://docs.velt.dev/backend-sdks/python#partialreactionannotation - "PartialReactionAnnotation"

@@ -1,12 +1,21 @@
 {
-  "version": "1.0.3",
+  "version": "1.3.0",
   "organization": "Velt",
-  "date": "January 2026",
+  "date": "October 2026",
   "abstract": "Comprehensive setup guide for integrating Velt collaboration SDK into web applications. Covers installation, VeltProvider configuration, user authentication (userId, organizationId, JWT tokens), document initialization (documentId, setDocuments), project folder structure, and debugging patterns. Primary focus on React and Next.js with secondary coverage of Angular, Vue.js, and vanilla HTML. All guidance is evidence-backed from official Velt documentation and sample applications.",
   "references": [
     "https://docs.velt.dev/get-started/quickstart",
     "https://docs.velt.dev/get-started/advanced",
     "https://console.velt.dev",
-    "https://docs.velt.dev/api-reference/sdk/api/api-methods"
+    "https://docs.velt.dev/api-reference/sdk/api/api-methods",
+    "https://docs.velt.dev/key-concepts/overview",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/auth/generate-token",
+    "https://docs.velt.dev/api-reference/sdk/models/data-models",
+    "https://docs.velt.dev/security/proxy-server",
+    "https://docs.velt.dev/get-started/agentic-overview",
+    "https://docs.velt.dev/get-started/installation-plugin",
+    "https://docs.velt.dev/get-started/docs-mcp",
+    "https://docs.velt.dev/get-started/ui-customization-plugin",
+    "https://docs.velt.dev/ui-customization/setup"
   ]
 }

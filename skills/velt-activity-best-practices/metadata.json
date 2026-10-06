@@ -1,7 +1,7 @@
 {
-  "version": "1.2.0",
+  "version": "1.2.1",
   "organization": "Velt",
-  "date": "March 2026",
+  "date": "October 2026",
   "abstract": "Velt Activity Logs implementation guide covering real-time activity subscriptions, custom activity creation, CRDT debounce configuration, immutability for compliance audit trails, action type filtering, and REST API management. This skill provides evidence-backed patterns for integrating Velt's activity log system into React, Next.js, and other web applications.",
   "references": [
     "https://docs.velt.dev",
@@ -10,6 +10,10 @@
     "https://docs.velt.dev/async-collaboration/activity/customize-behavior",
     "https://console.velt.dev",
     "https://docs.velt.dev/ui-customization/features/async/activity-logs/activity-logs-wireframe-variables",
-    "https://docs.velt.dev/ui-customization/features/async/activity-logs/activity-logs-wireframes"
+    "https://docs.velt.dev/ui-customization/features/async/activity-logs/activity-logs-wireframes",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/activities/get-activities",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/workspace/activityconfig-update",
+    "https://docs.velt.dev/ui-customization/features/async/activity-logs/activity-logs-primitives",
+    "https://docs.velt.dev/api-reference/sdk/api/api-methods#setactivitydebouncetime"
   ]
 }

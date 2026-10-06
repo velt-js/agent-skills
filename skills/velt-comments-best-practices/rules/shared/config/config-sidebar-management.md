@@ -2,90 +2,93 @@
 title: Programmatic Sidebar Data, Filtering, and Configuration
 impact: MEDIUM
 impactDescription: Control sidebar content, filters, and behavior programmatically
-tags: setCommentSidebarData, enableSidebarCustomActions, enableSidebarUrlNavigation, setCommentSidebarFilters, commentSidebarDataInit, commentSidebarDataUpdate, filterConfig, groupConfig, sortOrder, sidebar
+tags: setCommentSidebarData, enableSidebarCustomActions, enableSidebarUrlNavigation, setCommentSidebarFilters, setSystemFiltersOperator, setSidebarButtonCountType, commentSidebarDataInit, commentSidebarDataUpdate, commentClick, commentNavigationButtonClick, sidebarOpen, sidebarClose, filterConfig, groupConfig, sortOrder, sidebar
 ---
 
 ## Programmatic Sidebar Data, Filtering, and Configuration
 
-Control the comments sidebar programmatically — set custom data, manage filters, configure sorting and grouping.
+Control the comments sidebar programmatically: supply custom data, apply filters, and react to sidebar events. Filter keys are field names from `CommentSidebarFilters` (`status`, `priority`, `people`, `location`, ...). Unknown keys such as `statusIds` are ignored.
 
-**Sidebar Data Management:**
+**Incorrect (unknown filter keys, uppercase operator):**
 
-```tsx
+```jsx
+commentElement.setCommentSidebarFilters({ statusIds: ['open'] }); // ignored: not a filter key
+<VeltCommentsSidebar systemFiltersOperator="AND" />                // values are 'and' | 'or'
+```
+
+**Correct (data, filters, operators):**
+
+```jsx
 const commentElement = client.getCommentElement();
 
-// Set sidebar data programmatically (for custom grouping/filtering)
-commentElement.setCommentSidebarData(sidebarData, options);
-
-// Enable/disable custom action buttons in sidebar
+// Custom-actions mode: you compute the list and hand it to the sidebar
 commentElement.enableSidebarCustomActions();
-commentElement.disableSidebarCustomActions();
+commentElement.setCommentSidebarData(customFilterData, { grouping: true });
 
-// Enable/disable URL-based navigation on comment click
+// URL navigation on comment click (default false)
 commentElement.enableSidebarUrlNavigation();
-commentElement.disableSidebarUrlNavigation();
 
-// Set filters programmatically
+// Partial update: included keys replace, omitted keys are preserved
 commentElement.setCommentSidebarFilters({
-  statusIds: ['open'],
-  priority: ['high'],
+  status: ['OPEN'],
+  priority: ['P0'],
+  people: [{ userId: 'user-1' }],
 });
+commentElement.setCommentSidebarFilters({ priority: [] }); // clear one field
+commentElement.setCommentSidebarFilters({});              // clear all
+
+commentElement.setSystemFiltersOperator('or');            // 'and' (default) | 'or'
+commentElement.setSidebarButtonCountType('filter');       // 'default' | 'filter'
 ```
 
-**Sidebar Events:**
+**Sidebar events (comment element event bus):**
 
-```tsx
-// Listen to sidebar data initialization
-commentElement.on('commentSidebarDataInit').subscribe((event) => {
-  console.log('Sidebar data loaded:', event);
+```jsx
+// Hook
+const sidebarData = useCommentEventCallback('commentSidebarDataUpdate');
+const commentClick = useCommentEventCallback('commentClick');
+
+// API Method
+const subscription = commentElement.on('commentNavigationButtonClick').subscribe((event) => {
+  // event: { annotation, documentId, location, targetElementId, context }
+  router.push(`/page/${event.location?.pageId}`);
 });
-
-// Listen to sidebar data updates
-commentElement.on('commentSidebarDataUpdate').subscribe((event) => {
-  console.log('Sidebar data updated:', event);
-});
-
-// Navigation button click
-<VeltCommentsSidebar onCommentNavigationButtonClick={(event) => {
-  router.push(`/page/${event.documentId}#${event.annotationId}`);
-}} />
+subscription?.unsubscribe();
 ```
+
+Other sidebar events: `commentSidebarDataInit`, `sidebarOpen`, `sidebarClose`, `fullscreenClick`. With client-provided data, quick-filter, category-filter, and data changes emit `commentSidebarDataUpdate` with the filtered list. V1 also accepts the `onCommentClick` / `onCommentNavigationButtonClick` component props; V2 uses the event bus.
 
 **Sidebar Props (V1 + V2):**
 
 | Prop | Type | Description |
 |------|------|-------------|
-| `filterConfig` | `object` | Advanced filtering (status, priority, type, custom) |
-| `groupConfig` | `object` | Grouping configuration |
+| `filterConfig` | `object` | V1 system filter panel config (status, priority, people, location, ...) |
+| `groupConfig` | `{ enable?, name?, groupBy? }` | Grouping configuration |
 | `sortOrder` | `'asc' \| 'desc'` | Sort direction |
-| `sortBy` | `string` | Sort field (e.g., 'createdAt', 'lastUpdated') |
-| `systemFiltersOperator` | `'AND' \| 'OR'` | How filters combine |
-| `defaultMinimalFilter` | `string` | Default filter state (e.g., 'reset') |
-| `searchPlaceholder` | `string` | Custom search input text |
-| `commentPlaceholder` | `string` | Comment composer placeholder |
-| `replyPlaceholder` | `string` | Reply composer placeholder |
-| `editPlaceholder` | `string` | Fallback placeholder in the edit composer for any comment or reply |
-| `editCommentPlaceholder` | `string` | Edit composer placeholder when editing the first comment in a thread (index 0); takes precedence over `editPlaceholder` |
-| `editReplyPlaceholder` | `string` | Edit composer placeholder when editing a reply (index > 0); takes precedence over `editPlaceholder` |
-| `pageModePlaceholder` | `string` | Page mode composer placeholder |
-| `sidebarButtonCountType` | `'total' \| 'unread'` | Badge count type |
-| `floatingMode` | `boolean` | Floating sidebar |
-| `fullScreen` | `boolean` | Fullscreen sidebar |
-| `expandOnSelection` | `boolean` | Auto-expand on comment selection |
-| `filterPanelLayout` | `string` | Filter panel layout mode |
-| `filterOptionLayout` | `string` | Individual filter layout |
-| `filterCount` | `boolean` | Show count badge on filter |
-| `dialogSelection` | `string` | Dialog selection behavior |
-| `currentLocationSuffix` | `string` | Custom location label (e.g., '(this page)') |
-| `excludeLocationIdsFromSidebar` | `number[]` | Hide specific locations |
+| `sortBy` | `string` | Default sort field |
+| `systemFiltersOperator` | `'and' \| 'or'` | How different filter fields combine |
+| `defaultMinimalFilter` | `string` | Default quick filter (`'all'`, `'read'`, `'unread'`, `'resolved'`, `'open'`, `'reset'`; V2 also `'assignedToMe'`) |
+| `searchPlaceholder` | `string` | Search input placeholder |
+| `commentPlaceholder` / `replyPlaceholder` / `pageModePlaceholder` | `string` | Composer placeholders |
+| `editPlaceholder` / `editCommentPlaceholder` / `editReplyPlaceholder` | `string` | Edit-composer placeholders (specific variants win over `editPlaceholder`) |
+| `sidebarButtonCountType` | `'default' \| 'filter'` | Sidebar button badge source |
+| `commentCountType` | `'total' \| 'unread'` | V1 sidebar / sidebar-button count type |
+| `floatingMode` | `boolean` | Floating overlay sidebar |
+| `fullScreen` | `boolean` | Fullscreen toggle in the header |
+| `expandOnSelection` | `boolean` | Auto-expand on comment selection (default `true`) |
+| `filterPanelLayout` | `'bottomSheet' \| 'menu'` | Filter panel layout |
+| `filterOptionLayout` | `'dropdown' \| 'checkbox'` | Option rendering inside a filter section |
+| `filterCount` | `boolean` | Per-option counts (default `true`) |
+| `dialogSelection` | `boolean` | `false` emits `commentClick` only, with no inline expansion |
+| `currentLocationSuffix` | `boolean` | Adds "(This page)" to the current location's group |
+| `excludeLocationIds` | `string[]` | Hide comments from these locations (API: `excludeLocationIdsFromSidebar()`) |
 | `filterGhostCommentsInSidebar` | `boolean` | Hide ghost comments |
 
 **Edit Composer Placeholders:**
 
-Props set on the root `VeltComments` container propagate automatically to all dialogs. Priority order: `editCommentPlaceholder` / `editReplyPlaceholder` > `editPlaceholder` > existing `commentPlaceholder` / `replyPlaceholder` > SDK defaults.
+Props set on the root `VeltComments` propagate to all dialogs. Priority: `editCommentPlaceholder` / `editReplyPlaceholder` > `editPlaceholder` > `commentPlaceholder` / `replyPlaceholder` > SDK defaults.
 
 ```jsx
-// React — set on root VeltComments; propagates to all dialogs automatically
 <VeltComments
   editPlaceholder="Edit your message…"
   editCommentPlaceholder="Edit the original comment…"
@@ -94,7 +97,6 @@ Props set on the root `VeltComments` container propagate automatically to all di
 ```
 
 ```html
-<!-- HTML -->
 <velt-comments
   edit-placeholder="Edit your message…"
   edit-comment-placeholder="Edit the original comment…"
@@ -103,9 +105,14 @@ Props set on the root `VeltComments` container propagate automatically to all di
 ```
 
 **Verification:**
-- [ ] Sidebar data set before user opens sidebar
-- [ ] Custom actions enabled if custom filter UI needed
+- [ ] Filter payloads use `CommentSidebarFilters` keys with object identities for people and locations
+- [ ] Operator values are lowercase `'and'` / `'or'`
+- [ ] Custom actions enabled before calling `setCommentSidebarData()`
 - [ ] Event subscriptions cleaned up on unmount
-- [ ] Props match sidebar version (V1 vs V2)
+- [ ] Props match the sidebar version (V1 `filterConfig` vs V2 `filters` / `minimalFilters`)
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/comments-sidebar/customize-behavior
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v1/customize-behavior - V1 customize behavior
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/customize-behavior#setcommentsidebarfilters - setCommentSidebarFilters
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#event-subscription - Comment event table
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#setcommentsidebardata - setCommentSidebarData()

@@ -13,7 +13,13 @@ Use `onCursorUserChange` to react when the list of users with active cursors cha
 
 Cursor change events let you build features on top of cursor data: activity logs, user following, cursor-aware layouts, or custom presence indicators tied to cursor movement rather than just document presence.
 
-**React: onCursorUserChange callback**
+**Incorrect (deprecated alias and nonexistent coordinates):**
+
+```jsx
+<VeltCursor onCursorUsersChanged={(users) => users.map((u) => [u.x, u.y])} />
+```
+
+**Correct (React: onCursorUserChange callback):**
 
 ```jsx
 "use client";
@@ -25,16 +31,12 @@ function CursorTracker() {
     // users is CursorUser[] with position and user data
     console.log("Active cursor users:", users.length);
     users.forEach((user) => {
-      console.log(`${user.name} at (${user.x}, ${user.y})`);
+      console.log(`${user.name} at (${user.position?.left}, ${user.position?.top})`);
     });
   }, []);
 
-  return (
-    <main className="canvas">
-      <VeltCursor onCursorUserChange={(users) => handleCursorChange(users)} />
-      {/* Canvas content */}
-    </main>
-  );
+  // Single root-level VeltCursor; only the first instance emits this callback
+  return <VeltCursor onCursorUserChange={(users) => handleCursorChange(users)} />;
 }
 ```
 
@@ -55,9 +57,7 @@ function CursorAwareCanvas() {
   return (
     <div>
       <p>{activeUsers.length} users with active cursors</p>
-      <main className="canvas">
-        <VeltCursor onCursorUserChange={handleChange} />
-      </main>
+      <VeltCursor onCursorUserChange={handleChange} />
     </div>
   );
 }
@@ -69,11 +69,11 @@ function CursorAwareCanvas() {
 <velt-cursor></velt-cursor>
 
 <script>
-  const cursorElement = document.querySelector("velt-cursor");
-  cursorElement.addEventListener("onCursorUserChange", (event) => {
+  const cursorTag = document.querySelector("velt-cursor");
+  cursorTag.addEventListener("onCursorUserChange", (event) => {
     const users = event.detail;
     users.forEach((user) => {
-      console.log(`${user.name} at (${user.x}, ${user.y})`);
+      console.log(`${user.name} at (${user.position?.left}, ${user.position?.top})`);
     });
   });
 </script>
@@ -81,7 +81,9 @@ function CursorAwareCanvas() {
 
 **Key points:**
 
-- The callback receives `CursorUser[]` with `userId`, `name`, `x`, `y`, and other user metadata
+- The callback receives `CursorUser[]`; coordinates are in `position.top` / `position.left`
+- `onCursorUsersChanged` is a deprecated alias that fires at the same time; use `onCursorUserChange`
+- Only the first (subscribing) `VeltCursor` instance emits this event
 - Fires on: user joins document, user leaves, cursor moves, user goes inactive
 - In React, wrap handlers in `useCallback` to avoid unnecessary re-renders
 - In HTML, use `addEventListener` on the `velt-cursor` element
@@ -90,9 +92,12 @@ function CursorAwareCanvas() {
 **Verification:**
 - [ ] `onCursorUserChange` callback is set on `VeltCursor`
 - [ ] Callback fires when users join or leave the document
-- [ ] Callback receives `CursorUser[]` with position data
+- [ ] Callback reads `position.top` / `position.left`, not `x` / `y`
+- [ ] `onCursorUserChange` is used, not the deprecated `onCursorUsersChanged`
 - [ ] No stale closures in React (handler wrapped in `useCallback`)
 - [ ] HTML event listener is cleaned up on page unload if needed
 
 **Source Pointers:**
-- `https://docs.velt.dev/cursor/customize-behavior/event-handlers` - Cursor event handlers
+- https://docs.velt.dev/realtime-collaboration/cursors/customize-behavior#oncursoruserchange - "onCursorUserChange"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#cursoruser - `CursorUser`
+- https://docs.velt.dev/ui-customization/reference/behaviors/presence-reactions - deprecated `onCursorUsersChanged` alias

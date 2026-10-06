@@ -83,20 +83,20 @@ await activityElement?.createActivity({
 |-------|------|----------|-------------|
 | `featureType` | `ActivityFeatureType` | Yes | `'comment'` \| `'reaction'` \| `'recorder'` \| `'crdt'` \| `'custom'` |
 | `actionType` | `string` | Yes | `'custom'` or a specific action name |
-| `targetEntityId` | `string` | Required for `'custom'` | ID of the entity being acted upon |
+| `targetEntityId` | `string` | Required for `'custom'` | ID of the entity being acted upon; optional for `comment`, `reaction`, `recorder`, `crdt` |
 | `targetSubEntityId` | `string \| null` | No | ID of sub-entity within target (e.g., comment within thread) |
 | `displayMessageTemplate` | `string` | No | Template with `{{variable}}` placeholders |
 | `displayMessageTemplateData` | `Record<string, unknown>` | No | Key-value pairs for template interpolation |
-| `id` | `string` | No | Optional Firestore doc ID — use for idempotent writes (same ID = same record) |
+| `id` | `string` | No | Optional record ID for idempotent writes |
 | `eventType` | `string` | No | Sub-event type within the action |
 | `changes` | `ActivityChanges` | No | Before/after field changes: `{ [key]: { from, to } }` |
 | `entityData` | `unknown` | No | Full entity object snapshot at time of action |
 | `entityTargetData` | `unknown` | No | Full target entity object snapshot at time of action |
 | `actionIcon` | `string` | No | Icon URL or identifier for custom action |
 
-**Built-in template variables:**
-- `{{actionUser.name}}` — automatically populated with the current user's name
-- `{{assignee.name}}` — populated if assignee context exists
+**Template variables:**
+- `{{actionUser.name}}` resolves from the acting user; you do not pass it in `displayMessageTemplateData`
+- Nested paths work when you pass an object, e.g. `{{assignee.name}}` with `displayMessageTemplateData: { assignee: { name: 'Alice' } }`
 
 **Key details:**
 - `createActivity()` returns `Promise<void>` — await it for error handling
@@ -110,4 +110,6 @@ await activityElement?.createActivity({
 - [ ] featureType and actionType set appropriately
 - [ ] targetEntityId identifies the relevant entity
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/activity/setup - Create a Custom Activity (Using Hook)
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/activity/customize-behavior#createactivity - "createActivity"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#createactivitydata - "CreateActivityData"

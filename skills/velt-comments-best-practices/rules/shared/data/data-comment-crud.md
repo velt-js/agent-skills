@@ -2,82 +2,83 @@
 title: Individual Comment CRUD — Add, Update, Delete, Get Comments Within Threads
 impact: HIGH
 impactDescription: Required for programmatic comment management within annotation threads
-tags: addComment, updateComment, deleteComment, getComment, getUnreadCommentCountOnCurrentDocument, getUnreadCommentCountByLocationId, getUnreadCommentCountByAnnotationId
+tags: addComment, updateComment, deleteComment, getComment, useAddComment, useUpdateComment, useDeleteComment, useGetComment, getUnreadCommentCountOnCurrentDocument, getUnreadCommentCountByLocationId, getUnreadCommentCountByAnnotationId, isAssigneeChanged
 ---
 
 ## Individual Comment CRUD — Add, Update, Delete, Get Comments Within Threads
 
-Use these methods to manage individual comments within an existing annotation thread — add replies, edit messages, delete comments, and track unread counts.
+Manage individual comments inside an existing annotation thread: add replies, edit messages, delete comments, and track unread counts. For `updateComment()`, the `commentId` goes **inside** the `comment` object, and `updateComment()` replaces the comment wholesale.
 
-**API Methods (via getCommentElement()):**
+**Incorrect (commentId outside the comment object):**
 
-```tsx
-const commentElement = client.getCommentElement();
-
-// Add comment to existing thread
-await commentElement.addComment({
-  annotationId: 'ann-123',
-  comment: {
-    commentText: 'This is a reply',
-    commentHtml: '<p>This is a reply</p>',
-  },
-});
-
-// Update comment content
+```jsx
 await commentElement.updateComment({
   annotationId: 'ann-123',
-  commentId: 42,
-  comment: {
-    commentText: 'Updated text',
-    commentHtml: '<p>Updated text</p>',
-  },
-});
-
-// Delete single comment from thread
-await commentElement.deleteComment({
-  annotationId: 'ann-123',
-  commentId: 42,
-});
-
-// Get comment data
-const comment = await commentElement.getComment({
-  annotationId: 'ann-123',
-  commentId: 42,
+  commentId: 42,                       // must be comment.commentId
+  comment: { commentText: 'Updated text' },
 });
 ```
 
-**Unread Count Methods:**
+**Correct:**
 
-```tsx
-// Unread count on current document
-commentElement.getUnreadCommentCountOnCurrentDocument()
-  .subscribe((count) => {
-    console.log('Unread on doc:', count);
-  });
+```jsx
+const commentElement = client.getCommentElement();
 
-// Unread count by location
-commentElement.getUnreadCommentCountByLocationId(locationId)
-  .subscribe((count) => {
-    console.log('Unread at location:', count);
-  });
+// Add a reply to an existing thread (optionally with visibility set at creation)
+await commentElement.addComment({
+  annotationId: 'ANNOTATION_ID',
+  comment: { commentText: 'This is a reply', commentHtml: '<p>This is a reply</p>' },
+});
 
-// Unread count by annotation thread
-commentElement.getUnreadCommentCountByAnnotationId(annotationId)
-  .subscribe((count) => {
-    console.log('Unread in thread:', count);
-  });
+// Update: commentId lives inside comment
+await commentElement.updateComment({
+  annotationId: 'ANNOTATION_ID',
+  comment: { commentId: 42, commentText: 'Updated text', commentHtml: '<p>Updated text</p>' },
+});
+
+await commentElement.deleteComment({ annotationId: 'ANNOTATION_ID', commentId: 42 });
+
+// Returns Comment[] for the annotation
+const comments = await commentElement.getComment({ annotationId: 'ANNOTATION_ID' });
+```
+
+```jsx
+// Hooks
+const { addComment } = useAddComment();
+const { updateComment } = useUpdateComment();
+const { deleteComment } = useDeleteComment();
+const { getComment } = useGetComment();
+```
+
+**Unread counts:**
+
+```jsx
+// Hooks
+const docCount = useUnreadCommentCountOnCurrentDocument();
+const locationCount = useUnreadCommentCountByLocationId(locationId);
+const threadCount = useUnreadCommentCountByAnnotationId(annotationId);
+
+// API Methods (Observables)
+const subscription = commentElement
+  .getUnreadCommentCountByAnnotationId(annotationId)
+  .subscribe((countObj) => console.log(countObj));
+subscription?.unsubscribe();
 ```
 
 **Key details:**
-- `addComment()` adds a reply to an existing annotation thread (not a new thread)
-- `commentId` is a number, not a string
-- `commentText` is plain text; `commentHtml` is the rich text version
-- Unread count methods return Observables — subscribe and clean up
-- To create a NEW thread, use `addCommentAnnotation()` (see data-annotation-crud rule)
+- `addComment()` adds a reply to an existing thread. To create a new thread, use `addCommentAnnotation()` (see `data-annotation-crud.md`).
+- `commentId` is a number.
+- `updateComment()` replaces the comment. It marks a comment "(edited)" only when the replaced comment already had content, so completing a content-less progress comment is not flagged as edited.
+- The `addComment` and `updateComment` events carry `isAssigneeChanged`; through `commentElement.updateComment()` it is always `false`.
+- Live progress rows and action chips are fields on the comment (`progress`, `actions`); see `data-comment-progress.md` and `data-comment-actions.md`.
+- In Other Frameworks, call the same methods on `Velt.getCommentElement()`.
 
 **Verification:**
-- [ ] Using correct annotationId and commentId types
-- [ ] Subscription cleaned up on component unmount
-- [ ] commentHtml provided alongside commentText for rich text
+- [ ] `updateComment()` passes `comment.commentId`
+- [ ] `commentHtml` provided alongside `commentText` for rich text
+- [ ] Unread count subscriptions cleaned up on unmount
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/comments/customize-behavior - Messages
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#messages - Messages
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#updatecomment - updateComment
+- https://docs.velt.dev/api-reference/sdk/models/data-models#updatecommentrequest - UpdateCommentRequest

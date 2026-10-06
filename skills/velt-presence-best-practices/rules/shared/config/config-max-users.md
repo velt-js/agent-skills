@@ -33,13 +33,6 @@ This displays 3 avatar icons plus a "+N" badge showing how many additional users
 <velt-presence max-users="3"></velt-presence>
 ```
 
-**API: Set programmatically**
-
-```javascript
-const presenceElement = client.getPresenceElement();
-presenceElement.setMaxUsers(3);
-```
-
 **Choosing the right value:**
 
 | Context | Recommended maxUsers |
@@ -48,17 +41,26 @@ presenceElement.setMaxUsers(3);
 | Standard desktop header | 5 |
 | Wide collaboration bar | 8-10 |
 
-When `maxUsers` is not set, all active user avatars are displayed. For most applications, a value between 3 and 5 provides a good balance between visibility and layout stability.
+The default is `5`. Non-numeric values are rejected and the default holds. When `self` is `true` (the default), the current user counts toward the cap.
 
 **Overflow badge behavior:**
 
-The overflow badge automatically calculates the count of hidden users. If `maxUsers` is 3 and there are 8 active users, the badge shows "+5". Users can typically hover or click the badge to see the full list.
+The "+N" badge renders only when the filtered user count is greater than `maxUsers`. If `maxUsers` is 3 and there are 8 active users, the badge shows "+5". `maxUsers` only affects rendering; presence data (`getData`, `usePresenceData`) still returns every user.
+
+**Incorrect (relying on an undocumented API method):**
+
+```javascript
+// setMaxUsers() is not a documented PresenceElement method; use the prop/attribute
+presenceElement.setMaxUsers(3);
+```
 
 **Verification:**
 - [ ] `maxUsers` is set on `VeltPresence` or `<velt-presence>`
 - [ ] Only the specified number of avatars renders in the toolbar
 - [ ] An overflow count badge appears when active users exceed `maxUsers`
 - [ ] Layout does not break when many users are present simultaneously
+- [ ] No calls to `setMaxUsers()` (configure via `maxUsers` / `max-users`)
 
 **Source Pointers:**
-- `https://docs.velt.dev/presence/customize-behavior/set-max-users` - Max users configuration
+- https://docs.velt.dev/realtime-collaboration/presence/customize-behavior#maxusers - "maxUsers"
+- https://docs.velt.dev/ui-customization/reference/behaviors/presence-reactions - `maxUsers` default and overflow behavior

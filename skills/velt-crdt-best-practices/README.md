@@ -38,49 +38,18 @@ npm run build
 skills/velt-crdt-best-practices/
 ├── SKILL.md              # Agent-facing skill manifest
 ├── AGENTS.md             # [Generated] Compiled rules document
+├── AGENTS.full.md        # [Generated] Full verbose guide
 ├── README.md             # This file
 ├── metadata.json         # Version and metadata
 └── rules/
-    ├── _sections.md      # Section/category definitions
-    ├── _template.md      # Rule template
-    ├── core/             # Core CRDT rules (11 rules)
-    │   ├── core-install.md
-    │   ├── core-velt-init.md
-    │   ├── core-store-create-react.md
-    │   ├── core-store-create-vanilla.md
-    │   ├── core-store-types.md
-    │   ├── core-store-subscribe.md
-    │   ├── core-store-update.md
-    │   ├── core-version-save.md
-    │   ├── core-encryption.md
-    │   ├── core-debug-storemap.md
-    │   └── core-debug-testing.md
-    ├── tiptap/           # Tiptap integration (7 rules)
-    │   ├── tiptap-install.md
-    │   ├── tiptap-setup-react.md
-    │   ├── tiptap-setup-vanilla.md
-    │   ├── tiptap-disable-history.md
-    │   ├── tiptap-editor-id.md
-    │   ├── tiptap-cursor-css.md
-    │   └── tiptap-testing.md
-    ├── blocknote/        # BlockNote integration (4 rules)
-    │   ├── blocknote-install.md
-    │   ├── blocknote-setup-react.md
-    │   ├── blocknote-editor-id.md
-    │   └── blocknote-testing.md
-    ├── codemirror/       # CodeMirror integration (6 rules)
-    │   ├── codemirror-install.md
-    │   ├── codemirror-setup-react.md
-    │   ├── codemirror-setup-vanilla.md
-    │   ├── codemirror-ycollab.md
-    │   ├── codemirror-editor-id.md
-    │   └── codemirror-testing.md
-    └── reactflow/        # ReactFlow integration (5 rules)
-        ├── reactflow-install.md
-        ├── reactflow-setup-react.md
-        ├── reactflow-handlers.md
-        ├── reactflow-editor-id.md
-        └── reactflow-testing.md
+    ├── shared/           # Framework-agnostic rules (plus _sections.md and _template.md)
+    │   ├── core/         # Core CRDT stores, versions, webhooks, REST, message stream
+    │   ├── tiptap/       # Tiptap integration
+    │   ├── blocknote/    # BlockNote integration
+    │   ├── codemirror/   # CodeMirror integration
+    │   └── editors/      # Multiplayer packages for Lexical, ProseMirror, Quill, TinyMCE, CKEditor, SuperDoc, Monaco, Ace, Apryse, Nutrient, SpreadJS
+    ├── react/            # React-only rules (core hooks, v1 hooks, ReactFlow, Slate, Draft.js)
+    └── non-react/        # Non-React-only rules (v1 factories, createVeltStore)
 ```
 
 ## Creating a New Rule
@@ -91,6 +60,7 @@ skills/velt-crdt-best-practices/
    - `blocknote/` - BlockNote block editor
    - `codemirror/` - CodeMirror code editor
    - `reactflow/` - ReactFlow diagrams
+   - `editors/` - Velt multiplayer packages for Lexical, Slate, Draft.js, ProseMirror, Quill, TinyMCE, CKEditor, SuperDoc, Monaco, Ace, Apryse, Nutrient, SpreadJS
 
 2. **Copy the template**:
    ```bash
@@ -99,7 +69,7 @@ skills/velt-crdt-best-practices/
 
 3. **Fill in the content** following the template structure
 
-4. **Update _sections.md** to include the new rule
+4. **Update rules/shared/_sections.md** and the SKILL.md Quick Reference to include the new rule
 
 5. **Validate and build**:
    ```bash
@@ -137,7 +107,8 @@ tags: keywords
 - [ ] Checklist item 1
 - [ ] Checklist item 2
 
-**Source Pointer:** `/docs/path/to/file.mdx` (section name)
+**Source Pointers:**
+- https://docs.velt.dev/... - "section name"
 ```
 
 ## Impact Levels
@@ -155,12 +126,13 @@ tags: keywords
 
 All rules must include source pointers to Velt documentation:
 
-- Core: `/docs/realtime-collaboration/crdt/setup/core.mdx`
-- Tiptap: `/docs/realtime-collaboration/crdt/setup/tiptap.mdx`
-- BlockNote: `/docs/realtime-collaboration/crdt/setup/blocknote.mdx`
-- CodeMirror: `/docs/realtime-collaboration/crdt/setup/codemirror.mdx`
-- ReactFlow: `/docs/realtime-collaboration/crdt/setup/reactflow.mdx`
-- Quickstart: `/docs/get-started/quickstart.mdx`
+- Core: https://docs.velt.dev/realtime-collaboration/crdt/setup/core
+- Tiptap: https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap
+- BlockNote: https://docs.velt.dev/realtime-collaboration/crdt/setup/blocknote
+- CodeMirror: https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror
+- ReactFlow: https://docs.velt.dev/realtime-collaboration/crdt/setup/reactflow
+- Multiplayer editors: https://docs.velt.dev/realtime-collaboration/crdt/overview (links to the Lexical, Slate, Draft.js, ProseMirror, Quill, TinyMCE, CKEditor, SuperDoc, Monaco, Ace, Apryse, Nutrient, and SpreadJS guides)
+- Quickstart: https://docs.velt.dev/get-started/quickstart
 
 ## License
 

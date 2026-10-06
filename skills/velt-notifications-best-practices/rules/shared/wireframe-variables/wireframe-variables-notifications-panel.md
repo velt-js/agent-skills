@@ -16,7 +16,7 @@ Do not rebuild tab/unread/empty state from hooks and conditionally mount slots. 
 **Correct (read the injected variables via `velt-data` / `velt-if` / `velt-class` — a minimal panel with title bar and content area):**
 
 ```jsx
-import { VeltNotificationsPanelWireframe } from '@veltdev/react';
+import { VeltWireframe, VeltNotificationsPanelWireframe } from '@veltdev/react';
 
 <VeltWireframe>
   <VeltNotificationsPanelWireframe>
@@ -36,7 +36,7 @@ import { VeltNotificationsPanelWireframe } from '@veltdev/react';
 **HTML / web-component equivalent:**
 
 ```html
-<velt-wireframe>
+<velt-wireframe style="display:none;">
   <velt-notifications-panel-wireframe>
     <velt-notifications-panel-header-wireframe>
       <div class="my-panel__title">

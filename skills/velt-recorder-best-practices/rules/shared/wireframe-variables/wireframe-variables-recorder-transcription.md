@@ -14,20 +14,19 @@ This feature uses **flat-config** access. Use the explicit `componentConfig.<nam
 **Incorrect (rebuilding transcript state and segment-active styling from hooks):**
 
 ```jsx
-import { useRecorderEventCallback } from '@veltdev/react';
-import { VeltTranscriptionWireframe } from '@veltdev/react';
+import { useRecorderEventCallback, VeltWireframe, VeltTranscriptionWireframe } from '@veltdev/react';
 
-function Transcript({ recording }) {
-  const [open, setOpen] = useState(false);
-  const [active, setActive] = useState(-1);
+function Transcript({ recording, active }) {
   // Reimplements transcriptionVisible + highlightedTextIndex the wireframe already exposes.
-  useRecorderEventCallback('TRANSCRIPTION_COMPLETED', () => setOpen(true));
+  const transcriptionDone = useRecorderEventCallback('transcriptionDone');
   return (
-    <VeltTranscriptionWireframe>
-      {open && recording.transcription?.segments.map((s, i) => (
-        <p className={i === active ? 'on' : ''}>{s.text}</p>
-      ))}
-    </VeltTranscriptionWireframe>
+    <VeltWireframe>
+      <VeltTranscriptionWireframe.FloatingMode.Panel>
+        {transcriptionDone && recording.transcription?.transcriptSegments?.map((seg, i) => (
+          <p key={i} className={i === active ? 'on' : ''}>{seg.text}</p>
+        ))}
+      </VeltTranscriptionWireframe.FloatingMode.Panel>
+    </VeltWireframe>
   );
 }
 ```
@@ -35,39 +34,44 @@ function Transcript({ recording }) {
 **Correct (read the slot's injected variables via `velt-data` / `velt-if` / `velt-class`):**
 
 ```jsx
-import {
-  VeltTranscriptionPanelWireframe,
-  VeltTranscriptionSummaryWireframe,
-  VeltTranscriptionContentItemWireframe,
-} from '@veltdev/react';
+import { VeltWireframe, VeltTranscriptionWireframe, VeltData } from '@veltdev/react';
 
-<VeltTranscriptionPanelWireframe
-  veltClass="'visible': {componentConfig.transcriptionVisible}, 'mode-{componentConfig.mode}': true">
-  <VeltTranscriptionSummaryWireframe>
-    <p veltIf="{componentConfig.showMoreSummary}">
-      <VeltData field="componentConfig.transcription.summary" />
-    </p>
-  </VeltTranscriptionSummaryWireframe>
-
-  <VeltTranscriptionContentItemWireframe
-    veltClass="'is-active': '{segment.startTimeInSeconds} <= {currentTime} && {segment.endTimeInSeconds} > {currentTime}'">
-    <time><VeltData field="segment.startTime" /></time>
-    <p><VeltData field="segment.text" /></p>
-  </VeltTranscriptionContentItemWireframe>
-</VeltTranscriptionPanelWireframe>
+<VeltWireframe>
+  <VeltTranscriptionWireframe.FloatingMode veltClass="'visible': {componentConfig.transcriptionVisible}">
+    <VeltTranscriptionWireframe.FloatingMode.Panel>
+      <VeltTranscriptionWireframe.FloatingMode.Panel.Summary>
+        <p veltIf="{componentConfig.showMoreSummary}">
+          <VeltData field="componentConfig.transcription.summary" />
+        </p>
+      </VeltTranscriptionWireframe.FloatingMode.Panel.Summary>
+      <VeltTranscriptionWireframe.FloatingMode.Panel.Content>
+        <VeltTranscriptionWireframe.FloatingMode.Panel.Content.Item
+          veltClass="'is-active': '{segment.startTimeInSeconds} <= {currentTime} && {segment.endTimeInSeconds} > {currentTime}'">
+          <time><VeltData field="segment.startTime" /></time>
+          <p><VeltData field="segment.text" /></p>
+        </VeltTranscriptionWireframe.FloatingMode.Panel.Content.Item>
+      </VeltTranscriptionWireframe.FloatingMode.Panel.Content>
+    </VeltTranscriptionWireframe.FloatingMode.Panel>
+  </VeltTranscriptionWireframe.FloatingMode>
+</VeltWireframe>
 ```
 
 **HTML / web-component equivalent:**
 
 ```html
-<velt-transcription-panel-wireframe
-  velt-class="'visible': {componentConfig.transcriptionVisible}">
-  <velt-transcription-content-item-wireframe
-    velt-class="'is-active': '{segment.startTimeInSeconds} <= {currentTime} && {segment.endTimeInSeconds} > {currentTime}'">
-    <p><velt-data field="segment.text"></velt-data></p>
-  </velt-transcription-content-item-wireframe>
-</velt-transcription-panel-wireframe>
+<velt-wireframe style="display:none;">
+  <velt-transcription-floating-mode-wireframe velt-class="'visible': {componentConfig.transcriptionVisible}">
+    <velt-transcription-panel-wireframe>
+      <velt-transcription-content-item-wireframe
+        velt-class="'is-active': '{segment.startTimeInSeconds} <= {currentTime} && {segment.endTimeInSeconds} > {currentTime}'">
+        <p><velt-data field="segment.text"></velt-data></p>
+      </velt-transcription-content-item-wireframe>
+    </velt-transcription-panel-wireframe>
+  </velt-transcription-floating-mode-wireframe>
+</velt-wireframe>
 ```
+
+The transcription feature has no root wireframe slot. Register your wireframe on a mode-specific tag: `<velt-transcription-floating-mode-wireframe>` or `<velt-transcription-embed-mode-wireframe>` (`VeltTranscriptionWireframe.FloatingMode` / `.EmbedMode` in React).
 
 ### Transcription config — key variables
 
@@ -136,7 +140,7 @@ Dialog-only — these back the popover variant's CDK overlay. Treat as **interna
 
 ### Wireframe tag families
 
-**Transcription:** `<velt-transcription-wireframe>` (root), `-button-wireframe`, `-tooltip-wireframe`, `-panel-wireframe`, `-panel-container-wireframe`, `-content-item-wireframe` (iterates `vttFileTextArray`; injects `segment` / `currentTime`), `-summary-wireframe` (+ `-expand-toggle-wireframe` / `-on-wireframe` / `-off-wireframe`), `-copy-link-wireframe` (+ `-button-wireframe` / `-tooltip-wireframe`), `-close-button-wireframe`, `-floating-mode-wireframe`, `-embed-mode-wireframe`.
+**Transcription:** no root slot; start from `-floating-mode-wireframe` or `-embed-mode-wireframe`, then `-button-wireframe`, `-tooltip-wireframe`, `-panel-wireframe`, `-panel-container-wireframe`, `-content-item-wireframe` (iterates `vttFileTextArray`; injects `segment` / `currentTime`), `-summary-wireframe` (+ `-expand-toggle-wireframe` / `-on-wireframe` / `-off-wireframe`), `-copy-link-wireframe` (+ `-button-wireframe` / `-tooltip-wireframe`), `-close-button-wireframe`.
 
 **Subtitles:** `<velt-subtitles-wireframe>` (root), `-button-wireframe`, `-tooltip-wireframe`, `-panel-wireframe`, `-close-button-wireframe`, `-floating-mode-wireframe`, `-embed-mode-wireframe`, plus `<velt-subtitles-dialog-wireframe>` (popover variant gated on `dialogVisible`).
 
@@ -151,6 +155,7 @@ Dialog-only — these back the popover variant's CDK overlay. Treat as **interna
 **4. DO NOT rebuild seek / copy / toggle logic.** Wire `onSeekTo(seconds)` (transcript timestamp click), `copyToClipboard` (summary copy), `toggleShowMoreSummary`, `toggleSidebar`, and `onSubtitlesButtonClick` to your custom buttons rather than re-implementing them.
 
 **Verification:**
+- [ ] Transcription wireframes are registered on a mode tag (floating or embed), inside `VeltWireframe` / `<velt-wireframe style="display:none;">`
 - [ ] Transcription / subtitles slots use explicit `componentConfig.<name>` paths (not the short `{name}` form)
 - [ ] Per-segment rendering happens inside `<velt-transcription-content-item-wireframe>` so `segment` / `currentTime` are resolvable
 - [ ] Active-segment styling compares `{segment.startTimeInSeconds} <= {currentTime} && {segment.endTimeInSeconds} > {currentTime}` (not `highlightedTextIndex` equality alone — that's the indexed-cursor variant)

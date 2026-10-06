@@ -9,10 +9,12 @@ tags: tiptap, editor, rich-text, text-comments, bubble-menu
 
 Add collaborative text comments to TipTap editor using Velt's TipTap extension. Users can select text and add comments that persist as marks in the editor.
 
+> **Required since v6.0.16-beta.1:** Velt's default text comments and pin comments are disabled on TipTap and other ProseMirror-based editors (writing into them could freeze the page). Commenting inside these editors only works through the dedicated plugin: `@veltdev/tiptap-velt-comments` for TipTap, `@veltdev/prosemirror-velt-comments` (`VeltCommentsPlugin`) for plain ProseMirror.
+
 **Incorrect (using default text mode instead of extension):**
 
 ```jsx
-// Default text mode doesn't integrate with TipTap properly
+// Default text and pin comments are disabled inside TipTap/ProseMirror editors (v6.0.16-beta.1+)
 <VeltComments textMode={true} />
 <Editor ... />
 ```
@@ -144,6 +146,7 @@ velt-comment-text[comment-available="true"] {
 ```
 
 **Verification Checklist:**
+- [ ] Commenting inside the editor goes through the Velt plugin, not default text or pin comments
 - [ ] @veltdev/tiptap-velt-comments is installed
 - [ ] VeltComments has textMode={false}
 - [ ] TiptapVeltComments extension added to editor
@@ -152,3 +155,5 @@ velt-comment-text[comment-available="true"] {
 
 **Source Pointers:**
 - https://docs.velt.dev/async-collaboration/comments/setup/tiptap - Complete setup
+- https://docs.velt.dev/async-collaboration/comments/setup/prosemirror - ProseMirror plugin
+- https://docs.velt.dev/release-notes/version-6/sdk-changelog - 6.0.16-beta.1 (default comments disabled on ProseMirror-based editors)

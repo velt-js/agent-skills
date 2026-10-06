@@ -27,7 +27,7 @@ export default function App() {
 }
 ```
 
-**Incorrect (auth hooks in same component as VeltProvider):** Do not call auth hooks or document setup hooks in the same component that renders VeltProvider — the provider isn't mounted yet when those hooks run. Use child components for authentication (via `authProvider` prop) and document setup.
+**Incorrect (auth hooks in same component as VeltProvider):** Do not call auth hooks or document setup hooks in the same component that renders VeltProvider: the provider isn't mounted yet when those hooks run. Use child components for authentication (via `authProvider` prop) and document setup.
 
 **Correct (components in VeltCollaboration wrapper):**
 
@@ -131,28 +131,15 @@ function VeltCollaboration({ showSidebar = true, showPresence = true }) {
 <VeltCollaboration showSidebar={false} showPresence={false} />
 ```
 
-**Z-Index Considerations:**
-
-Velt components use z-index for proper layering. If components aren't visible:
-
-```css
-/* Ensure Velt components are above your content */
-.velt-comments-sidebar {
-  z-index: 1000;
-}
-
-/* Or use Velt's CSS variables */
-:root {
-  --velt-sidebar-z-index: 1000;
-}
-```
+**Visibility:** if a Velt component renders but is hidden behind your layout, check stacking context and `z-index` on your own containers first. To restyle Velt components, follow the UI customization setup (CSS variables cross the shadow DOM; class selectors need `shadowDom={false}` or `client.injectCustomCss()`).
 
 **Verification:**
 - [ ] All Velt components are inside VeltProvider
 - [ ] Velt components are in child components (not same file as VeltProvider)
 - [ ] VeltComments is near the content users will comment on
 - [ ] VeltCommentsSidebar is in a fixed or sidebar position
-- [ ] Components are visible (check z-index if not)
+- [ ] Components are visible (check your own containers' stacking context if not)
 
 **Source Pointers:**
-- `https://docs.velt.dev/get-started/quickstart` - Notes section on child component requirements
+- `https://docs.velt.dev/get-started/quickstart` - Step 7: Install Velt Feature Components; Notes section on child component requirements
+- `https://docs.velt.dev/ui-customization/setup` - "Choose your shadow DOM strategy"

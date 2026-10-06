@@ -1,31 +1,52 @@
 ---
-title: Element API — onServerConnectionStateChange Observable
+title: Observe connection state with onServerConnectionStateChange
 impact: MEDIUM
-tags: onServerConnectionStateChange, connection, observable, subscribe
+impactDescription: The observable form is the only connection-state API outside React and must be unsubscribed
+tags: onServerConnectionStateChange, ServerConnectionState, connection, observable, subscribe, unsubscribe
 ---
 
-## Element API — onServerConnectionStateChange
+## Observe connection state with onServerConnectionStateChange
 
-The observable equivalent of `useServerConnectionStateChangeHandler`. Use when you need connection state in a non-React context or want manual subscription control.
+`liveStateSyncElement.onServerConnectionStateChange()` returns an observable of `ServerConnectionState` (`'online'`, `'offline'`, `'pendingInit'`, `'pendingData'`). It is the non-React equivalent of `useServerConnectionStateChangeHandler()`. Use it outside React, or in React when you need manual subscription control.
 
-```tsx
+**Incorrect (subscription never released):**
+
+```js
+Velt.getLiveStateSyncElement().onServerConnectionStateChange().subscribe(updateBadge);
+// BUG: no handle kept, so the subscription can never be released
+```
+
+**Correct (React / Next.js):**
+
+```jsx
 const liveStateSyncElement = useLiveStateSyncUtils();
 
 useEffect(() => {
+  if (!liveStateSyncElement) return;
   const subscription = liveStateSyncElement
     .onServerConnectionStateChange()
-    .subscribe((state) => {
-      console.log('Connection state:', state);
-      // state is 'online' | 'offline' | 'pendingInit' | 'pendingData'
-    });
-
+    .subscribe((state) => setConnection(state));
   return () => subscription?.unsubscribe();
 }, [liveStateSyncElement]);
 ```
 
-### Key Points
+**Correct (Other Frameworks):**
 
-- Returns an observable — subscribe and clean up on unmount
-- Emits the same `ServerConnectionState` values as the hook: `'online'`, `'offline'`, `'pendingInit'`, `'pendingData'`
-- For React components, prefer the `useServerConnectionStateChangeHandler` hook (simpler, no manual subscription)
-- Use this API for non-React frameworks or when composing with other observables
+```js
+const liveStateSyncElement = Velt.getLiveStateSyncElement();
+const subscription = liveStateSyncElement
+  .onServerConnectionStateChange()
+  .subscribe((state) => updateBadge(state));
+
+// When done:
+subscription?.unsubscribe();
+```
+
+**Verification Checklist:**
+- [ ] The subscription handle is kept and unsubscribed on teardown
+- [ ] React components that only need the value use `useServerConnectionStateChangeHandler()` instead
+- [ ] UI handles all four states
+
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/setup — "Server Connection State"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#serverconnectionstate — `ServerConnectionState`

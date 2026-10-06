@@ -7,12 +7,12 @@ tags: type, mode, audio, video, screen, all, VeltRecorderTool, buttonLabel
 
 ## Select Recording Type and Customize Tool Button
 
-The `type` prop on VeltRecorderTool determines which recording mode is available. The default is `audio`, which may not match your use case. Set it explicitly to avoid confusion.
+The `type` prop on VeltRecorderTool determines which recording mode is available. The docs disagree on the default (the customize-behavior page says `audio`; the behaviors reference says `video`), so always set it explicitly.
 
 **Incorrect (relying on default type):**
 
 ```jsx
-// Default type is 'audio' — users may expect video or screen recording
+// Default type is ambiguous across docs; users may get a mode they did not expect
 <VeltRecorderTool />
 ```
 
@@ -32,6 +32,20 @@ The `type` prop on VeltRecorderTool determines which recording mode is available
 <VeltRecorderTool type="screen" />
 ```
 
+**Limit the picker to a subset (comma-separated):**
+
+```jsx
+{/* Renders a dropdown limited to audio and video */}
+<VeltRecorderTool type="audio, video" />
+```
+
+**Bind a tool to a specific control panel:**
+
+```jsx
+<VeltRecorderTool type="all" panelId="composer-panel" />
+<VeltRecorderControlPanel mode="thread" panelId="composer-panel" />
+```
+
 **Custom button label:**
 
 ```jsx
@@ -47,6 +61,10 @@ The `type` prop on VeltRecorderTool determines which recording mode is available
 <velt-recorder-tool type="video"></velt-recorder-tool>
 <velt-recorder-tool type="screen"></velt-recorder-tool>
 
+<!-- Subset picker and panel binding -->
+<velt-recorder-tool type="audio, video" panel-id="composer-panel"></velt-recorder-tool>
+<velt-recorder-control-panel mode="thread" panel-id="composer-panel"></velt-recorder-control-panel>
+
 <!-- With custom label -->
 <velt-recorder-tool type="all" button-label="Record Feedback"></velt-recorder-tool>
 ```
@@ -54,6 +72,9 @@ The `type` prop on VeltRecorderTool determines which recording mode is available
 **Key details:**
 - `all` shows a mode picker dialog letting users choose between audio, video, and screen
 - `audio`, `video`, `screen` go directly to that recording mode without a picker
+- A comma-separated `type` (e.g. `'audio, video'`) renders a dropdown limited to those modes
+- `screen` only renders where the browser supports screen sharing
+- `panelId` binds a tool to the control panel with the same `panelId` when several panels are mounted
 - `buttonLabel` adds custom text alongside the recorder icon
 
 **Verification:**
@@ -61,4 +82,7 @@ The `type` prop on VeltRecorderTool determines which recording mode is available
 - [ ] Correct mode activates when user clicks the tool
 - [ ] Button label matches application context (if customized)
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/recorder/customize-behavior - type, buttonLabel
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/recorder/customize-behavior#type - "type"
+- https://docs.velt.dev/async-collaboration/recorder/customize-behavior#buttonlabel - "buttonLabel"
+- https://docs.velt.dev/ui-customization/reference/behaviors/recorder-huddle - "VeltRecorderTool & VeltRecorderNotes" (comma-separated `type`, `panelId`)

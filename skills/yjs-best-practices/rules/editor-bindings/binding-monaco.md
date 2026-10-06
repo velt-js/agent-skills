@@ -88,6 +88,43 @@ function CollaborativeMonacoEditor({ ydoc, provider }) {
 }
 ```
 
+### Remote Cursor Styling
+
+`y-monaco` only adds decoration classes; without CSS, remote carets and selections are invisible. Add base styles, then derive per-user colors and labels from awareness using the client-specific classes:
+
+```css
+.yRemoteSelection { background-color: rgba(37, 99, 235, 0.2); }
+.yRemoteSelectionHead { border-left: 2px solid #2563eb; min-height: 1.2em; }
+```
+
+```js
+const style = document.createElement('style')
+document.head.appendChild(style)
+
+const renderCursorStyles = () => {
+  const rules = []
+  provider.awareness.getStates().forEach((state, clientId) => {
+    if (clientId === ydoc.clientID || !state?.user) return
+    const color = state.user.color || '#2563eb'
+    rules.push(`
+      .yRemoteSelection-${clientId} { background-color: ${color}33; }
+      .yRemoteSelectionHead-${clientId} { border-left: 2px solid ${color}; }
+    `)
+  })
+  style.textContent = rules.join('\n')
+}
+
+provider.awareness.on('change', renderCursorStyles)
+renderCursorStyles()
+// On cleanup: provider.awareness.off('change', renderCursorStyles); style.remove()
+```
+
+### Bundling and SSR
+
+- Monaco needs browser APIs: in Next.js load the editor with `next/dynamic` and `ssr: false`, and configure Monaco workers in your bundler.
+- Deduplicate `yjs`, `y-protocols`, and `monaco-editor` (for example Vite `resolve.dedupe`). A "Yjs was already imported" warning means two copies are bundled.
+- Never control Monaco content from a second source (React `value` / `defaultValue`) once the model is bound to `Y.Text`.
+
 ### Cleanup
 
 ```js
@@ -104,8 +141,11 @@ ydoc.destroy()
 - [ ] `MonacoBinding` receives (ytext, model, editors Set, awareness) in correct order
 - [ ] Editors parameter is a `Set` of editor instances
 - [ ] User info is set on awareness for remote cursor display
+- [ ] `.yRemoteSelection` / `.yRemoteSelectionHead` (and per-client) styles are defined so remote carets are visible
+- [ ] `yjs`, `y-protocols`, and `monaco-editor` resolve to one copy each
 - [ ] Binding and editor are destroyed on cleanup
 
 ## Source
 
 - https://docs.yjs.dev/ecosystem/editor-bindings/monaco
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/monaco - "Step 7: Style Remote Cursors" and "Step 13: Client-only Rendering" (for Velt-hosted sync, use `@veltdev/monaco-crdt` instead of a hand-built provider; see velt-crdt-best-practices)

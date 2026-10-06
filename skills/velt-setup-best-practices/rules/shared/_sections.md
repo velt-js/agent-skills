@@ -7,7 +7,7 @@ This file defines all rule categories for velt-setup-best-practices.
 ## 1. Installation (installation/)
 
 **Impact:** CRITICAL
-**Description:** Package installation for Velt SDK. Without the correct packages installed, no other Velt functionality will work. Covers @veltdev/react for React/Next.js and @veltdev/client for Angular/Vue/vanilla.
+**Description:** Package installation for Velt SDK. Without the correct packages installed, no other Velt functionality will work. Covers @veltdev/react for React/Next.js, @veltdev/client for Angular/Vue/vanilla, and the Velt AI tooling (Installation Plugin, Docs MCP, MCP Installer, UI Customization Plugin) for Claude Code and Cursor.
 
 ---
 
@@ -28,14 +28,14 @@ This file defines all rule categories for velt-setup-best-practices.
 ## 4. Document Identity (document-identity/)
 
 **Impact:** CRITICAL
-**Description:** Document initialization with setDocuments API. Documents define collaborative spaces where users can interact. SDK will not function without calling setDocument.
+**Description:** Document initialization with setDocuments API. Documents define collaborative spaces where users can interact. SDK will not function without calling setDocuments. Covers document IDs, metadata, locations, and custom page info.
 
 ---
 
 ## 5. Config (config/)
 
 **Impact:** HIGH
-**Description:** API keys, environment variables, and security configuration. Includes console.velt.dev setup, domain whitelisting, auth token security practices, and Firestore persistent cache configuration.
+**Description:** API keys, environment variables, and SDK-wide configuration. Includes console.velt.dev setup, domain whitelisting, auth token security practices, Firestore persistent cache, proxy routing, unstyled mode, and v6 modular feature loading.
 
 **Rules:**
 - `config-api-key` - Configure API key from console.velt.dev
@@ -44,6 +44,7 @@ This file defines all rule categories for velt-setup-best-practices.
 - `config-firestore-persistent-cache` - Enable offline reads and multi-tab sync via Firestore persistent cache
 - `config-proxy-config` - Configure Firebase reverse proxy via proxyConfig (replaces deprecated apiProxyDomain)
 - `config-unstyled-mode` - Toggle Velt's built-in visual styling via setUnstyledMode for headless use
+- `config-feature-allow-list` - Scope v6 modular feature loading with featureAllowList and preload methods
 
 ---
 
@@ -69,3 +70,11 @@ This file defines all rule categories for velt-setup-best-practices.
 **Rules:**
 - `debug-common-issues` - Troubleshoot common configuration errors (9 issues)
 - `debug-multi-user-testing` - Set up two-user testing for collaboration features
+- `debug-setup-verification` - Verify setup step by step with Velt's built-in diagnostics
+
+---
+
+## 9. Components (components/)
+
+**Impact:** MEDIUM
+**Description:** Drop-in Velt components that complete a basic setup, such as VeltUserInviteTool for share and invite flows. Includes loading tag-only features under the v6 modular SDK.

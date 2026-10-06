@@ -13,7 +13,14 @@ In multi-section documents, you can scope presence to a specific section using t
 
 In apps with distinct sections — such as a spreadsheet with multiple sheets, a slide deck with individual slides, or a document with chapters — global document presence is too coarse. Users need to know who is working in the same section to avoid conflicts and coordinate edits effectively.
 
-**React: Presence scoped to a location**
+**Incorrect (location set on the component, but users never get a location):**
+
+```jsx
+// No setLocations() anywhere in the app: no user matches, so the list stays empty
+<VeltPresence locationId="section-intro" />
+```
+
+**Correct (React: presence scoped to a location):**
 
 ```jsx
 import { VeltPresence } from "@veltdev/react";
@@ -81,9 +88,20 @@ function MultiSectionDocument() {
 
 **How it works:**
 
-When you set `locationId`, VeltPresence filters its avatar list to only users whose current location matches that ID. Users must also have their location set (via Velt's location tracking) for this filtering to work correctly.
+`VeltPresence` filters its avatar list to users whose current location matches. Users get a location when your app calls `setLocations` (or `useSetLocations`) as they move between sections, so set locations for every user, not only the viewer.
 
-A `VeltPresence` without `locationId` still shows all users in the document, so you can combine a global presence bar in the header with per-section presence indicators.
+```jsx
+// React: set the location the user is currently in
+const { setLocations } = useSetLocations();
+setLocations([{ id: "section-analysis", locationName: "Analysis" }]);
+```
+
+```js
+// Other Frameworks
+await Velt.setLocations([{ id: "section-analysis", locationName: "Analysis" }]);
+```
+
+You can also pass a full `location` object instead of `locationId`. If both are set, `locationId` wins. A `VeltPresence` with neither still shows all users on the document, so you can combine a global presence bar in the header with per-section indicators.
 
 **Verification:**
 - [ ] `locationId` is set on each section's `VeltPresence` component
@@ -91,6 +109,10 @@ A `VeltPresence` without `locationId` still shows all users in the document, so 
 - [ ] Location IDs are stable and unique within the document
 - [ ] Global presence (no `locationId`) still works in the main header if needed
 - [ ] Users navigating between sections update presence in real time
+- [ ] Your app calls `setLocations` so each user's current location is known
+- [ ] Only one of `locationId` / `location` is passed (`locationId` takes precedence)
 
 **Source Pointers:**
-- `https://docs.velt.dev/presence/customize-behavior/set-location` - Location-based presence
+- https://docs.velt.dev/realtime-collaboration/presence/customize-behavior#locationid - "locationId"
+- https://docs.velt.dev/key-concepts/overview#subscribe-to-locations - "Subscribe to Locations"
+- https://docs.velt.dev/ui-customization/reference/behaviors/presence-reactions - `location` / `locationId` precedence

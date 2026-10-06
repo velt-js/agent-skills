@@ -7,7 +7,7 @@ tags: setup, enableSingleEditorMode, useLiveStateSyncUtils, useVeltInitState, us
 
 ## Enable Single Editor Mode with Auto-Sync and Editor Status UI
 
-Single Editor Mode restricts editing to one user at a time. Other users see content in read-only mode with live sync. The first user to load the page claims the editor role automatically.
+Single Editor Mode restricts editing to one user at a time. Other users see content in read-only mode with live sync. Enable it only after the user and document are initialized (`useVeltInitState()` returns `true` once both are set). In the example below, the first user to load the page claims the editor role; the docs recommend calling `setUserAsEditor()` on an explicit action (for example, when the user starts typing), so pick the trigger that fits your UX.
 
 **Setup requires changes in two places:**
 1. `VeltCollaboration` component — enables SEM, auto-sync, and claims editor role
@@ -42,9 +42,9 @@ export function VeltCollaboration({ documentId, documentName }: VeltCollaboratio
   const liveStateSyncElement = useLiveStateSyncUtils();
   const veltInitState = useVeltInitState();
 
-  // Enable Single Editor Mode with auto-sync and container scoping
+  // Enable Single Editor Mode once the user and document are initialized
   useEffect(() => {
-    if (!liveStateSyncElement) return;
+    if (!liveStateSyncElement || !veltInitState) return;
     liveStateSyncElement.enableSingleEditorMode({
       customMode: false,
       singleTabEditor: true,
@@ -58,7 +58,7 @@ export function VeltCollaboration({ documentId, documentName }: VeltCollaboratio
     return () => {
       liveStateSyncElement.disableSingleEditorMode();
     };
-  }, [liveStateSyncElement]);
+  }, [liveStateSyncElement, veltInitState]);
 
   // Claim editor role once Velt is fully initialized
   useEffect(() => {
@@ -192,7 +192,9 @@ These are the most common mistakes when implementing or debugging SEM. Each one 
 
 4. **DO NOT inline `VeltInitializeDocument` into `VeltCollaboration`** — Keep it as a separate child component. Inlining and adding state tracking (`documentReady` flags) creates race conditions. The SDK handles initialization timing internally.
 
-5. **DO NOT gate `VeltInitializeDocument` on `useCurrentUser()`** — `setDocuments()` does not require the user to be initialized. The SDK processes the document context when it's ready.
+5. **DO NOT enable SEM or claim the editor role before Velt is initialized.** The docs require the user and document to be set first; `useVeltInitState()` returning `true` is that signal.
+
+6. **DO NOT leave `'liveStateSync'` out of `featureAllowList`.** Single Editor Mode lives on the Live State Sync element. In the v6 modular SDK, if you pass `featureAllowList`, list `'liveStateSync'` so its chunk preloads (calling `getLiveStateSyncElement()` auto-enables an omitted feature, but listing it avoids an on-demand load).
 
 **If SEM isn't working after implementation:** Re-read this rule file and diff your code against the code examples above line-by-line. The code examples are the canonical implementation — do not deviate from them.
 
@@ -209,7 +211,8 @@ These are the most common mistakes when implementing or debugging SEM. Each one 
 - Bob cannot edit the content area but can click nav and comments
 
 **Verification:**
-- [ ] `useVeltInitState()` used to wait before claiming editor
+- [ ] `useVeltInitState()` gates both `enableSingleEditorMode()` and `setUserAsEditor()`
+- [ ] `featureAllowList`, if set, includes `'liveStateSync'`
 - [ ] `setUserAsEditor()` called with all 3 error codes handled
 - [ ] `enableAutoSyncState()` called for live content sync
 - [ ] `singleEditorModeContainerIds()` scopes SEM to content area
@@ -217,4 +220,4 @@ These are the most common mistakes when implementing or debugging SEM. Each one 
 - [ ] `DocumentContent` is a child of VeltProvider (not sibling)
 - [ ] Editor status banner shows correct state using `useUserEditorState()` + `useEditor()`
 
-**Source Pointer:** https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup; https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior
+**Source Pointer:** https://docs.velt.dev/realtime-collaboration/single-editor-mode/setup (Steps 2 to 4, Notes); https://docs.velt.dev/realtime-collaboration/single-editor-mode/customize-behavior; https://docs.velt.dev/get-started/advanced#getveltinitstate (user and document initialized); https://docs.velt.dev/api-reference/sdk/models/data-models#config (`featureAllowList`)

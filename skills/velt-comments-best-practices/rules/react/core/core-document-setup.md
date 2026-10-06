@@ -129,6 +129,8 @@ async function loadVelt() {
 - Keep IDs consistent across sessions for the same content
 - Different document IDs create separate comment contexts
 
+**Repeated calls (v6.0.5+):** Calling `setDocuments()` again with the same documents and options is ignored, so calling it on every render no longer re-initializes documents or refetches comments. An identical repeat also does not refresh permissions. Passing a different set, including a narrower one, re-runs the pipeline.
+
 **Verification Checklist:**
 - [ ] Document is set after user authentication
 - [ ] Document ID is unique and stable
@@ -137,3 +139,4 @@ async function loadVelt() {
 
 **Source Pointers:**
 - https://docs.velt.dev/get-started/quickstart - "Step 6: Initialize Document"
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#setdocuments - setDocuments() (identical repeat calls ignored)

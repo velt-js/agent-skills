@@ -12,8 +12,7 @@ The Activity Log wireframe exposes a fixed set of template variables that you re
 **Incorrect (rebuilding feed state from `useAllActivities` and conditionally mounting wireframe slots):**
 
 ```jsx
-import { useAllActivities } from '@veltdev/react';
-import VeltActivityLogWireframe from '@veltdev/react/VeltActivityLogWireframe';
+import { useAllActivities, VeltActivityLogWireframe } from '@veltdev/react';
 
 function ActivityRow({ row }) {
   const activities = useAllActivities();
@@ -33,8 +32,9 @@ function ActivityRow({ row }) {
 **Correct (read the slot's injected variables via `velt-data` / `velt-if` / `velt-class`):**
 
 ```jsx
-import VeltActivityLogWireframe from '@veltdev/react/VeltActivityLogWireframe';
+import { VeltWireframe, VeltActivityLogWireframe, VeltData } from '@veltdev/react';
 
+<VeltWireframe>
 <VeltActivityLogWireframe veltIf="{isEnabled} && {isOpen}">
   <VeltActivityLogWireframe.List>
     <VeltActivityLogWireframe.List.Item
@@ -53,11 +53,13 @@ import VeltActivityLogWireframe from '@veltdev/react/VeltActivityLogWireframe';
     </VeltActivityLogWireframe.List.ShowMore>
   </VeltActivityLogWireframe.List>
 </VeltActivityLogWireframe>
+</VeltWireframe>
 ```
 
 **HTML / web-component equivalent:**
 
 ```html
+<velt-wireframe style="display:none;">
 <velt-activity-log-wireframe velt-if="{isEnabled} && {isOpen}">
   <velt-activity-log-list-wireframe>
     <velt-activity-log-list-item-wireframe
@@ -70,6 +72,7 @@ import VeltActivityLogWireframe from '@veltdev/react/VeltActivityLogWireframe';
     </velt-activity-log-list-show-more-wireframe>
   </velt-activity-log-list-wireframe>
 </velt-activity-log-wireframe>
+</velt-wireframe>
 ```
 
 ### Variable namespaces

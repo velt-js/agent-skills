@@ -31,7 +31,7 @@ function CommentsList() {
 }
 ```
 
-**API Method (Non-React):**
+**API Method (`getAllCommentAnnotations()` is listed under Legacy Methods; prefer `getCommentAnnotations()` for new code, see `data-annotation-crud.md`):**
 
 ```jsx
 const { client } = useVeltClient();
@@ -67,7 +67,8 @@ interface CommentAnnotation {
 interface CommentAnnotationVisibilityConfig {
   type: CommentVisibilityType;  // 'public' | 'organizationPrivate' | 'restricted'
   organizationId?: string;
-  userIds?: string[];
+  organizationIds?: string[];   // multi-org organizationPrivate (display-only mirror)
+  userIds?: string[];           // always includes the author for non-public comments
 }
 
 type CommentVisibilityType = 'public' | 'organizationPrivate' | 'restricted';
@@ -94,9 +95,11 @@ const { client } = useVeltClient();
 
 const addAnnotation = () => {
   const commentElement = client.getCommentElement();
+  // Request wraps the thread in `annotation`; see data-annotation-crud.md
   commentElement.addCommentAnnotation({
-    targetElementId: 'element-id',
-    context: { custom: 'data' }
+    annotation: {
+      comments: [{ commentText: 'This is a comment', commentHtml: '<p>This is a comment</p>' }],
+    },
   });
 };
 ```
@@ -137,5 +140,6 @@ commentElement.getCommentAnnotationsCount({
 - [ ] Filtering works with annotation properties
 
 **Source Pointers:**
-- https://docs.velt.dev/async-collaboration/comments/customize-behavior - "getCommentAnnotations"
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#getcommentannotations - "getCommentAnnotations"
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#getallcommentannotations - "getAllCommentAnnotations" (legacy)
 - https://docs.velt.dev/api-reference/sdk/api/react-hooks - Hook documentation

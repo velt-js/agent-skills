@@ -91,7 +91,7 @@ liveStateSyncElement.getEditorAccessTimer().subscribe((timer) => {
 | `'completed'` | Timeout reached, access may have been transferred |
 
 **Key details:**
-- Default timeout is **5 seconds** — adjust based on your workflow needs
+- Default timeout is **5 seconds**; the value is in **seconds** per the Customize Behavior page (`setEditorAccessTimeout(15)` = 15 s). The API Methods reference says milliseconds; verify in your SDK version and keep the unit consistent with your countdown UI (`durationLeft` is in seconds)
 - `enableEditorAccessTransferOnTimeOut()` is enabled by default — when timeout expires, editor access auto-transfers to the requester
 - Call `disableEditorAccessTransferOnTimeOut()` if you want the request to simply expire without transfer
 - In React, prefer `useEditorAccessTimer()` hook (see `timeout-hooks` rule)

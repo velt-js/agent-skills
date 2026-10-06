@@ -24,7 +24,8 @@ import { QuillBinding } from 'y-quill'
 import Quill from 'quill'
 import QuillCursors from 'quill-cursors'
 
-// Register the cursors module with Quill
+// Register the cursors module BEFORE any `new Quill()` call.
+// Registering later lets sync work but remote cursors never render.
 Quill.register('modules/cursors', QuillCursors)
 
 const ydoc = new Y.Doc()
@@ -36,16 +37,17 @@ const ytext = ydoc.getText('quill')
 const quill = new Quill('#editor', {
   theme: 'snow',
   modules: {
-    cursors: true,    // Enable the cursors module
+    cursors: { transformOnTextChange: true }, // Enable the cursors module
     toolbar: [
       ['bold', 'italic', 'underline', 'strike'],
       [{ 'header': [1, 2, 3, false] }],
       ['link', 'image'],
       [{ 'list': 'ordered' }, { 'list': 'bullet' }],
     ],
-    // Do NOT include Quill's built-in history module — Yjs handles undo
+    // Keep Quill's history local-only so it never replays remote changes.
+    // Wire user-facing undo/redo to a Y.UndoManager on the shared Y.Text.
     history: {
-      userOnly: true, // Only undo local changes, not remote
+      userOnly: true,
     },
   },
 })
@@ -101,7 +103,9 @@ function CollaborativeQuillEditor() {
 
 - [ ] `y-quill`, `quill`, and `quill-cursors` are installed
 - [ ] `QuillCursors` module is registered with `Quill.register()`
-- [ ] `cursors: true` is set in Quill's modules config
+- [ ] `QuillCursors` is registered before the Quill instance is constructed
+- [ ] The `cursors` module is enabled in Quill's modules config, and `.ql-cursor` / `.ql-cursor-selection` are not hidden by app CSS
+- [ ] Quill `history` uses `userOnly: true`; undo/redo controls use a `Y.UndoManager`
 - [ ] `QuillBinding` is created with Y.Text, Quill instance, and awareness
 - [ ] `Y.Text` is used (not `Y.XmlFragment`) for Quill content
 - [ ] Binding, provider, and Y.Doc are destroyed on cleanup
@@ -109,3 +113,4 @@ function CollaborativeQuillEditor() {
 ## Source
 
 - https://docs.yjs.dev/ecosystem/editor-bindings/quill
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/quill - "Step 2: Load Styles and Register Cursors" and "Step 10: Configure Collaborative Undo and Redo" (for Velt-hosted sync, use `@veltdev/quill-crdt` instead of a hand-built `QuillBinding`; see velt-crdt-best-practices)

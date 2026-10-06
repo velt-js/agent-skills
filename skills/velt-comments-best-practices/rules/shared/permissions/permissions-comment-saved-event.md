@@ -91,6 +91,6 @@ interface CommentSavedEvent {
 - [ ] `annotationId` from the event is used to reference the saved annotation in downstream systems
 
 **Source Pointers:**
-- https://docs.velt.dev/async-collaboration/comments/customize-behavior/events - `commentSaved` event and payload reference
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#event-subscription - `commentSaved` event and payload reference
 - https://docs.velt.dev/api-reference/sdk/api/react-hooks - `useCommentEventCallback` hook
-- https://docs.velt.dev/api-reference/sdk/api/elements/comment-element - `commentElement.on()` subscription pattern
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#on - `commentElement.on()` subscription pattern

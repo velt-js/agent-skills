@@ -1,60 +1,58 @@
 ---
-title: Chat SDK Adapter Setup Overview
+title: Set up the Chat SDK Adapter as a lazily created server-side singleton
 impact: CRITICAL
-tags: setup, Chat, createVeltAdapter, singleton, state-memory, prerequisites
+impactDescription: Creating the Chat instance at module scope requires credentials at build time; creating it per request loses handlers and thread state
+tags: setup, Chat, createVeltAdapter, singleton, getChat, state-memory, prerequisites, server-side
 ---
 
-## Chat SDK Adapter Setup Overview
+## Set up the Chat SDK Adapter as a lazily created server-side singleton
 
-The Chat SDK Adapter is a server-side library that connects your bot to Velt comment threads. It is NOT a client-side React component — it runs in API routes (Next.js, Express, etc.).
+`@veltdev/chat-sdk-adapter` connects a [Chat SDK](https://chat-sdk.dev) bot to Velt comment threads. It runs on your server (API routes), not in the browser, so there is no `VeltProvider` or `authProvider`. Chat SDK concepts map to Velt as: Thread → comment annotation, Message → comment, Channel → document, `onNewMention` → a comment that @-mentions the bot, `onReaction` → a reaction added or removed, `thread.post()` → a reply in the thread.
 
-### Prerequisites
-
-- A Velt account with an API key
-- Webhook service enabled in Velt Console (Configurations → Webhook Service)
-- A publicly accessible endpoint for webhooks (or ngrok for local dev)
-
-### Required Packages
+Prerequisites: a Velt API key, the Webhook Service enabled in the Velt Console, and a publicly reachable endpoint (a tunnel during development).
 
 ```bash
 npm install @veltdev/chat-sdk-adapter chat @chat-adapter/state-memory
 ```
 
-- `@veltdev/chat-sdk-adapter` — The Velt adapter
-- `chat` — The Chat SDK framework
-- `@chat-adapter/state-memory` — In-memory state for thread/message tracking
-
-### The Singleton Pattern
-
-The Chat instance must be created lazily as a singleton. This avoids requiring credentials at build time and ensures all webhook requests share the same event handlers and state.
+**Incorrect (module-scope instance):**
 
 ```typescript
+// BUG: evaluated at import time, so builds fail without credentials,
+// and every importer shares an instance created before env vars exist
+export const chat = new Chat({ userName: "Velt Bot", adapters: { velt: createVeltAdapter({ /* ... */ }) }, state: createMemoryState() });
+```
+
+**Correct (lazy singleton with handlers registered once):**
+
+```typescript
+// app/bot.ts
 import { Chat } from "chat";
 import { createMemoryState } from "@chat-adapter/state-memory";
 import { createVeltAdapter, type VeltAdapter } from "@veltdev/chat-sdk-adapter";
+import { BOT_USER_ID, BOT_USER_NAME, resolveUsers } from "./database";
 
 let chatSingleton: Chat<{ velt: VeltAdapter }> | null = null;
 
-export function getChat(): Chat<{ velt: VeltAdapter }> {
+export function getChat() {
   if (chatSingleton) return chatSingleton;
 
   const chat = new Chat<{ velt: VeltAdapter }>({
-    userName: "My Bot",
+    userName: BOT_USER_NAME,
     adapters: {
       velt: createVeltAdapter({
-        botUserId: "my-bot",
-        botUserName: "My Bot",
-        organizationId: process.env.VELT_ORGANIZATION_ID!,
+        botUserId: BOT_USER_ID,
+        botUserName: BOT_USER_NAME,
+        organizationId: process.env.VELT_ORGANIZATION_ID,
         resolveUsers,
       }),
     },
     state: createMemoryState(),
   });
 
-  // Register event handlers here (see events rules)
   chat.onNewMention(async (thread, message) => {
     await thread.subscribe();
-    await thread.post(`Hi ${message.author.fullName}!`);
+    await thread.post(`Hi ${message.author.fullName}! How can I help?`);
   });
 
   chatSingleton = chat;
@@ -62,9 +60,13 @@ export function getChat(): Chat<{ velt: VeltAdapter }> {
 }
 ```
 
-### Key Points
+`createMemoryState()` loses thread subscriptions on restart; for production use a persistent Chat SDK state adapter.
 
-- Create the Chat instance lazily in a `getChat()` function — not at module scope
-- Register all event handlers (`onNewMention`, `onReaction`, etc.) before assigning to the singleton
-- Use `createMemoryState()` for development; consider `@chat-adapter/state-redis` for production (survives restarts)
-- The `userName` on Chat and `botUserName` on the adapter should match
+**Verification Checklist:**
+- [ ] The Chat instance is created inside `getChat()`, not at module scope
+- [ ] Handlers are registered before the instance is cached
+- [ ] `userName` on `Chat` matches `botUserName` on the adapter
+- [ ] The code runs only on the server
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "How it maps" and "Quickstart" (Install, Create the bot instance)

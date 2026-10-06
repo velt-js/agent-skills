@@ -2,92 +2,80 @@
 title: Set Up VeltCursor for Real-Time Cursor Tracking
 impact: HIGH
 impactDescription: Real-time cursor sharing for canvas, diagram, and spatial applications
-tags: cursor, VeltCursor, tracking, canvas, reactflow, whiteboard, spatial
+tags: cursor, VeltCursor, tracking, canvas, reactflow, whiteboard, spatial, allowedElementIds
 ---
 
 ## Set Up VeltCursor for Real-Time Cursor Tracking
 
-`VeltCursor` renders real-time cursor positions for all active users in the document. It is best suited for canvas, diagram, and spatial applications where mouse position conveys intent -- such as ReactFlow, whiteboards, and image editors.
+`VeltCursor` renders the live cursors of other users on the same document and location. It is best suited for canvas, diagram, and spatial applications (ReactFlow, whiteboards, image editors). Mount it once near the app root; Velt positions every remote cursor itself. For full cursor configuration, see the `velt-cursors-best-practices` skill.
 
 **Why this matters:**
 
-In spatial applications, cursor position is the primary indicator of what a collaborator is focused on. Without cursor tracking, users cannot coordinate effectively on shared canvases.
+In spatial applications, cursor position is the main signal of what a collaborator is focused on. Velt adapts cursors to different screen sizes and content, so you do not position cursors yourself.
 
-**Basic setup**
+**Incorrect (one VeltCursor per container to "scope" cursors):**
 
 ```jsx
-"use client";
-import { VeltCursor } from "@veltdev/react";
-
-function CanvasEditor() {
-  return (
-    <div className="canvas-container">
-      <VeltCursor />
-      {/* Your canvas content */}
-    </div>
-  );
-}
+<div className="canvas-a"><VeltCursor /></div>
+<div className="canvas-b"><VeltCursor /></div>
+{/* Only the first velt-cursor in the DOM subscribes and renders; the second is inert.
+    Placement does not confine cursors to the container. */}
 ```
 
-**Place alongside VeltPresence and VeltComments**
+**Correct (mount once, confine with allowedElementIds):**
 
 ```jsx
 "use client";
-import { VeltPresence, VeltCursor, VeltComments } from "@veltdev/react";
+import { VeltProvider, VeltPresence, VeltCursor } from "@veltdev/react";
+import ReactFlow from "reactflow";
 
-function CollaborativeCanvas() {
+function FlowEditor({ nodes, edges, authProvider }) {
   return (
-    <>
+    <VeltProvider apiKey={process.env.NEXT_PUBLIC_VELT_API_KEY} authProvider={authProvider}>
+      <VeltCursor allowedElementIds={JSON.stringify(["flow-canvas"])} />
       <header className="toolbar">
         <VeltPresence />
       </header>
-      <main className="canvas-area">
-        <VeltCursor />
-        <VeltComments />
-        {/* ReactFlow, Konva, Fabric.js, etc. */}
-      </main>
-    </>
+      <div id="flow-canvas" style={{ width: "100%", height: "100vh" }}>
+        <ReactFlow nodes={nodes} edges={edges} fitView />
+      </div>
+    </VeltProvider>
   );
 }
 ```
 
-**ReactFlow integration**
+**Other Frameworks:**
 
-```jsx
-"use client";
-import { VeltPresence, VeltCursor } from "@veltdev/react";
-import ReactFlow from "reactflow";
-
-function FlowEditor({ nodes, edges }) {
-  return (
-    <div style={{ width: "100%", height: "100vh" }}>
-      <VeltPresence />
-      <VeltCursor />
-      <ReactFlow nodes={nodes} edges={edges} fitView />
-    </div>
-  );
-}
+```html
+<body>
+  <velt-cursor allowed-element-ids='["flow-canvas"]'></velt-cursor>
+  <div id="flow-canvas"></div>
+</body>
 ```
 
 **When NOT to use VeltCursor:**
 
-- **Text editors (TipTap, SlateJS, Lexical, CodeMirror, Quill):** Cursor tracking in text editors is handled by editor-specific CRDT bindings (e.g., Yjs + TipTap collaboration extension), not `VeltCursor`. Using `VeltCursor` in a text editor will show mouse cursors, not text carets.
-- **Non-spatial UIs:** If users interact primarily through forms, lists, or other structured UI elements, cursor tracking adds visual noise without conveying useful information.
+- **Text editors (TipTap, Lexical, CodeMirror, BlockNote, etc.):** text carets come from the editor's CRDT collaboration binding, not `VeltCursor`. `VeltCursor` shows mouse pointers, not text carets. See `velt-crdt-best-practices`.
+- **Non-spatial UIs:** in forms and lists, mouse cursors add noise without useful information.
 
 **Key patterns:**
 
-- `VeltCursor` goes inside the container where you want cursors rendered
-- It works alongside `VeltPresence` (avatars) and `VeltComments` (annotations)
-- Cursors are scoped to the document set by `setDocuments`
-- Each cursor shows the user's name/avatar label by default
-- For text editors, use Velt CRDT bindings instead (see `velt-crdt-best-practices`)
+- Mount `VeltCursor` once; duplicate instances are inert
+- `allowedElementIds` takes a JSON-stringified array on the component; the API method `allowedElementIds([...])` takes a plain array
+- Cursors are scoped to the root document set by `setDocuments`
+- Cursors show the user's name by default; set `avatarMode={true}` to show avatars
+- Your own cursor is not rendered back to you
 
 ### Verification Checklist
 
-- [ ] `VeltCursor` is inside `<VeltProvider>` with valid `authProvider`
+- [ ] `VeltCursor` is inside `VeltProvider` with a valid `authProvider`
 - [ ] `setDocuments` has been called to scope cursors to the correct document
-- [ ] `VeltCursor` is placed inside the spatial container (not outside it)
+- [ ] Only one `VeltCursor` is mounted
+- [ ] `allowedElementIds` is used (stringified) when cursors should be limited to a region
 - [ ] For text editors, CRDT bindings are used instead of `VeltCursor`
-- [ ] Multiple users tested -- open in two browser tabs with different user identities
+- [ ] Tested with two browsers and two different users
 
-> **Source:** Velt Cursor Component API -- `VeltCursor`, cursor tracking for spatial applications
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/cursors/setup - "Cursors Setup"
+- https://docs.velt.dev/realtime-collaboration/cursors/customize-behavior#allowedelementids - "allowedElementIds"
+- https://docs.velt.dev/ui-customization/reference/behaviors/presence-reactions - "VeltCursor" default behaviors

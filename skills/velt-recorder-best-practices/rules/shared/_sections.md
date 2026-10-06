@@ -13,7 +13,8 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 **Rules:**
 - `core-setup` - Add VeltRecorderTool, ControlPanel, Player, and Notes components
 - `core-permissions` - Request device permissions for camera, microphone, and screen capture
-- `core-webhooks` - Handle the recorder.done webhook event for completed recordings
+- `core-webhooks` - Handle the recorder.done advanced webhook event (payload under `data`) for completed recordings
+- `core-auth-provider` - Use authProvider on VeltProvider instead of identify()/useIdentify()
 
 ---
 
@@ -34,13 +35,14 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 - `data-fetch-subscribe` - Fetch or subscribe to recording data via API
 - `data-delete-download` - Delete recordings and download latest video version
 - `data-rest-api` - Retrieve recordings via REST API endpoint (server-side)
+- `data-types-reference` - Documented field names for recorder data models
 
 ---
 
 ## 4. Event Handling (events)
 
 **Impact:** MEDIUM-HIGH
-**Description:** Subscription patterns for recorder lifecycle events. Covers all 11 event types including recording state changes, completion events, transcription completion, and error handling via both API subscriptions and React hooks.
+**Description:** Subscription patterns for recorder lifecycle events. Covers all 12 event types including recording state changes, completion events, transcription completion, and error handling via both API subscriptions and React hooks.
 
 ---
 

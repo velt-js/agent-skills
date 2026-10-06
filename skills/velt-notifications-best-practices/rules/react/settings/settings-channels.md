@@ -7,7 +7,7 @@ tags: settings, channels, inbox, email, slack, setSettingsInitialConfig
 
 ## Configure Notification Delivery Channels
 
-Configure which channels users can receive notifications through. Default channels are Inbox (ALL) and Email (MINE). Users can customize their preferences.
+Configure which channels users can receive notifications through. Default channels are Inbox (ALL) and Email (MINE). Users can customize their preferences. Settings are off by default: first enable the settings feature in the [Velt Console](https://console.velt.dev/dashboard/config/notification), then turn on the `settings` prop (or `enableSettings()`). Custom channels such as Slack only appear in the UI; you deliver to them yourself from webhooks.
 
 **Incorrect (no channel configuration):**
 
@@ -143,11 +143,13 @@ notificationElement.enableSettings();
 
 **Organization-Level Settings:**
 
+By default, settings apply to the current user on the current document (with multiple documents or folders, they apply to the root document). Organization-level mode applies the user's settings to all documents in the organization.
+
 ```jsx
-// Apply settings as org-wide defaults (all users inherit unless overridden)
+// Settings apply to all documents in the organization
 notificationElement.enableSettingsAtOrganizationLevel();
 
-// Revert to per-user settings
+// Revert to per-document settings
 notificationElement.disableSettingsAtOrganizationLevel();
 
 // Or via component prop:
@@ -169,8 +171,13 @@ notificationElement.disableReadNotificationsOnForYouTab();
 ```
 
 **Verification:**
+- [ ] Settings feature enabled in the Velt Console and `settings` prop / `enableSettings()` turned on
 - [ ] setSettingsInitialConfig called before user interaction
 - [ ] Each channel has id, name, enable, default, and values
 - [ ] Default values are valid (ALL, MINE, or NONE)
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Settings, setSettingsInitialConfig
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#setsettingsinitialconfig - "setSettingsInitialConfig"
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#enablesettings - "enableSettings"
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#enablesettingsatorganizationlevel - "enableSettingsAtOrganizationLevel"
+- https://docs.velt.dev/async-collaboration/notifications/setup - "(optional) Enable Notification Settings for Users"

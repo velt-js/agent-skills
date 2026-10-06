@@ -1,8 +1,8 @@
 # Velt Notifications Best Practices
 
-**Version 1.1.3**  
+**Version 1.2.1**  
 Velt  
-January 2026
+October 2026
 
 > **Note:**  
 > This document is mainly for agents and LLMs to follow when maintaining,  
@@ -38,24 +38,28 @@ Comprehensive Velt Notifications implementation guide covering in-app notificati
    - 4.1 [Configure Notification Delivery Channels](#41-configure-notification-delivery-channels)
    - 4.2 [Manage Per-User Notification Config via REST API](#42-manage-per-user-notification-config-via-rest-api)
 
-5. [Notification Triggers](#5-notification-triggers) — **MEDIUM**
-   - 5.1 [Create Custom Notifications via REST API](#51-create-custom-notifications-via-rest-api)
-   - 5.2 [Enable Self-Notifications for Own Actions](#52-enable-self-notifications-for-own-actions)
+5. [Configuration](#5-configuration) — **MEDIUM**
+   - 5.1 [Configure Cross-Organization Notifications for Multi-Org Users](#51-configure-cross-organization-notifications-for-multi-org-users)
+   - 5.2 [Enable User-Scoped Notifications So Unread Items Stay in the For You Tab](#52-enable-user-scoped-notifications-so-unread-items-stay-in-the-for-you-tab)
 
-6. [Delivery Channels](#6-delivery-channels) — **MEDIUM**
-   - 6.1 [Configure Notification Delay and Batching Pipeline](#61-configure-notification-delay-and-batching-pipeline)
-   - 6.2 [Integrate with External Services via Webhooks](#62-integrate-with-external-services-via-webhooks)
-   - 6.3 [Set Up Email Notifications with SendGrid](#63-set-up-email-notifications-with-sendgrid)
+6. [Notification Triggers](#6-notification-triggers) — **MEDIUM**
+   - 6.1 [Create Custom Notifications via REST API](#61-create-custom-notifications-via-rest-api)
+   - 6.2 [Enable Self-Notifications for Own Actions](#62-enable-self-notifications-for-own-actions)
 
-7. [UI Customization](#7-ui-customization) — **MEDIUM**
-   - 7.1 [Customize Notification Components with Wireframes](#71-customize-notification-components-with-wireframes)
+7. [Delivery Channels](#7-delivery-channels) — **MEDIUM**
+   - 7.1 [Configure Notification Delay and Batching Pipeline](#71-configure-notification-delay-and-batching-pipeline)
+   - 7.2 [Forward Notifications to External Services via Webhooks](#72-forward-notifications-to-external-services-via-webhooks)
+   - 7.3 [Set Up Email Notifications with SendGrid](#73-set-up-email-notifications-with-sendgrid)
 
-8. [Wireframe Variables](#8-wireframe-variables) — **MEDIUM**
-   - 8.1 [Bind Notifications Panel Wireframe Slots Using Template Variables](#81-bind-notifications-panel-wireframe-slots-using-template-variables)
-   - 8.2 [Bind Notifications Tool Wireframe Slots Using Template Variables](#82-bind-notifications-tool-wireframe-slots-using-template-variables)
+8. [UI Customization](#8-ui-customization) — **MEDIUM**
+   - 8.1 [Customize Notification Components with Wireframes](#81-customize-notification-components-with-wireframes)
 
-9. [Debugging & Testing](#9-debugging-testing) — **LOW-MEDIUM**
-   - 9.1 [Debug Common Notification Issues](#91-debug-common-notification-issues)
+9. [Wireframe Variables](#9-wireframe-variables) — **MEDIUM**
+   - 9.1 [Bind Notifications Panel Wireframe Slots Using Template Variables](#91-bind-notifications-panel-wireframe-slots-using-template-variables)
+   - 9.2 [Bind Notifications Tool Wireframe Slots Using Template Variables](#92-bind-notifications-tool-wireframe-slots-using-template-variables)
+
+10. [Debugging & Testing](#10-debugging-testing) — **LOW-MEDIUM**
+   - 10.1 [Debug Common Notification Issues](#101-debug-common-notification-issues)
 
 ---
 
@@ -63,7 +67,7 @@ Comprehensive Velt Notifications implementation guide covering in-app notificati
 
 **Impact: CRITICAL**
 
-Essential setup patterns required for any Velt notifications implementation. Includes enabling notifications in the console and adding VeltNotificationsTool.
+Essential setup patterns required for any Velt notifications implementation. Includes enabling notifications in the console, adding VeltNotificationsTool, and the component props (most feature toggles are shared across the tool and panel).
 
 ### 1.1 Enable Notifications and Add VeltNotificationsTool
 
@@ -111,7 +115,54 @@ function App() {
 <velt-notifications-tool></velt-notifications-tool>
 ```
 
-Reference: https://docs.velt.dev/async-collaboration/notifications/setup - Enable Feature in Console, Add Notification Tool
+**Setup Steps:**
+
+1. **Enable in Console**: Open the [Notifications section](https://console.velt.dev/dashboard/config/notification) under Configurations in the Velt Console and enable Notifications. Notifications do not work until this is on.
+2. **Add Tool Component**: Place `VeltNotificationsTool` in your app's toolbar/header
+3. **Embed Panel (optional)**: Use `VeltNotificationsPanel` for a dedicated page or section. The tool adds and removes its own panel automatically, so only embed the panel when you want it permanently visible.
+
+**Component Props:**
+
+| Prop | Type | Default | Description |
+|------|------|---------|-------------|
+| `tabConfig` | `object` | All tabs enabled | Rename or disable tabs (`forYou`, `documents`, `all`) |
+| `panelOpenMode` | `'popover' \| 'sidebar'` | `'popover'` | How the tool opens its panel |
+| `pageSize` | `number` | `5` | Notifications per tab page in the panel; only positive numbers are accepted |
+| `maxDays` | `number` | `15` | Max age in days of fetched notifications (tool prop; also `setMaxDays()`) |
+| `settings` | `boolean` | `false` | Show the settings gear (also enable settings in the Console) |
+| `selfNotifications` | `boolean` | `false` | Include the user's own actions |
+| `considerAllNotifications` | `boolean` | `false` | Tool only. Unread badge counts all tabs instead of only For You |
+| `readNotificationsOnForYouTab` | `boolean` | `false` | Keep read notifications in the For You tab |
+| `enableSettingsAtOrganizationLevel` | `boolean` | `false` | Settings apply to all documents in the organization instead of per document |
+| `enableCrossOrganization` | `boolean \| object \| string` | off | Merge For You notifications from the user's other organizations |
+| `enableUserScopedNotifications` | `boolean \| object \| string` | off | Fetch the user's newest notifications directly (see `config-user-scoped-notifications`) |
+| `settingsLayout` | `'accordion' \| 'dropdown'` | `'accordion'` | Settings UI layout |
+| `darkMode` | `boolean` | `false` | Dark mode |
+| `shadowDom` | `boolean` | `true` | Component shadow DOM |
+| `panelShadowDom` | `boolean` | `true` | Tool only. Shadow DOM of the panel the tool opens (set `false` for custom CSS) |
+| `variant` | `string` | None | Wireframe variant for the component |
+| `panelVariant` | `string` | None | Tool only. Wireframe variant for the panel the tool opens |
+| `onNotificationClick` | `callback` | None | Notification click handler |
+
+**Shared vs per-instance props:** `settings`, `selfNotifications`, `readNotificationsOnForYouTab`, `enableCrossOrganization`, `enableUserScopedNotifications`, `enableSettingsAtOrganizationLevel`, and `maxDays` write to a shared notification service. Setting one on either the tool or the panel changes the data for both, so configure each in one place. `tabConfig`, `pageSize`, `panelOpenMode`, `settingsLayout`, `variant`, and `shadowDom` stay scoped to the component they are set on.
+
+**Default Behavior:**
+
+- "For You" tab fetches the latest 50 notifications
+- "Document" and "All" tabs fetch up to 15 notifications for each of the 15 most recently active documents the user can access (use `config-user-scoped-notifications` to keep unread items from older documents visible)
+- Notifications older than 15 days are not fetched (configurable via `maxDays` / `setMaxDays`)
+- Notifications are only generated and fetched for documents the user has access to; a notification for a private comment only reaches users who can see that comment
+
+**Verification:**
+- [ ] Notifications enabled in Velt Console
+- [ ] VeltNotificationsTool added to app
+- [ ] Tool appears in UI (bell icon)
+- [ ] Clicking tool opens notification panel
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/notifications/setup - "Enable Notifications in the Velt Console", "Add the Notifications Tool component"
+- https://docs.velt.dev/async-collaboration/notifications/overview#default-configuration - "Default Configuration"
+- https://docs.velt.dev/ui-customization/reference/behaviors/notifications - per-prop defaults and shared-service behavior
 
 ---
 
@@ -160,6 +211,21 @@ import { VeltNotificationsTool } from '@veltdev/react';
 />
 ```
 
+**Available Tabs:**
+
+By default, all three tabs are enabled.
+
+| Tab Key | Description | Default |
+|---------|-------------|---------|
+| `forYou` | Notifications where user is directly involved (@mentions, replies) | Enabled |
+| `all` | All notifications grouped by document | Enabled |
+| `documents` | Notifications organized by document | Enabled |
+
+**Notes:**
+- A tab stays enabled unless its entry sets `enable: false`, so omitting a key leaves that tab on.
+- If you disable `forYou`, the initially selected tab falls back to `documents`, then `all`.
+- The customize-behavior page documents the three keys above. The behaviors reference also lists a `people` key (same `{ name, enable }` shape) for the People tab, which has a `TabPeople` wireframe. Only rely on `people` if your installed SDK accepts it.
+
 **For HTML:**
 
 ```html
@@ -191,6 +257,8 @@ function ConfigureNotifications() {
 
 **Primitive-Level Feed Selection (`listType`):**
 
+When building a custom panel out of primitives instead of `VeltNotificationsTool`, use the `listType` prop on `VeltNotificationsPanelContentList` and `VeltNotificationsPanelContentLoadMore` to choose which feed each primitive renders or paginates from the shared context. Valid values: `'all'` (default) and `'for-you'`.
+
 ```jsx
 import {
   VeltNotificationsPanelContentList,
@@ -210,6 +278,17 @@ import {
 ```
 
 `listType` is ignored when `notifications` is bound directly to the list primitive.
+
+**Verification:**
+- [ ] tabConfig object uses correct tab keys
+- [ ] Each tab has name and enable properties
+- [ ] Disabled tabs do not appear in panel
+- [ ] When using primitives, `listType` matches the intended feed (`'all'` vs `'for-you'`) on both the list and the load-more button
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#settabconfig - "setTabConfig"
+- https://docs.velt.dev/ui-customization/reference/behaviors/notifications - "tabConfig" (enable-unless-false rule, default-tab fallback)
+- https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel/primitives - VeltNotificationsPanelContentList, VeltNotificationsPanelContentLoadMore
 
 ---
 
@@ -237,6 +316,8 @@ import { VeltNotificationsTool } from '@veltdev/react';
 // Option 2: Sidebar mode - slides in from side
 <VeltNotificationsTool panelOpenMode="sidebar" />
 ```
+
+In `sidebar` mode the panel keeps all fetched notifications in the session list, so the list stays stable as a persistent column; `popover` keeps the leaner open-on-demand set.
 
 **Embedded Panel (no tool button):**
 
@@ -280,6 +361,8 @@ function NotificationControls() {
 }
 ```
 
+`openNotificationsPanel()` / `closeNotificationsPanel()` do not work when you have embedded `VeltNotificationsPanel` directly in your layout; they control the panel opened by `VeltNotificationsTool`.
+
 **Using Hook for Panel Control:**
 
 ```jsx
@@ -312,8 +395,9 @@ function NotificationButton() {
 **Controlling Initial Load Count:**
 
 ```jsx
-// Control how many notifications load initially (v4.7.1+)
+// Notifications shown per tab page (default: 5); "Load more" pages in steps of this size
 <VeltNotificationsTool pageSize={20} />
+<VeltNotificationsPanel pageSize={20} />
 ```
 
 **For HTML:**
@@ -322,7 +406,17 @@ function NotificationButton() {
 <velt-notifications-tool page-size="20"></velt-notifications-tool>
 ```
 
-Reference: https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Panel Open Mode, Actions
+**Verification:**
+- [ ] Panel mode matches application layout needs
+- [ ] Embedded panels have proper container styling
+- [ ] Programmatic controls work as expected
+- [ ] pageSize set if default load count needs adjustment
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#panelopenmode - "panelOpenMode"
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#opennotificationspanel - "openNotificationsPanel"
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#pagesize - "pageSize"
+- https://docs.velt.dev/ui-customization/reference/behaviors/notifications - "panelOpenMode", "pageSize" defaults
 
 ---
 
@@ -390,6 +484,8 @@ notificationElement.disableCurrentDocumentOnly();
 
 **Primitive-Level Document Scoping (`documentId`):**
 
+When building a custom panel out of primitives instead of `VeltNotificationsTool`, pass `documentId` to `VeltNotificationsPanelContentList` and `VeltNotificationsPanelContentLoadMore` to render and paginate notifications for a single document from `notificationsByDocumentId`. This scopes the list/load-more to that document without flipping the global `enableCurrentDocumentOnly()` switch.
+
 ```jsx
 import {
   VeltNotificationsPanelContentList,
@@ -408,6 +504,16 @@ import {
 ```
 
 `documentId` is ignored when `notifications` is bound directly to the list primitive.
+
+**Verification Checklist:**
+- [ ] `enableCurrentDocumentOnly()` called after Velt client is initialized
+- [ ] Document ID is set via `setDocument()` before enabling
+- [ ] `disableCurrentDocumentOnly()` used when switching back to multi-document view
+- [ ] When using primitives, the same `documentId` is passed to both the list and the matching load-more so pagination stays scoped to that document
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior - enableCurrentDocumentOnly
+- https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel/primitives - VeltNotificationsPanelContentList, VeltNotificationsPanelContentLoadMore
 
 ---
 
@@ -466,6 +572,16 @@ function NotificationBadge() {
   );
 }
 ```
+
+**Available Hooks:**
+
+| Hook | Returns | Description |
+|------|---------|-------------|
+| `useNotificationsData()` | `Notification[]` | All notifications |
+| `useNotificationsData({ type: 'forYou' })` | `Notification[]` | Filtered by tab type |
+| `useUnreadNotificationsCount()` | `{ forYou: number, all: number }` | Unread counts |
+| `useNotificationUtils()` | Utility functions | Panel control methods |
+| `useNotificationEventCallback('settingsUpdated')` | Settings event | Fires when user updates settings |
 
 **Handling Notification Click Events:**
 
@@ -601,7 +717,21 @@ interface NotificationMetadata {
 }
 ```
 
-Reference: https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Data, Events
+**Notification Sources:**
+
+| Source | Description | Triggered by |
+|--------|-------------|-------------|
+| `'comment'` | Comment-related notifications | Adding comments, @mentions, replies |
+| `'huddle'` | Huddle/call notifications | Starting or joining huddles |
+| `'crdt'` | CRDT editing notifications | Collaborative editing events |
+| `'custom'` | Custom notifications | REST API `/v2/notifications/add` — routed through Notification Resolver if configured |
+
+**Verification:**
+- [ ] Hooks imported from @veltdev/react
+- [ ] Component re-renders when data changes
+- [ ] Type parameter used correctly for filtered data
+
+**Source Pointer:** https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Data, Events
 
 ---
 
@@ -684,80 +814,140 @@ notificationsTool?.addEventListener('onNotificationClick', (event) => {
 </script>
 ```
 
+**API Reference:**
+
+| Method | Description |
+|--------|-------------|
+| `markNotificationAsReadById(notificationId)` | Mark a single notification as read in all tabs |
+| `setAllNotificationsAsRead()` | Mark all notifications as read across all tabs |
+| `setAllNotificationsAsRead({ tabId })` | Mark notifications as read for a specific tab (`for-you`, `all`, `document`) |
+| `onNotificationClick` (prop) | Callback fired when a notification is clicked; receives a `Notification` object |
+
+**Verification Checklist:**
+- [ ] `markNotificationAsReadById` called with a valid notification ID
+- [ ] `onNotificationClick` listener set on either Tool or Panel, not both
+- [ ] Click handler implements navigation or custom action as needed
+- [ ] `setAllNotificationsAsRead` uses correct `tabId` values
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Actions (markNotificationAsReadById, setAllNotificationsAsRead, onNotificationClick)
+
 ---
 
 ### 3.3 Use NotificationDataProvider to Fetch and Delete Notifications from Your Own Backend
 
 **Impact: HIGH (Routes custom notification data through your backend resolver instead of Velt's storage, enabling full control over notification PII and lifecycle)**
 
-Register a `NotificationDataProvider` on `VeltDataProvider.notification` via `client.setDataProviders()` to have Velt call your `get` and `delete` handlers instead of reading from Velt's storage. This applies only to notifications where `notificationSource === 'custom'`. The resolution pipeline runs in the order notification → user → comment, so resolver-enriched user references are available when the user resolver executes. Notifications enriched through this resolver gain the `isNotificationResolverUsed: true` flag on the `Notification` model.
+Register a `NotificationDataProvider` as `dataProviders.notification` (the `VeltProvider` `dataProviders` prop in React, `Velt.setDataProviders()` elsewhere) so Velt calls your `get` and `delete` handlers instead of storing notification content on its servers. Only notifications with `notificationSource === 'custom'` are routed through this resolver. The resolution pipeline runs notification → user → comment, and enriched notifications carry `isNotificationResolverUsed: true`.
 
-**Incorrect (relying on Velt storage for custom notifications that contain PII):**
-
-```jsx
-// No data provider registered — Velt reads custom notifications
-// directly from its own storage, exposing any PII fields to clients
-client.setDataProviders({});
-```
-
-**Correct (React / Next.js — register notification get and delete handlers):**
+**Incorrect (wrong response shape, provider set too late):**
 
 ```jsx
-import { useVeltClient } from '@veltdev/react';
-import { useEffect } from 'react';
-
-function NotificationProviderSetup() {
-  const { client } = useVeltClient();
-
-  useEffect(() => {
-    if (!client) return;
-
-    client.setDataProviders({
-      notification: {
-        get: async ({ organizationId, notificationIds }) => {
-          // Fetch enriched notification data from your backend
-          const results = await myBackend.fetchNotifications(
-            organizationId,
-            notificationIds
-          );
-          return { status: 200, data: results };
-        },
-        delete: async ({ notificationId, organizationId }) => {
-          // Delete the notification from your backend
-          await myBackend.deleteNotification(organizationId, notificationId);
-          return { status: 200, data: undefined };
-        },
-        config: {
-          // Max ms to wait for resolver response (default: 30000)
-          resolveTimeout: 30000,
-          getRetryConfig: {
-            retryCount: 2,
-            retryDelay: 500,
-            revertOnFailure: false,
-          },
-        },
-      },
-    });
-  }, [client]);
-}
-```
-
-**Correct (Other Frameworks — Angular, Vue, Vanilla JS):**
-
-```typescript
+// Registered after identify(), and returns { status, data: [] }.
+// ResolverResponse needs success + statusCode, and data keyed by notificationId.
 client.setDataProviders({
   notification: {
     get: async ({ organizationId, notificationIds }) => {
-      const results = await myBackend.fetchNotifications(organizationId, notificationIds);
-      return { status: 200, data: results };
-    },
-    delete: async ({ notificationId, organizationId }) => {
-      await myBackend.deleteNotification(organizationId, notificationId);
-      return { status: 200, data: undefined };
+      const rows = await myBackend.fetchNotifications(organizationId, notificationIds);
+      return { status: 200, data: rows };
     },
   },
 });
 ```
+
+**Correct (React / Next.js, function-based provider on VeltProvider):**
+
+```jsx
+import { VeltProvider } from '@veltdev/react';
+
+const notificationDataProvider = {
+  // request: { organizationId, notificationIds }
+  get: async (request) => {
+    const response = await fetch('/api/velt/notifications/get', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    // Must resolve to ResolverResponse<Record<notificationId, PartialNotification>>:
+    // { success: true, statusCode: 200, data: { 'custom-notif-001': { notificationId: 'custom-notif-001', ... } } }
+    return await response.json();
+  },
+  // request: { notificationId, organizationId }
+  delete: async (request) => {
+    const response = await fetch('/api/velt/notifications/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(request),
+    });
+    return await response.json(); // { success: true, statusCode: 200 }
+  },
+  config: {
+    resolveTimeout: 5000,
+    getRetryConfig: { retryCount: 3, retryDelay: 2000 },
+    deleteRetryConfig: { retryCount: 3, retryDelay: 2000 },
+  },
+};
+
+<VeltProvider apiKey="YOUR_API_KEY" dataProviders={{ notification: notificationDataProvider }}>
+  {/* app */}
+</VeltProvider>
+```
+
+**Correct (Other Frameworks, endpoint-based provider):**
+
+```js
+// Let the SDK POST the request body to your endpoints
+const notificationDataProvider = {
+  config: {
+    getConfig: {
+      url: 'https://your-backend.com/api/velt/notifications/get',
+      headers: { Authorization: 'Bearer YOUR_TOKEN' },
+    },
+    deleteConfig: {
+      url: 'https://your-backend.com/api/velt/notifications/delete',
+      headers: { Authorization: 'Bearer YOUR_TOKEN' },
+    },
+    resolveTimeout: 5000,
+    getRetryConfig: { retryCount: 3, retryDelay: 2000 },
+    deleteRetryConfig: { retryCount: 3, retryDelay: 2000 },
+  },
+};
+
+// Call before Velt.identify()
+Velt.setDataProviders({ notification: notificationDataProvider });
+```
+
+**NotificationDataProvider:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `get` | `(request: GetNotificationResolverRequest) => Promise<ResolverResponse<Record<string, PartialNotification>>>` | No | Fetch notification PII. Request: `{ organizationId, notificationIds }`. |
+| `delete` | `(request: DeleteNotificationResolverRequest) => Promise<ResolverResponse<undefined>>` | No | Delete notification PII. Request: `{ notificationId, organizationId }`. |
+| `config` | `NotificationResolverConfig` | No | `resolveTimeout` (ms), `getRetryConfig`, `deleteRetryConfig` (`RetryConfig`: `retryCount`, `retryDelay`, `revertOnFailure`), `getConfig` / `deleteConfig` (`ResolverEndpointConfig`: `url`, `headers`, optional `credentials`). |
+
+`PartialNotification` requires `notificationId` and may carry `displayHeadlineMessageTemplate`, `displayHeadlineMessageTemplateData`, `displayBodyMessage`, `displayBodyMessageTemplate`, `displayBodyMessageTemplateData`, `notificationSourceData`, and custom fields.
+
+**Key Constraints:**
+- Set data providers before calling `identify` (or before `authProvider` signs the user in).
+- Every handler response must include `success` (boolean) and `statusCode` (`200` for success, e.g. `500` for errors) so Velt can handle errors and retries.
+- Only `notificationSource === 'custom'` notifications call your provider. Write them via the Add Notifications REST API with `notificationSource: 'custom'` and `isNotificationResolverUsed: true`, omitting `displayHeadlineMessageTemplate` / `displayBodyMessage` (see `triggers-custom`).
+- Velt stores only routing identifiers (`notificationId`, `actionUser`, hashed `notifyUsers` / `notifyUsersByUserId`), `notificationSource`, and the `isNotificationResolverUsed` flag.
+- If `get` fails, the notification renders without enriched PII and is retried if retries are configured.
+- Function-based and endpoint-based approaches can be combined. `headers` may also be an async function resolved per request.
+- Debug with `client.on('dataProvider')` (React) / `Velt.on('dataProvider')` and unsubscribe when done.
+
+**Verification Checklist:**
+- [ ] Provider registered before `identify` / sign-in
+- [ ] `get` returns `{ success: true, statusCode: 200, data: { [notificationId]: PartialNotification } }`
+- [ ] `delete` returns `{ success: true, statusCode: 200 }` on success
+- [ ] Custom notifications are written with `notificationSource: 'custom'` and `isNotificationResolverUsed: true`
+- [ ] `resolveTimeout` and retry configs tuned for your backend latency
+
+**Source Pointers:**
+- https://docs.velt.dev/self-hosting/partial/notifications - "Notifications" self-hosting (function and endpoint providers, resolver-eligible writes)
+- https://docs.velt.dev/api-reference/sdk/models/data-models#notificationdataprovider - "NotificationDataProvider"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#resolverresponse - "ResolverResponse"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#notification - "Notification" (`isNotificationResolverUsed`)
 
 ---
 
@@ -774,6 +964,8 @@ Use Velt's REST APIs to get, update, or create notifications from your backend. 
 // Can't send notifications from server events
 ```
 
+**Correct (using REST API from backend):**
+
 **Get Notifications:**
 
 ```javascript
@@ -789,8 +981,8 @@ const response = await fetch('https://api.velt.dev/v2/notifications/get', {
   body: JSON.stringify({
     data: {
       organizationId: 'your-org-id',
-      documentId: 'your-doc-id',      // Optional: filter by document
-      userId: 'user-id',               // Optional: filter by user
+      documentId: 'your-doc-id',      // Pass documentId or userId (or both)
+      userId: 'user-id',
       pageSize: 20,                    // Default: 1000
       order: 'desc'                    // 'asc' or 'desc'
     }
@@ -830,6 +1022,19 @@ const response = await fetch('https://api.velt.dev/v2/notifications/update', {
 });
 ```
 
+**Query Options:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `organizationId` | string | Required. Your organization ID |
+| `documentId` | string | Filter by document. Pass this or `userId` |
+| `userId` | string | Filter by user. Pass this or `documentId` |
+| `locationId` | string | Optional. Filter by location |
+| `notificationIds` | string[] | Optional. Get specific notifications (max 30) |
+| `pageSize` | number | Items per page (default: 1000) |
+| `pageToken` | string | For pagination |
+| `order` | string | 'asc' or 'desc' (default: 'desc') |
+
 **Response Structure:**
 
 ```json
@@ -852,6 +1057,8 @@ const response = await fetch('https://api.velt.dev/v2/notifications/update', {
 }
 ```
 
+**Visibility filtering:** Get results are filtered by comment visibility. A notification for a private comment is returned only for users who can see that comment, on top of any Access Context filtering. The Node and Python backend SDKs apply the same filter. Custom notifications are unaffected.
+
 **Delete Notifications:**
 
 ```javascript
@@ -869,14 +1076,32 @@ const response = await fetch('https://api.velt.dev/v2/notifications/delete', {
       organizationId: 'your-org-id',
       documentId: 'your-doc-id',             // Optional: delete all for document
       notificationIds: ['notif-1', 'notif-2'] // Optional: delete specific IDs
+      // Also accepts userId and locationId
     }
   })
 });
 ```
 
-At least one of `documentId`, `userId`, or `notificationIds` is required alongside `organizationId`.
+Combine `organizationId` with `documentId`, `userId`, `locationId`, and/or `notificationIds` to scope the delete (see the documented request combinations).
 
-Reference: https://docs.velt.dev/api-reference/rest-apis/v2/notifications/get-notifications-v2 - Get Notifications API
+**Prerequisites (Get Notifications):**
+- Enable the advanced queries option in the [Velt Console](https://console.velt.dev/dashboard/config/appconfig)
+- Run SDK v4 or later
+- Generate an auth token for API access
+
+**Update options:** each entry in `notifications` takes `id` plus any of `actionUser`, `displayHeadlineMessageTemplate`, `displayHeadlineMessageTemplateData`, `displayBodyMessage`, `notificationSourceData`, `readByUserIds`, and `persistReadForUsers`. Set `verifyUserPermissions: true` on the request to only update for users with document access.
+
+**Verification:**
+- [ ] Advanced Queries enabled in console
+- [ ] API key and auth token configured
+- [ ] Correct endpoint URL used
+- [ ] Required headers included
+
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/rest-apis/v2/notifications/get-notifications-v2 - "Get Notifications"
+- https://docs.velt.dev/api-reference/rest-apis/v2/notifications/update-notifications - "Update Notifications"
+- https://docs.velt.dev/api-reference/rest-apis/v2/notifications/delete-notifications - "Delete Notifications"
+- https://docs.velt.dev/async-collaboration/notifications/overview#notifications-for-private-comments - "Notifications for Private Comments"
 
 ---
 
@@ -890,7 +1115,7 @@ User notification preference management. Includes channel configuration (Inbox, 
 
 **Impact: MEDIUM-HIGH (Set up where users receive notifications (Inbox, Email, Slack, etc.))**
 
-Configure which channels users can receive notifications through. Default channels are Inbox (ALL) and Email (MINE). Users can customize their preferences.
+Configure which channels users can receive notifications through. Default channels are Inbox (ALL) and Email (MINE). Users can customize their preferences. Settings are off by default: first enable the settings feature in the [Velt Console](https://console.velt.dev/dashboard/config/notification), then turn on the `settings` prop (or `enableSettings()`). Custom channels such as Slack only appear in the UI; you deliver to them yourself from webhooks.
 
 **Incorrect (no channel configuration):**
 
@@ -953,6 +1178,14 @@ function NotificationSetup() {
   return <VeltNotificationsTool />;
 }
 ```
+
+**Channel Value Options:**
+
+| Value | Description |
+|-------|-------------|
+| `ALL` | Receive all notifications |
+| `MINE` | Only notifications where user is directly involved (@mentions, replies) |
+| `NONE` | Do not receive notifications on this channel |
 
 **Managing Settings Programmatically:**
 
@@ -1018,11 +1251,13 @@ notificationElement.enableSettings();
 
 **Organization-Level Settings:**
 
+By default, settings apply to the current user on the current document (with multiple documents or folders, they apply to the root document). Organization-level mode applies the user's settings to all documents in the organization.
+
 ```jsx
-// Apply settings as org-wide defaults (all users inherit unless overridden)
+// Settings apply to all documents in the organization
 notificationElement.enableSettingsAtOrganizationLevel();
 
-// Revert to per-user settings
+// Revert to per-document settings
 notificationElement.disableSettingsAtOrganizationLevel();
 
 // Or via component prop:
@@ -1043,7 +1278,17 @@ notificationElement.disableReadNotificationsOnForYouTab();
 <VeltNotificationsTool readNotificationsOnForYouTab={true} />
 ```
 
-Reference: https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Settings, setSettingsInitialConfig
+**Verification:**
+- [ ] Settings feature enabled in the Velt Console and `settings` prop / `enableSettings()` turned on
+- [ ] setSettingsInitialConfig called before user interaction
+- [ ] Each channel has id, name, enable, default, and values
+- [ ] Default values are valid (ALL, MINE, or NONE)
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#setsettingsinitialconfig - "setSettingsInitialConfig"
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#enablesettings - "enableSettings"
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#enablesettingsatorganizationlevel - "enableSettingsAtOrganizationLevel"
+- https://docs.velt.dev/async-collaboration/notifications/setup - "(optional) Enable Notification Settings for Users"
 
 ---
 
@@ -1051,20 +1296,19 @@ Reference: https://docs.velt.dev/async-collaboration/notifications/customize-beh
 
 **Impact: MEDIUM-HIGH (Read and write per-user notification preferences at document or org level from your server)**
 
-Use the `getConfig` and `setConfig` REST endpoints to read and write a user's notification channel preferences from your server. Both endpoints support document-level config (scoped to specific documents) and org-level config (applied as the user's default for all documents). Available on v1 and v2 REST APIs.
+Use the Get Config and Set Config REST endpoints to read and write users' notification channel preferences from your server. Both support document-level config (scoped to specific documents) and org-level config (the user's default for all documents). Get Config takes a single `userId`; Set Config takes a `userIds` array. Both require the notification settings feature to be enabled in the [Velt Console](https://console.velt.dev/dashboard/config/notification). Available on v1 and v2 REST APIs.
 
-**Incorrect (assuming documentIds is always required):**
+**Incorrect (singular userId on Set Config, empty documentIds, missing auth token):**
 
 ```javascript
-// setConfig without documentIds fails to apply org-level default
 await fetch('https://api.velt.dev/v2/notifications/config/set', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json', 'x-velt-api-key': 'YOUR_API_KEY' },
   body: JSON.stringify({
     data: {
       organizationId: 'your-org-id',
-      userId: 'user-123',
-      documentIds: [],          // Empty array is not the same as omitting
+      userId: 'user-123',       // Set Config expects userIds: string[]
+      documentIds: [],          // Omit documentIds for an org-level default
       config: { inbox: 'ALL', email: 'MINE' }
     }
   })
@@ -1119,7 +1363,7 @@ const setDocResponse = await fetch('https://api.velt.dev/v2/notifications/config
   body: JSON.stringify({
     data: {
       organizationId: 'your-org-id',
-      userId: 'user-123',
+      userIds: ['user-123'],
       documentIds: ['doc-id-1'],
       config: { inbox: 'MINE', email: 'NONE' }
     }
@@ -1138,31 +1382,274 @@ const setOrgResponse = await fetch('https://api.velt.dev/v2/notifications/config
   body: JSON.stringify({
     data: {
       organizationId: 'your-org-id',
-      userId: 'user-123',
+      userIds: ['user-123'],
       config: { inbox: 'ALL', email: 'MINE' }
     }
   })
 });
 ```
 
+**Parameter Reference:**
+
+| Parameter | Type | Required | Endpoint | Description |
+|-----------|------|----------|----------|-------------|
+| `organizationId` | string | Yes | Both | Your organization ID. |
+| `userId` | string | Yes (getConfig) | getConfig | The user whose config is read. |
+| `userIds` | string[] | Yes (setConfig) | setConfig | The users whose config is set. |
+| `documentIds` | string[] | No | Both | Document IDs to scope the operation (max 30 on getConfig). When omitted on `setConfig`, config is applied at org level. Not required on `getConfig` when `getOrganizationConfig` is true. |
+| `getOrganizationConfig` | boolean | No | getConfig only | When true, fetches the org-level config for the user. `documentIds` is not required in this mode. |
+| `config` | NotificationChannelConfig | Yes (setConfig) | setConfig | Channel preference map. Keys are channel IDs (`inbox`, `email`, etc.), values are `'ALL'` \| `'MINE'` \| `'NONE'`. |
+
+**NotificationChannelConfig type:** `Record<string, 'ALL' | 'MINE' | 'NONE'>` — maps a channel ID to the user's preference for that channel.
+
 **Endpoint URLs:**
 
-```typescript
+```
 POST https://api.velt.dev/v1/notifications/config/get
 POST https://api.velt.dev/v2/notifications/config/get
 POST https://api.velt.dev/v1/notifications/config/set
 POST https://api.velt.dev/v2/notifications/config/set
 ```
 
+**Verification:**
+- [ ] `getOrganizationConfig: true` used (not `documentIds: []`) when fetching org-level config
+- [ ] `documentIds` omitted (not set to `[]`) when applying org-level default via setConfig
+- [ ] `config` object uses valid values: `'ALL'`, `'MINE'`, or `'NONE'` per channel
+- [ ] Set Config sends `userIds` (array); Get Config sends `userId` (string)
+- [ ] Auth headers (`x-velt-api-key` and `x-velt-auth-token`) included on all requests
+
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/rest-apis/v2/notifications/get-config - "Get Config"
+- https://docs.velt.dev/api-reference/rest-apis/v2/notifications/set-config - "Set Config"
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#enablesettingsatorganizationlevel - "enableSettingsAtOrganizationLevel"
+
 ---
 
-## 5. Notification Triggers
+## 5. Configuration
+
+**Impact: MEDIUM**
+
+Opt-in data-scope configuration for the notifications feed. Includes cross-organization "For You" merging (enableCrossOrganization / CrossOrganizationConfig) and the user-scoped "For You" fetch (enableUserScopedNotifications / UserScopedNotificationsConfig) that keeps unread notifications visible outside the recently-active-documents window.
+
+### 5.1 Configure Cross-Organization Notifications for Multi-Org Users
+
+**Impact: MEDIUM (Without cross-organization configuration, users who belong to multiple organizations only see notifications from the current org in the "For You" tab)**
+
+When users belong to multiple organizations, the notification panel's "For You" tab shows only current-org notifications by default. The cross-organization feature merges notifications from other orgs the user belongs to into the "For You" feed.
+
+**Key constraints:**
+- This is opt-in — default behavior is unchanged unless explicitly enabled
+- Only the "For You" feed is supported. The `'all'` feed value in `CrossOrganizationConfig.feeds` is silently ignored with a warning
+- The current organization is always excluded from cross-org results (it's already shown by default)
+
+**Incorrect (expecting other orgs' notifications without opting in):**
+
+```jsx
+// Default: For You only shows notifications from the current organization
+<VeltNotificationsTool />
+```
+
+**Correct (opt in once, from one place):**
+
+```jsx
+<VeltNotificationsTool enableCrossOrganization={true} />
+```
+
+#### React: Enable via Props
+
+The `enableCrossOrganization` prop works on both `VeltNotificationsTool` and `VeltNotificationsPanel`. It accepts `boolean`, a `CrossOrganizationConfig` object, or a JSON config string.
+
+```jsx
+{/* Enable with defaults — pulls from all orgs the user belongs to */}
+<VeltNotificationsTool enableCrossOrganization={true} />
+<VeltNotificationsPanel enableCrossOrganization={true} />
+
+{/* Enable with specific org allowlist */}
+<VeltNotificationsTool enableCrossOrganization={{
+    organizationIds: ['org-1', 'org-2'],
+}} />
+<VeltNotificationsPanel enableCrossOrganization={{
+    organizationIds: ['org-1', 'org-2'],
+}} />
+```
+
+#### React: Enable/Disable via API
+
+```jsx
+const notificationElement = useNotificationUtils();
+
+// Enable with defaults
+notificationElement.enableCrossOrganization();
+
+// Enable with config
+notificationElement.enableCrossOrganization({
+    organizationIds: ['org-1', 'org-2'],
+});
+
+// Disable
+notificationElement.disableCrossOrganization();
+
+// Equivalent: passing { enabled: false } routes to disable
+// notificationElement.enableCrossOrganization({ enabled: false });
+
+// Read current config
+const config = notificationElement.getCrossOrganizationConfig();
+
+// Subscribe to config changes
+const subscription = notificationElement.getCrossOrganizationConfig$().subscribe((config) => {
+    console.log('Cross-org config:', config);
+});
+
+// Clean up when done
+subscription?.unsubscribe();
+```
+
+#### HTML: Enable via Attributes
+
+```html
+<!-- Enable with defaults -->
+<velt-notifications-tool enable-cross-organization="true"></velt-notifications-tool>
+<velt-notifications-panel enable-cross-organization="true"></velt-notifications-panel>
+
+<!-- Enable with config (JSON string) -->
+<velt-notifications-tool enable-cross-organization='{"organizationIds":["org-1","org-2"]}'>
+</velt-notifications-tool>
+```
+
+#### CrossOrganizationConfig Fields
+
+| Property | Type | Default | Notes |
+|----------|------|---------|-------|
+| `enabled` | `boolean` | `true` | Set to `false` to disable (equivalent to `disableCrossOrganization()`) |
+| `organizationIds` | `string[]` | None | Allowlist; when omitted, all indexed orgs are eligible |
+| `excludeOrganizationIds` | `string[]` | None | Additional orgs to exclude. Current org always excluded |
+| `feeds` | `('forYou' \| 'all')[]` | None | Only `'forYou'` is supported; `'all'` is ignored with a warning |
+
+**Equivalences:** Passing `{ enabled: false }` to `enableCrossOrganization()` is the same as calling `disableCrossOrganization()`. Passing `null` or calling without arguments opts in with all defaults.
+
+**Shared setting:** `enableCrossOrganization` is a shared notification-service flag. Setting it on `VeltNotificationsTool`, on `VeltNotificationsPanel`, or through the API changes the feed for both components, and the last write wins. Configure it in one place.
+
+**Interaction with user-scoped notifications:** If you also enable `enableUserScopedNotifications`, user-scoped notifications outrank cross-organization ones on ID collision in the "All" tab. Cross-organization "For You" behavior is otherwise unchanged (see `config-user-scoped-notifications`).
+
+#### Verification
+
+- [ ] `enableCrossOrganization` is configured from one place (tool prop, panel prop, or API), since it is a shared flag
+- [ ] "For You" tab shows notifications from other orgs the user belongs to
+- [ ] Current org notifications are not duplicated
+- [ ] `enableCrossOrganization({ enabled: false })` reverts to single-org behavior
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#enablecrossorganization - "enableCrossOrganization"
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#getcrossorganizationconfig - "getCrossOrganizationConfig"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#crossorganizationconfig - "CrossOrganizationConfig"
+- https://docs.velt.dev/ui-customization/reference/behaviors/notifications - "enableCrossOrganization" (global via the shared service)
+
+---
+
+### 5.2 Enable User-Scoped Notifications So Unread Items Stay in the For You Tab
+
+**Impact: MEDIUM (Without it, unread notifications on documents outside the org's 15 most recently active documents vanish from the For You tab and the unread badge)**
+
+By default the "For You" tab and the unread count are built from the organization's 15 most recently active documents. An unread notification on a document outside that window is not fetched, so it disappears from the tab and the badge until that document becomes active again. Opt in to `enableUserScopedNotifications` to also fetch the signed-in user's newest notifications for the current organization directly, independent of that window.
+
+**Incorrect (relying on the default window in a busy organization):**
+
+```jsx
+// Default: For You + unread count come only from the 15 most recently active documents.
+// A user with an unread @mention on an older document sees no badge and no row for it.
+<VeltNotificationsTool />
+```
+
+**Correct (React / Next.js, using props):**
+
+```jsx
+import { VeltNotificationsTool } from '@veltdev/react';
+
+// Enable with the default limit of 25
+<VeltNotificationsTool enableUserScopedNotifications={true} />
+
+// Or enable with a custom limit (clamped to [1, 200])
+<VeltNotificationsTool enableUserScopedNotifications={{ limit: 60 }} />
+```
+
+**Correct (React / Next.js, using the API):**
+
+```jsx
+import { useEffect } from 'react';
+import { useNotificationUtils } from '@veltdev/react';
+
+function UserScopedNotificationsSetup() {
+  const notificationElement = useNotificationUtils();
+
+  useEffect(() => {
+    if (!notificationElement) return;
+    // Safe to call before identify()/setDocument(); it latches until the first full fetch
+    notificationElement.enableUserScopedNotifications({ limit: 60 });
+  }, [notificationElement]);
+
+  return null;
+}
+
+// Turn it back off (keeps the configured limit):
+// notificationElement.disableUserScopedNotifications();
+```
+
+**Correct (Other Frameworks):**
+
+```html
+<!-- Default limit of 25 -->
+<velt-notifications-tool enable-user-scoped-notifications="true"></velt-notifications-tool>
+
+<!-- Custom limit as a JSON string -->
+<velt-notifications-panel enable-user-scoped-notifications='{"limit":60}'></velt-notifications-panel>
+
+<script>
+  const notificationElement = Velt.getNotificationElement();
+  notificationElement.enableUserScopedNotifications({ limit: 60 });
+  // notificationElement.disableUserScopedNotifications();
+</script>
+```
+
+**UserScopedNotificationsConfig:**
+
+| Property | Type | Default | Notes |
+|----------|------|---------|-------|
+| `enabled` | `boolean` | `true` | `false` disables (same as `disableUserScopedNotifications()`) and keeps the configured `limit`. |
+| `limit` | `number` | `25` | Max user-scoped notifications fetched. Clamped to `[1, 200]`; non-numeric, non-finite, or values below `1` fall back to `25`. |
+
+Passing `null` or no argument to `enableUserScopedNotifications()` opts in with all defaults. The prop accepts a `boolean`, a `UserScopedNotificationsConfig` object, or a JSON string; the HTML attribute accepts `"true"` / `"false"` or a JSON string.
+
+**Behavior to know:**
+- Default is off. The setting is shared: the prop on `VeltNotificationsTool`, the prop on `VeltNotificationsPanel`, and the API all write the same flag, so the last write wins. Drive it from one place.
+- The fetch runs on full fetches only and is suppressed under `enableCurrentDocumentOnly()`; the narrower scope wins.
+- Results merge into the "For You" store (deduped by `notificationId`) and additively into the "All" tab. In "All", document notifications win on ID collision, and user-scoped notifications outrank cross-organization ones.
+- Switching organization or document clears the stores; the next full fetch re-applies the setting, so nothing carries across organizations.
+- The first load after opting in at a busy organization can surface previously invisible unread notifications in one batch. The unread count is capped at `limit`.
+- Requires matching backend support. Against an older backend it falls back to the windowed behavior instead of failing.
+- `enableUserScopedNotifications({ enabled: false })` enabled the feature instead of disabling it before SDK 6.0.9; on older builds call `disableUserScopedNotifications()`. The `enableUserScopedNotifications` prop / attribute requires 6.0.9 or later; the API methods shipped in 6.0.8.
+
+**Verification Checklist:**
+- [ ] Enabled from exactly one place (tool prop, panel prop, or API), not several with different values
+- [ ] `limit` set to a value in `[1, 200]` if the default of 25 is too small
+- [ ] Not combined with `enableCurrentDocumentOnly()` when the goal is an org-wide For You feed
+- [ ] Unread badge and For You tab show notifications for documents outside the recently active window
+- [ ] Disabling uses `disableUserScopedNotifications()` (or `{ enabled: false }` on 6.0.9+)
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#enableuserscopednotifications - "enableUserScopedNotifications"
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#disableuserscopednotifications - "disableUserScopedNotifications"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#userscopednotificationsconfig - "UserScopedNotificationsConfig"
+- https://docs.velt.dev/ui-customization/reference/behaviors/notifications - "enableUserScopedNotifications" (shared service flag, last write wins)
+
+---
+
+## 6. Notification Triggers
 
 **Impact: MEDIUM**
 
 How notifications are generated. Includes automatic triggers from comments/@mentions, custom notification creation via REST API, and self-notification control.
 
-### 5.1 Create Custom Notifications via REST API
+### 6.1 Create Custom Notifications via REST API
 
 **Impact: MEDIUM (Send notifications from backend for custom application events)**
 
@@ -1209,14 +1696,18 @@ const response = await fetch('https://api.velt.dev/v2/notifications/add', {
       // Optional body message
       displayBodyMessage: 'The task has been marked as complete.',
 
-      // Who to notify
+      // Who to notify (required)
       notifyUsers: [
         { userId: 'user-456', email: 'jane@example.com' },
         { userId: 'user-789', email: 'bob@example.com' }
       ],
 
-      // Or notify all users on document
+      // notifyAll defaults to true (everyone in the organization).
+      // Set false to notify only notifyUsers.
       notifyAll: false,
+
+      // Optional: your own ID (only _ and - special characters) to prevent duplicates
+      notificationId: 'task-42-completed',
 
       // Check document access before notifying
       verifyUserPermissions: true
@@ -1241,18 +1732,46 @@ const response = await fetch('https://api.velt.dev/v2/notifications/add', {
   },
   body: JSON.stringify({
     data: {
-      apiKey: 'YOUR_API_KEY',
       organizationId: 'org-abc',
       documentId: 'doc-789',
       notificationSource: 'custom',
       isNotificationResolverUsed: true,
       actionUser: { userId: 'user-123' },
-      notifyUsers: [{ userId: 'user-456' }]
+      notifyUsers: [{ userId: 'user-456', email: 'recipient@example.com' }],
+      notifyAll: false
       // displayHeadlineMessageTemplate and displayBodyMessage omitted
     }
   })
 });
 ```
+
+**Template Variables:**
+
+Use curly braces `{variableName}` in templates. Built-in variables:
+- `{actionUser}` - User who took the action
+- `{recipientUser}` - User receiving the notification
+
+Custom variables can be any string value in `displayHeadlineMessageTemplateData`.
+
+**Notification Options:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `organizationId` | string | Required. Your organization |
+| `documentId` | string | Required. Document context |
+| `actionUser` | User | Required. Who triggered the notification |
+| `displayHeadlineMessageTemplate` | string | Main message with variables. Optional when `isNotificationResolverUsed: true` |
+| `displayHeadlineMessageTemplateData` | object | Variable values |
+| `displayBodyMessage` | string | Secondary message text. Optional when `isNotificationResolverUsed: true` |
+| `notifyUsers` | User[] | Required. Users to notify |
+| `notifyAll` | boolean | Default `true`: notifies all users in the organization. Set `false` to notify only `notifyUsers` |
+| `verifyUserPermissions` | boolean | Only create notifications for users with access to the document (default: false) |
+| `notificationId` | string | Optional custom ID (only `_` and `-` special characters); Velt generates one if omitted |
+| `createOrganization` / `createDocument` | boolean | Create the organization / document first if it does not exist |
+| `notificationSourceData` | object | Custom data stored with the notification and returned in the click callback |
+| `context` | Context | `{ access: { ... } }` key-value pairs for Access Context filtering |
+| `isNotificationResolverUsed` | boolean | Optional. When `true`, marks this notification as resolver-eligible. `displayHeadlineMessageTemplate` and `displayBodyMessage` are not required; the notification resolver supplies PII content at read time via the registered data provider |
+| `notificationSource` | string | Optional. Must be `'custom'` for resolver routing. Only custom-source notifications are routed through the resolver pipeline |
 
 **Example Use Cases:**
 
@@ -1290,11 +1809,22 @@ const response = await fetch('https://api.velt.dev/v2/notifications/add', {
 }
 ```
 
-Reference: https://docs.velt.dev/api-reference/rest-apis/v2/notifications/add-notifications - Add Notifications API
+Custom notifications carry no comment, so the private-comment visibility filter does not apply to them.
+
+**Verification:**
+- [ ] API key and auth token configured
+- [ ] Required fields (organizationId, documentId, actionUser, notifyUsers) provided
+- [ ] `notifyAll: false` set when only `notifyUsers` should be notified (it defaults to `true`)
+- [ ] Template variables match templateData keys
+- [ ] Resolver-backed writes set both `notificationSource: 'custom'` and `isNotificationResolverUsed: true`
+
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/rest-apis/v2/notifications/add-notifications - "Add Notifications"
+- https://docs.velt.dev/self-hosting/partial/notifications#writing-resolver-eligible-notifications - "Writing Resolver-Eligible Notifications"
 
 ---
 
-### 5.2 Enable Self-Notifications for Own Actions
+### 6.2 Enable Self-Notifications for Own Actions
 
 **Impact: MEDIUM (Controls whether users receive notifications for their own actions)**
 
@@ -1356,19 +1886,27 @@ notificationElement.enableSelfNotifications();
 notificationElement.disableSelfNotifications();
 ```
 
+**Verification Checklist:**
+- [ ] Self-notifications explicitly enabled if users need to see their own actions
+- [ ] Disabled by default for typical use cases to reduce noise
+- [ ] Consistent setting across Tool and Panel components
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior - enableSelfNotifications
+
 ---
 
-## 6. Delivery Channels
+## 7. Delivery Channels
 
 **Impact: MEDIUM**
 
-Notification delivery methods. Includes in-app inbox, email via SendGrid, webhook integrations for external services, and the opt-in server-side delay and batching pipeline.
+Notification delivery methods. Includes in-app inbox, email via SendGrid, basic and advanced webhook payloads (per-user notification config, private-comment `visibility` and `accessDeniedUsers`), and the opt-in server-side delay and batching pipeline.
 
-### 6.1 Configure Notification Delay and Batching Pipeline
+### 7.1 Configure Notification Delay and Batching Pipeline
 
 **Impact: MEDIUM (Reduce notification noise by holding, suppress-if-seen, and batching before delivery)**
 
-An opt-in, server-side pipeline lets you hold notifications during a configurable window, suppress delivery if the recipient views the comment before the window expires, and batch high-activity documents or users — all configured in your workspace's `notificationServiceConfig`. Webhooks and workflow triggers are never affected; they always fire immediately.
+An opt-in, server-side pipeline lets you hold notifications during a configurable window, suppress delivery if the recipient has already seen the activity, and batch high-activity documents or users. You configure it as the workspace's `notificationServiceConfig`, either in the [Velt Console](https://console.velt.dev/dashboard/config/notification) (API key notification settings) or with the Update Notification Config workspace REST API. It applies to all documents. Webhooks and workflow triggers are never affected; they always fire immediately.
 
 **Incorrect (expecting delay/batching without workspace config):**
 
@@ -1380,152 +1918,119 @@ An opt-in, server-side pipeline lets you hold notifications during a configurabl
 **Correct (configure notificationServiceConfig on your workspace):**
 
 ```javascript
-// Set via Velt REST API or Velt Console on your workspace object
-{
-  "notificationServiceConfig": {
-    "delayConfig": {
-      "isEnabled": true,
-      "delaySeconds": 30
-    },
-    "batchConfig": {
-      "document": {
-        "isEnabled": true,
-        "batchWindowSeconds": 300,
-        "maxActivities": 20
+// Server-side; the body is deep-merged with the stored config
+await fetch('https://api.velt.dev/v2/workspace/notificationconfig/update', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-velt-api-key': process.env.VELT_API_KEY,
+    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN, // API-key-level auth token
+  },
+  body: JSON.stringify({
+    data: {
+      useNotificationService: true,
+      notificationServiceConfig: {
+        delayConfig: { isEnabled: true, delaySeconds: 30 },
+        batchConfig: {
+          document: { isEnabled: true, batchWindowSeconds: 300, maxActivities: 20 },
+          user: { isEnabled: true, batchWindowSeconds: 300, maxActivities: 20 },
+        },
       },
-      "user": {
-        "isEnabled": true,
-        "batchWindowSeconds": 300,
-        "maxActivities": 20
-      }
-    }
-  }
-}
+    },
+  }),
+});
 ```
+
+**Config Field Reference:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `delayConfig.isEnabled` | boolean | Master toggle for the delay step. |
+| `delayConfig.delaySeconds` | number | Seconds to hold a notification. Integer `10` to `15552000` (6 months). |
+| `batchConfig.document.isEnabled` | boolean | Toggle document-level batching. |
+| `batchConfig.document.batchWindowSeconds` | number | Accumulation window per document. Integer `10` to `604800` (1 week). |
+| `batchConfig.document.maxActivities` | number | Flush once this many activities accumulate. Integer `2` to `50`. |
+| `batchConfig.user.isEnabled` | boolean | Toggle user-level batching. |
+| `batchConfig.user.batchWindowSeconds` | number | Accumulation window per recipient. Integer `10` to `604800`. |
+| `batchConfig.user.maxActivities` | number | Flush once this many activities accumulate. Integer `2` to `50`. |
+
+**Pipeline Order:**
+
+When both `delayConfig` and `batchConfig` are enabled, the stages chain in this order:
+
+1. **Delay** — Hold the notification for `delaySeconds`.
+2. **Seen check** — If the recipient views the comment during the delay window, suppress the notification (suppress-if-seen semantics).
+3. **Batch** — Accumulate surviving notifications within `batchWindowSeconds` or until `maxActivities` is reached.
+4. **Deliver** — Send the batched digest to the recipient.
+
+Each stage is independent: you can enable delay only, batching only, or both. Document-level and user-level batching also operate independently of each other.
+
+Out-of-range values are rejected with `INVALID_ARGUMENT`. Enabling the service for the first time (`useNotificationService: true`) seeds the default `comment` and `huddle` triggers but leaves delay and batching off until you set them. Read the current values with the Get Notification Config workspace API.
+
+**Important:** This pipeline is server-side only and opt-in. Webhooks and workflow triggers always fire immediately, regardless of any delay or batch configuration.
+
+**Verification:**
+- [ ] `notificationServiceConfig` set at the workspace level (Console or `/v2/workspace/notificationconfig/update`), not per document
+- [ ] Numeric fields are integers within the documented ranges
+- [ ] `delayConfig.isEnabled` and `batchConfig.*.isEnabled` toggled as needed
+- [ ] Pipeline order understood: delay → seen check → batch → deliver
+- [ ] Webhook endpoints confirmed as unaffected by this config
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#batching-and-delay-configuration - "Batching and Delay Configuration"
+- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/notificationconfig-update - "Update Notification Config"
+- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/notificationconfig-get - "Get Notification Config"
 
 ---
 
-### 6.2 Integrate with External Services via Webhooks
+### 7.2 Forward Notifications to External Services via Webhooks
 
-**Impact: MEDIUM (Forward notifications to Slack, Linear, or custom services)**
+**Impact: MEDIUM (Correct payload parsing, per-user preference routing, and private-comment filtering when forwarding notifications to Slack, Linear, or your backend)**
 
-Use webhooks to forward Velt notifications to external services like Slack, Linear, or your own backend.
+Velt webhooks deliver comment, huddle, CRDT (and, on advanced webhooks, recorder) events to your endpoint so you can fan notifications out to Slack, Linear, email, or custom channels. There is no `notification.created` event. Basic (V1) webhooks send a flat payload keyed by `actionType`; advanced (V2, Enterprise) webhooks send `{ event, source, data }`. When users have notification settings, the payload also carries their per-user channel preferences, and private-comment events carry `visibility` (plus `accessDeniedUsers` on basic webhooks) so you never forward a private comment to someone who cannot see it.
 
-**Incorrect (no webhook integration):**
-
-```jsx
-// Notifications only in-app
-// No external service integration
-```
-
-**Webhook Payload Structure:**
-
-```javascript
-// Your webhook endpoint receives:
-{
-  "event": "notification.created",
-  "data": {
-    "id": "notification-id",
-    "organizationId": "org-id",
-    "documentId": "doc-id",
-    "actionUser": {
-      "userId": "user-123",
-      "name": "John Doe",
-      "email": "john@example.com"
-    },
-    "displayHeadlineMessageTemplate": "{actionUser} mentioned you",
-    "displayBodyMessage": "Check this out!",
-    "notifyUsers": ["user-456"],
-    "timestamp": 1722409519944,
-    "notificationSource": "comment",  // or "custom"
-    "notificationSourceData": {
-      // Comment annotation or custom data
-    },
-
-    // Per-user notification config (added in v5.0.1-beta.4)
-    // Exactly ONE of these two fields is present per payload, depending on config scope.
-    // Each is a map of userId → NotificationChannelConfig.
-    // NotificationChannelConfig: Record<channelId, 'ALL' | 'MINE' | 'NONE'>
-    //   e.g. { "inbox": "ALL", "email": "MINE" }
-
-    // Present when an org-level config is active for the notified users:
-    "usersOrganizationNotificationsConfig": {
-      "user-123": { "inbox": "ALL", "email": "MINE" },
-      "user-456": { "inbox": "NONE", "email": "NONE" }
-    },
-
-    // — OR — present when a document-level config is active:
-    "usersDocumentNotificationsConfig": {
-      "user-123": { "inbox": "MINE", "email": "ALL" }
-    }
-  }
-}
-```
-
-**Accessing per-user config in your webhook handler:**
+**Incorrect (invented event name, ignoring preferences and visibility):**
 
 ```javascript
 app.post('/webhooks/velt', async (req, res) => {
   const { event, data } = req.body;
-
-  if (event === 'notification.created') {
-    // Exactly one config field is present per payload
-    const userConfigs =
-      data.usersOrganizationNotificationsConfig ||
-      data.usersDocumentNotificationsConfig;
-
-    if (userConfigs) {
-      // userConfigs is keyed by userId
-      // each value is a map of channel ID → 'ALL' | 'MINE' | 'NONE'
-      Object.entries(userConfigs).forEach(([userId, channelPrefs]) => {
-        console.log(`User ${userId} email pref: ${channelPrefs.email}`);
-      });
-    }
+  if (event === 'notification.created') {   // No such event
+    await postToSlack(data.notifyUsers);    // Ignores channel prefs and accessDeniedUsers
   }
-
   res.status(200).send('OK');
 });
-// Your webhook handler
-app.post('/webhooks/velt', async (req, res) => {
-  const { event, data } = req.body;
+```
 
-  // Verify webhook signature (recommended)
-  const signature = req.headers['x-velt-signature'];
-  if (!verifySignature(req.body, signature)) {
-    return res.status(401).send('Invalid signature');
+**Correct (basic webhooks: Comments action types):**
+
+```javascript
+// Basic webhooks: enable under Configurations > Webhook Service in the Velt Console.
+// Optional auth token arrives as "Authorization: Basic YOUR_AUTH_TOKEN".
+app.post('/webhooks/velt', async (req, res) => {
+  if (req.headers.authorization !== `Basic ${process.env.VELT_WEBHOOK_TOKEN}`) {
+    return res.status(401).send('Unauthorized');
   }
 
-  if (event === 'notification.created') {
-    // Forward to Slack
-    await fetch('https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text: `${data.actionUser.name}: ${data.displayHeadlineMessageTemplate}`,
-        blocks: [
-          {
-            type: 'section',
-            text: {
-              type: 'mrkdwn',
-              text: `*${data.actionUser.name}* mentioned someone\n${data.displayBodyMessage}`
-            }
-          }
-        ]
-      })
-    });
-  }
+  const payload = req.body; // Base64-decode / decrypt first if you enabled encoding or encryption
+  const { actionType, notificationSource, commentAnnotation, actionUser, metadata } = payload;
 
-  res.status(200).send('OK');
-});
-// Create Linear issue from notification
-app.post('/webhooks/velt', async (req, res) => {
-  const { event, data } = req.body;
+  if (notificationSource === 'comment' && ['newlyAdded', 'added'].includes(actionType)) {
+    // Exactly one of these is present when users have notification settings
+    const prefs =
+      payload.usersOrganizationNotificationsConfig ||
+      payload.usersDocumentNotificationsConfig ||
+      {};
+    // Private comment: drop users who cannot see it
+    const denied = new Set(payload.accessDeniedUsers ?? []);
 
-  if (event === 'notification.created' && data.notificationSource === 'comment') {
-    await linearClient.issueCreate({
-      title: `Comment from ${data.actionUser.name}`,
-      description: data.displayBodyMessage,
-      teamId: 'your-team-id'
+    const recipients = Object.entries(prefs)
+      .filter(([userId, channels]) => !denied.has(userId) && channels.slack !== 'NONE')
+      .map(([userId]) => userId);
+
+    await notifySlack(recipients, {
+      from: actionUser?.name,
+      document: metadata?.documentName,
+      annotationId: commentAnnotation?.annotationId,
     });
   }
 
@@ -1533,37 +2038,64 @@ app.post('/webhooks/velt', async (req, res) => {
 });
 ```
 
-**Example: Slack Integration**
-**Example: Linear Integration**
+**Correct (advanced webhooks: `event` + `data`, signed with Svix-style headers):**
 
-**Add Channel to Settings:**
+```javascript
+// Verify webhook-id, webhook-timestamp, webhook-signature against the raw body first
+app.post('/webhooks/velt-advanced', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!verifyVeltSignature(req.headers, req.body)) return res.status(401).end();
 
-```jsx
-// Let users control Slack notifications
-notificationElement.setSettingsInitialConfig([
-  {
-    id: 'slack',
-    name: 'Slack',
-    enable: true,
-    default: 'MINE',
-    values: [
-      { id: 'ALL', name: 'All Updates' },
-      { id: 'MINE', name: 'Mentions Only' },
-      { id: 'NONE', name: 'None' }
-    ]
+  const { event, source, data, usersOrganizationNotificationsConfig } = JSON.parse(req.body);
+
+  if (event === 'comment.add') {
+    // Private comments carry data.visibility; treat it as informational only
+    const visibility = data.visibility; // undefined for public comments
+    await enqueueFanOut({ data, visibility, prefs: usersOrganizationNotificationsConfig });
   }
-]);
+
+  res.status(200).end(); // Respond with 2xx within 15 seconds; queue heavy work
+});
 ```
 
-Reference: https://docs.velt.dev/webhooks/basic - Webhook setup
+**Event names:**
+
+| Webhook type | Field | Comment values (examples) |
+|---|---|---|
+| Basic (V1) | `actionType` + `notificationSource` | `newlyAdded`, `added`, `updated`, `deleted`, `assigned`, `statusChanged`, `priorityChanged`, `accessModeChanged`, `reactionAdded`, `subscribed`, ... Huddle: `created`, `join`. CRDT: `updateData`. |
+| Advanced (V2) | `event` | `comment_annotation.add`, `comment_annotation.assign`, `comment_annotation.status_change`, `comment.add`, `comment.update`, `comment.delete`, `comment.reaction_add`, `huddle.create`, `huddle.join`, `crdt.update_data`, `recorder.done`, ... |
+
+**Per-user notification preferences:** if you configured notification settings, each payload includes exactly one of `usersOrganizationNotificationsConfig` (org-level settings) or `usersDocumentNotificationsConfig` (document-level settings): a map of `userId` to `{ [channelId]: 'ALL' | 'MINE' | 'NONE' }`. Use it to honor custom channels (Slack, Linear) you added with `setSettingsInitialConfig()`.
+
+**Private comments:**
+- Velt sends comment notifications for a private comment only to users who can see it, on every channel, including the delete notification.
+- Private-comment payloads carry a `visibility` object: `type` (`'public' | 'organizationPrivate' | 'restricted'`), `userIds`, `organizationIds`, `organizationId`. Public comments and pre-existing notifications have no `visibility` key.
+- Basic webhooks also list `accessDeniedUsers` (client user IDs denied by your Permission Provider or by the comment's visibility). Drop those users from your own fan-out.
+- Treat `visibility` and `accessDeniedUsers` as informational. Velt re-verifies visibility server-side; never use them to widen who you forward to.
+
+**Delay and batching carve-out:** webhooks and workflow triggers always fire immediately. The opt-in delay and batching pipeline (`delivery-delay-batching`) never holds them.
+
+**Verification:**
+- [ ] Handler keys off `actionType` / `notificationSource` (basic) or `event` (advanced); no `notification.created`
+- [ ] Basic webhook `Authorization: Basic <token>` checked, or advanced webhook signature verified on the raw body
+- [ ] Encoded (Base64) or encrypted payloads decoded before parsing, if enabled
+- [ ] Recipients filtered by `usersOrganizationNotificationsConfig` OR `usersDocumentNotificationsConfig` (only one is present)
+- [ ] `accessDeniedUsers` removed from fan-out; `visibility` never used to add recipients
+- [ ] Endpoint returns 2xx quickly (advanced webhooks fail after 15 seconds)
+
+**Source Pointers:**
+- https://docs.velt.dev/webhooks/basic - "Basic Webhooks" (setup, auth token, payload schema, list of action types)
+- https://docs.velt.dev/webhooks/basic#comment-visibility - "Comment Visibility" (`visibility`, `accessDeniedUsers`)
+- https://docs.velt.dev/webhooks/advanced - "Advanced Webhooks" (events, signature verification)
+- https://docs.velt.dev/webhooks/advanced#comment-visibility - "Comment Visibility"
+- https://docs.velt.dev/async-collaboration/notifications/overview#notifications-for-private-comments - "Notifications for Private Comments"
 
 ---
 
-### 6.3 Set Up Email Notifications with SendGrid
+### 7.3 Set Up Email Notifications with SendGrid
 
 **Impact: MEDIUM (Deliver notifications via email for @mentions and replies)**
 
-Velt uses SendGrid for email notification delivery. Email notifications are triggered by @mentions and comment replies by default.
+Velt can send email notifications through your SendGrid account when a user is @mentioned in a comment or someone replies to their comment. For any other email provider, trigger emails yourself from webhooks. A notification for a private comment is only emailed to users who can see that comment.
 
 **Incorrect (expecting automatic email without setup):**
 
@@ -1572,23 +2104,42 @@ Velt uses SendGrid for email notification delivery. Email notifications are trig
 <VeltNotificationsTool />
 ```
 
+**Correct (configure SendGrid in Velt Console):**
+
+**Setup Steps:**
+
+1. **Get SendGrid credentials**: a SendGrid API key and a SendGrid Email Template ID for the Comments feature
+2. **Configure in Velt Console**: open Configurations > [Email Service](https://console.velt.dev/dashboard/config/email) and enter the API key, Template ID, and 'From' email address
+3. **Whitelist the sender**: the 'From' address must be whitelisted in your SendGrid account, or sending fails
+4. **Enable Email Channel**: keep the `email` channel enabled in notification settings
+
+**Email Trigger Events:**
+
+| Event | Triggers Email |
+|-------|---------------|
+| @mention in comment | Yes |
+| Reply to user's comment | Yes |
+| New comment (no mention) | No (unless user has ALL setting) |
+
 **Email Template Data (for customization):**
 
+When customizing email templates, these fields are available:
+
 ```javascript
-{
-  // Comment data
-  firstComment: { /* first comment in thread */ },
-  latestComment: { /* most recent comment */ },
-  prevComment: { /* previous comment in thread */ },
-
-  // User data
-  fromUser: { /* user who triggered notification */ },
-
-  // Context
-  commentAnnotation: { /* full annotation object */ },
-  actionType: 'mention' | 'reply',
-  documentMetadata: { /* document info */ }
-}
+// Fields Velt sends to your SendGrid template
+const templateFields = {
+  firstComment: {},        // Comment: only commentId, commentText, from
+  latestComment: {},       // Comment that prompted the email
+  prevComment: {},         // Comment before latestComment
+  commentsCount: '1',      // Total comments in the annotation
+  commentsCountMoreThanThree: '0',
+  fromUser: {},            // Action user (User)
+  commentAnnotation: {},   // CommentAnnotation without `comments`
+  actionType: 'newlyAdded', // Same values as the basic webhook action types
+  documentMetadata: {},    // DocumentMetadata
+};
+// Older fields (message, messageFromName, name, fromEmail, photoUrl, pageUrl,
+// pageTitle, deviceInfo, subject) are still sent but will be deprecated.
 ```
 
 **User Email Settings:**
@@ -1620,17 +2171,25 @@ notificationElement.setSettings({
 });
 ```
 
-Reference: https://docs.velt.dev/async-collaboration/comments/notifications - Email section
+**Verification:**
+- [ ] SendGrid API key and Template ID added under Email Service in the Velt Console
+- [ ] 'From' email whitelisted in SendGrid
+- [ ] Email channel enabled in settings config
+- [ ] Test email received after @mention
+
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/notifications#email-notifications - "Email notifications" (SendGrid Integration, Email Template Data)
+- https://docs.velt.dev/async-collaboration/notifications/overview#notifications-for-private-comments - "Notifications for Private Comments"
 
 ---
 
-## 7. UI Customization
+## 8. UI Customization
 
 **Impact: MEDIUM**
 
 Visual customization patterns for notification components. Includes wireframe components for panel, tool, and content list customization.
 
-### 7.1 Customize Notification Components with Wireframes
+### 8.1 Customize Notification Components with Wireframes
 
 **Impact: MEDIUM (Full control over notification panel and tool appearance)**
 
@@ -1642,6 +2201,8 @@ Use Velt wireframe components to customize the structure and appearance of the n
 // Default appearance, no customization
 <VeltNotificationsTool />
 ```
+
+**Correct (using wireframe components):**
 
 **Customize Notifications Tool:**
 
@@ -1728,7 +2289,16 @@ function CustomNotificationsPanel() {
 <VeltNotificationsPanel shadowDom={false} />
 ```
 
+**Dark Mode:**
+
+```jsx
+<VeltNotificationsTool darkMode={true} />
+<VeltNotificationsPanel darkMode={true} />
+```
+
 **Variants:**
+
+A `variant` selects a wireframe registered as `velt-notifications-tool-wireframe---<variant>` (tool) or `velt-notifications-panel-wireframe---<variant>` (panel). An unmatched variant silently falls back to the default markup.
 
 ```jsx
 // Use different variants for tool and panel
@@ -1738,17 +2308,37 @@ function CustomNotificationsPanel() {
 />
 ```
 
-Reference: https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel - Panel wireframes
+**Available Wireframe Components:**
+
+| Component | Purpose |
+|-----------|---------|
+| `VeltNotificationsToolWireframe` | Bell icon button |
+| `VeltNotificationsPanelWireframe` | Full panel container |
+| `.Header` | Tab header area |
+| `.Content` | Notification list area |
+| `.Content.List.Item` | Individual notification |
+| `.Settings` | Settings panel |
+
+**Verification:**
+- [ ] VeltWireframe wraps customizations
+- [ ] Wireframe components match desired structure
+- [ ] shadowDom disabled if using custom CSS
+- [ ] All subcomponents properly nested
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel/wireframes - "Notifications Panel Wireframes"
+- https://docs.velt.dev/ui-customization/features/async/notifications/notifications-tool/wireframes - "Notifications Tool Wireframes" (Variant)
+- https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel/primitives - "Notifications Panel Primitives"
 
 ---
 
-## 8. Wireframe Variables
+## 9. Wireframe Variables
 
 **Impact: MEDIUM**
 
 Template-variable binding layer for Notifications Panel and Notifications Tool wireframes. Documents the `velt-data` / `velt-if` / `velt-class` directives, the variable namespaces (Data State, UI State, Feature State, Loop-scope), `defaultCondition` / Angular signal inputs, and `shouldShow` gates exposed by each wireframe slot. Sits on top of the structural catalog in `ui/ui-wireframes.md`.
 
-### 8.1 Bind Notifications Panel Wireframe Slots Using Template Variables
+### 9.1 Bind Notifications Panel Wireframe Slots Using Template Variables
 
 **Impact: MEDIUM (Drives tab selection, settings open/close, per-row unread styling, and empty-state rendering inside Notifications Panel wireframes without re-subscribing to notification state)**
 
@@ -1761,7 +2351,7 @@ Do not rebuild tab/unread/empty state from hooks and conditionally mount slots. 
 **Correct (read the injected variables via `velt-data` / `velt-if` / `velt-class` — a minimal panel with title bar and content area):**
 
 ```jsx
-import { VeltNotificationsPanelWireframe } from '@veltdev/react';
+import { VeltWireframe, VeltNotificationsPanelWireframe } from '@veltdev/react';
 
 <VeltWireframe>
   <VeltNotificationsPanelWireframe>
@@ -1780,8 +2370,8 @@ import { VeltNotificationsPanelWireframe } from '@veltdev/react';
 
 **HTML / web-component equivalent:**
 
-```typescript
-<velt-wireframe>
+```html
+<velt-wireframe style="display:none;">
   <velt-notifications-panel-wireframe>
     <velt-notifications-panel-header-wireframe>
       <div class="my-panel__title">
@@ -1794,14 +2384,14 @@ import { VeltNotificationsPanelWireframe } from '@veltdev/react';
     <velt-notifications-panel-content-wireframe></velt-notifications-panel-content-wireframe>
   </velt-notifications-panel-wireframe>
 </velt-wireframe>
-// On any <velt-notifications-panel-...-wireframe> in an Angular template
-[componentConfigSignal]="config()"      // notifications groupings, tabConfig,
-                                         // settingsConfig, settingsSelectedOption
-[parentLocalUIState]="localUI()"         // darkMode, variant
 ```
 
+#### Variable namespaces
+
 The Notifications Panel injects four namespaces into every slot.
+
 **Data State** — per-feature data (the four groupings, settings tree, current document):
+
 | Variable | Type | Notes |
 |---|---|---|
 | `notificationsForYouInSession` | `Notification[] \| null` | Notifications matched to the current user (drives the For-you tab). |
@@ -1813,7 +2403,9 @@ The Notifications Panel injects four namespaces into every slot.
 | `unreadNotificationsForYou` | `number` | Unread-count badge for the For-you tab. Also exposed by the notifications-tool. |
 | `settingsConfig` | `NotificationInitialSettingsConfig[]` | Settings-tree configuration. |
 | `settingsSelectedOption` | `Record<string, NotificationConfigValue>` | Selected option keyed by setting id — bracket-lookup: `{settingsSelectedOption[setting.id]}`. |
+
 **UI State** — per-instance flags driven by the panel:
+
 | Variable | Type | Notes |
 |---|---|---|
 | `selectedTab` | `'forYou' \| 'people' \| 'documents' \| 'all'` | Active tab id. Compare against `TABS.*`. |
@@ -1834,11 +2426,15 @@ The Notifications Panel injects four namespaces into every slot.
 | `shadowDom` | `boolean` | Shadow-DOM wrapping flag (host attribute). |
 | `darkMode` | `boolean` | Dark mode is active. |
 | `variant` | `string` | Per-instance variant tag from the host element. |
+
 **Feature State** — capability flags toggled via SDK config:
+
 | Variable | Type | Notes |
 |---|---|---|
 | `settingsEnabled` | `boolean` | Settings view is available. Gate the settings button with `velt-if="{settingsEnabled}"`. |
+
 **Loop-scope variables** — only resolvable inside the iteration primitive noted under "Available in":
+
 | Variable | Type | Available in |
 |---|---|---|
 | `notification` | `Notification` | `<velt-notifications-panel-content-list-wireframe>` and descendants |
@@ -1849,10 +2445,24 @@ The Notifications Panel injects four namespaces into every slot.
 | `documentId`, `documentName`, `documentNotifications` | `string`, `string`, `Notification[]` | Documents-tab list-item descendants |
 | `dateGroup` | `{ date; displayName; notifications }` | All-tab list-item descendants |
 | `setting`, `option` | `NotificationInitialSettingsConfig`, `NotificationConfigValue` | Settings accordion descendants |
+
+#### `defaultCondition` and Angular signal inputs
+
 | React Prop | HTML Attribute | Type | Default | Behavior |
 |---|---|---|---|---|
 | `defaultCondition` | `default-condition` | `boolean \| "true" \| "false"` | `true` | When `false`, the component renders regardless of its internal `shouldShow` gate. Use to force-show a slot you would otherwise hide (e.g. render the settings button even when `settingsEnabled` is false). |
+
 **Angular signal inputs** (parent-to-child wiring; React/HTML do not require these):
+
+```typescript
+// On any <velt-notifications-panel-...-wireframe> in an Angular template
+[componentConfigSignal]="config()"      // notifications groupings, tabConfig,
+                                         // settingsConfig, settingsSelectedOption
+[parentLocalUIState]="localUI()"         // darkMode, variant
+```
+
+#### `shouldShow` gates worth remembering
+
 | Slot | `shouldShow` |
 |---|---|
 | `notifications-panel-settings-button-wireframe` | `settingsEnabled === true` |
@@ -1862,17 +2472,40 @@ The Notifications Panel injects four namespaces into every slot.
 | `notifications-panel-content-load-more-wireframe` | `isLoadMoreVisible === true` |
 | `notifications-panel-content-all-read-container-wireframe` | `isAllRead === true` |
 | `notifications-panel-content-for-you` / `-people` / `-documents` / `-all` | Each gated on `selectedTab` matching its tab id. |
+
 Override any of them with `defaultCondition={false}` (React) / `default-condition="false"` (HTML) when you need the slot to render unconditionally.
+
+#### Common mistakes — DO NOT
+
 **1. DO NOT prefix mapped variables with `componentConfig.`** Variables are mapped to short names. `<velt-data field="componentConfig.unreadNotificationsForYou" />` resolves to nothing — use `<velt-data field="unreadNotificationsForYou" />`.
+
 **2. DO NOT compare `selectedTab` to a string literal — compare to `TABS.*`.** Use `'{selectedTab} === {TABS.ForYou}'`, not `'{selectedTab} === "forYou"'`. The `TABS` map is the canonical comparison surface.
+
 **3. DO NOT bracket-lookup the wrong key.** `settingsAccordionExpanded` is keyed by setting id, `usersExpanded` by email, `documentExpanded` by document id, `settingsSelectedOption` by setting id. Mismatched keys silently resolve to `undefined`.
+
 **4. DO NOT use loop-scope variables outside their iteration primitive.** `notification`, `user`, `documentId`, `setting`, `option` only exist inside the descendants of the iteration tag that injects them. Reading `notification.title` at the panel root resolves to nothing.
+
 **5. DO NOT mix `defaultCondition` with `velt-if` for the same gate.** `defaultCondition={false}` disables the slot's internal `shouldShow`. `velt-if` adds a new gate on top. Combining them inverts the semantics you probably want.
+
 **6. DO NOT bind to `shadowDom` from inside the wireframe to *enable* shadow-DOM.** Shadow-DOM is set via the host attributes `shadow-dom="true"` / `panel-shadow-dom="true"` on `<velt-notifications-panel>` (or on the linked `<velt-notifications-tool>`). The variable only reports the current state.
+
+**Verification:**
+- [ ] Wireframe slots reference mapped variables by short name (not `componentConfig.var`)
+- [ ] Tab comparisons use `{TABS.<TabId>}`, never raw string literals
+- [ ] Bracket-lookup keys match each map's documented key (id vs email vs documentId)
+- [ ] Loop-scope variables (`notification`, `user`, `setting`, `option`, …) are only read inside their iteration primitive
+- [ ] `defaultCondition` / `default-condition` is used only to override an unwanted `shouldShow` gate, never combined with `velt-if` for the same condition
+- [ ] Angular usage wires `[componentConfigSignal]` and `[parentLocalUIState]` from the parent — React/HTML usage does not
+- [ ] Settings button is gated with `velt-if="{settingsEnabled}"`; settings view body is gated with `velt-if="{settingsOpen}"`
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel/wireframe-variables — "Notifications Panel Wireframe Variables"
+- https://docs.velt.dev/ui-customization/template-variables — "Template Variables overview"
+- Cross-reference: `ui/ui-wireframes.md` (structural wireframe catalog), `wireframe-variables/wireframe-variables-notifications-tool.md` (linked tool — shares `componentConfigSignal`)
 
 ---
 
-### 8.2 Bind Notifications Tool Wireframe Slots Using Template Variables
+### 9.2 Bind Notifications Tool Wireframe Slots Using Template Variables
 
 **Impact: MEDIUM (Drives the bell icon swap, unread-count badge, and panel-open active state inside the Notifications Tool wireframe without re-subscribing to unread state)**
 
@@ -1900,7 +2533,7 @@ function Bell({ panelOpen }) {
 **Correct (read the injected variables via `velt-data` / `velt-if` / `velt-class`):**
 
 ```jsx
-import { VeltNotificationsToolWireframe } from '@veltdev/react';
+import { VeltWireframe, VeltNotificationsToolWireframe } from '@veltdev/react';
 
 <VeltWireframe>
   <VeltNotificationsToolWireframe veltClass="'panel-open': {notificationsPanelVisible}">
@@ -1916,8 +2549,8 @@ import { VeltNotificationsToolWireframe } from '@veltdev/react';
 
 **HTML / web-component equivalent:**
 
-```typescript
-<velt-wireframe>
+```html
+<velt-wireframe style="display:none;">
   <velt-notifications-tool-wireframe>
     <button class="my-bell" velt-class="'panel-open': {notificationsPanelVisible}">
       <velt-notifications-tool-icon-wireframe></velt-notifications-tool-icon-wireframe>
@@ -1927,23 +2560,30 @@ import { VeltNotificationsToolWireframe } from '@veltdev/react';
     </button>
   </velt-notifications-tool-wireframe>
 </velt-wireframe>
-// On any <velt-notifications-tool-...-wireframe> in an Angular template
-[componentConfigSignal]="config()"      // shared with the linked panel
-[parentLocalUIState]="localUI()"         // darkMode, variant
 ```
 
+#### Variable namespaces
+
 **Data State** — drives the bell icon, the unread badge, and the active-state styling:
+
 | Variable | Type | Notes |
 |---|---|---|
 | `unreadNotificationsForYou` | `Notification[]` | Unread notifications list (note: as an array here — the panel exposes `unreadNotificationsForYou` as a `number`). Length drives the count badge. |
+
 **UI State** — per-instance flags driven by the tool:
+
 | Variable | Type | Notes |
 |---|---|---|
 | `notificationsPanelVisible` | `boolean` | Linked panel is currently open. Drives the `active` / `panel-open` modifier on the trigger. |
 | `darkMode` | `boolean` | Dark mode is active. |
 | `variant` | `string` | Per-instance variant tag set on the host element. |
+
 The `componentConfigSignal` also exposes `tabConfig`, `shadowDom`, `panelShadowDom`, `considerAllNotifications`, `template`, and `settingsLayout`. These are set on the public element as kebab-case attributes (see "Public attributes" below) — inside a wireframe they still resolve as bare names.
+
+#### Public attributes on the root element
+
 The root `<velt-notifications-tool>` element inherits the same `defaultCondition` prop as the panel and additionally accepts these public attributes that flow through to the linked panel:
+
 | React Prop | HTML Attribute | Type | Default | Description |
 |---|---|---|---|---|
 | `defaultCondition` | `default-condition` | `boolean \| "true" \| "false"` | `true` | When `false`, the slot renders regardless of its internal `shouldShow` gate. |
@@ -1952,28 +2592,58 @@ The root `<velt-notifications-tool>` element inherits the same `defaultCondition
 | `panelShadowDom` | `panel-shadow-dom` | `boolean \| "true" \| "false"` | `true` | Wrap the linked panel in Shadow DOM. |
 | `settingsLayout` | `settings-layout` | `'accordion' \| ...` | `'accordion'` | Forwarded to the linked panel. |
 | `variant` | `variant` | `string` | — | Wireframe variant id. |
+
 **Angular signal inputs** (parent-to-child wiring; React/HTML do not require these):
+
+```typescript
+// On any <velt-notifications-tool-...-wireframe> in an Angular template
+[componentConfigSignal]="config()"      // shared with the linked panel
+[parentLocalUIState]="localUI()"         // darkMode, variant
+```
+
+#### `shouldShow` gates worth remembering
+
 | Slot | `shouldShow` |
 |---|---|
 | `notifications-tool-icon-wireframe` | Parent gates this on `unreadNotificationsForYou.length === 0`. |
 | `notifications-tool-unread-icon-wireframe` | Parent gates this on `unreadNotificationsForYou.length > 0`. |
 | `notifications-tool-unread-count-wireframe` | `unreadNotificationsForYou.length > 0` |
+
 The `notifications-tool-label-wireframe` is always rendered (no gate) — wrap it in your own `velt-if` if you want to hide the "Notifications" label in compact mode.
+
+#### Common mistakes — DO NOT
+
 **1. DO NOT call `.length` on `unreadNotificationsForYou` inside the *panel* wireframe.** Inside the panel, `unreadNotificationsForYou` is already a `number` — use `{unreadNotificationsForYou} > 0`. Inside the tool, it's an `Notification[]` — use `{unreadNotificationsForYou.length} > 0`. The same short name resolves to different shapes across the two wireframes.
+
 **2. DO NOT mount `<...-icon-wireframe>` and `<...-unread-icon-wireframe>` without `velt-if` gates.** They will both render simultaneously. The parent's `shouldShow` is informational, not enforced when you compose the slots yourself — gate explicitly with `velt-if="{unreadNotificationsForYou.length} === 0"` and `velt-if="{unreadNotificationsForYou.length} > 0"`.
+
 **3. DO NOT set `shadow-dom` / `panel-shadow-dom` from inside a wireframe slot.** These are *host attributes* on `<velt-notifications-tool>`. Inside the wireframe, `shadowDom` is read-only.
+
 **4. DO NOT prefix mapped variables with `componentConfig.`.** Variables are mapped to short names. `<velt-data field="componentConfig.unreadNotificationsForYou.length" />` resolves to nothing.
+
 **5. DO NOT duplicate panel variables in your tool template if you only need them in one place.** The tool shares `componentConfigSignal` with the linked panel. Read panel variables (e.g. `selectedTab`, `settingsOpen`) directly inside tool slots without re-wiring.
+
+**Verification:**
+- [ ] `unreadNotificationsForYou.length` is used inside the tool (array), `unreadNotificationsForYou` directly inside the panel (number)
+- [ ] Both icon slots have explicit `velt-if` gates that don't overlap
+- [ ] Public attributes (`shadow-dom`, `panel-shadow-dom`, `consider-all-notifications`, `settings-layout`, `variant`) are set on the host `<velt-notifications-tool>` element, not inside wireframe slots
+- [ ] Wireframe slots reference mapped variables by short name (not `componentConfig.var`)
+- [ ] Angular usage wires `[componentConfigSignal]` and `[parentLocalUIState]` from the parent — React/HTML usage does not
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/async/notifications/notifications-tool/wireframe-variables — "Notifications Tool Wireframe Variables"
+- https://docs.velt.dev/ui-customization/template-variables — "Template Variables overview"
+- Cross-reference: `ui/ui-wireframes.md` (structural wireframe catalog), `wireframe-variables/wireframe-variables-notifications-panel.md` (linked panel — shares `componentConfigSignal`)
 
 ---
 
-## 9. Debugging & Testing
+## 10. Debugging & Testing
 
 **Impact: LOW-MEDIUM**
 
 Troubleshooting patterns and verification checklists for Velt notification integrations.
 
-### 9.1 Debug Common Notification Issues
+### 10.1 Debug Common Notification Issues
 
 **Impact: LOW-MEDIUM (Troubleshoot notification problems quickly)**
 
@@ -1981,7 +2651,16 @@ Common problems and solutions when implementing Velt notifications.
 
 **Issue 1: Notifications not appearing**
 
+```jsx
+// Problem: Tool added but no notifications show
+<VeltNotificationsTool />
+```
+
 **Solution:**
+1. Verify notifications enabled in [Velt Console](https://console.velt.dev)
+2. Check user is authenticated with `authProvider`
+3. Confirm document is set with `setDocument()`
+4. Check browser console for errors
 
 ```jsx
 // Verify setup
@@ -2000,14 +2679,20 @@ function DebugNotifications() {
     }
   }, [client]);
 }
+```
+
+**Issue 2: Unread count not updating**
+
+```jsx
 // Problem: Badge shows stale count
 const count = useUnreadNotificationsCount();
 // count is undefined or doesn't change
 ```
 
-**Issue 2: Unread count not updating**
-
 **Solution:**
+- Ensure hook is used within VeltProvider
+- Verify document context is set
+- Check if user has any notifications
 
 ```jsx
 // Debug unread count
@@ -2025,6 +2710,13 @@ function DebugUnreadCount() {
 **Issue 3: Email notifications not sending**
 
 **Checklist:**
+- [ ] SendGrid API key configured in Velt Console
+- [ ] Sender email verified in SendGrid
+- [ ] User has email preference set to ALL or MINE
+- [ ] User email is valid in authProvider user object
+- [ ] Comment contains @mention (for MINE setting)
+
+**Issue 4: Custom notifications not appearing**
 
 ```javascript
 // Problem: REST API returns success but notification not visible
@@ -2033,18 +2725,30 @@ const response = await fetch('https://api.velt.dev/v2/notifications/add', ...);
 ```
 
 **Solution:**
+- Verify `notifyUsers` contains valid user IDs
+- Check `organizationId` and `documentId` match current context
+- Ensure user is on the correct document
+- Wait for real-time sync (may take a few seconds)
+
+**Issue 5: Settings not persisting**
 
 ```jsx
 // Problem: User settings reset on page refresh
 ```
 
 **Solution:**
+- `setSettingsInitialConfig` only sets defaults for new users
+- Use `setSettings` to update existing user preferences
+- Check if user ID is consistent across sessions
+
+**Issue 6: Notification click not navigating**
 
 ```jsx
 // Problem: Clicking notification doesn't do anything
 ```
 
 **Solution:**
+Use the `onNotificationClick` prop on the component:
 
 ```jsx
 import { VeltNotificationsTool } from '@veltdev/react';
@@ -2070,6 +2774,42 @@ function NotificationNavigation() {
 }
 ```
 
+**Issue 7: Unread notification missing from For You tab and badge**
+
+```jsx
+// Problem: user has an unread @mention, but the badge shows 0
+<VeltNotificationsTool />
+```
+
+**Solution:**
+- By default, For You and the unread count come from the organization's 15 most recently active documents. Notifications on older documents are not fetched.
+- Opt in to the user-scoped fetch (SDK 6.0.8+ API, 6.0.9+ prop):
+
+```jsx
+<VeltNotificationsTool enableUserScopedNotifications={true} />
+```
+
+- `enableCurrentDocumentOnly()` suppresses the user-scoped fetch, so turn it off for org-wide feeds.
+
+**Issue 8: Panel or tool stuck on the loading skeleton**
+
+**Solution:**
+- If the tool or panel mounts after notification data has already resolved (for example, rendered after `identify()` completes), SDK builds before 6.0.13 can stay on the skeleton. Upgrade to 6.0.13 or later.
+
+**Issue 9: A user does not get a notification for a private comment**
+
+**Solution:**
+- Expected behavior. A notification for a private comment only reaches the comment author and users or organizations named in its visibility, on every channel (panel tabs, webhooks, email). No redacted placeholder is sent, and Access Context filtering still applies on top. No integration change is required.
+
+**Verification:**
+- [ ] Velt Console: Notifications feature enabled
+- [ ] VeltProvider: API key correct
+- [ ] User: authProvider configured with valid user object
+- [ ] Document: `setDocument()` called with document ID
+- [ ] Network: No CORS or auth errors in console
+- [ ] Hooks: Used within VeltProvider context
+- [ ] Email: SendGrid configured (for email notifications)
+
 **Debug Logging:**
 
 ```jsx
@@ -2077,7 +2817,11 @@ function NotificationNavigation() {
 <VeltProvider apiKey="API_KEY" debug={true}>
 ```
 
-Reference: https://docs.velt.dev/async-collaboration/notifications/setup - Setup requirements
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/notifications/setup - "Setup"
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#enableuserscopednotifications - "enableUserScopedNotifications"
+- https://docs.velt.dev/async-collaboration/notifications/overview#notifications-for-private-comments - "Notifications for Private Comments"
+- https://docs.velt.dev/release-notes/version-6/sdk-changelog - 6.0.13 loading-skeleton fix
 
 ---
 
@@ -2087,8 +2831,14 @@ Reference: https://docs.velt.dev/async-collaboration/notifications/setup - Setup
 - https://docs.velt.dev/async-collaboration/notifications/overview
 - https://docs.velt.dev/async-collaboration/notifications/setup
 - https://docs.velt.dev/async-collaboration/notifications/customize-behavior
-- https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel
+- https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel/wireframes
 - https://console.velt.dev
 - https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel/wireframe-variables
 - https://docs.velt.dev/ui-customization/features/async/notifications/notifications-tool/wireframe-variables
 - https://docs.velt.dev/ui-customization/features/async/notifications/notifications-panel/primitives
+- https://docs.velt.dev/self-hosting/partial/notifications
+- https://docs.velt.dev/webhooks/basic
+- https://docs.velt.dev/webhooks/advanced
+- https://docs.velt.dev/api-reference/rest-apis/v2/notifications/get-notifications-v2
+- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/notificationconfig-update
+- https://docs.velt.dev/ui-customization/reference/behaviors/notifications

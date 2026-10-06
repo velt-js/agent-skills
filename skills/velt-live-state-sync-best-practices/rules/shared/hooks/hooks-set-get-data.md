@@ -1,55 +1,48 @@
 ---
-title: useSetLiveStateData and useLiveStateData Hooks
+title: Split reads and writes with useSetLiveStateData and useLiveStateData
 impact: CRITICAL
-tags: useSetLiveStateData, useLiveStateData, merge, listenToNewChangesOnly
+impactDescription: Separate writer and reader hooks support merge updates and listenToNewChangesOnly; using useLiveState everywhere couples components and overwrites whole objects
+tags: useSetLiveStateData, useLiveStateData, merge, listenToNewChangesOnly, SetLiveStateDataConfig
 ---
 
-## useSetLiveStateData and useLiveStateData Hooks
+## Split reads and writes with useSetLiveStateData and useLiveStateData
 
-These hooks separate reading and writing live state. Use them when you need merge updates, listen-to-new-changes-only, or when different components read vs. write.
+`useSetLiveStateData(liveStateDataId, liveStateData, config?)` syncs a value to every client; `config.merge: true` merges into the existing object instead of replacing it. `useLiveStateData(liveStateDataId, config?)` returns the current value reactively; `config.listenToNewChangesOnly: true` only delivers changes made after subscribing. Use these when one component writes and another reads, or when you need merge semantics.
 
-### Writing: useSetLiveStateData
+**Incorrect (replaces the whole object from two writers):**
 
-```tsx
-import { useSetLiveStateData } from '@veltdev/react';
-
-function ThemeSelector() {
-  // Syncs the value to all clients whenever it changes
-  useSetLiveStateData('editor-theme', { mode: 'dark', fontSize: 14 });
-
-  // With merge — updates only the keys you pass, preserving the rest
-  useSetLiveStateData('editor-theme', { fontSize: 16 }, { merge: true });
-}
+```jsx
+// Component A
+useSetLiveStateData('editor-theme', { mode: 'dark' });
+// Component B
+useSetLiveStateData('editor-theme', { fontSize: 16 });
+// BUG: each write replaces the object, so 'mode' and 'fontSize' overwrite each other
 ```
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `liveStateDataId` | `string` | Unique identifier |
-| `liveStateData` | `any` | Serializable data to sync |
-| `config.merge` | `boolean` | Merge with existing data instead of replacing (default: false) |
+**Correct (React / Next.js):**
 
-### Reading: useLiveStateData
+```jsx
+import { useSetLiveStateData, useLiveStateData } from '@veltdev/react';
 
-```tsx
-import { useLiveStateData } from '@veltdev/react';
+function FontSizeWriter({ fontSize }) {
+  useSetLiveStateData('editor-theme', { fontSize }, { merge: true });
+  return null;
+}
 
 function ThemeDisplay() {
   const theme = useLiveStateData('editor-theme');
-  // theme updates reactively as any client changes it
-
-  return <div>Current theme: {theme?.mode}</div>;
+  return <div>Mode: {theme?.mode} / Font: {theme?.fontSize}</div>;
 }
 ```
 
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `liveStateDataId` | `string` | ID to subscribe to |
-| `config.listenToNewChangesOnly` | `boolean` | Only receive changes after subscribing (default: false) |
+**Other Frameworks:** use `setLiveStateData(id, data, { merge: true })` and `getLiveStateData(id, config).subscribe(...)` on `Velt.getLiveStateSyncElement()` (see `element-get-set`).
 
-### When to Use These vs useLiveState
+**Verification Checklist:**
+- [ ] Multiple writers to one object pass `{ merge: true }`
+- [ ] Readers null-guard the returned value
+- [ ] `listenToNewChangesOnly` is set only when existing data should be ignored
 
-- Use `useLiveState` when a single component both reads and writes (simpler API)
-- Use `useSetLiveStateData`/`useLiveStateData` when:
-  - One component writes, another reads
-  - You need `merge: true` to partially update objects
-  - You want `listenToNewChangesOnly` on the reader side
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/setup#set-live-data — "Set Live Data"
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/setup#get-live-data — "Get Live Data"
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#usesetlivestatedata — `useSetLiveStateData()` / `useLiveStateData()`

@@ -1,76 +1,40 @@
 ---
-title: Enable Activity Logs in Velt Console
+title: Set Up Activity Logs with an Authenticated User and a Feed Surface
 impact: CRITICAL
-impactDescription: Required for activity logs to function
-tags: activity, setup, console, enable
+impactDescription: Activity records are scoped to the signed-in user's organization and documents; without auth and a feed surface nothing renders
+tags: activity, setup, authProvider, VeltActivityLog, useAllActivities, activityServiceConfig, workspace
 ---
 
-## Enable Activity Logs in Velt Console
+## Set Up Activity Logs with an Authenticated User and a Feed Surface
 
-**Requires `@veltdev/react@5.0.2-beta.13` or later.** The `useAllActivities` and `useActivityUtils` hooks are not available in earlier versions. If the installed SDK is older, upgrade: `npm install @veltdev/react@5.0.2-beta.13`
+Activity Logs need an authenticated user inside `VeltProvider` and a place to show records: the prebuilt `VeltActivityLog` component or a `useAllActivities()` / `getAllActivities()` subscription. The current setup guide has no Velt Console enable step; you add the component, optionally create custom activities, and subscribe. Velt generates records for Comments, Reactions, Recorder, and CRDT automatically. Activity Logs shipped in the 5.0.2-beta line; use a current SDK.
 
-Activity Logs are disabled by default. They must be enabled in the Velt Console before any SDK hooks, API subscriptions, or REST API calls will return data.
-
-**Incorrect (using activity APIs without console setup):**
+**Incorrect (no authenticated user, no loading state):**
 
 ```jsx
-import { useAllActivities } from '@veltdev/react';
+import { VeltProvider, useAllActivities } from '@veltdev/react';
+
+function App() {
+  // No authProvider: there is no user/organization to scope activity to
+  return (
+    <VeltProvider apiKey="API_KEY">
+      <ActivityFeed />
+    </VeltProvider>
+  );
+}
 
 function ActivityFeed() {
-  // This will always return null — Activity Logs not enabled in Console
   const activities = useAllActivities();
-
-  return (
-    <div>
-      {activities?.map(a => <div key={a.id}>{a.displayMessage}</div>)}
-    </div>
-  );
+  // Crashes while loading: activities is null
+  return activities.map((a) => <div key={a.id}>{a.displayMessage}</div>);
 }
 ```
 
-**Correct (enable in Console first, then subscribe):**
+**Correct (authProvider + prebuilt component or hook with null handling):**
 
 ```jsx
-import { useAllActivities } from '@veltdev/react';
+import { VeltProvider, VeltActivityLog, useAllActivities } from '@veltdev/react';
 
-function ActivityFeed() {
-  // Step 1: Enable Activity Logs in Velt Console at
-  //   console.velt.dev > Dashboard > Configuration > Activity Logs
-  // Step 2: Subscribe to activity feed
-  const activities = useAllActivities();
-
-  if (activities === null) return <div>Loading...</div>;
-  if (activities.length === 0) return <div>No activity yet</div>;
-
-  return (
-    <div>
-      {activities.map(a => (
-        <div key={a.id}>{a.displayMessage}</div>
-      ))}
-    </div>
-  );
-}
-```
-
-**For non-React frameworks:**
-
-```js
-// After enabling in Console:
-const activityElement = Velt.getActivityElement();
-activityElement.getAllActivities().subscribe((activities) => {
-  if (activities === null) return; // Loading
-  console.log('Activities:', activities);
-});
-```
-
-**VeltProvider with authProvider (required for activity logs to work):**
-
-Activity logs require an authenticated user. Use `authProvider` on VeltProvider — not the deprecated `useIdentify` hook, which is legacy and will be removed.
-
-```jsx
-import { VeltProvider } from '@veltdev/react';
-
-// Build authProvider from your app's user context
 const authProvider = user ? {
   user: {
     userId: user.userId,
@@ -80,9 +44,9 @@ const authProvider = user ? {
   },
   retryConfig: { retryCount: 3, retryDelay: 1000 },
   generateToken: async () => {
-    const resp = await fetch("/api/velt/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
+    const resp = await fetch('/api/velt/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId: user.userId, organizationId: user.organizationId }),
     });
     const { token } = await resp.json();
@@ -90,20 +54,57 @@ const authProvider = user ? {
   },
 } : undefined;
 
-<VeltProvider apiKey={process.env.NEXT_PUBLIC_VELT_API_KEY!} authProvider={authProvider}>
-  {/* Activity log components go here */}
-</VeltProvider>
+function App() {
+  return (
+    <VeltProvider apiKey={process.env.NEXT_PUBLIC_VELT_API_KEY} authProvider={authProvider}>
+      {/* Option 1: prebuilt, filterable timeline grouped by date */}
+      <VeltActivityLog />
+      {/* Option 2: custom UI from the subscription */}
+      <ActivityFeed />
+    </VeltProvider>
+  );
+}
+
+function ActivityFeed() {
+  const activities = useAllActivities();
+  if (activities === null) return <div>Loading...</div>;
+  if (activities.length === 0) return <div>No activity yet</div>;
+  return activities.map((a) => <div key={a.id}>{a.displayMessage}</div>);
+}
+```
+
+**For non-React frameworks:**
+
+```html
+<velt-activity-log></velt-activity-log>
+
+<script>
+  const activityElement = Velt.getActivityElement();
+  const subscription = activityElement.getAllActivities().subscribe((activities) => {
+    if (activities === null) return; // Loading
+    console.log(activities.map((a) => a.displayMessage));
+  });
+  // subscription?.unsubscribe();
+</script>
 ```
 
 **Setup Steps:**
 
-1. **Enable in Console**: Go to [console.velt.dev](https://console.velt.dev) > Dashboard > Configuration > Activity Logs and toggle on
-2. **Configure VeltProvider** with `authProvider` (see above)
-3. **Verify**: Subscribe to activities and confirm data flows
+1. **Authenticate**: configure `VeltProvider` with `authProvider` (not the deprecated `useIdentify`)
+2. **Add the feed**: render `VeltActivityLog` / `<velt-activity-log>` (use `useDummyData` only while prototyping)
+3. **Create custom activities (optional)**: `createActivity()` or the Add Activities REST API
+4. **Subscribe (optional)**: `useAllActivities()` / `getAllActivities()` when building your own UI
+
+**Workspace-level activity config:** activity logging is also controlled by the workspace `activityServiceConfig` (`isEnabled`, `immutable`, `triggers`), readable and writable with the Get / Update Activity Config workspace REST APIs. If a workspace has activity disabled, `VeltActivityLog` settles to its empty state (SDK 6.0.13+) instead of loading forever, and the Add Activities REST API requires `activityServiceConfig` to be enabled.
 
 **Verification:**
-- [ ] Activity Logs enabled in Velt Console
-- [ ] VeltProvider configured with API key and `authProvider` prop (not `useIdentify`)
-- [ ] Basic subscription returns activity data (not perpetually null)
+- [ ] `VeltProvider` configured with API key and `authProvider` (not `useIdentify`)
+- [ ] `VeltActivityLog` rendered or a subscription created, with the `null` loading state handled
+- [ ] Records appear after a comment, reaction, recording, or CRDT edit
+- [ ] If the feed stays empty, workspace `activityServiceConfig.isEnabled` checked via Get Activity Config
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/activity/setup - Enable Activity Logs in the Velt Console
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/activity/setup - "Add the Activity Log Component", "Create a Custom Activity", "Subscribe to Activities"
+- https://docs.velt.dev/async-collaboration/activity/overview - "Automatic Activity Logging"
+- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/activityconfig-update - "Update Activity Config"
+- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/activityconfig-get - "Get Activity Config"

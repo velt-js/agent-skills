@@ -28,6 +28,8 @@ import { VeltNotificationsTool } from '@veltdev/react';
 <VeltNotificationsTool panelOpenMode="sidebar" />
 ```
 
+In `sidebar` mode the panel keeps all fetched notifications in the session list, so the list stays stable as a persistent column; `popover` keeps the leaner open-on-demand set.
+
 **Embedded Panel (no tool button):**
 
 ```jsx
@@ -70,6 +72,8 @@ function NotificationControls() {
 }
 ```
 
+`openNotificationsPanel()` / `closeNotificationsPanel()` do not work when you have embedded `VeltNotificationsPanel` directly in your layout; they control the panel opened by `VeltNotificationsTool`.
+
 **Using Hook for Panel Control:**
 
 ```jsx
@@ -102,8 +106,9 @@ function NotificationButton() {
 **Controlling Initial Load Count:**
 
 ```jsx
-// Control how many notifications load initially (v4.7.1+)
+// Notifications shown per tab page (default: 5); "Load more" pages in steps of this size
 <VeltNotificationsTool pageSize={20} />
+<VeltNotificationsPanel pageSize={20} />
 ```
 
 **For HTML:**
@@ -118,4 +123,8 @@ function NotificationButton() {
 - [ ] Programmatic controls work as expected
 - [ ] pageSize set if default load count needs adjustment
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/notifications/customize-behavior - Panel Open Mode, Actions
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#panelopenmode - "panelOpenMode"
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#opennotificationspanel - "openNotificationsPanel"
+- https://docs.velt.dev/async-collaboration/notifications/customize-behavior#pagesize - "pageSize"
+- https://docs.velt.dev/ui-customization/reference/behaviors/notifications - "panelOpenMode", "pageSize" defaults

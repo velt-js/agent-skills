@@ -1,32 +1,46 @@
 ---
-title: Monitor Server Connection State
+title: Show connection state with useServerConnectionStateChangeHandler
 impact: HIGH
-tags: useServerConnectionStateChangeHandler, connection, online, offline, pendingInit, pendingData
+impactDescription: Users need to know when writes are queued offline; the hook is the reactive source of ServerConnectionState in React
+tags: useServerConnectionStateChangeHandler, ServerConnectionState, connection, online, offline, pendingInit, pendingData
 ---
 
-## Monitor Server Connection State
+## Show connection state with useServerConnectionStateChangeHandler
 
-`useServerConnectionStateChangeHandler` returns the current connection status as a reactive value. Use it to show connectivity indicators or disable inputs while offline.
+`useServerConnectionStateChangeHandler()` returns the current `ServerConnectionState` and re-renders when it changes. While `'offline'`, reads come from the local cache and writes queue until reconnect, so show an indicator.
 
-```tsx
+| Value | Meaning |
+|---|---|
+| `'online'` | Connected to Velt servers |
+| `'offline'` | Not connected; local reads and queued writes |
+| `'pendingInit'` | SDK initialization pending |
+| `'pendingData'` | Waiting for data from the server |
+
+**Incorrect (treats every non-online state as an error):**
+
+```jsx
+const state = useServerConnectionStateChangeHandler();
+if (state !== 'online') return <ErrorScreen />; // BUG: blocks the UI during normal startup states
+```
+
+**Correct (React / Next.js):**
+
+```jsx
+import { useServerConnectionStateChangeHandler } from '@veltdev/react';
+
 function ConnectionBadge() {
   const connectionState = useServerConnectionStateChangeHandler();
-
-  return <span className={`badge badge-${connectionState}`}>{connectionState}</span>;
+  const label = connectionState === 'offline' ? 'Offline: changes will sync later' : connectionState;
+  return <span className={`badge badge-${connectionState}`}>{label}</span>;
 }
 ```
 
-### ServerConnectionState Values
+**Other Frameworks:** subscribe to `Velt.getLiveStateSyncElement().onServerConnectionStateChange()` (see `element-connection`). `useLiveState` also returns the state as its third tuple item.
 
-| Value | Meaning |
-|-------|---------|
-| `'online'` | Connected to Velt servers — reads and writes are live |
-| `'offline'` | Disconnected — reads use local cache, writes queue for sync |
-| `'pendingInit'` | SDK is initializing |
-| `'pendingData'` | Connected but waiting for initial data from server |
+**Verification Checklist:**
+- [ ] The UI handles `'pendingInit'` and `'pendingData'` as loading, not failure
+- [ ] Offline state is communicated without blocking local edits
 
-### Key Points
-
-- The hook is reactive — it re-renders your component whenever the state changes
-- During `'offline'`, live state still works locally (optimistic reads/writes) but changes won't reach other clients until reconnection
-- For the observable (non-hook) equivalent, use `liveStateSyncElement.onServerConnectionStateChange().subscribe()` (see element rules)
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/setup — "Server Connection State"
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#useserverconnectionstatechangehandler — hook reference

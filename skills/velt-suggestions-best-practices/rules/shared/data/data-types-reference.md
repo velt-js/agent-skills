@@ -1,59 +1,72 @@
 ---
-title: Suggestion Data Types Reference
+title: Type against SuggestionData, the Suggestion union, and the hooks table
 impact: MEDIUM
-tags: SuggestionData, Suggestion, PendingSuggestion, ApprovedSuggestion, RejectedSuggestion, StaleSuggestion, types
+impactDescription: Narrowing on status and using the shipped hook names avoids runtime undefined fields and invented APIs
+tags: SuggestionData, Suggestion, PendingSuggestion, ApprovedSuggestion, RejectedSuggestion, StaleSuggestion, CommentAnnotationSuggestion, CommitSuggestionConfig, types, hooks
 ---
 
-## Suggestion Data Types Reference
+## Type against SuggestionData, the Suggestion union, and the hooks table
 
-Suggestions are stored as `CommentAnnotation` objects with `type === 'suggestion'` and a populated `suggestion` field.
+Suggestions are `CommentAnnotation` objects with `type === 'suggestion'` and a populated `suggestion` field (`SuggestionData`). `Suggestion<T>` is a discriminated union narrowed by `status`.
 
-### SuggestionData
-
-Stored on `CommentAnnotation.suggestion`:
-
-| Property | Type | Required | Description |
-|----------|------|----------|-------------|
-| `annotationId` | `string` | Yes | ID of the parent `CommentAnnotation` |
-| `targetId` | `string` | Yes | ID of the registered suggestion target |
-| `targetType` | `SuggestionTargetType` | Yes | v1: always `'custom'` |
-| `status` | `SuggestionStatus` | Yes | Current lifecycle state |
-| `oldValue` | `unknown` | Yes | Target value captured at suggestion creation |
-| `newValue` | `unknown` | Yes | Proposed replacement value |
-| `summary` | `string` | No | Human-readable description of the change |
-| `metadata` | `Record<string, unknown>` | No | Arbitrary caller-supplied metadata |
-| `driftDetected` | `boolean` | No | True when target value changed after creation |
-| `createdBy` | `User` | Yes | User who created the suggestion |
-| `createdAt` | `number` | Yes | Unix timestamp (ms) of creation |
-| `resolvedBy` | `User` | No | User who accepted or rejected |
-| `resolvedAt` | `number` | No | Unix timestamp (ms) of resolution |
-| `rejectReason` | `string \| null` | No | Reason provided when rejecting |
-
-### Suggestion\<T\> Discriminated Union
+**Incorrect (reads resolution fields without narrowing):**
 
 ```typescript
-type Suggestion<T = unknown> =
-  | PendingSuggestion<T>
-  | ApprovedSuggestion<T>
-  | RejectedSuggestion<T>
-  | StaleSuggestion<T>;
+function resolvedBy(s: Suggestion) {
+  return s.resolvedBy.name; // BUG: PendingSuggestion and StaleSuggestion have no resolvedBy
+}
 ```
 
-Narrow by `status` to access variant-specific fields. `ApprovedSuggestion<T>` may have `apply_failed` status when the accept handler threw.
+**Correct (narrow on status first):**
 
-### React Hooks Summary
+```typescript
+function resolvedBy(s: Suggestion): string | undefined {
+  if (s.status === 'accepted' || s.status === 'apply_failed' || s.status === 'rejected') {
+    return s.resolvedBy.name;
+  }
+  return undefined;
+}
+```
+
+### SuggestionData (on `CommentAnnotation.suggestion`)
+
+| Property | Type | Required | Notes |
+|---|---|---|---|
+| `annotationId` | `string` | Yes | Parent `CommentAnnotation` ID |
+| `targetId` | `string` | Yes | Registered target ID |
+| `targetType` | `SuggestionTargetType` | Yes | v1: always `'custom'` |
+| `status` | `SuggestionStatus` | Yes | Current lifecycle state |
+| `oldValue` / `newValue` | `unknown` | Yes | Snapshot and proposed value |
+| `summary` | `string` | No | Plain-text description |
+| `metadata` | `Record<string, unknown>` | No | Caller-supplied |
+| `driftDetected` | `boolean` | No | Live value changed since snapshot |
+| `createdBy` / `createdAt` | `User` / `number` | Yes | Author and creation time (ms) |
+| `resolvedBy` / `resolvedAt` | `User` / `number` | No | Set on accept or reject |
+| `rejectReason` | `string \| null` | No | Set on reject |
+
+Variants: `PendingSuggestion<T>`, `ApprovedSuggestion<T>` (status `'accepted' | 'apply_failed'`), `RejectedSuggestion<T>`, `StaleSuggestion<T>` (no `resolvedBy` / `resolvedAt`). `CommitSuggestionConfig<T>` and `TargetEditCommitResult` both accept `summary`, `summaryHtml`, and `metadata`. `CommentAnnotationSuggestion` is the comment-side state mutated by `acceptSuggestion()` / `rejectSuggestion()`.
+
+### React hooks
 
 | Hook | Returns |
-|------|---------|
-| `useSuggestionUtils()` | `SuggestionElement` singleton |
-| `useEnableSuggestionMode()` | `{ enableSuggestionMode }` |
-| `useDisableSuggestionMode()` | `{ disableSuggestionMode }` |
+|---|---|
+| `useSuggestionUtils()` | `SuggestionElement` |
+| `useEnableSuggestionMode()` / `useDisableSuggestionMode()` | `{ enableSuggestionMode }` / `{ disableSuggestionMode }` |
 | `useSuggestionModeState()` | `boolean` (reactive) |
-| `useRegisterTarget()` | `{ registerTarget }` |
-| `useUnregisterTarget()` | `{ unregisterTarget }` |
-| `useStartSuggestion()` | `{ startSuggestion }` |
-| `useCommitSuggestion()` | `{ commitSuggestion }` |
+| `useRegisterTarget()` / `useUnregisterTarget()` | `{ registerTarget }` / `{ unregisterTarget }` |
+| `useStartSuggestion()` / `useCommitSuggestion()` | `{ startSuggestion }` / `{ commitSuggestion }` |
 | `useSuggestions(filter?)` | `Suggestion[]` (reactive) |
 | `usePendingSuggestion(targetId)` | `Suggestion \| null` (reactive) |
-| `useSuggestionEventCallback(eventType)` | Event payload (reactive) |
-| `useCommentEventCallback(eventType)` | Event payload (for accept/reject) |
+| `useSuggestionEventCallback(eventType)` | Latest suggestion-element event payload |
+| `useAcceptSuggestion()` / `useRejectSuggestion()` | `{ acceptSuggestion }` / `{ rejectSuggestion }` (comment element) |
+| `useCommentEventCallback('suggestionAccepted' \| 'suggestionRejected')` | Latest accept / reject payload |
+
+**Verification Checklist:**
+- [ ] Code narrows on `status` before reading `resolvedBy`, `resolvedAt`, or `rejectReason`
+- [ ] Hook names match the table exactly (no `useSuggestionElement`, no `useAcceptCommentAnnotation`)
+- [ ] `apply_failed` is handled as an `ApprovedSuggestion` variant
+
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/sdk/models/data-models#suggestiondata — `SuggestionData` and the `Suggestions` type section
+- https://docs.velt.dev/api-reference/sdk/models/data-models#commentannotationsuggestion — `CommentAnnotationSuggestion`
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#usesuggestionutils — Suggestions hooks

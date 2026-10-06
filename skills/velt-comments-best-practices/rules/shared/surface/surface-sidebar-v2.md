@@ -20,10 +20,12 @@ tags: sidebar, veltcommentssidebarv2, primitives, wireframe, filter, virtual-scr
 **Correct (React / Next.js — direct V2 component with primitive composition):**
 
 ```jsx
+import { useEffect } from 'react';
 import {
   VeltProvider,
   VeltComments,
   VeltCommentsSidebarV2,
+  useCommentEventCallback,
 } from '@veltdev/react';
 
 export default function App() {
@@ -39,14 +41,41 @@ export default function App() {
         position="right"
         variant="sidebar"
         forceClose={true}
-        onSidebarOpen={(data) => console.log('sidebar opened', data)}
-        onSidebarClose={(data) => console.log('sidebar closed', data)}
-        onCommentClick={(data) => console.log('comment clicked', data)}
-        onCommentNavigationButtonClick={(data) => console.log('nav button clicked', data)}
       />
+      <SidebarEvents />
     </VeltProvider>
   );
 }
+
+// V2 delivers open/close/click/navigation through the comment event bus, not props
+function SidebarEvents() {
+  const commentClick = useCommentEventCallback('commentClick');
+  const sidebarClose = useCommentEventCallback('sidebarClose');
+
+  useEffect(() => {
+    if (commentClick) {
+      // { annotation, documentId, location, targetElementId, context }
+      const pageId = commentClick.location?.pageId;
+      if (pageId) navigateToPage(pageId);
+    }
+  }, [commentClick]);
+
+  useEffect(() => {
+    if (sidebarClose) console.log('closed', sidebarClose);
+  }, [sidebarClose]);
+
+  return null;
+}
+```
+
+```js
+// Other Frameworks
+const commentElement = Velt.getCommentElement();
+const subscription = commentElement.on('commentNavigationButtonClick').subscribe((event) => {
+  const pageId = event?.location?.pageId;
+  if (pageId) navigateToPage(pageId);
+});
+subscription?.unsubscribe();
 ```
 
 **Correct (HTML / Other Frameworks — dedicated V2 web-component tag):**
@@ -71,19 +100,28 @@ export default function App() {
 | `pageMode` | boolean | Yes | Enable page-level comments mode. |
 | `focusedThreadMode` | boolean | Yes | Open individual threads in a focused view inside the sidebar. |
 | `readOnly` | boolean | Yes | Render the sidebar in read-only mode. |
-| `embedMode` | string \| null | Yes | Embed the sidebar inside a custom container. |
+| `embedMode` | boolean | Yes | Embed the sidebar inside a custom container (fills it, no close button). The HTML attribute takes a string; `embed-mode="false"` means not embedded. |
 | `floatingMode` | boolean | Yes | Render the sidebar in floating mode. |
 | `position` | `'right' \| 'left'` | Yes | Anchor position of the sidebar panel. Narrowed from `string`. |
 | `variant` | string | Yes | Display variant (e.g. `"sidebar"`). |
 | `forceClose` | boolean | Yes | Force the sidebar to close on outside click, even when opened via API. Default `true`. |
-| `onSidebarOpen` | (data: any) => void | Yes | Callback fired when the sidebar opens. |
-| `onSidebarClose` | (data: any) => void | Yes | Callback fired when the sidebar closes. |
-| `onCommentClick` | (data: any) => void | Yes | Callback fired when a comment item is clicked. |
-| `onCommentNavigationButtonClick` | (data: any) => void | Yes | Callback fired when the comment navigation button is clicked. |
 | `fullScreen` | boolean | Yes | Add a fullscreen toggle to the header. Default `false`. |
-| `onFullscreenClick` | (data: any) => void | Yes | Fires when the fullscreen toggle is clicked. |
+| `onFullscreenClick` | (data: any) => void | Yes | Fires when the fullscreen toggle is clicked (component output). |
+| `urlNavigation` | boolean | Yes | Update the URL when navigating between comments. Default `false`. |
+| `queryParamsComments` | boolean | Yes | Sync the selected comment to URL query params. Default `false`. |
+| `dialogSelection` | boolean | Yes | Default `true`. With `false`, a list click emits `commentClick` only: no selection, inline expansion, or focused-thread view. |
 
-For the complete prop catalog (placeholders, virtual-scroll tuning, URL navigation, deprecated V1 aliases such as `openSidebar` / `sidebarCommentClick` / `onSidebarCommentClick`), see `surface/surface-sidebar.md` — `VeltCommentsSidebarV2` reuses `VeltCommentsSidebarProps`.
+**V2 events (comment element event bus):**
+
+| Event | Payload | Notes |
+|-------|---------|-------|
+| `sidebarOpen` | `SidebarOpenEvent` | Fired when the sidebar opens. Reopening starts with no comment selected but keeps expanded/collapsed groups. |
+| `sidebarClose` | `SidebarCloseEvent` | Fired exactly once per close (close button, outside click, `closeCommentSidebar()`, `toggleCommentSidebar()`). |
+| `commentClick` | `CommentClickEvent` | `annotation`, `documentId`, `location`, `targetElementId`, `context`. |
+| `commentNavigationButtonClick` | `CommentNavigationButtonClickEvent` | Same fields as `commentClick`. |
+| `fullscreenClick` | `FullscreenClickEvent` | `fullScreen` is the state after the toggle. |
+
+The V1-era `onSidebarOpen` / `onSidebarClose` / `onCommentClick` / `onCommentNavigationButtonClick` props are no longer part of `VeltCommentsSidebarV2Props`. Subscribe with `useCommentEventCallback(...)` or `commentElement.on(...)`. Open, close, or toggle programmatically with `openCommentSidebar()` / `closeCommentSidebar()` / `toggleCommentSidebar()`.
 
 ### Declarative filter surfaces (V2)
 
@@ -176,7 +214,7 @@ V2 exposes filter / sort / group / search as data. The sidebar renders the match
 | `filterCount` | boolean | `true` | Per-option facet counts. Counts remain **absolute** within the current page-scoped annotation set and do **not** shrink around selections supplied through `setCommentSidebarFilters()`. Disabling improves performance. |
 | `filterGhostCommentsInSidebar` | boolean | `false` | Hide ghost comments from the list. |
 | `systemFiltersOperator` | `'and' \| 'or'` | `'and'` (effective) | Combines selections across **different** filter fields; values within one field always use OR. Also applies to client filters set via `setCommentSidebarFilters()` and is mirrored by `applyCommentSidebarClientFilters()`. An explicit `filterOperator` set at init is preserved over the shared operator's default. |
-| `defaultMinimalFilter` | `'all' \| 'read' \| 'unread' \| 'resolved' \| 'open' \| 'assignedToMe' \| 'reset'` | — | Default active quick filter applied on load. |
+| `defaultMinimalFilter` | `'all' \| 'read' \| 'unread' \| 'resolved' \| 'open' \| 'assignedToMe' \| 'reset'` | — | Default active quick filter applied on load. `all` / `unread` / `read` / `open` / `assignedToMe` hide terminal statuses unless a terminal status is explicitly selected; the `resolved` quick filter is additive (reveals resolved comments on top of the visible statuses). |
 
 ### Default sort and quick-filter (V2)
 
@@ -184,7 +222,6 @@ V2 exposes filter / sort / group / search as data. The sidebar renders the match
 |------|------|-------------|
 | `sortBy` | [`SortBy`](#) | Default sort key — built-in preset (`'date'`, `'unread'`) or a dot-path (e.g. `'comments.createdAt'`). Sets the default sort; does not render a sort dropdown on its own. |
 | `sortOrder` | [`SortOrder`](#) — `'asc' \| 'desc'` | Default sort direction. |
-| `sortData` | string | Custom-field sort path used when sorting by a custom field. |
 
 ```jsx
 <VeltCommentsSidebarV2 sortBy="comments.createdAt" sortOrder="desc" defaultMinimalFilter="open" />
@@ -307,6 +344,10 @@ People / Involved / Assigned / Tagged options are keyed by `userId` with the use
 ### `pageMode` uses location identity (V2)
 
 The page-mode composer list is scoped by the current location identity, so a location supplied with only `locationName` behaves like an id-based location.
+
+### Pages filter and current page (V2)
+
+The Pages filter floats the current page to the top of its option list. With `currentLocationSuffix={true}`, the option and its selected chip show "(This page)". Filter option, option name, and selected-chip wireframes receive `isCurrentPage` for custom treatment via `velt-if` / `velt-class`. The option name is nested inside `.velt-filter-option-name-wrap`, so direct-child CSS selectors from its former parent no longer match.
 
 ### Virtual-scroll row clipping (V2)
 
@@ -445,7 +486,7 @@ interface FilterFieldResolver {
 
 **Key V2 Differences from V1:**
 
-- **Declarative filter / sort model** — `filters` / `miniFilters` / `minimalFilters` (+ `sortBy` / `sortOrder` / `sortData` / `defaultMinimalFilter`) replace the legacy `minimalFilter` + `advancedFilters` system.
+- **Declarative filter / sort model** — `filters` / `miniFilters` / `minimalFilters` (+ `sortBy` / `sortOrder` / `defaultMinimalFilter`) replace the legacy `minimalFilter` + `advancedFilters` system.
 - **CDK virtual scroll** — built-in for large comment lists; tune via `measuredSize` / `minBufferPx` / `maxBufferPx`.
 - **Focused-thread view** — when `focusedThreadMode={true}`, clicking a comment opens the thread inline inside the sidebar.
 - **Primitive tree** — every section (header, search, filter button, filter container, list group header, fullscreen button, list, thread view, page-mode composer) is an independently importable primitive that accepts `parentLocalUIState` and supports `velt-class` conditional styling. See `ui/ui-v2-primitives.md`.
@@ -465,10 +506,13 @@ interface FilterFieldResolver {
 - [ ] Built-in filter fields are referenced via `BuiltInFilterFieldId` ids; custom fields supply `valuePath` (and a `FilterFieldResolver` when option sourcing is non-trivial)
 - [ ] Priority field opts out of the **Not set** option via `includeUnset: false` on its `FilterField` when unset priorities should be hidden
 - [ ] Grouping code does not assume `CommentSidebarGroup.isExpanded` is a plain "default true" — expansion resolves from user overrides (persisted in `sessionStorage`) combined with the current grouping default
-- [ ] Event callbacks (`onSidebarOpen`, `onSidebarClose`, `onCommentClick`, `onFullscreenClick`) clean up any side effects on unmount
+- [ ] Sidebar events (`sidebarOpen`, `sidebarClose`, `commentClick`, `commentNavigationButtonClick`, `fullscreenClick`) are consumed via `useCommentEventCallback` / `commentElement.on()`, not V1-style props, and subscriptions are cleaned up
+- [ ] With `lazyLoadResolvedComments` on, terminal status options show no count until resolved comments are unlocked
 
 **Source Pointers:**
 - https://docs.velt.dev/async-collaboration/comments-sidebar/v2/setup — "V2 Setup"
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/customize-behavior#events — "V2 Events" (`sidebarOpen`, `sidebarClose`, `fullscreenClick`)
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v2/customize-behavior#commentclick — `commentClick`
 - https://docs.velt.dev/async-collaboration/comments-sidebar/v2/customize-behavior — "V2 Customize Behavior" (declarative filters / sort / `applyCommentSidebarClientFilters` / `setCommentSidebarFilters` / grouping defaults / location + people identity / virtual-scroll clipping)
 - https://docs.velt.dev/api-reference/sdk/api/api-methods#applycommentsidebarclientfilters — `applyCommentSidebarClientFilters()`
 - https://docs.velt.dev/api-reference/sdk/api/api-methods#setcommentsidebarfilters — `setCommentSidebarFilters()` (V2 merge/replace semantics)

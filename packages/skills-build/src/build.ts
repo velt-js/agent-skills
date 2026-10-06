@@ -222,6 +222,29 @@ function buildCompressedIndex(
 /**
  * Build AGENTS.md (compressed index) and AGENTS.full.md (verbose) for a specific skill
  */
+/**
+ * Demote markdown headings outside code fences so a rule body nests under
+ * its `### <id> <title>` heading: `##` and `###` become `####`, deeper
+ * headings drop one level (capped at `######`).
+ */
+function demoteHeadings(markdown: string): string {
+	let inFence = false;
+	return markdown
+		.split("\n")
+		.map((line) => {
+			if (/^\s*(```|~~~)/.test(line)) {
+				inFence = !inFence;
+				return line;
+			}
+			if (inFence) return line;
+			const match = line.match(/^(#{2,6})\s+(.*)$/);
+			if (!match) return line;
+			const level = Math.min(Math.max(match[1].length + 1, 4), 6);
+			return `${"#".repeat(level)} ${match[2]}`;
+		})
+		.join("\n");
+}
+
 function buildSkill(paths: SkillPaths): void {
 	console.log(`[${paths.name}] Building AGENTS.md...`);
 
@@ -362,35 +385,7 @@ function buildSkill(paths: SkillPaths): void {
 				output.push(`**Impact: ${rule.impact}**\n`);
 			}
 
-			output.push(`${rule.explanation}\n`);
-
-			for (const example of rule.examples) {
-				if (example.description) {
-					output.push(`**${example.label} (${example.description}):**\n`);
-				} else {
-					output.push(`**${example.label}:**\n`);
-				}
-
-				output.push(`\`\`\`${example.language || "typescript"}`);
-				output.push(example.code);
-				output.push("```\n");
-
-				if (example.additionalText) {
-					output.push(`${example.additionalText}\n`);
-				}
-			}
-
-			if (rule.references && rule.references.length > 0) {
-				if (rule.references.length === 1) {
-					output.push(`Reference: ${rule.references[0]}\n`);
-				} else {
-					output.push("References:");
-					for (const ref of rule.references) {
-						output.push(`- ${ref}`);
-					}
-					output.push("");
-				}
-			}
+			output.push(`${demoteHeadings(rule.body)}\n`);
 
 			output.push("---\n");
 		}

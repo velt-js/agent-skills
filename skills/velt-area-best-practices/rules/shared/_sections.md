@@ -15,7 +15,7 @@ The section prefix (in parentheses) is the filename prefix used to group rules.
 ## 2. Wireframe Variables (wireframe-variables)
 
 **Impact:** MEDIUM
-**Description:** Template-variable bindings for the Area feature. Only one primitive registers a wireframe tag today: `<velt-area-pin-portal-wireframe>` (React: `VeltAreaPinPortalWireframe`). The tool and container primitives do not. Uses the **flat-config** access pattern — every read is via `componentConfig.<path>`. Variables cover the annotation (`areaPinAnnotation`, `areaPinAnnotationOnResize`), the optional linked comment (`commentPinAnnotation`), selection / resize / hidden state (`selected`, `isResizing`, `hideAreaAnnotation`), the styling color (`areaAnnotationColor`), and the geometry / offset numbers (`areaProperties`, `resizingOffset.top`/`left`, `offsetTop`, `offsetLeft`).
+**Description:** The `componentConfig` runtime model of the area pin overlay and how to customize Areas. No Area primitive registers a usable wireframe slot and there are no headless hooks, so customization is CSS on the public host elements plus the area color (default `#625DF5`). Uses the **flat-config** access pattern — every read is via `componentConfig.<path>`. Variables cover the annotation (`areaPinAnnotation`, `areaPinAnnotationOnResize`), the optional linked comment (`commentPinAnnotation`), selection / resize / hidden state (`selected`, `isResizing`, `hideAreaAnnotation`), the styling color (`areaAnnotationColor`), and the geometry / offset numbers (`areaProperties`, `resizingOffset.top`/`left`, `offsetTop`, `offsetLeft`).
 
 ---
 

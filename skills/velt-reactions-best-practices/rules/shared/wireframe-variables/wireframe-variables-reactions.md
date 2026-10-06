@@ -106,7 +106,16 @@ componentConfig.excludeReactionIds                string[]            Reaction i
 componentConfig.commentReactionAnnotationIds      string[]            When the pin lives next to a comment, the full list of reactions on the comment.
 ```
 
-**Custom reaction pin (React) — highlight when the local user has reacted, show a count badge when N > 1:**
+**Incorrect (bare variable names and pin-scope data in the section wireframe):**
+
+```html
+<velt-inline-reactions-section-wireframe>
+  <!-- BUG: no componentConfig. prefix, and annotation is pin-scope (the section sees annotations[]) -->
+  <velt-data field="annotation.emoji"></velt-data>
+</velt-inline-reactions-section-wireframe>
+```
+
+**Correct (React): custom reaction pin that highlights the local user's reaction and shows a count when N > 1:**
 
 ```tsx
 import { VeltWireframe, VeltReactionPinWireframe } from '@veltdev/react';
@@ -126,7 +135,7 @@ import { VeltWireframe, VeltReactionPinWireframe } from '@veltdev/react';
 </VeltWireframe>
 ```
 
-**Custom reaction pin (Other Frameworks):**
+**Correct (Other Frameworks): custom reaction pin:**
 
 ```html
 <velt-wireframe style="display:none;">

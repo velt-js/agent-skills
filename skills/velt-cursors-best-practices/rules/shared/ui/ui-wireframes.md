@@ -2,29 +2,35 @@
 title: Customize Cursor Pointer with Wireframes
 impact: MEDIUM
 impactDescription: Build custom cursor visuals using VeltCursorPointerWireframe sub-components
-tags: wireframe, customization, cursor-pointer, avatar, audio-huddle, video-huddle, ui
+tags: wireframe, customization, cursor-pointer, VeltWireframe, VeltCursorPointerWireframe, avatar, audio-huddle, video-huddle, ui
 ---
 
 ## Customize Cursor Appearance with Wireframes
 
-Use `VeltCursorPointerWireframe` and its sub-components to customize the visual appearance of cursors. There are 5 variants: Arrow, Avatar, Default (Name/Comment), AudioHuddle, and VideoHuddle.
+Use `VeltCursorPointerWireframe` and its sub-components to customize each remote cursor. There are five variants: Arrow, Avatar, Default (Name, Comment), AudioHuddle (Avatar, Audio), and VideoHuddle. Wrap wireframes in `VeltWireframe` (React) or `<velt-wireframe style="display:none;">` (HTML).
 
 **Why this matters:**
 
-Default cursor styling may not match your app's design system. Wireframes let you rearrange, hide, or style individual parts of the cursor (pointer, name, avatar, huddle controls) while preserving Velt's real-time sync and positioning.
+Only the per-user pointer is wireframable; the root `<velt-cursor>` is not. `VeltCursor` has no `shadowDom` prop (its shadow DOM is always on), so style it through wireframes and CSS variables, not deep selectors.
 
-**React: Custom cursor wireframe**
+**Incorrect (no wrapper, shadowDom prop on VeltCursor):**
+
+```jsx
+<VeltCursorPointerWireframe>
+  <VeltCursorPointerWireframe.Arrow />
+</VeltCursorPointerWireframe>
+<VeltCursor shadowDom={false} /> {/* no such prop on VeltCursor */}
+```
+
+**Correct (React / Next.js):**
 
 ```jsx
 "use client";
-import {
-  VeltCursor,
-  VeltCursorPointerWireframe,
-} from "@veltdev/react";
+import { VeltWireframe, VeltCursorPointerWireframe } from "@veltdev/react";
 
-function CustomCursor() {
+function CursorWireframes() {
   return (
-    <>
+    <VeltWireframe>
       <VeltCursorPointerWireframe>
         <VeltCursorPointerWireframe.Arrow />
         <VeltCursorPointerWireframe.Avatar />
@@ -32,83 +38,63 @@ function CustomCursor() {
           <VeltCursorPointerWireframe.Default.Name />
           <VeltCursorPointerWireframe.Default.Comment />
         </VeltCursorPointerWireframe.Default>
-        <VeltCursorPointerWireframe.AudioHuddle />
+        <VeltCursorPointerWireframe.AudioHuddle>
+          <VeltCursorPointerWireframe.AudioHuddle.Avatar />
+          <VeltCursorPointerWireframe.AudioHuddle.Audio />
+        </VeltCursorPointerWireframe.AudioHuddle>
         <VeltCursorPointerWireframe.VideoHuddle />
       </VeltCursorPointerWireframe>
-      <VeltCursor />
-    </>
+    </VeltWireframe>
   );
 }
+
+// Render <CursorWireframes /> once inside VeltProvider alongside a single <VeltCursor />.
 ```
 
-**React: Minimal cursor (arrow + name only)**
-
-```jsx
-"use client";
-import { VeltCursor, VeltCursorPointerWireframe } from "@veltdev/react";
-
-function MinimalCursor() {
-  return (
-    <>
-      <VeltCursorPointerWireframe>
-        <VeltCursorPointerWireframe.Arrow />
-        <VeltCursorPointerWireframe.Default>
-          <VeltCursorPointerWireframe.Default.Name />
-        </VeltCursorPointerWireframe.Default>
-      </VeltCursorPointerWireframe>
-      <VeltCursor />
-    </>
-  );
-}
-```
-
-**HTML: Wireframe equivalents**
+**Correct (Other Frameworks):**
 
 ```html
-<velt-cursor-pointer-wireframe>
-  <velt-cursor-pointer-arrow-wireframe></velt-cursor-pointer-arrow-wireframe>
-  <velt-cursor-pointer-avatar-wireframe></velt-cursor-pointer-avatar-wireframe>
-  <velt-cursor-pointer-default-wireframe>
-    <velt-cursor-pointer-default-name-wireframe></velt-cursor-pointer-default-name-wireframe>
-    <velt-cursor-pointer-default-comment-wireframe></velt-cursor-pointer-default-comment-wireframe>
-  </velt-cursor-pointer-default-wireframe>
-  <velt-cursor-pointer-audio-huddle-wireframe></velt-cursor-pointer-audio-huddle-wireframe>
-  <velt-cursor-pointer-video-huddle-wireframe></velt-cursor-pointer-video-huddle-wireframe>
-</velt-cursor-pointer-wireframe>
+<velt-wireframe style="display:none;">
+  <velt-cursor-pointer-wireframe>
+    <velt-cursor-pointer-arrow-wireframe></velt-cursor-pointer-arrow-wireframe>
+    <velt-cursor-pointer-avatar-wireframe></velt-cursor-pointer-avatar-wireframe>
+    <velt-cursor-pointer-default-wireframe>
+      <velt-cursor-pointer-default-name-wireframe></velt-cursor-pointer-default-name-wireframe>
+      <velt-cursor-pointer-default-comment-wireframe></velt-cursor-pointer-default-comment-wireframe>
+    </velt-cursor-pointer-default-wireframe>
+    <velt-cursor-pointer-audio-huddle-wireframe>
+      <velt-cursor-pointer-audio-huddle-avatar-wireframe></velt-cursor-pointer-audio-huddle-avatar-wireframe>
+      <velt-cursor-pointer-audio-huddle-audio-wireframe></velt-cursor-pointer-audio-huddle-audio-wireframe>
+    </velt-cursor-pointer-audio-huddle-wireframe>
+    <velt-cursor-pointer-video-huddle-wireframe></velt-cursor-pointer-video-huddle-wireframe>
+  </velt-cursor-pointer-wireframe>
+</velt-wireframe>
 
 <velt-cursor></velt-cursor>
 ```
 
-**Wireframe variants explained:**
+**Wireframe variants:**
 
-- **Arrow**: The pointer arrow icon itself
-- **Avatar**: Circular avatar image shown next to cursor (used in avatar mode)
-- **Default**: Container for name label and comment indicator
-  - **Default.Name**: User name text
-  - **Default.Comment**: Comment indicator when user is in comment mode
-- **AudioHuddle**: Audio huddle indicator (shows when user is in audio call)
-- **VideoHuddle**: Video huddle indicator (shows when user is in video call)
+- **Arrow**: the pointer glyph (use this to change the cursor icon)
+- **Avatar**: avatar bubble next to the cursor (avatar mode)
+- **Default**: container for the name label (**Name**) and an inline comment label (**Comment**)
+- **AudioHuddle**: audio-huddle pointer with **Avatar** and **Audio** (speaking indicator)
+- **VideoHuddle**: video-huddle pointer with a live video tile
 
-**Styling wireframes:**
+**Limitations:**
 
-Set `shadowDom={false}` on `VeltCursor` to apply custom CSS to wireframe internals:
-
-```jsx
-<VeltCursor shadowDom={false} />
-```
-
-**Key points:**
-
-- Wireframe must be defined before or alongside `VeltCursor` in the component tree
-- Only include the sub-components you want to display -- omitted parts are hidden
-- Wireframes control layout and structure; use CSS for colors, sizes, and spacing
-- `shadowDom={false}` is required to target wireframe elements with external CSS
+- There is no live-cursor image prop; `pin-cursor-image` belongs to `VeltComments` (comment placement), not live cursors
+- The root `<velt-cursor>` has no wireframe; only the per-user pointer does
+- Your own cursor is hidden in normal use; `selfCursorPointer` renders only in huddle-on-cursor mode
+- Requires an identified (non-anonymous) user
 
 **Verification:**
-- [ ] `VeltCursorPointerWireframe` is rendered alongside `VeltCursor`
-- [ ] Only desired sub-components are included
-- [ ] Custom cursor renders correctly with real-time positioning
-- [ ] `shadowDom={false}` is set if custom CSS is applied
+- [ ] Wireframes are inside `VeltWireframe` / `<velt-wireframe style="display:none;">`
+- [ ] Sub-components are nested as documented (e.g. `Default.Name` inside `Default`)
+- [ ] No `shadowDom` prop is passed to `VeltCursor`
+- [ ] Custom cursor renders with real-time positioning for a second user
 
 **Source Pointers:**
-- `https://docs.velt.dev/cursor/customize-ui/wireframe` - Cursor wireframe customization
+- https://docs.velt.dev/ui-customization/features/realtime/cursors - "VeltCursorPointerWireframe", "Limitations"
+- https://docs.velt.dev/ui-customization/reference/behaviors/presence-reactions - "VeltCursor" (always shadow-DOM isolated)
+- https://docs.velt.dev/ui-customization/overview - "UI Customization Concepts"

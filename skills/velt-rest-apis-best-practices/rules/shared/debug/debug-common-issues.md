@@ -1,154 +1,94 @@
 ---
-title: Troubleshooting Common Backend Integration Issues
+title: Troubleshoot Common Velt Backend Integration Failures
 impact: LOW-MEDIUM
-impactDescription: Fast diagnosis of common errors prevents extended debugging sessions
-tags: debug, troubleshooting, errors, auth, webhooks
+impactDescription: Fast diagnosis of auth, prerequisite, response-shape, and webhook errors avoids long debugging sessions
+tags: debug, troubleshooting, errors, auth, advanced-queries, partial-failure, memory, agents, webhooks, token_expired
 ---
 
-## Troubleshooting Common Backend Integration Issues
+## Troubleshoot Common Velt Backend Integration Failures
 
-### Issue 1: 401 Unauthorized on REST API Calls
+Most backend failures come from the wrong header pair, a missing Console prerequisite, a misread response envelope, or a webhook endpoint that answers slowly. Check the error's `status` string (`error.status`) and `message` first, then match it below.
 
-**Symptom:** REST API returns `401 Unauthorized` or `403 Forbidden`.
-
-**Cause:** Missing or incorrect authentication headers.
-
-**Incorrect:**
-
-```bash
-# Missing required headers
-curl -X POST https://api.velt.dev/v2/commentannotations/get \
-  -H "Content-Type: application/json" \
-  -d '{"data": {"organizationId": "org-123", "documentId": "doc-456"}}'
-```
-
-**Correct:**
-
-```bash
-curl -X POST https://api.velt.dev/v2/commentannotations/get \
-  -H "Content-Type: application/json" \
-  -H "x-velt-api-key: YOUR_API_KEY" \
-  -H "x-velt-auth-token: YOUR_AUTH_TOKEN" \
-  -d '{"data": {"organizationId": "org-123", "documentId": "doc-456"}}'
-```
-
-**Fix:** Ensure both `x-velt-api-key` and `x-velt-auth-token` headers are present on every request. Get values from Velt Console > Configuration.
-
-### Issue 2: JWT Token Expired
-
-**Symptom:** Frontend authentication fails after working initially. Error event `token_expired` fires.
-
-**Cause:** JWT tokens expire after 48 hours.
-
-**Correct (regenerate on expiry):**
+**Incorrect (retry every failure the same way):**
 
 ```javascript
-const veltClient = useVeltClient();
+async function call(path, data) {
+  const json = await (await fetch(`https://api.velt.dev${path}`, { method: 'POST', headers, body: JSON.stringify({ data }) })).json();
+  if (json.error) return call(path, data); // loops on INVALID_ARGUMENT, NOT_FOUND, ALREADY_EXISTS forever
+  return json.result.data;                 // undefined for Memory endpoints
+}
+```
 
-useEffect(() => {
-  if (veltClient) {
-    veltClient.on("token_expired", async () => {
-      const response = await fetch("/api/velt/token", {
-        method: "POST",
-        body: JSON.stringify({ userId: currentUser.id })
-      });
-      const { token } = await response.json();
-      veltClient.setAuthToken(token);
-    });
+**Correct (classify by `error.status`, read the right envelope):**
+
+```javascript
+const RETRYABLE = new Set(['INTERNAL', 'UNAVAILABLE', 'DEADLINE_EXCEEDED', 'RESOURCE_EXHAUSTED']);
+
+async function call(path, data, attempt = 0) {
+  const res = await fetch(`https://api.velt.dev${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-velt-api-key': process.env.VELT_API_KEY,
+      'x-velt-auth-token': process.env.VELT_AUTH_TOKEN
+    },
+    body: JSON.stringify({ data })
+  });
+  const json = await res.json();
+  if (json.error) {
+    const { status, message, details } = json.error;
+    // Bulk document endpoints report per-item codes in details; see rest-documents-partial-failures.
+    if (RETRYABLE.has(status) && !details && attempt < 3) {
+      await new Promise((r) => setTimeout(r, 2 ** attempt * 1000));
+      return call(path, data, attempt + 1);
+    }
+    throw Object.assign(new Error(message), { status, details });
   }
-}, [veltClient]);
+  return path.startsWith('/v2/memory/') ? json.result : json.result.data;
+}
 ```
 
-**Fix:** Listen for the `token_expired` event on the frontend and call your backend to generate a fresh JWT token. Tokens last 48 hours from creation.
+### Symptom guide
 
-### Issue 3: Python SDK Returns INVALID_INPUT
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| Every call rejected | Missing header, or api-key pair sent to a workspace-level endpoint (or the reverse) | Use the pair that matches the endpoint scope (`core-rest-api-auth`) |
+| `get` endpoints fail or return nothing for organizations, documents, folders, users, notifications, or comment annotations | Advanced queries not enabled | Enable advanced queries in the Console (and run the v4+ SDK) |
+| Comment delete with `agentId` / `agentSuggestions` / `agentUrls` returns `NOT_FOUND` | Advanced queries not enabled | Enable them; the delete never widens to the whole document |
+| `/v2/organizations/documents/*` returns HTTP 500 `INTERNAL` | Per-item failure (`not-found`, `already-exists`) in `error.details` | Branch on each item's `code`; retry only `internal` |
+| `generate_token` returns `INVALID_ARGUMENT` | Body not wrapped in `data`, or `organizationId` in `userProperties` | Wrap in `data`; send the organization as a `permissions.resources[]` entry |
+| Frontend auth stops after about 48 hours | JWT expired and `identify()` users do not refresh | Use `authProvider` with `generateToken`, or handle the `error` event with `code === 'token_expired'` |
+| Agent run returns `NOT_FOUND` | Target `documentId` does not exist yet | Create the document first (`/v2/organizations/documents/add`) |
+| Agent run returns `ALREADY_EXISTS` | Same agent already running on the document | Wait for the running execution (its ID is in the message) or poll it |
+| Agent status `failed` looks like an outage | `failed` means findings were found | Treat `passed` as clean and `failed` as findings; `error` is the real failure |
+| Agent starts failing auth after a config edit | `"__redacted__"` secret was sent back on version update | Resend real plaintext secrets or omit the secret-bearing block |
+| Memory `ask` returns `answer: ""` | No grounding context yet | Show "nothing yet"; do not fabricate an answer |
+| Memory search scoped to a document returns workspace-wide results | `documentId` / `documentIds` sent without `organizationId` | Always pair them with `organizationId` |
+| Memory knowledge call rejected with `INVALID_ARGUMENT` | Unknown or misspelled field on a strict endpoint | Send only documented fields |
+| Notification reaches the whole organization | `notifyAll` left at its default `true` | Set `notifyAll: false` to notify only `notifyUsers` |
 
-**Symptom:** Python SDK operations return an `INVALID_INPUT` error.
+### Webhooks not arriving
 
-**Cause:** Request type imports do not match the operation being performed.
+1. Confirm the service is enabled (Console > Configurations > Webhook Service, or `POST /v2/workspace/webhookconfig/get`).
+2. Check the trigger is on: CRDT, recorder, and suggestion triggers are off by default.
+3. Make the URL publicly reachable (not `localhost`) and allow Velt's static IPs for advanced webhooks.
+4. Return 2xx within 15 seconds; queue heavy work.
+5. For advanced webhooks, check the endpoint's `filterTypes` and whether the endpoint was disabled after 5 days of failures.
+6. For signature mismatches, verify against the raw body and the correct endpoint secret (`webhooks-advanced`).
 
-**Incorrect:**
+**Verification Checklist:**
+- [ ] Errors are classified by `error.status`; only transient statuses are retried, with backoff and a cap
+- [ ] Memory responses are read from `result`; other endpoints from `result.data`
+- [ ] Advanced queries are enabled before using `get` endpoints and agent delete filters
+- [ ] Bulk document errors are handled per item
+- [ ] JWT refresh is wired through `authProvider` or the `token_expired` error event
+- [ ] Webhook triggers, reachability, response time, and signatures are checked when events go missing
 
-```python
-from velt import GetCommentsRequest
-
-# Wrong request type for saving
-request = GetCommentsRequest(
-    organization_id="org-123",
-    document_id="doc-456"
-)
-sdk.save_comments(request)  # INVALID_INPUT — wrong request type
-```
-
-**Correct:**
-
-```python
-from velt import SaveCommentsRequest
-
-request = SaveCommentsRequest(
-    organization_id="org-123",
-    document_id="doc-456",
-    comments=[...]
-)
-sdk.save_comments(request)
-```
-
-**Fix:** Verify that the imported request type matches the SDK method. Each method has a corresponding request class: `GetCommentsRequest` for `get_comments()`, `SaveCommentsRequest` for `save_comments()`, etc.
-
-### Issue 4: Webhook Not Firing
-
-**Symptom:** Your webhook endpoint never receives events.
-
-**Cause:** URL not configured or endpoint not returning 2xx.
-
-**Diagnosis checklist:**
-
-1. Verify the webhook URL is set in Velt Console > Configurations > Webhook Service.
-2. Confirm the URL is publicly accessible (not localhost).
-3. Check that your endpoint returns a 2xx status code.
-4. For v2 webhooks, verify event type filters include the events you expect.
-5. Test with a service like webhook.site to confirm Velt is sending events.
-
-**Correct (minimal endpoint that always returns 200):**
-
-```javascript
-app.post("/velt/webhook", (req, res) => {
-  console.log("Received webhook:", JSON.stringify(req.body));
-  res.status(200).send("OK");
-});
-```
-
-### Issue 5: S3 Upload Failing
-
-**Symptom:** Attachment uploads fail or return permission errors.
-
-**Cause:** AWS credentials in SDK config are invalid or missing required S3 permissions.
-
-**Diagnosis checklist:**
-
-1. Verify `S3Config` has correct `region`, `access_key`, `secret_key`, and `bucket`.
-2. Confirm the IAM user/role has `s3:PutObject`, `s3:GetObject`, and `s3:DeleteObject` permissions on the bucket.
-3. Check the bucket exists in the specified region.
-4. Ensure CORS is configured on the bucket if uploads originate from the browser.
-
-**Correct (S3 config with env vars):**
-
-```python
-from velt import S3Config
-
-s3 = S3Config(
-    region=os.environ["AWS_REGION"],
-    access_key=os.environ["AWS_ACCESS_KEY_ID"],
-    secret_key=os.environ["AWS_SECRET_ACCESS_KEY"],
-    bucket=os.environ["VELT_S3_BUCKET"]
-)
-```
-
-**Verification:**
-- [ ] REST API calls include both `x-velt-api-key` and `x-velt-auth-token` headers
-- [ ] JWT token refresh is handled via `token_expired` event listener
-- [ ] Python SDK request types match the method being called
-- [ ] Webhook endpoint is publicly accessible and returns 2xx
-- [ ] S3 credentials have the required IAM permissions
-
-**Source Pointer:** `https://docs.velt.dev/api-reference/rest-api/overview` (## REST API > ### Authentication & Troubleshooting)
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/create - "Next Steps" (header pairs)
+- https://docs.velt.dev/api-reference/rest-apis/v2/documents/delete-documents - "Partial Failures"
+- https://docs.velt.dev/get-started/advanced#token-refresh - "Token Refresh"
+- https://docs.velt.dev/api-reference/rest-apis/v2/agents/execution/run - "Run Execution" (errors)
+- https://docs.velt.dev/ai/memory/overview#errors - "Errors"
+- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/webhookconfig-update - "Update Webhook Config"
+- https://docs.velt.dev/webhooks/advanced#troubleshooting-tips - "Troubleshooting tips"

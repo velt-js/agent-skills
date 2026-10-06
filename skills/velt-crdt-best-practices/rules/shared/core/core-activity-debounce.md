@@ -62,5 +62,5 @@ Values below 10,000 ms (10 seconds) are silently clamped to the enforced minimum
 - [ ] Call placed inside a `useEffect` with `[client]` dependency (React)
 
 **Source Pointers:**
-- https://docs.velt.dev/realtime-collaboration/crdt/setup/core - CRDT Setup and CrdtElement methods
-- https://docs.velt.dev/api-reference/sdk/models/data-models#activitysubscribeconfig - ActivitySubscribeConfig
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#setactivitydebouncetime - setActivityDebounceTime()
+- https://docs.velt.dev/async-collaboration/activity/overview#automatic-activity-logging - Automatic Activity Logging (CRDT edit batching)

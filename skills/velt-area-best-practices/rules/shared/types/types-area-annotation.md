@@ -9,6 +9,20 @@ tags: area, AreaAnnotation, AreaProperty, AreaTargetAnnotation, AreaMetadata, ta
 
 `AreaAnnotation` is the canonical shape Velt persists for every placed area rectangle. The most important field for understanding the data model is `targetAnnotations: AreaTargetAnnotation[]` — that's the linkage from an area to the comment thread(s) it scopes.
 
+**Incorrect (looks for the comment link in metadata):**
+
+```typescript
+const commentId = area.metadata?.commentAnnotationId; // BUG: the linkage lives in targetAnnotations[]
+```
+
+**Correct (resolve linked comments from targetAnnotations):**
+
+```typescript
+const commentIds = (area.targetAnnotations ?? [])
+  .filter((t) => t.type === 'comment' && t.annotationId)
+  .map((t) => t.annotationId as string);
+```
+
 **`AreaAnnotation` shape:**
 
 ```typescript
@@ -83,6 +97,14 @@ class AreaMetadata extends BaseMetadata {
 
 Open-ended bag. Use it to attach app-specific metadata that should travel with the area annotation. Don't put load-bearing relationships here — use `targetAnnotations` for that.
 
+**`AreaStatus` (added to the data models in v6):**
+
+```typescript
+type AreaStatus = 'added' | 'updated' | 'deleted';
+```
+
+**Private comments:** since v6.0.0-beta.15, area annotations on a private comment do not inherit the parent comment's Access Context and no longer reach viewers in the same Access Context; context-scoped queries do not return them.
+
 ### How an Area links back to a Comment
 
 When a user draws an area and attaches a comment, two annotations are produced:
@@ -126,3 +148,5 @@ The wireframe surface exposes the resolved linkage via `componentConfig.commentP
 - https://docs.velt.dev/api-reference/sdk/models/data-models#areaproperty
 - https://docs.velt.dev/api-reference/sdk/models/data-models#areatargetannotation
 - https://docs.velt.dev/api-reference/sdk/models/data-models#areametadata
+- https://docs.velt.dev/api-reference/sdk/models/data-models#areastatus
+- https://docs.velt.dev/release-notes/version-6/sdk-changelog — 6.0.0-beta.15 Comments entry (area annotations on private comments)

@@ -49,11 +49,13 @@ import { useRecorderUtils } from '@veltdev/react';
 function TranscriptionConfig() {
   const recorderUtils = useRecorderUtils();
 
-  // Disable transcription (recording won't be sent to LLMs)
-  recorderUtils.disableRecordingTranscription();
+  useEffect(() => {
+    // Disable transcription (recording won't be sent to LLMs)
+    recorderUtils?.disableRecordingTranscription();
+    // Re-enable later with recorderUtils.enableRecordingTranscription();
+  }, [recorderUtils]);
 
-  // Re-enable transcription
-  recorderUtils.enableRecordingTranscription();
+  return null;
 }
 ```
 
@@ -88,7 +90,9 @@ Use `disableRecordingMic()` for screen-only recordings where audio is not needed
 **Key details:**
 - `recordingTranscription` defaults to **enabled** — recordings are sent to LLMs for transcription
 - Disabling transcription means no AI summary will be generated
-- `summary` prop on VeltRecorderPlayer controls whether the AI summary transcript is displayed (default: `true`)
+- `summary` prop on VeltRecorderPlayer controls whether the AI summary transcript is displayed (default: `true`). The deprecated `showSummary` prop is ANDed with it, so `showSummary={false}` hides the summary even when `summary` is `true`; use only `summary`
+- A summary only appears if the recording was transcribed (`recordingTranscription` on at record time)
+- `recordingTranscription` is a shared recorder-service flag: if two components set it differently, the last one wins
 - `recordingTranscription` can be set on VeltRecorderNotes and VeltRecorderControlPanel
 - Privacy consideration: explicitly disable transcription for recordings containing sensitive, confidential, or regulated content
 - `enableRecordingMic()` / `disableRecordingMic()` controls whether the microphone is active during recording
@@ -99,4 +103,7 @@ Use `disableRecordingMic()` for screen-only recordings where audio is not needed
 - [ ] Summary display matches UX requirements
 - [ ] Privacy/compliance requirements reviewed for AI data processing
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/recorder/customize-behavior - recordingTranscription, summary
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/recorder/customize-behavior#recordingtranscription - "recordingTranscription"
+- https://docs.velt.dev/async-collaboration/recorder/customize-behavior#summary - "summary"
+- https://docs.velt.dev/ui-customization/reference/behaviors/recorder-huddle - "VeltRecorderPlayer" (`showSummary` AND `summary`)

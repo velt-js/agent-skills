@@ -39,7 +39,7 @@ const dataProviders = {
   comment: commentDataProvider,
   attachment: attachmentDataProvider,
   reaction: reactionDataProvider,
-  recording: recordingDataProvider,
+  recorder: recordingDataProvider, // the VeltDataProvider key is `recorder`, not `recording`
   user: userDataProvider,
 };
 
@@ -57,7 +57,7 @@ function App() {
 
 **IMPORTANT:** Use the existing `VeltInitializeDocument` component from the setup skill for document identity. Do NOT create a custom `DocumentSetup` component — the existing one handles the `setDocuments` lifecycle correctly and avoids infinite render loops. The document shape is `{ id: string, metadata: { documentName: string } }` — NOT `{ documentId, documentName }`.
 
-**Available provider keys (full [`VeltDataProvider`](/api-reference/sdk/models/data-models#veltdataprovider) shape):**
+**Available provider keys (full [`VeltDataProvider`](https://docs.velt.dev/api-reference/sdk/models/data-models#veltdataprovider) shape):**
 
 | Key | Data Type | Methods |
 |-----|-----------|---------|
@@ -204,4 +204,4 @@ export default function DocumentPage() {
 - [ ] Database store uses UPSERT semantics (ON CONFLICT DO UPDATE)
 - [ ] `DATABASE_URL` environment variable set in `.env.local`
 
-**Source Pointer:** https://docs.velt.dev/self-host-data/overview; https://docs.velt.dev/self-host-data/comments - Important Notes
+**Source Pointer:** https://docs.velt.dev/self-hosting/partial/overview; https://docs.velt.dev/self-hosting/partial/comments - Important Notes

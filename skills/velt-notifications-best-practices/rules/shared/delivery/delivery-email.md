@@ -7,7 +7,7 @@ tags: email, sendgrid, delivery, setup, templates
 
 ## Set Up Email Notifications with SendGrid
 
-Velt uses SendGrid for email notification delivery. Email notifications are triggered by @mentions and comment replies by default.
+Velt can send email notifications through your SendGrid account when a user is @mentioned in a comment or someone replies to their comment. For any other email provider, trigger emails yourself from webhooks. A notification for a private comment is only emailed to users who can see that comment.
 
 **Incorrect (expecting automatic email without setup):**
 
@@ -20,10 +20,10 @@ Velt uses SendGrid for email notification delivery. Email notifications are trig
 
 **Setup Steps:**
 
-1. **Get SendGrid API Key**: Create account at [sendgrid.com](https://sendgrid.com) and generate API key
-2. **Configure in Velt Console**: Go to [console.velt.dev](https://console.velt.dev) > Settings > Email
-3. **Set Sender Email**: Configure verified sender email address
-4. **Enable Email Channel**: Ensure email is enabled in notification settings
+1. **Get SendGrid credentials**: a SendGrid API key and a SendGrid Email Template ID for the Comments feature
+2. **Configure in Velt Console**: open Configurations > [Email Service](https://console.velt.dev/dashboard/config/email) and enter the API key, Template ID, and 'From' email address
+3. **Whitelist the sender**: the 'From' address must be whitelisted in your SendGrid account, or sending fails
+4. **Enable Email Channel**: keep the `email` channel enabled in notification settings
 
 **Email Trigger Events:**
 
@@ -38,20 +38,20 @@ Velt uses SendGrid for email notification delivery. Email notifications are trig
 When customizing email templates, these fields are available:
 
 ```javascript
-{
-  // Comment data
-  firstComment: { /* first comment in thread */ },
-  latestComment: { /* most recent comment */ },
-  prevComment: { /* previous comment in thread */ },
-
-  // User data
-  fromUser: { /* user who triggered notification */ },
-
-  // Context
-  commentAnnotation: { /* full annotation object */ },
-  actionType: 'mention' | 'reply',
-  documentMetadata: { /* document info */ }
-}
+// Fields Velt sends to your SendGrid template
+const templateFields = {
+  firstComment: {},        // Comment: only commentId, commentText, from
+  latestComment: {},       // Comment that prompted the email
+  prevComment: {},         // Comment before latestComment
+  commentsCount: '1',      // Total comments in the annotation
+  commentsCountMoreThanThree: '0',
+  fromUser: {},            // Action user (User)
+  commentAnnotation: {},   // CommentAnnotation without `comments`
+  actionType: 'newlyAdded', // Same values as the basic webhook action types
+  documentMetadata: {},    // DocumentMetadata
+};
+// Older fields (message, messageFromName, name, fromEmail, photoUrl, pageUrl,
+// pageTitle, deviceInfo, subject) are still sent but will be deprecated.
 ```
 
 **User Email Settings:**
@@ -84,9 +84,11 @@ notificationElement.setSettings({
 ```
 
 **Verification:**
-- [ ] SendGrid API key added to Velt Console
-- [ ] Sender email verified in SendGrid
+- [ ] SendGrid API key and Template ID added under Email Service in the Velt Console
+- [ ] 'From' email whitelisted in SendGrid
 - [ ] Email channel enabled in settings config
 - [ ] Test email received after @mention
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/comments/notifications - Email section
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/comments/notifications#email-notifications - "Email notifications" (SendGrid Integration, Email Template Data)
+- https://docs.velt.dev/async-collaboration/notifications/overview#notifications-for-private-comments - "Notifications for Private Comments"

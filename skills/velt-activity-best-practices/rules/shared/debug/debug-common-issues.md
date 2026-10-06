@@ -13,12 +13,12 @@ Common issues when integrating Velt Activity Logs and how to resolve them.
 
 ```jsx
 // Check these in order:
-// 1. Activity Logs enabled in Velt Console?
-//    console.velt.dev > Dashboard > Configuration > Activity Logs
-// 2. VeltProvider configured with valid API key?
-// 3. User authenticated via Velt?
-// 4. Document ID set (if filtering by document)?
-// 5. Subscription active (not unsubscribed prematurely)?
+// 1. VeltProvider configured with a valid API key and authProvider?
+// 2. Filters (documentIds, featureTypes, actionTypes, maxDays default 30) not excluding everything?
+// 3. Document set (if using currentDocumentOnly or document filters)?
+// 4. Subscription active (not unsubscribed prematurely)?
+// 5. Workspace activity enabled? Check activityServiceConfig.isEnabled
+//    with the Get Activity Config workspace REST API
 
 // Quick verification:
 const activities = useAllActivities();
@@ -29,10 +29,11 @@ console.log('Activities state:', activities);
 **Issue 2: useAllActivities returns null indefinitely**
 
 ```jsx
-// null is the loading state — but if it persists:
-// 1. Verify VeltProvider wraps the component
-// 2. Verify Activity Logs enabled in Console
-// 3. Check browser console for Velt SDK errors
+// null is the loading state. If it persists:
+// 1. Verify VeltProvider wraps the component and the user is authenticated
+// 2. Check browser console for Velt SDK errors
+// 3. On SDK builds before 6.0.13, VeltActivityLog could spin forever when the
+//    workspace had activity disabled; 6.0.13+ settles to the empty state
 
 function ActivityFeed() {
   const activities = useAllActivities();
@@ -40,7 +41,7 @@ function ActivityFeed() {
   // Always handle null state explicitly
   if (activities === null) {
     return <div>Loading activities...</div>;
-    // If this persists, check Console and VeltProvider setup
+    // If this persists, check authProvider and workspace activity config
   }
 
   return activities.map(a => <div key={a.id}>{a.displayMessage}</div>);
@@ -69,11 +70,11 @@ useEffect(() => {
 }, [client]);
 ```
 
-**Issue 4: CRDT edits flooding the activity feed**
+**Issue 4: CRDT edit records too coarse or too frequent**
 
 ```jsx
-// Without debounce: every keystroke = one activity record
-// Solution: set debounce time on CRDT element (NOT activity element)
+// Default: one CRDT activity record per 10-minute window
+// Adjust on the CRDT element (NOT the activity element); minimum 10,000 ms
 
 // Incorrect target:
 const activityElement = client.getActivityElement();
@@ -81,7 +82,7 @@ const activityElement = client.getActivityElement();
 
 // Correct target:
 const crdtElement = client.getCrdtElement();
-crdtElement.setActivityDebounceTime(5000); // 5-second batching
+crdtElement.setActivityDebounceTime(10000); // 10 seconds is the minimum
 ```
 
 **Issue 5: Custom activity template not rendering correctly**
@@ -106,22 +107,35 @@ await activityElement?.createActivity({
 
 **Issue 6: REST API Add endpoint fails**
 
-```jsx
-// The Add activities REST endpoint may require additional configuration
+```js
 // Verify:
-// 1. API key and auth token are correct
-// 2. organizationId matches your workspace
-// 3. Required fields present: featureType, actionType, actionUser, targetEntityId
-// 4. actionUser includes at minimum: { userId, name }
+// 1. activityServiceConfig is enabled for the workspace (Console or
+//    POST /v2/workspace/activityconfig/update with { isEnabled: true })
+// 2. API key and auth token are correct
+// 3. organizationId and documentId are present
+// 4. Each activity has featureType, actionType, actionUser
+//    (targetEntityId is required only when featureType is 'custom')
+```
+
+**Issue 7: "No activities found" flashes after switching organization or document**
+
+```js
+// SDK builds before 6.0.13 showed the empty state instead of the loading state
+// right after an organization switch, document switch, or sign-out.
+// Upgrade to 6.0.13 or later.
 ```
 
 **Verification checklist:**
-- [ ] Activity Logs enabled in Velt Console
-- [ ] VeltProvider wrapping components with valid API key
+- [ ] VeltProvider wrapping components with valid API key and authProvider
+- [ ] Workspace activityServiceConfig enabled (required for REST Add)
 - [ ] User authenticated via Velt
 - [ ] Document ID set for document-scoped feeds
 - [ ] Observable subscriptions cleaned up on unmount
-- [ ] CRDT debounce configured to reduce feed noise
+- [ ] CRDT debounce, if set, is at least 10,000 ms
 - [ ] Template variable names match displayMessageTemplateData keys
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/activity/setup; https://docs.velt.dev/async-collaboration/activity/customize-behavior
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/activity/setup - "Setup"
+- https://docs.velt.dev/async-collaboration/activity/customize-behavior#getallactivities - "getAllActivities"
+- https://docs.velt.dev/api-reference/rest-apis/v2/activities/add-activities - "Add Activity Logs" (activityServiceConfig requirement)
+- https://docs.velt.dev/release-notes/version-6/sdk-changelog - 6.0.13 Activity Logs fixes

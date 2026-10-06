@@ -1,49 +1,62 @@
 ---
-title: Enable and Disable Suggestion Mode
+title: Enable suggestion mode from a toggle and re-enable after reload
 impact: HIGH
-tags: enableSuggestionMode, disableSuggestionMode, toggle, suggestion mode
+impactDescription: Nothing is captured until suggestion mode is on; it resets on reload and disableSuggestionMode() clears the autoCommit opt-out
+tags: enableSuggestionMode, disableSuggestionMode, useEnableSuggestionMode, useDisableSuggestionMode, toggle, autoCommit, EnableSuggestionModeConfig
 ---
 
-## Enable and Disable Suggestion Mode
+## Enable suggestion mode from a toggle and re-enable after reload
 
-Enabling suggestion mode activates the capture pipeline. It's global for the current user and not persisted — a page reload returns to normal editing until you enable it again.
+Suggestion mode applies to the whole page for the current user and is **not persisted**: a reload returns to normal editing until you enable it again. Since v6.0.0-beta.13 a bare `enableSuggestionMode()` call also auto-commits every finished edit on a tagged target (`autoCommit` defaults to `true`). Pass an optional `EnableSuggestionModeConfig` (`onTargetEditStart`, `onTargetEditCommit`, `autoCommit`) to control how edits become suggestions.
 
-**React / Next.js:**
+**Incorrect (assumes the opt-out survives a disable / re-enable cycle):**
+
+```js
+suggestionElement.enableSuggestionMode({ autoCommit: false });
+suggestionElement.disableSuggestionMode();
+// BUG: disable clears the autoCommit flag, so this call auto-commits again
+suggestionElement.enableSuggestionMode();
+```
+
+**Correct (React / Next.js):**
+
 ```jsx
-import { useEnableSuggestionMode, useDisableSuggestionMode } from '@veltdev/react';
+import {
+  useEnableSuggestionMode,
+  useDisableSuggestionMode,
+  useSuggestionModeState,
+} from '@veltdev/react';
 
 function Toolbar() {
   const { enableSuggestionMode } = useEnableSuggestionMode();
   const { disableSuggestionMode } = useDisableSuggestionMode();
+  const isSuggesting = useSuggestionModeState();
 
-  return (
-    <>
-      <button onClick={() => enableSuggestionMode()}>Suggest changes</button>
-      <button onClick={() => disableSuggestionMode()}>Back to editing</button>
-    </>
+  return isSuggesting ? (
+    <button onClick={() => disableSuggestionMode()}>Back to editing</button>
+  ) : (
+    <button onClick={() => enableSuggestionMode()}>Suggest changes</button>
   );
 }
 ```
 
-**Other Frameworks:**
+**Correct (Other Frameworks):**
+
 ```js
 suggestionElement.enableSuggestionMode();
+
+// Later, return targets to normal editing:
 suggestionElement.disableSuggestionMode();
 ```
 
-### Passing Configuration
+If your app relies on detect-only mode, pass `{ autoCommit: false }` on **every** `enableSuggestionMode()` call, including after a reload or a disable.
 
-`enableSuggestionMode` accepts an optional `EnableSuggestionModeConfig` to hook into the capture flow (auto-commit via `onTargetEditCommit`). See the capture rules for details.
+**Verification Checklist:**
+- [ ] Suggestion mode is enabled from a user action or on mount when the app needs it after reload
+- [ ] Every `enableSuggestionMode()` call passes the same config (handler or `autoCommit: false`) the app depends on
+- [ ] Manual `commitSuggestion` calls happen only while suggestion mode is on (it rejects otherwise)
 
-```jsx
-enableSuggestionMode({
-  onTargetEditCommit: ({ targetId, oldValue, newValue }) => {
-    return { summary: `${targetId}: ${oldValue} → ${newValue}` };
-  },
-});
-```
-
-### Key Points
-
-- Suggestion mode is not persisted across page reloads — re-enable it on mount if needed
-- When suggestion mode is off, `commitSuggestion` rejects — always check mode state before manual commits
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/suggestions/overview — "2. Enable Suggestion Mode" and the `autoCommit` Note under "3. Capture Edits as Suggestions"
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#enablesuggestionmode-1 — `enableSuggestionMode()` / `disableSuggestionMode()`
+- https://docs.velt.dev/api-reference/sdk/models/data-models#enablesuggestionmodeconfig — `EnableSuggestionModeConfig`

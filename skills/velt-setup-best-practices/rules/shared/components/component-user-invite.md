@@ -2,7 +2,7 @@
 title: Add Share & Invite with VeltUserInviteTool
 impact: MEDIUM
 impactDescription: VeltUserInviteTool provides a ready-made invite widget for sharing documents with collaborators; without it, developers build custom invite flows that miss Velt's built-in access control integration
-tags: share, invite, VeltUserInviteTool, velt-user-invite-tool, collaboration, access-control, permission, slot, parts, CSS
+tags: share, invite, VeltUserInviteTool, velt-user-invite-tool, collaboration, access-control, permission, slot, parts, CSS, preloadUserInvite, featureAllowList, userInvite
 ---
 
 ## Add Share & Invite with VeltUserInviteTool
@@ -31,7 +31,42 @@ function Toolbar() {
 <velt-user-invite-tool></velt-user-invite-tool>
 ```
 
-Place the component wherever you want the invite button to appear — typically in a toolbar or header alongside other collaboration controls like `VeltPresence` and `VeltSidebarButton`.
+Place the component wherever you want the invite button to appear, typically in a toolbar or header alongside other collaboration controls like `VeltPresence` and `VeltSidebarButton`.
+
+### Load the userInvite Chunk When Using featureAllowList (v6 Modular SDK)
+
+In the v6 modular SDK each feature loads as its own chunk. `userInvite` is a tag-only feature: it has no `getXElement()` accessor that would auto-load it. If you set `featureAllowList`, include `'userInvite'` or call `preloadUserInvite()`, otherwise the tag renders inert.
+
+**Incorrect:**
+
+```jsx
+// featureAllowList omits 'userInvite'; nothing loads the invite chunk
+<VeltProvider apiKey="YOUR_VELT_API_KEY" config={{ featureAllowList: ['comment', 'presence'] }}>
+  <VeltUserInviteTool />
+</VeltProvider>
+```
+
+**Correct:**
+
+```jsx
+// Option 1: allow-list it
+<VeltProvider apiKey="YOUR_VELT_API_KEY" config={{ featureAllowList: ['comment', 'presence', 'userInvite'] }}>
+  <VeltUserInviteTool />
+</VeltProvider>
+
+// Option 2: preload it from a child component
+const { client } = useVeltClient();
+useEffect(() => {
+  client?.preloadUserInvite();
+}, [client]);
+```
+
+```js
+// Other frameworks
+await Velt.preloadUserInvite();
+```
+
+If you omit `featureAllowList`, all feature chunks preload in the background and no extra step is needed.
 
 ### Customize the Button with Slots
 
@@ -53,7 +88,7 @@ Replace the default invite button with your own template using the `button` slot
 </velt-user-invite-tool>
 ```
 
-The slot replaces only the trigger button — the invite dialog UI is still managed by Velt.
+The slot replaces only the trigger button; the invite dialog UI is still managed by Velt.
 
 ### Style with CSS Parts
 
@@ -84,9 +119,11 @@ velt-user-invite-tool::part(button-container) {
 - [ ] A document is set via `setDocument()` before the invite tool is used
 - [ ] Clicking the button opens the invite dialog
 - [ ] Invited users receive access to the document
+- [ ] If `featureAllowList` is set, it includes `'userInvite'` (or `preloadUserInvite()` is called)
 
 **Source Pointers:**
 - `https://docs.velt.dev/permission-management/share-and-invite/overview` — Feature overview
 - `https://docs.velt.dev/permission-management/share-and-invite/setup` — Setup steps
 - `https://docs.velt.dev/permission-management/share-and-invite/customize-ui/parts` — CSS parts reference
 - `https://docs.velt.dev/permission-management/share-and-invite/customize-ui/slots` — Slot customization
+- `https://docs.velt.dev/api-reference/sdk/api/api-methods#preloaduserinvite` — preloadUserInvite() and Modular SDK / Chunk Preloading

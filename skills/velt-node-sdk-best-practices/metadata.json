@@ -1,12 +1,14 @@
 {
-  "version": "0.2.3",
+  "version": "0.2.4",
   "organization": "Velt",
-  "date": "June 2026",
-  "abstract": "Implementation guide for the Velt Node SDK (@veltdev/node) covering its two backends — sdk.api.* (REST API, 18 services) and sdk.selfHosting.* (MongoDB + S3 self-hosted, 7 services + token) — with emphasis on response envelopes, lazy-load pattern for self-hosting services, positional-arg surprise on getToken/getAttachment/saveAttachment, typed error class hierarchy, and data models (PartialCommentAnnotation, BaseMetadata, resolvedByUserId three-state semantics, round-trip dict helpers).",
+  "date": "October 2026",
+  "abstract": "Implementation guide for the Velt Node SDK (@veltdev/node 2.x) covering its two backends: sdk.api.* (REST API services) and sdk.selfHosting.* (self-hosted storage on MongoDB or PostgreSQL with S3 attachments). Emphasizes REST-only vs database initialization, response envelopes, token generation via sdk.api.accessControl.generateToken, resolver auth with verifyToken, the lazy-load pattern for self-hosting services, positional-arg surprises on getAttachment/saveAttachment, the typed error class hierarchy, field allowlists, and data models (PartialCommentAnnotation, BaseMetadata, resolvedByUserId three-state semantics).",
   "references": [
     "https://docs.velt.dev",
     "https://docs.velt.dev/backend-sdks/node",
     "https://docs.velt.dev/api-reference/sdk/models/data-models",
-    "https://www.npmjs.com/package/@veltdev/node"
+    "https://www.npmjs.com/package/@veltdev/node",
+    "https://docs.velt.dev/release-notes/version-5/velt-node-changelog",
+    "https://docs.velt.dev/api-reference/rest-apis/v2/auth/generate-token"
   ]
 }

@@ -93,4 +93,4 @@ const fetchCommentsFromDB = async (request) => {
 - [ ] Error responses return `success: false` with appropriate statusCode
 - [ ] Get operations return data keyed by annotationId or userId
 
-**Source Pointer:** https://docs.velt.dev/self-host-data/comments; https://docs.velt.dev/self-host-data/attachments; https://docs.velt.dev/self-host-data/reactions
+**Source Pointer:** https://docs.velt.dev/self-hosting/partial/comments; https://docs.velt.dev/self-hosting/partial/attachments; https://docs.velt.dev/self-hosting/partial/reactions

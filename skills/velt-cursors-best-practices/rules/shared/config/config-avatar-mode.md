@@ -13,7 +13,14 @@ Use `avatarMode` to show a user's avatar image floating next to their cursor ins
 
 In dense collaborative environments with many users, name labels can overlap and clutter the canvas. Avatar mode provides a compact circular image that is easier to scan visually, especially when users have profile photos set up.
 
-**React: Enable avatar mode**
+**Incorrect (calling undocumented API methods):**
+
+```javascript
+// enableAvatarMode() / disableAvatarMode() are not documented CursorElement methods
+Velt.getCursorElement().enableAvatarMode();
+```
+
+**Correct (React):**
 
 ```jsx
 "use client";
@@ -21,54 +28,28 @@ import { VeltCursor } from "@veltdev/react";
 
 function CanvasWithAvatarCursors() {
   return (
-    <main className="canvas">
-      <VeltCursor avatarMode={true} />
-      {/* Canvas content */}
-    </main>
+    <>
+      <VeltCursor avatarMode={true} /> {/* single root-level instance */}
+      <main className="canvas">{/* Canvas content */}</main>
+    </>
   );
 }
 ```
 
-**HTML: Enable avatar mode**
+**Correct (Other Frameworks):**
 
 ```html
 <velt-cursor avatar-mode="true"></velt-cursor>
 ```
 
-**API: Programmatic toggle**
-
-```jsx
-"use client";
-import { useCursorUtils } from "@veltdev/react";
-import { useEffect } from "react";
-
-function CursorConfig() {
-  const cursorElement = useCursorUtils();
-
-  useEffect(() => {
-    if (cursorElement) {
-      cursorElement.enableAvatarMode();
-    }
-  }, [cursorElement]);
-
-  return null;
-}
-```
-
-**Vanilla JS:**
-
-```javascript
-const cursorElement = client.getCursorElement();
-cursorElement.enableAvatarMode();
-// To disable: cursorElement.disableAvatarMode();
-```
-
 **Key points:**
 
 - Avatar mode replaces the default name label with the user's profile image
-- If the user has no avatar set, a fallback (initials or default icon) is shown
+- Default is `false` (name label)
+- If the avatar image fails to load, the cursor falls back to an initials avatar
 - Can be combined with other cursor props like `allowedElementIds`
-- To revert to name labels, set `avatarMode={false}` or call `disableAvatarMode()`
+- Avatar mode is cosmetic; it does not change which cursors show or where
+- Configure it with the `avatarMode` prop / `avatar-mode` attribute (no documented API method)
 
 **Verification:**
 - [ ] `avatarMode={true}` is set on `VeltCursor`
@@ -77,4 +58,5 @@ cursorElement.enableAvatarMode();
 - [ ] Avatar does not overlap or obscure content
 
 **Source Pointers:**
-- `https://docs.velt.dev/cursor/customize-behavior/avatar-mode` - Avatar mode
+- https://docs.velt.dev/realtime-collaboration/cursors/customize-behavior#avatarmode - "avatarMode"
+- https://docs.velt.dev/ui-customization/reference/behaviors/presence-reactions - `avatarMode` default

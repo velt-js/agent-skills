@@ -21,7 +21,10 @@ velt-self-hosting-data-best-practices/
     ├── attachment/   # Attachment data provider rules
     ├── provider/     # Additional provider rules
     ├── backend/      # Backend implementation rules
-    └── debug/        # Debugging rules
+    ├── data/         # Data type reference
+    ├── python-sdk/   # Python SDK (velt-py) rules
+    ├── debug/        # Debugging rules
+    └── full/         # Full self-hosting pointers
 ```
 
 ## Prefixes
@@ -33,9 +36,12 @@ velt-self-hosting-data-best-practices/
 | Attachment Data Provider | `attachment-` |
 | Additional Providers | `provider-` |
 | Backend Implementation | `backend-` |
+| Data Types | `data-` |
+| Python SDK | `python-` |
 | Debugging | `debug-` |
+| Full Self-Hosting | `full-` |
 
 ## Source Documentation
 
-- **Primary**: Velt official docs (docs.velt.dev/self-host-data)
+- **Primary**: Velt official docs (docs.velt.dev/self-hosting/partial/overview, docs.velt.dev/self-hosting/full/overview, docs.velt.dev/backend-sdks/python)
 - **Secondary**: Velt sample apps and console

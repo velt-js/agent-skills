@@ -1,14 +1,24 @@
 ---
-title: Manual Suggestion Creation with startSuggestion / commitSuggestion
+title: Create suggestions manually with startSuggestion and commitSuggestion
 impact: HIGH
-tags: startSuggestion, commitSuggestion, manual, AI agent, non-DOM, programmatic
+impactDescription: The only path for non-DOM widgets and AI-proposed changes; commitSuggestion rejects when mode is off, the target is unknown, or the value is unchanged
+tags: startSuggestion, commitSuggestion, useStartSuggestion, useCommitSuggestion, manual, AI agent, non-DOM, CommitSuggestionConfig
 ---
 
-## Manual Suggestion Creation
+## Create suggestions manually with startSuggestion and commitSuggestion
 
-For non-DOM flows — custom widgets, canvas elements, or an "AI proposes a change" button — bypass auto-detection entirely. Call `startSuggestion(targetId)` to snapshot the current value, then `commitSuggestion(config)` to create the proposal.
+When there is no input for the SDK to watch (a canvas, a custom widget, or an "AI proposes a change" button), create the suggestion yourself. Call `startSuggestion(targetId)` to snapshot the current value as `oldValue`, then `commitSuggestion(config)` with the `newValue`. It resolves to `{ id }`.
 
-**React / Next.js:**
+**Incorrect (commits without the guards being satisfied):**
+
+```js
+// BUG: suggestion mode is off and 'chart.title' is neither tagged nor registered,
+// so commitSuggestion rejects and nothing is created.
+await suggestionElement.commitSuggestion({ targetId: 'chart.title', newValue: 'Q3 revenue' });
+```
+
+**Correct (React / Next.js):**
+
 ```jsx
 import { useStartSuggestion, useCommitSuggestion } from '@veltdev/react';
 
@@ -31,7 +41,8 @@ function ProposeButton() {
 }
 ```
 
-**Other Frameworks:**
+**Correct (Other Frameworks):**
+
 ```js
 suggestionElement.startSuggestion('row.123');
 
@@ -43,25 +54,20 @@ const { id } = await suggestionElement.commitSuggestion({
 });
 ```
 
-### Guards
+`commitSuggestion` creates nothing when:
+- Suggestion mode is off
+- The `targetId` is unknown (not tagged in the DOM and not registered with `registerTarget`)
+- `newValue` is identical to the captured `oldValue`
 
-`commitSuggestion` rejects (and creates nothing) when:
-- Suggestion mode is not enabled
-- The `targetId` is unknown (not tagged or registered)
-- `newValue` is deeply equal to the snapshot — no no-op suggestions
+For a server-side agent that has no browser session, create the suggestion over REST instead (see `data-backend-rest`).
 
-### AI Agent Pattern
+**Verification Checklist:**
+- [ ] Suggestion mode is enabled before `commitSuggestion`
+- [ ] The target is tagged with `data-velt-suggestion-target` or registered with a getter
+- [ ] `startSuggestion(targetId)` runs before `commitSuggestion` so `oldValue` is captured
+- [ ] The promise rejection is handled
 
-This is the approach for AI-proposes-human-reviews workflows. The AI calls `startSuggestion` + `commitSuggestion` programmatically, and a human reviewer accepts or rejects via the comment dialog.
-
-```jsx
-const aiPropose = async (targetId, aiGeneratedValue, description) => {
-  startSuggestion(targetId);
-  await commitSuggestion({
-    targetId,
-    newValue: aiGeneratedValue,
-    summary: description,
-    metadata: { source: 'ai', model: 'gpt-4' },
-  });
-};
-```
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/suggestions/overview#3-capture-edits-as-suggestions — "Option 4: Create suggestions manually"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#commitsuggestionconfigt — `CommitSuggestionConfig<T>`
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#commitsuggestion — `commitSuggestion()`

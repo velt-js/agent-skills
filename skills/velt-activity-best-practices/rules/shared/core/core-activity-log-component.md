@@ -117,59 +117,46 @@ export function ActivityLogPanel() {
 | Prop | Type | Default | Description |
 |------|------|---------|-------------|
 | `darkMode` | `boolean` | `false` | Enable dark mode styling |
-| `shadowDom` | `boolean` | `false` | Render inside a shadow DOM |
-| `useDummyData` | `boolean` | `false` | Show placeholder data for development/testing |
-| `variant` | `string` | `undefined` | Layout variant (e.g. `"sidebar"`); consult docs for available values |
+| `shadowDom` | `boolean` | Not documented | Set `false` so your page CSS reaches the log and its wireframe slots |
+| `useDummyData` | `boolean` | `false` | Render sample activities without a backend connection (prototyping only) |
+| `variant` | `string` | None | Wireframe variant to render |
 
-**Wireframe customization (27 primitives):**
+HTML attributes are kebab-case: `dark-mode`, `shadow-dom`, `use-dummy-data`, `variant`.
 
-Customize the entire layout using `VeltActivityLogWireframe`. Each sub-component accepts `defaultCondition?: boolean` to control visibility.
+**Wireframe customization:**
+
+Customize the layout with `VeltActivityLogWireframe` inside a `VeltWireframe` block rendered as a sibling of the host component (see `ui-wireframes`). Each sub-component accepts `defaultCondition?: boolean`.
 
 ```tsx
-import VeltActivityLogWireframe from '@veltdev/react/VeltActivityLogWireframe';
+import { VeltWireframe, VeltActivityLogWireframe, VeltActivityLog } from '@veltdev/react';
 
-<VeltActivityLog>
-  <VeltActivityLogWireframe>
-    <VeltActivityLogWireframe.Header>
-      <VeltActivityLogWireframe.Header.Title />
-      <VeltActivityLogWireframe.Header.CloseButton />
-      <VeltActivityLogWireframe.Header.Filter>
-        <VeltActivityLogWireframe.Header.Filter.Trigger>
-          <VeltActivityLogWireframe.Header.Filter.Trigger.Icon />
-          <VeltActivityLogWireframe.Header.Filter.Trigger.Label />
-        </VeltActivityLogWireframe.Header.Filter.Trigger>
-        <VeltActivityLogWireframe.Header.Filter.Content>
-          <VeltActivityLogWireframe.Header.Filter.Content.Item>
-            <VeltActivityLogWireframe.Header.Filter.Content.Item.Icon />
-            <VeltActivityLogWireframe.Header.Filter.Content.Item.Label />
-          </VeltActivityLogWireframe.Header.Filter.Content.Item>
-        </VeltActivityLogWireframe.Header.Filter.Content>
-      </VeltActivityLogWireframe.Header.Filter>
-    </VeltActivityLogWireframe.Header>
-    <VeltActivityLogWireframe.Loading />
-    <VeltActivityLogWireframe.List>
-      <VeltActivityLogWireframe.List.DateGroup>
-        <VeltActivityLogWireframe.List.DateGroup.Label />
-      </VeltActivityLogWireframe.List.DateGroup>
-      <VeltActivityLogWireframe.List.Item>
-        <VeltActivityLogWireframe.List.Item.Icon />
-        <VeltActivityLogWireframe.List.Item.Avatar />
-        <VeltActivityLogWireframe.List.Item.Time />
-        <VeltActivityLogWireframe.List.Item.Content>
-          <VeltActivityLogWireframe.List.Item.Content.User />
-          <VeltActivityLogWireframe.List.Item.Content.Action />
-          <VeltActivityLogWireframe.List.Item.Content.Target />
-          <VeltActivityLogWireframe.List.Item.Content.Detail />
-        </VeltActivityLogWireframe.List.Item.Content>
-      </VeltActivityLogWireframe.List.Item>
-      <VeltActivityLogWireframe.List.ShowMore />
-    </VeltActivityLogWireframe.List>
-    <VeltActivityLogWireframe.Empty />
-  </VeltActivityLogWireframe>
-</VeltActivityLog>
+<>
+  <VeltWireframe>
+    <VeltActivityLogWireframe>
+      <VeltActivityLogWireframe.Header>
+        <VeltActivityLogWireframe.Header.Title />
+        <VeltActivityLogWireframe.Header.Filter />
+      </VeltActivityLogWireframe.Header>
+      <VeltActivityLogWireframe.Loading />
+      <VeltActivityLogWireframe.List>
+        <VeltActivityLogWireframe.List.DateGroup>
+          <VeltActivityLogWireframe.List.DateGroup.Label />
+        </VeltActivityLogWireframe.List.DateGroup>
+        <VeltActivityLogWireframe.List.Item>
+          <VeltActivityLogWireframe.List.Item.Avatar />
+          <VeltActivityLogWireframe.List.Item.Content />
+          <VeltActivityLogWireframe.List.Item.Time />
+        </VeltActivityLogWireframe.List.Item>
+        <VeltActivityLogWireframe.List.ShowMore />
+      </VeltActivityLogWireframe.List>
+      <VeltActivityLogWireframe.Empty />
+    </VeltActivityLogWireframe>
+  </VeltWireframe>
+  <VeltActivityLog shadowDom={false} />
+</>
 ```
 
-**All 27 standalone primitive components:**
+**All 27 standalone primitive components (each accepts `defaultCondition`):**
 
 | React | HTML |
 |-------|------|
@@ -203,7 +190,7 @@ import VeltActivityLogWireframe from '@veltdev/react/VeltActivityLogWireframe';
 
 ### Common Mistakes — DO NOT
 
-**1. DO NOT replace `VeltActivityLog` with a custom `useAllActivities()` implementation.** The component handles date grouping, filtering, icons, loading states, and all activity types automatically. If it appears empty or shows a loading skeleton, that is NORMAL — it means either Activity Logs aren't enabled in the Console yet or no activities have been recorded on this document. Do NOT rewrite it as a custom component.
+**1. DO NOT replace `VeltActivityLog` with a custom `useAllActivities()` implementation.** The component handles date grouping, filtering, icons, loading states, and all activity types automatically. If it shows its empty state, usually no activities have been recorded yet for the current scope (or the workspace has activity disabled; see `core-setup`). On SDK builds before 6.0.13 it could also flash "No activities found" right after an organization switch, document switch, or sign-out, or stay on the loading skeleton when the workspace had activity disabled. Do NOT rewrite it as a custom component.
 
 **2. DO NOT conditionally render `VeltActivityLog` with `{show && <VeltActivityLog />}`.** The component is a web component that needs to stay mounted to maintain its connection to the Velt backend. Mounting and unmounting it on toggle causes it to re-initialize each time, showing a loading state. Instead, always render it and toggle visibility with `display: none`:
 
@@ -233,8 +220,12 @@ import VeltActivityLogWireframe from '@veltdev/react/VeltActivityLogWireframe';
 - [ ] `VeltActivityLog` imported from `'@veltdev/react'` (React) or used as `<velt-activity-log>` (HTML)
 - [ ] NO `style` or `className` props passed directly to `VeltActivityLog`
 - [ ] Component is always mounted (use `display: none` to hide, NOT conditional rendering)
-- [ ] Activity Logs enabled in Velt Console (see `core-setup` rule)
+- [ ] `VeltProvider` has an authenticated user via `authProvider` (see `core-setup` rule)
 - [ ] `useDummyData` used only during development, not in production
 - [ ] Wireframe customization references Velt docs for primitive component names
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/activity/customize-ui - VeltActivityLog Component
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/activity/setup - "Add the Activity Log Component"
+- https://docs.velt.dev/async-collaboration/activity/customize-behavior#usedummydata - "useDummyData"
+- https://docs.velt.dev/ui-customization/features/async/activity-logs/activity-logs-primitives - "Activity Logs Primitives"
+- https://docs.velt.dev/ui-customization/features/async/activity-logs/activity-logs-wireframes - "Activity Logs Wireframes"

@@ -69,7 +69,7 @@ import {
 
 **Source Pointers:**
 - https://docs.velt.dev/async-collaboration/comments/customize-behavior - VeltCommentsProps and VeltCommentDialogProps
-- https://docs.velt.dev/async-collaboration/comments-sidebar/customize-behavior - VeltCommentsSidebarProps
+- https://docs.velt.dev/async-collaboration/comments-sidebar/v1/customize-behavior - VeltCommentsSidebarProps
 - https://docs.velt.dev/api-reference/sdk/models/data-models#veltcommentsprops - VeltCommentsProps type definition
 - https://docs.velt.dev/api-reference/sdk/models/data-models#veltcommentdialogprops - VeltCommentDialogProps type definition
 - https://docs.velt.dev/api-reference/sdk/models/data-models#veltcommentssidebarprops - VeltCommentsSidebarProps type definition

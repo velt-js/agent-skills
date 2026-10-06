@@ -182,4 +182,5 @@ export default function Home() {
 
 **Source Pointers:**
 - `https://docs.velt.dev/get-started/quickstart` - Step 5: Authenticate Users
-- `https://docs.velt.dev/get-started/advanced` - JWT Authentication Tokens
+- `https://docs.velt.dev/get-started/advanced#jwt-authentication-tokens` - JWT Authentication Tokens
+- `https://docs.velt.dev/ui-customization/setup` - "Set up the folder structure"

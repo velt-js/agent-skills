@@ -11,7 +11,19 @@ tags: rewriter, RewriterElement, on, textSelected, TextSelectedEvent, subscribe,
 
 The event is what stitches the rest of the flow together. Without subscribing, you have no entry point for `askAi` (which needs `selectedText`) or `replaceText` / `addComment` (which need the event itself to identify the DOM target).
 
-The Observable is hot — multiple subscribers all receive the same events. In React, subscribe inside `useEffect` and unsubscribe in the cleanup to avoid stale handlers after re-render.
+The Observable is hot — multiple subscribers all receive the same events. In React, subscribe inside `useEffect` and unsubscribe in the cleanup to avoid stale handlers after re-render. The Rewriter has no `use…EventCallback` hook; get the element with `useAIRewriterUtils()` (or `client.getRewriterElement()`) and subscribe to `on('textSelected')` directly.
+
+Since v6.0.16-beta.1, `textSelected` does **not** fire for a selection inside TipTap or another ProseMirror-based editor. If your rewriter UI never appears inside such an editor, that is expected behavior, not a subscription bug.
+
+**Incorrect (reads the browser selection instead of the event):**
+
+```tsx
+document.addEventListener('mouseup', async () => {
+  const text = window.getSelection()?.toString();
+  // BUG: no Velt anchor metadata, so replaceText / addComment cannot target this range
+  const aiResponse = await rewriterElement.askAi({ model: 'gpt-4o', prompt: 'Shorten', selectedText: text });
+});
+```
 
 **Correct (React / Next.js — subscribe and dispatch):**
 
@@ -55,6 +67,8 @@ const subscription = rewriterElement.on('textSelected').subscribe((event) => {
 - DO NOT try to read the user's selection from `window.getSelection()` — you'll lose the Velt-managed anchor metadata that `replaceText` / `addComment` need. Use the event.
 - DO NOT subscribe before `enableRewriter()` is called — no events will fire.
 - DO NOT forget to `unsubscribe()` on cleanup; otherwise stale handlers accumulate.
+- DO NOT expect `textSelected` for selections inside TipTap or other ProseMirror-based editors; it does not fire there.
+- DO NOT look for a `useRewriterEventCallback` hook; it does not exist. Use `useAIRewriterUtils()` and `on('textSelected')`.
 
 **Verification Checklist:**
 - [ ] `enableRewriter()` is called before this subscription is set up
@@ -62,7 +76,10 @@ const subscription = rewriterElement.on('textSelected').subscribe((event) => {
 - [ ] The full `event` (not just `event.text`) is passed forward to `replaceText` / `addComment`
 - [ ] In React, the subscription is created inside `useEffect` and disposed in the cleanup
 - [ ] No manual DOM range tracking — Velt's event is the source of truth
+- [ ] Rewriter-enabled text lives outside TipTap / ProseMirror editors (selections inside them emit no `textSelected` event)
 
 **Source Pointers:**
 - https://docs.velt.dev/ai/rewriter/setup — Step 2: Subscribe to text selection events
 - https://docs.velt.dev/api-reference/sdk/models/data-models#textselectedevent — `TextSelectedEvent` shape
+- https://docs.velt.dev/ai/rewriter/customize-behavior#on — `on('textSelected')` and the TipTap / ProseMirror note
+- https://docs.velt.dev/api-reference/sdk/api/react-hooks#useairewriterutils — `useAIRewriterUtils()` hook

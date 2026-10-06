@@ -46,10 +46,13 @@ components/
     ├── VeltInitializeDocument.tsx # Document setup component
     ├── VeltCollaboration.tsx     # Main collaboration wrapper
     ├── VeltTools.tsx             # Optional: tool buttons
-    └── ui-customization/
-        ├── VeltCustomization.tsx # CSS variable customization
-        └── styles.css            # Velt component styling
+    └── ui-customization/         # ALL Velt UI customization lives here
+        ├── VeltCustomization.tsx # The single <VeltWireframe> root (if wireframing)
+        ├── VeltCommentDialogWf.tsx # One file per customized surface
+        └── styles.css            # ONE stylesheet for all Velt CSS
 ```
+
+Keep exactly one `<VeltWireframe>` in the whole app (in `VeltCustomization.tsx`). Extra roots merge in an order-dependent way and conflict. For CSS-only or primitives-only customization, a single stylesheet plus the components in `VeltCollaboration.tsx` is enough; adopt the full `ui-customization/` folder when you start wireframing. The Velt UI Customization Plugin also writes its generated code under `components/velt/ui-customization/`.
 
 **Recommended File Contents:**
 
@@ -158,4 +161,6 @@ export function VeltCollaboration() {
 - [ ] Clear separation between app logic and Velt integration
 
 **Source Pointers:**
-- `https://docs.velt.dev/get-started/quickstart` - Complete setup guide with folder structure
+- `https://docs.velt.dev/get-started/quickstart` - Complete setup guide
+- `https://docs.velt.dev/ui-customization/setup` - "Set up the folder structure"
+- `https://docs.velt.dev/get-started/ui-customization-plugin` - "How It Works" (generated code location)

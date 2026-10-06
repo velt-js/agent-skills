@@ -1,8 +1,8 @@
 # Yjs Best Practices
 
-**Version 1.1.1**  
+**Version 1.1.2**  
 Velt  
-May 2026
+October 2026
 
 > **Note:**  
 > This document is mainly for agents and LLMs to follow when maintaining,  
@@ -141,6 +141,25 @@ function getDocSize(ydoc) {
 console.log('Doc size:', getDocSize(auditDoc), 'bytes')
 ```
 
+**When to disable GC:**
+
+| Use case | gc setting |
+|---|---|
+| Real-time collaboration (standard) | `true` (default) |
+| Version history / time travel | `false` |
+| Undo/redo (UndoManager) | `true` (UndoManager handles its own stack) |
+| Audit trail / compliance | `false` |
+| Large documents with frequent edits | `true` (to control size) |
+
+**Verification:**
+- [ ] `gc` setting is consistent across all peers sharing the same document
+- [ ] `gc: false` is only used when version history or snapshots are required
+- [ ] Document size is monitored when `gc: false` — implement server-side compaction if needed
+- [ ] Snapshots are created via `Y.snapshot(ydoc)` only when `gc: false`
+- [ ] UndoManager does not require `gc: false` — it maintains its own undo stack
+
+**Source:** https://docs.yjs.dev/api/y.doc
+
 ---
 
 ### 1.2 Create and Configure Y.Doc Correctly for Shared Editing
@@ -209,6 +228,29 @@ const ytext = ydoc.getText('editor-content')
 console.log(ytext.toString()) // Restored content
 ```
 
+**Key properties and methods on Y.Doc:**
+
+| Property / Method | Description |
+|---|---|
+| `ydoc.clientID` | Readonly unique integer for this session |
+| `ydoc.gc` | Whether garbage collection is enabled |
+| `ydoc.getMap(name)` | Get or create a top-level Y.Map |
+| `ydoc.getText(name)` | Get or create a top-level Y.Text |
+| `ydoc.getArray(name)` | Get or create a top-level Y.Array |
+| `ydoc.getXmlFragment(name)` | Get or create a top-level Y.XmlFragment |
+| `ydoc.transact(fn, origin)` | Execute changes atomically |
+| `ydoc.destroy()` | Free resources and unsubscribe listeners |
+| `ydoc.on('update', fn)` | Listen for document updates |
+
+**Verification:**
+- [ ] `Y.Doc` is created with `gc: false` only when version history is needed
+- [ ] Shared types are accessed via `ydoc.getMap/getText/getArray` with consistent names
+- [ ] `ydoc.destroy()` is called on unmount or when the document is no longer needed
+- [ ] `clientID` is not manually set — it is readonly and auto-generated
+- [ ] Update listener is registered to propagate changes to other peers
+
+**Source:** https://docs.yjs.dev/api/y.doc
+
 ---
 
 ### 1.3 Use Document Updates for Efficient Sync and Persistence
@@ -216,6 +258,17 @@ console.log(ytext.toString()) // Restored content
 **Impact: HIGH (Correct update encoding and sync protocol prevents data loss and minimizes bandwidth)**
 
 Yjs document updates are compact binary diffs (Uint8Array) that describe changes to a Y.Doc. Updates are **commutative** (order doesn't matter), **associative** (grouping doesn't matter), and **idempotent** (applying the same update twice is safe). This makes the sync protocol robust — updates can arrive out of order, be duplicated, or be merged without corruption.
+
+**Core update functions:**
+
+| Function | Description |
+|---|---|
+| `Y.encodeStateAsUpdate(ydoc, targetStateVector?)` | Encode full or differential update |
+| `Y.applyUpdate(ydoc, update, origin?)` | Apply an update to a document |
+| `Y.encodeStateVector(ydoc)` | Get the state vector (clock summary) |
+| `Y.mergeUpdates(updates[])` | Merge multiple updates into one |
+| `Y.diffUpdate(update, stateVector)` | Compute diff from an update |
+| `Y.encodeStateVectorFromUpdate(update)` | Extract state vector without loading Y.Doc |
 
 **Correct — basic update propagation:**
 
@@ -291,6 +344,15 @@ const stateVector = Y.encodeStateVectorFromUpdate(storedUpdate)
 const diff = Y.diffUpdate(storedUpdate, clientStateVector)
 ```
 
+**Verification:**
+- [ ] Updates are applied via `Y.applyUpdate` — never by manually modifying internal state
+- [ ] State vector sync protocol is used for initial sync (not full document transfer)
+- [ ] `Y.mergeUpdates` is used to compact stored updates periodically
+- [ ] `origin` parameter is passed to `applyUpdate` to prevent echo loops in providers
+- [ ] `Y.encodeStateVectorFromUpdate` is used server-side to avoid loading full Y.Doc into memory
+
+**Source:** https://docs.yjs.dev/api/document-updates
+
 ---
 
 ### 1.4 Use Transactions to Bundle Changes Atomically
@@ -300,6 +362,16 @@ const diff = Y.diffUpdate(storedUpdate, clientStateVector)
 `ydoc.transact(fn, origin)` groups multiple changes into a single atomic operation. Without transactions, each mutation triggers its own observer calls and update events. With transactions, all changes are batched — observers fire once after the entire block completes.
 
 The `origin` parameter is critical for provider filtering. Providers use it to distinguish local changes from remote updates, preventing echo loops when syncing.
+
+**Event order within a transaction:**
+
+1. `beforeTransaction` — fires before execution
+2. Transaction body executes (mutations happen)
+3. `beforeObserverCalls` — fires before observers
+4. Type-level `observe` callbacks fire
+5. `observeDeep` callbacks fire (on parent types)
+6. `afterTransaction` — fires after all observers
+7. `update` event fires (encoded binary diff)
 
 **Correct — batching changes in a transaction:**
 
@@ -377,6 +449,15 @@ ydoc.transact(() => {
 })
 // Observers fire once with all three changes
 ```
+
+**Verification:**
+- [ ] Multiple related mutations are wrapped in `ydoc.transact()`
+- [ ] `origin` is set when applying remote updates to prevent echo loops
+- [ ] Update listeners check `origin` before re-broadcasting
+- [ ] Code does not rely on observers firing between individual mutations inside a transaction
+- [ ] Transaction lifecycle events are used appropriately (not over-subscribed)
+
+**Source:** https://docs.yjs.dev/api/y.doc#transact
 
 ---
 
@@ -509,6 +590,15 @@ array1.push([sharedMap]) // OK — sharedMap now lives in list-a
 // array2.push([sharedMap]) // ERROR — sharedMap already belongs to list-a
 // Create a new Y.Map if you need the same data in two places
 ```
+
+**Verification:**
+- [ ] `Y.Array` is retrieved via `ydoc.getArray(name)` for top-level arrays
+- [ ] Nested shared types are not inserted into multiple locations
+- [ ] `push` and `insert` receive arrays of items, not single items
+- [ ] `toArray()` is used when a plain JS array copy is needed
+- [ ] Observers are cleaned up with `yarray.unobserve(fn)` on teardown
+
+**Source:** https://docs.yjs.dev/api/shared-types/y.array
 
 ---
 
@@ -647,6 +737,15 @@ setInterval(() => {
 // See: types-ymap-ykeyvalue.md
 ```
 
+**Verification:**
+- [ ] Y.Map is used for data with relatively stable keys (config, metadata, named fields)
+- [ ] Frequently-updated keys use `YKeyValue` from `y-utility` instead of `Y.Map`
+- [ ] Nested shared types are not inserted into multiple locations in the document
+- [ ] Observers use `event.keysChanged` or `event.changes.keys` for granular change tracking
+- [ ] `ymap.unobserve(fn)` is called when observers are no longer needed
+
+**Source:** https://docs.yjs.dev/api/shared-types/y.map
+
 ---
 
 ### 2.3 Use Y.Text for Collaborative Plain and Rich Text Editing
@@ -768,6 +867,15 @@ embed.set('src', 'https://example.com/photo.png')
 
 ytext.insertEmbed(0, embed, { display: 'inline' })
 ```
+
+**Verification:**
+- [ ] `Y.Text` is retrieved from `ydoc.getText(name)` — not instantiated directly
+- [ ] Rich text formatting uses `format()` or insert attributes — not manual markup
+- [ ] `toDelta()` is used for serialization with Quill-compatible editors
+- [ ] `toString()` is used for plain text extraction (strips formatting)
+- [ ] Observers are cleaned up with `ytext.unobserve(fn)` when no longer needed
+
+**Source:** https://docs.yjs.dev/api/shared-types/y.text
 
 ---
 
@@ -907,6 +1015,23 @@ fragment.observeDeep((events) => {
 })
 ```
 
+**Key API summary:**
+
+| Type | Key methods |
+|---|---|
+| Y.XmlFragment | `insert`, `delete`, `get`, `length`, `toArray`, `toString`, `observe`, `observeDeep` |
+| Y.XmlElement | All XmlFragment methods + `setAttribute`, `getAttribute`, `getAttributes`, `removeAttribute`, `nodeName` |
+| Y.XmlText | All Y.Text methods (`insert`, `delete`, `format`, `toDelta`, `toString`) |
+
+**Verification:**
+- [ ] `ydoc.getXmlFragment(name)` is used for the top-level document container
+- [ ] `Y.XmlElement` nodes have meaningful `nodeName` values matching the editor schema
+- [ ] Attributes are set via `setAttribute` — not by nesting a Y.Map
+- [ ] `Y.XmlText` is used for text leaf nodes, with formatting via attributes
+- [ ] `observeDeep` is used when monitoring changes across the full document tree
+
+**Source:** https://docs.yjs.dev/api/shared-types/y.xmlfragment
+
 ---
 
 ### 2.5 Use YKeyValue from y-utility for Frequently-Updated Key-Value Data
@@ -914,6 +1039,8 @@ fragment.observeDeep((events) => {
 **Impact: HIGH (YKeyValue reduces document size by 99.95% compared to Y.Map for high-frequency key updates)**
 
 `YKeyValue` from the `y-utility` package is a drop-in alternative to `Y.Map` designed for keys that are updated frequently. It uses a `Y.Array` internally and periodically compacts old entries, eliminating the tombstone growth problem inherent to `Y.Map`.
+
+**The size difference is dramatic:** 100,000 `set` operations on 10 keys produces ~524KB with `Y.Map` but only ~271 bytes with `YKeyValue`. This makes it the correct choice for cursor positions, presence data, counters, live metrics, and any state that changes rapidly.
 
 **Correct — installing and using YKeyValue:**
 
@@ -994,11 +1121,39 @@ ykv.on('change', (changes, transaction) => {
 ykv.set('status', 'online') // Triggers change event
 ```
 
+**Size comparison — Y.Map vs YKeyValue:**
+
+| Scenario (100k operations, 10 keys) | Y.Map | YKeyValue |
+|---|---|---|
+| Document size | ~524 KB | ~271 bytes |
+| Growth pattern | Linear with total operations | Constant (compacts) |
+| Suitable for high-frequency updates | No | Yes |
+
+**When to use Y.Map vs YKeyValue:**
+
+| Use case | Recommended type |
+|---|---|
+| Document metadata (title, author) | Y.Map |
+| Configuration / settings | Y.Map |
+| Cursor positions / presence | YKeyValue |
+| Live counters / metrics | YKeyValue |
+| Frequently toggled state | YKeyValue |
+| Nested shared types as values | Y.Map |
+
 **Installation:**
 
 ```bash
 npm install y-utility
 ```
+
+**Verification:**
+- [ ] `y-utility` is installed as a dependency
+- [ ] `YKeyValue` wraps a `Y.Array` from the document — not a `Y.Map`
+- [ ] High-frequency key updates use `YKeyValue` instead of `Y.Map`
+- [ ] Change listeners use `ykv.on('change', fn)` — not `.observe()`
+- [ ] `YKeyValue` is not used for nested shared types (use `Y.Map` for those)
+
+**Source:** https://docs.yjs.dev/api/shared-types/y.keyvalue (y-utility package)
 
 ---
 
@@ -1014,7 +1169,118 @@ Network and persistence providers that sync Y.Doc state across clients and to lo
 
 Yjs updates are commutative, associative, and idempotent. This means you can apply updates in any order, apply the same update multiple times, and still converge to the correct state. This property makes it safe to build custom providers over any transport (HTTP, message queues, databases, etc.).
 
-### Listening for Updates
+#### Listening for Updates
+
+```js
+import * as Y from 'yjs'
+
+const ydoc = new Y.Doc()
+
+// Listen for document updates and send them to other peers
+ydoc.on('update', (update, origin) => {
+  // `update` is a Uint8Array containing the incremental change
+  // `origin` identifies who made the change (useful for filtering)
+  if (origin !== 'remote') {
+    sendUpdateToServer(update)
+  }
+})
+
+// Apply an update received from another peer
+function receiveUpdate(update) {
+  Y.applyUpdate(ydoc, update, 'remote')
+}
+```
+
+#### Two-Phase Sync Protocol
+
+```js
+import * as Y from 'yjs'
+
+// Phase 1: Exchange state vectors
+// A state vector summarizes what a peer already knows
+const localStateVector = Y.encodeStateVector(ydoc)
+sendToRemote(localStateVector)
+
+// Phase 2: Compute and send the diff
+// When you receive a remote state vector, compute what they're missing
+function handleRemoteStateVector(remoteStateVector) {
+  const diff = Y.encodeStateAsUpdate(ydoc, remoteStateVector)
+  sendToRemote(diff)
+}
+
+// When you receive a diff, apply it
+function handleRemoteDiff(diff) {
+  Y.applyUpdate(ydoc, diff)
+}
+```
+
+#### Full Custom Provider Pattern
+
+```js
+import * as Y from 'yjs'
+
+class CustomProvider {
+  constructor(ydoc, connection) {
+    this.ydoc = ydoc
+    this.connection = connection
+
+    // Forward local updates to the remote
+    this.ydoc.on('update', (update, origin) => {
+      if (origin !== this) {
+        this.connection.send({ type: 'update', data: update })
+      }
+    })
+
+    // Handle incoming messages
+    this.connection.on('message', (msg) => {
+      if (msg.type === 'update') {
+        Y.applyUpdate(this.ydoc, msg.data, this)
+      } else if (msg.type === 'sync-step-1') {
+        const diff = Y.encodeStateAsUpdate(this.ydoc, msg.stateVector)
+        this.connection.send({ type: 'sync-step-2', data: diff })
+        // Also send our state vector so remote sends us what we're missing
+        const sv = Y.encodeStateVector(this.ydoc)
+        this.connection.send({ type: 'sync-step-1', stateVector: sv })
+      } else if (msg.type === 'sync-step-2') {
+        Y.applyUpdate(this.ydoc, msg.data)
+      }
+    })
+
+    // Initiate sync
+    const sv = Y.encodeStateVector(this.ydoc)
+    this.connection.send({ type: 'sync-step-1', stateVector: sv })
+  }
+
+  destroy() {
+    this.ydoc.off('update', this._updateHandler)
+    this.connection.close()
+  }
+}
+```
+
+#### Combining Providers
+
+```js
+// Multiple providers can be used simultaneously on the same Y.Doc.
+// Each provider independently syncs — Yjs handles merge automatically.
+const ydoc = new Y.Doc()
+const networkProvider = new WebsocketProvider('ws://server', 'room', ydoc)
+const dbProvider = new IndexeddbPersistence('doc-id', ydoc)
+const customProvider = new CustomProvider(ydoc, myConnection)
+```
+
+#### Verification Checklist
+
+- [ ] Updates are applied with `Y.applyUpdate(ydoc, update, origin)`
+- [ ] Origin is set to avoid echoing updates back to the sender
+- [ ] Two-phase sync is implemented: state vector exchange then diff
+- [ ] Updates are treated as opaque `Uint8Array` — never parsed or modified
+- [ ] Provider is cleaned up (event listeners removed, connections closed) on destroy
+- [ ] Multiple providers on the same Y.Doc are supported without conflicts
+
+#### Source
+
+- https://docs.yjs.dev/tutorials/creating-a-custom-provider
 
 ---
 
@@ -1024,7 +1290,77 @@ Yjs updates are commutative, associative, and idempotent. This means you can app
 
 The `y-indexeddb` provider persists a Yjs document to the browser's IndexedDB. When the user reloads the page or returns later, the document loads instantly from local storage instead of waiting for a full network sync. Combine it with a network provider (like y-websocket) for a seamless offline-first experience.
 
-### Install
+#### Install
+
+```bash
+npm install y-indexeddb yjs
+```
+
+#### Basic Setup
+
+```js
+import * as Y from 'yjs'
+import { IndexeddbPersistence } from 'y-indexeddb'
+
+const ydoc = new Y.Doc()
+
+// Persist the document under a unique name in IndexedDB
+const persistence = new IndexeddbPersistence('my-document-id', ydoc)
+
+// Fires when the locally stored data has been loaded into the Y.Doc
+persistence.on('synced', () => {
+  console.log('Content loaded from IndexedDB')
+})
+```
+
+#### Combine with a Network Provider
+
+```js
+import * as Y from 'yjs'
+import { IndexeddbPersistence } from 'y-indexeddb'
+import { WebsocketProvider } from 'y-websocket'
+
+const ydoc = new Y.Doc()
+
+// Local persistence — loads cached data immediately
+const indexeddbProvider = new IndexeddbPersistence('my-document-id', ydoc)
+
+// Network sync — connects to other peers
+const wsProvider = new WebsocketProvider('ws://localhost:1234', 'my-room', ydoc)
+
+// Local data loads first, then network updates merge in automatically.
+// Yjs merge is commutative — order doesn't matter.
+indexeddbProvider.on('synced', () => {
+  console.log('Local data loaded, network sync will merge in updates')
+})
+```
+
+#### Clear Stored Data
+
+```js
+// Remove persisted data for this document
+await persistence.clearData()
+```
+
+#### Cleanup
+
+```js
+// Destroy the persistence provider when done
+persistence.destroy()
+```
+
+#### Verification Checklist
+
+- [ ] `y-indexeddb` and `yjs` are installed
+- [ ] `IndexeddbPersistence` is created with a unique document name and Y.Doc
+- [ ] The `synced` event is handled to know when local data has loaded
+- [ ] A network provider is also used alongside IndexedDB for remote sync
+- [ ] Document name is unique per document (not shared across unrelated documents)
+- [ ] Persistence is destroyed on cleanup
+
+#### Source
+
+- https://docs.yjs.dev/ecosystem/database-provider/y-indexeddb
 
 ---
 
@@ -1034,7 +1370,82 @@ The `y-indexeddb` provider persists a Yjs document to the browser's IndexedDB. W
 
 The `y-webrtc` provider synchronizes Yjs documents directly between browsers using WebRTC data channels. No central server is needed to relay document updates — only a lightweight signaling server brokers the initial peer connection. This makes it excellent for demos, prototyping, and scenarios where you want collaboration without deploying infrastructure.
 
-### Install
+#### Install
+
+```bash
+npm install y-webrtc yjs
+```
+
+#### Basic Setup
+
+```js
+import * as Y from 'yjs'
+import { WebrtcProvider } from 'y-webrtc'
+
+const ydoc = new Y.Doc()
+
+// Peers that share the same room name will sync automatically
+const provider = new WebrtcProvider('my-room-name', ydoc)
+
+// Awareness is included for presence features
+const awareness = provider.awareness
+
+awareness.setLocalStateField('user', {
+  name: 'Bob',
+  color: '#00ff00'
+})
+```
+
+#### Configuration Options
+
+```js
+const provider = new WebrtcProvider('my-room-name', ydoc, {
+  // Use public signaling servers (default) or specify your own
+  signaling: ['wss://signaling.yjs.dev', 'wss://y-webrtc-signaling-us.herokuapp.com'],
+  // Optional password to encrypt communication
+  password: 'optional-shared-secret',
+  // Awareness instance (one is created by default)
+  awareness: new awarenessProtocol.Awareness(ydoc),
+  // Maximum number of WebRTC connections
+  maxConns: 20 + Math.floor(Math.random() * 15),
+  // Whether to sync via BroadcastChannel (for same-browser tabs)
+  filterBcConns: true
+})
+```
+
+#### When to Use y-webrtc
+
+```js
+// Good for:
+// - Demos and prototypes
+// - Small groups (< 20 peers)
+// - Privacy-sensitive apps where data shouldn't pass through a server
+// - Offline-first with same-network sync
+
+// Consider y-websocket instead when:
+// - You need server-side persistence
+// - You have many concurrent users
+// - You need guaranteed delivery across NAT boundaries
+```
+
+#### Cleanup
+
+```js
+provider.destroy()
+```
+
+#### Verification Checklist
+
+- [ ] `y-webrtc` and `yjs` are installed
+- [ ] `WebrtcProvider` is created with a room name and Y.Doc
+- [ ] Signaling servers are reachable (default public servers or your own)
+- [ ] Provider is destroyed on cleanup
+- [ ] For production, consider whether WebRTC's peer-to-peer model fits your scale requirements
+- [ ] Password is set if document privacy is needed
+
+#### Source
+
+- https://docs.yjs.dev/ecosystem/connection-provider/y-webrtc
 
 ---
 
@@ -1046,7 +1457,92 @@ The `y-websocket` provider is the most common way to synchronize Yjs documents a
 
 Choose y-websocket when you need a reliable, production-ready sync layer with a central server you control.
 
-### Install
+#### Install
+
+```bash
+npm install y-websocket yjs
+```
+
+#### Client Setup
+
+```js
+import * as Y from 'yjs'
+import { WebsocketProvider } from 'y-websocket'
+
+const ydoc = new Y.Doc()
+
+// Connect to a WebSocket server with a room name
+const provider = new WebsocketProvider(
+  'ws://localhost:1234',  // server URL
+  'my-room-name',         // room name — clients in the same room sync together
+  ydoc
+)
+
+// Access awareness for presence (cursors, user info)
+const awareness = provider.awareness
+
+// Set local user presence
+awareness.setLocalStateField('user', {
+  name: 'Alice',
+  color: '#ff0000'
+})
+
+// Listen for connection status
+provider.on('status', (event) => {
+  console.log('Connection status:', event.status) // 'connected' or 'disconnected'
+})
+
+// Listen for sync completion
+provider.on('sync', (isSynced) => {
+  if (isSynced) {
+    console.log('Document synced with server')
+  }
+})
+```
+
+#### Server Setup (Quick Start)
+
+```bash
+# Run the built-in y-websocket server on port 1234
+npx y-websocket
+```
+
+#### Custom Server
+
+```js
+import { WebSocketServer } from 'ws'
+import { setupWSConnection } from 'y-websocket/bin/utils'
+
+const wss = new WebSocketServer({ port: 1234 })
+
+wss.on('connection', (ws, req) => {
+  setupWSConnection(ws, req)
+})
+
+console.log('y-websocket server running on ws://localhost:1234')
+```
+
+#### Cleanup on Unmount
+
+```js
+// Disconnect the provider when no longer needed
+provider.disconnect()
+// Or destroy it entirely (also destroys awareness)
+provider.destroy()
+```
+
+#### Verification Checklist
+
+- [ ] `y-websocket` and `yjs` are installed
+- [ ] `WebsocketProvider` is created with server URL, room name, and Y.Doc
+- [ ] Provider is destroyed or disconnected on component unmount / cleanup
+- [ ] Awareness is accessed via `provider.awareness` (not created separately)
+- [ ] Server is running (either `npx y-websocket` or custom server)
+- [ ] Connection status is monitored via `provider.on('status', ...)`
+
+#### Source
+
+- https://docs.yjs.dev/ecosystem/connection-provider/y-websocket
 
 ---
 
@@ -1062,7 +1558,100 @@ Binding Yjs shared types into rich-text editors — TipTap, ProseMirror, CodeMir
 
 The `y-codemirror.next` package provides a CodeMirror 6 extension that binds a `Y.Text` shared type to the editor. Unlike ProseMirror-based editors that use `Y.XmlFragment`, CodeMirror works with plain text and uses `Y.Text`. The extension handles sync, remote cursors, and undo in a single `yCollab` call.
 
-### Install
+#### Install
+
+```bash
+npm install yjs y-codemirror.next y-websocket @codemirror/state @codemirror/view
+```
+
+#### Setup
+
+```js
+import * as Y from 'yjs'
+import { WebsocketProvider } from 'y-websocket'
+import { yCollab } from 'y-codemirror.next'
+import { EditorState } from '@codemirror/state'
+import { EditorView, basicSetup } from 'codemirror'
+
+const ydoc = new Y.Doc()
+const provider = new WebsocketProvider('ws://localhost:1234', 'my-room', ydoc)
+
+// Use Y.Text for code editors (not Y.XmlFragment)
+const ytext = ydoc.getText('codemirror')
+
+// Create an UndoManager scoped to the Y.Text
+const undoManager = new Y.UndoManager(ytext)
+
+// Set user info for remote cursors
+provider.awareness.setLocalStateField('user', {
+  name: 'Alice',
+  color: '#ff0000',
+  colorLight: '#ff000033',
+})
+
+const state = EditorState.create({
+  doc: ytext.toString(),
+  extensions: [
+    basicSetup,
+    yCollab(ytext, provider.awareness, { undoManager }),
+  ],
+})
+
+const view = new EditorView({
+  state,
+  parent: document.querySelector('#editor'),
+})
+```
+
+#### Without Awareness (No Cursors)
+
+```js
+// If you don't need remote cursors, pass null for awareness
+const state = EditorState.create({
+  doc: ytext.toString(),
+  extensions: [
+    basicSetup,
+    yCollab(ytext, null, { undoManager }),
+  ],
+})
+```
+
+#### Cleanup
+
+```js
+view.destroy()
+provider.destroy()
+ydoc.destroy()
+```
+
+#### Verification Checklist
+
+- [ ] `y-codemirror.next` and `yjs` are installed
+- [ ] `Y.Text` is used (not `Y.XmlFragment`) for CodeMirror content
+- [ ] `yCollab` extension is added with ytext, awareness, and undoManager
+- [ ] `Y.UndoManager` is created and scoped to the same Y.Text instance
+- [ ] User info is set on awareness with `name`, `color`, and `colorLight`
+- [ ] Editor view and providers are destroyed on cleanup
+
+#### Using a Wrapped Integration (e.g., Velt CRDT v2)
+
+Higher-level wrappers (such as `@veltdev/codemirror-crdt(-react)` v2) hide the Yjs and `y-codemirror.next` plumbing behind a single `CollaborationManager` plus a `primitives` object you pass into `yCollab()`. The Yjs primitives are still there — they are exposed as escape hatches on the manager so that Yjs-level tooling (custom CodeMirror plugins, snapshots, awareness debugging, persistence providers) still works:
+
+```js
+// With @veltdev/codemirror-crdt v2 — the manager wraps Y.Text + a network provider.
+const doc        = manager.getDoc();         // Y.Doc
+const ytext      = manager.getYText();       // Y.Text | null (CodeMirror content root)
+const awareness  = manager.getAwareness();   // Awareness (Yjs awareness protocol)
+const provider   = manager.getProvider();    // network provider (sync)
+const undoMgr    = manager.getUndoManager(); // Y.UndoManager | null
+```
+
+When working with these wrappers, the same Yjs rules apply: use `Y.Text` (not `Y.XmlFragment`) — the wrapper already binds the correct shared type — do not construct a second `Y.Doc` for the same editor, and reach for the Yjs primitives only when the wrapper's high-level API (status, sync, versions, primitives passed into `yCollab`) is insufficient.
+
+#### Source
+
+- https://docs.yjs.dev/ecosystem/editor-bindings/codemirror.next
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror (wrapped Yjs + CodeMirror integration)
 
 ---
 
@@ -1072,7 +1661,146 @@ The `y-codemirror.next` package provides a CodeMirror 6 extension that binds a `
 
 The `y-monaco` package binds a `Y.Text` shared type to a Monaco editor instance. Monaco is the editor that powers VS Code, so this binding is ideal for building collaborative code editors. Like CodeMirror, Monaco works with plain text and uses `Y.Text` (not `Y.XmlFragment`).
 
-### Install
+#### Install
+
+```bash
+npm install yjs y-monaco y-websocket monaco-editor
+```
+
+#### Setup
+
+```js
+import * as Y from 'yjs'
+import { WebsocketProvider } from 'y-websocket'
+import { MonacoBinding } from 'y-monaco'
+import * as monaco from 'monaco-editor'
+
+const ydoc = new Y.Doc()
+const provider = new WebsocketProvider('ws://localhost:1234', 'my-room', ydoc)
+
+// Use Y.Text for Monaco (plain text shared type)
+const ytext = ydoc.getText('monaco')
+
+const editor = monaco.editor.create(document.querySelector('#editor'), {
+  value: '',
+  language: 'javascript',
+  theme: 'vs-dark',
+})
+
+const model = editor.getModel()
+
+// Bind Y.Text to Monaco: (ytext, model, editors, awareness)
+const binding = new MonacoBinding(
+  ytext,
+  model,
+  new Set([editor]),
+  provider.awareness
+)
+
+// Set user info for remote cursor display
+provider.awareness.setLocalStateField('user', {
+  name: 'Alice',
+  color: '#ff0000',
+})
+```
+
+#### React Integration
+
+```jsx
+import { useEffect, useRef } from 'react'
+import * as monaco from 'monaco-editor'
+
+function CollaborativeMonacoEditor({ ydoc, provider }) {
+  const containerRef = useRef(null)
+
+  useEffect(() => {
+    const ytext = ydoc.getText('monaco')
+
+    const editor = monaco.editor.create(containerRef.current, {
+      value: '',
+      language: 'javascript',
+      theme: 'vs-dark',
+      automaticLayout: true,
+    })
+
+    const binding = new MonacoBinding(
+      ytext,
+      editor.getModel(),
+      new Set([editor]),
+      provider.awareness
+    )
+
+    return () => {
+      binding.destroy()
+      editor.dispose()
+    }
+  }, [ydoc, provider])
+
+  return <div ref={containerRef} style={{ height: '500px' }} />
+}
+```
+
+#### Remote Cursor Styling
+
+`y-monaco` only adds decoration classes; without CSS, remote carets and selections are invisible. Add base styles, then derive per-user colors and labels from awareness using the client-specific classes:
+
+```css
+.yRemoteSelection { background-color: rgba(37, 99, 235, 0.2); }
+.yRemoteSelectionHead { border-left: 2px solid #2563eb; min-height: 1.2em; }
+```
+
+```js
+const style = document.createElement('style')
+document.head.appendChild(style)
+
+const renderCursorStyles = () => {
+  const rules = []
+  provider.awareness.getStates().forEach((state, clientId) => {
+    if (clientId === ydoc.clientID || !state?.user) return
+    const color = state.user.color || '#2563eb'
+    rules.push(`
+      .yRemoteSelection-${clientId} { background-color: ${color}33; }
+      .yRemoteSelectionHead-${clientId} { border-left: 2px solid ${color}; }
+    `)
+  })
+  style.textContent = rules.join('\n')
+}
+
+provider.awareness.on('change', renderCursorStyles)
+renderCursorStyles()
+// On cleanup: provider.awareness.off('change', renderCursorStyles); style.remove()
+```
+
+#### Bundling and SSR
+
+- Monaco needs browser APIs: in Next.js load the editor with `next/dynamic` and `ssr: false`, and configure Monaco workers in your bundler.
+- Deduplicate `yjs`, `y-protocols`, and `monaco-editor` (for example Vite `resolve.dedupe`). A "Yjs was already imported" warning means two copies are bundled.
+- Never control Monaco content from a second source (React `value` / `defaultValue`) once the model is bound to `Y.Text`.
+
+#### Cleanup
+
+```js
+binding.destroy()
+editor.dispose()
+provider.destroy()
+ydoc.destroy()
+```
+
+#### Verification Checklist
+
+- [ ] `y-monaco`, `yjs`, and `monaco-editor` are installed
+- [ ] `Y.Text` is used (not `Y.XmlFragment`) for Monaco content
+- [ ] `MonacoBinding` receives (ytext, model, editors Set, awareness) in correct order
+- [ ] Editors parameter is a `Set` of editor instances
+- [ ] User info is set on awareness for remote cursor display
+- [ ] `.yRemoteSelection` / `.yRemoteSelectionHead` (and per-client) styles are defined so remote carets are visible
+- [ ] `yjs`, `y-protocols`, and `monaco-editor` resolve to one copy each
+- [ ] Binding and editor are destroyed on cleanup
+
+#### Source
+
+- https://docs.yjs.dev/ecosystem/editor-bindings/monaco
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/monaco - "Step 7: Style Remote Cursors" and "Step 13: Client-only Rendering" (for Velt-hosted sync, use `@veltdev/monaco-crdt` instead of a hand-built provider; see velt-crdt-best-practices)
 
 ---
 
@@ -1082,7 +1810,119 @@ The `y-monaco` package binds a `Y.Text` shared type to a Monaco editor instance.
 
 The `y-prosemirror` package provides three ProseMirror plugins that enable collaborative editing. Plugin order matters: sync must come before cursor, and cursor before undo. The sync plugin binds a `Y.XmlFragment` to the ProseMirror document, the cursor plugin renders remote cursors via the awareness protocol, and the undo plugin replaces ProseMirror's default undo with a Yjs-aware version.
 
-### Install
+#### Install
+
+```bash
+npm install yjs y-prosemirror y-websocket prosemirror-state prosemirror-view prosemirror-keymap
+```
+
+#### Setup
+
+```js
+import * as Y from 'yjs'
+import { WebsocketProvider } from 'y-websocket'
+import { ySyncPlugin, yCursorPlugin, yUndoPlugin, undo, redo } from 'y-prosemirror'
+import { EditorState } from 'prosemirror-state'
+import { EditorView } from 'prosemirror-view'
+import { schema } from 'prosemirror-schema-basic'
+import { keymap } from 'prosemirror-keymap'
+
+const ydoc = new Y.Doc()
+const provider = new WebsocketProvider('ws://localhost:1234', 'my-room', ydoc)
+
+// Use Y.XmlFragment for rich-text editors (ProseMirror, TipTap)
+const yXmlFragment = ydoc.getXmlFragment('prosemirror')
+
+const state = EditorState.create({
+  schema,
+  plugins: [
+    // Order matters: sync -> cursor -> undo
+    ySyncPlugin(yXmlFragment),
+    yCursorPlugin(provider.awareness),
+    yUndoPlugin(),
+    keymap({
+      'Mod-z': undo,
+      'Mod-y': redo,
+      'Mod-Shift-z': redo,
+    }),
+  ],
+})
+
+const view = new EditorView(document.querySelector('#editor'), { state })
+```
+
+#### Set User Presence for Cursor Display
+
+```js
+// The cursor plugin reads 'user' from awareness to render remote cursors
+provider.awareness.setLocalStateField('user', {
+  name: 'Alice',
+  color: '#ff0000',
+  // Optional: colorLight is used for selection highlight
+  colorLight: '#ff000033',
+})
+```
+
+#### Cursor Styling
+
+`yCursorPlugin` renders remote carets as `.ProseMirror-yjs-cursor` elements (with the user's name in a child label) and remote selections as `.ProseMirror-yjs-selection` decorations. The `.yRemoteSelection*` classes belong to y-monaco and y-codemirror, not y-prosemirror.
+
+```css
+/* Remote caret rendered by yCursorPlugin */
+.ProseMirror-yjs-cursor {
+  position: relative;
+  margin-left: -1px;
+  margin-right: -1px;
+  border-left: 2px solid;
+  pointer-events: none;
+  word-break: normal;
+}
+
+/* Name label inside the caret */
+.ProseMirror-yjs-cursor > div {
+  position: absolute;
+  top: -1.4em;
+  left: -1px;
+  padding: 0.1rem 0.35rem;
+  font-size: 0.65rem;
+  color: #fff;
+  white-space: nowrap;
+  user-select: none;
+}
+
+/* Remote selection highlight */
+.ProseMirror-yjs-selection {
+  background-color: rgba(124, 58, 237, 0.2);
+}
+```
+
+#### Schema Compatibility
+
+All clients must use a compatible ProseMirror schema. Node and mark names are part of the shared document contract: a client that does not know a node or mark type cannot render it. Create the schema once (not per render) and roll out schema changes as explicit migrations while older clients may still be connected.
+
+#### Cleanup
+
+```js
+view.destroy()
+provider.destroy()
+ydoc.destroy()
+```
+
+#### Verification Checklist
+
+- [ ] `y-prosemirror` and `yjs` are installed
+- [ ] Plugin order is correct: `ySyncPlugin` before `yCursorPlugin` before `yUndoPlugin`
+- [ ] ProseMirror's default history plugin is NOT included (replaced by `yUndoPlugin`)
+- [ ] `Y.XmlFragment` is used (not `Y.Text`) for ProseMirror content
+- [ ] Awareness user is set with `name` and `color` for cursor rendering
+- [ ] Undo/redo keybindings use `undo`/`redo` from y-prosemirror
+- [ ] Cursor CSS targets `.ProseMirror-yjs-cursor` and `.ProseMirror-yjs-selection`
+- [ ] Every client uses the same schema; `yjs`, `y-prosemirror`, and `prosemirror-*` packages resolve to one copy each
+
+#### Source
+
+- https://docs.yjs.dev/ecosystem/editor-bindings/prosemirror
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/prosemirror - "Step 3: Create a Schema" and "Step 7: Style Remote Cursors" (for Velt-hosted sync, use `@veltdev/prosemirror-crdt`, which re-exports Yjs-aware `undo`/`redo`; see velt-crdt-best-practices)
 
 ---
 
@@ -1092,7 +1932,111 @@ The `y-prosemirror` package provides three ProseMirror plugins that enable colla
 
 The `y-quill` package binds a `Y.Text` shared type to a Quill editor instance. Quill's Delta format and Yjs's `Y.Text` are naturally compatible — both represent rich text as a sequence of insert operations with attributes. The `quill-cursors` module is required to display remote cursors.
 
-### Install
+#### Install
+
+```bash
+npm install yjs y-quill y-websocket quill quill-cursors
+```
+
+#### Setup
+
+```js
+import * as Y from 'yjs'
+import { WebsocketProvider } from 'y-websocket'
+import { QuillBinding } from 'y-quill'
+import Quill from 'quill'
+import QuillCursors from 'quill-cursors'
+
+// Register the cursors module BEFORE any `new Quill()` call.
+// Registering later lets sync work but remote cursors never render.
+Quill.register('modules/cursors', QuillCursors)
+
+const ydoc = new Y.Doc()
+const provider = new WebsocketProvider('ws://localhost:1234', 'my-room', ydoc)
+
+// Use Y.Text for Quill (same as CodeMirror, not XmlFragment)
+const ytext = ydoc.getText('quill')
+
+const quill = new Quill('#editor', {
+  theme: 'snow',
+  modules: {
+    cursors: { transformOnTextChange: true }, // Enable the cursors module
+    toolbar: [
+      ['bold', 'italic', 'underline', 'strike'],
+      [{ 'header': [1, 2, 3, false] }],
+      ['link', 'image'],
+      [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+    ],
+    // Keep Quill's history local-only so it never replays remote changes.
+    // Wire user-facing undo/redo to a Y.UndoManager on the shared Y.Text.
+    history: {
+      userOnly: true,
+    },
+  },
+})
+
+// Bind Y.Text to Quill with awareness for cursors
+const binding = new QuillBinding(ytext, quill, provider.awareness)
+
+// Set user info for remote cursor display
+provider.awareness.setLocalStateField('user', {
+  name: 'Alice',
+  color: '#ff0000',
+})
+```
+
+#### React Integration
+
+```jsx
+import { useEffect, useRef } from 'react'
+
+function CollaborativeQuillEditor() {
+  const editorRef = useRef(null)
+  const bindingRef = useRef(null)
+
+  useEffect(() => {
+    const ydoc = new Y.Doc()
+    const provider = new WebsocketProvider('ws://localhost:1234', 'my-room', ydoc)
+    const ytext = ydoc.getText('quill')
+
+    const quill = new Quill(editorRef.current, {
+      theme: 'snow',
+      modules: { cursors: true },
+    })
+
+    bindingRef.current = new QuillBinding(ytext, quill, provider.awareness)
+
+    provider.awareness.setLocalStateField('user', {
+      name: 'Alice',
+      color: '#ff0000',
+    })
+
+    return () => {
+      bindingRef.current.destroy()
+      provider.destroy()
+      ydoc.destroy()
+    }
+  }, [])
+
+  return <div ref={editorRef} />
+}
+```
+
+#### Verification Checklist
+
+- [ ] `y-quill`, `quill`, and `quill-cursors` are installed
+- [ ] `QuillCursors` module is registered with `Quill.register()`
+- [ ] `QuillCursors` is registered before the Quill instance is constructed
+- [ ] The `cursors` module is enabled in Quill's modules config, and `.ql-cursor` / `.ql-cursor-selection` are not hidden by app CSS
+- [ ] Quill `history` uses `userOnly: true`; undo/redo controls use a `Y.UndoManager`
+- [ ] `QuillBinding` is created with Y.Text, Quill instance, and awareness
+- [ ] `Y.Text` is used (not `Y.XmlFragment`) for Quill content
+- [ ] Binding, provider, and Y.Doc are destroyed on cleanup
+
+#### Source
+
+- https://docs.yjs.dev/ecosystem/editor-bindings/quill
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/quill - "Step 2: Load Styles and Register Cursors" and "Step 10: Configure Collaborative Undo and Redo" (for Velt-hosted sync, use `@veltdev/quill-crdt` instead of a hand-built `QuillBinding`; see velt-crdt-best-practices)
 
 ---
 
@@ -1102,7 +2046,122 @@ The `y-quill` package binds a `Y.Text` shared type to a Quill editor instance. Q
 
 TipTap is built on ProseMirror, so it uses the `y-prosemirror` package for Yjs integration. TipTap provides convenient `Collaboration` and `CollaborationCursor` extensions that wrap the underlying y-prosemirror plugins. You must disable TipTap's built-in history extension when using Yjs, because Yjs provides its own undo manager that understands collaborative edits.
 
-### Install
+#### Install
+
+```bash
+npm install yjs y-prosemirror y-websocket @tiptap/extension-collaboration @tiptap/extension-collaboration-cursor
+```
+
+#### TipTap Setup with Collaboration
+
+```js
+import * as Y from 'yjs'
+import { WebsocketProvider } from 'y-websocket'
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
+import Collaboration from '@tiptap/extension-collaboration'
+import CollaborationCursor from '@tiptap/extension-collaboration-cursor'
+
+const ydoc = new Y.Doc()
+const provider = new WebsocketProvider('ws://localhost:1234', 'my-room', ydoc)
+
+const editor = useEditor({
+  extensions: [
+    StarterKit.configure({
+      // Disable built-in history — Yjs handles undo/redo
+      history: false,
+    }),
+    Collaboration.configure({
+      document: ydoc,
+      // Optionally specify which Y.XmlFragment to use (defaults to 'default')
+      field: 'default',
+    }),
+    CollaborationCursor.configure({
+      provider: provider,
+      user: {
+        name: 'Alice',
+        color: '#ff0000',
+      },
+    }),
+  ],
+})
+```
+
+#### Using y-prosemirror Plugins Directly
+
+```js
+import { ySyncPlugin, yCursorPlugin, yUndoPlugin } from 'y-prosemirror'
+import { undo, redo } from 'y-prosemirror'
+import { keymap } from '@tiptap/pm/keymap'
+
+const yXmlFragment = ydoc.getXmlFragment('prosemirror')
+
+const editor = useEditor({
+  extensions: [
+    StarterKit.configure({ history: false }),
+    // Register y-prosemirror plugins as TipTap extensions
+    Extension.create({
+      addProseMirrorPlugins() {
+        return [
+          ySyncPlugin(yXmlFragment),
+          yCursorPlugin(provider.awareness),
+          yUndoPlugin(),
+          keymap({
+            'Mod-z': undo,
+            'Mod-y': redo,
+            'Mod-Shift-z': redo,
+          }),
+        ]
+      },
+    }),
+  ],
+})
+```
+
+#### Render the Editor
+
+```jsx
+function CollaborativeEditor() {
+  return <EditorContent editor={editor} />
+}
+```
+
+#### Cleanup
+
+```js
+// On unmount
+editor.destroy()
+provider.destroy()
+ydoc.destroy()
+```
+
+#### Verification Checklist
+
+- [ ] `y-prosemirror`, `yjs`, and TipTap collaboration extensions are installed
+- [ ] TipTap's built-in `history` is disabled (`history: false` in StarterKit)
+- [ ] `Collaboration` extension is configured with the Y.Doc
+- [ ] `CollaborationCursor` extension is configured with the provider and user info
+- [ ] Provider, editor, and Y.Doc are destroyed on cleanup
+- [ ] Undo/redo works correctly across collaborative sessions
+
+#### Using a Wrapped Integration (e.g., Velt CRDT v2)
+
+Higher-level wrappers (such as `@veltdev/tiptap-crdt(-react)` v2) hide the `y-prosemirror` plumbing behind a single bundled TipTap `Extension` and a `CollaborationManager` object. The Yjs primitives are still there — they are exposed as escape hatches on the manager so that Yjs-level tooling (custom plugins, snapshots, awareness debugging, persistence providers) still works:
+
+```js
+// With @veltdev/tiptap-crdt v2 — the manager wraps y-prosemirror + a network provider.
+const doc        = manager.getDoc();         // Y.Doc
+const xml        = manager.getXmlFragment(); // Y.XmlFragment | null (TipTap content root)
+const awareness  = manager.getAwareness();   // Awareness (Yjs awareness protocol)
+const provider   = manager.getProvider();    // network provider (sync)
+```
+
+When working with these wrappers, the same Yjs rules apply: disable TipTap's `undoRedo` / `history` (the wrapper relies on Yjs's undo manager), do not construct a second `Y.Doc` for the same editor, and reach for the Yjs primitives only when the wrapper's high-level API is insufficient.
+
+#### Source
+
+- https://docs.yjs.dev/ecosystem/editor-bindings/tiptap2
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap (wrapped Yjs + TipTap integration)
 
 ---
 
@@ -1120,7 +2179,128 @@ The Awareness protocol is a CRDT for non-persistent, ephemeral state shared acro
 
 Most providers (y-websocket, y-webrtc) create an awareness instance automatically, accessible via `provider.awareness`.
 
-### Setting Local State
+#### Setting Local State
+
+```js
+import * as Y from 'yjs'
+import { WebsocketProvider } from 'y-websocket'
+
+const ydoc = new Y.Doc()
+const provider = new WebsocketProvider('ws://localhost:1234', 'room', ydoc)
+const awareness = provider.awareness
+
+// Set a single field on local state
+awareness.setLocalStateField('user', {
+  name: 'Alice',
+  color: '#ff0000',
+  colorLight: '#ff000033',
+})
+
+// Set cursor position (editor bindings do this automatically)
+awareness.setLocalStateField('cursor', {
+  anchor: { type: ytext, index: 5 },
+  head: { type: ytext, index: 10 },
+})
+
+// Set the entire local state at once
+awareness.setLocalState({
+  user: { name: 'Alice', color: '#ff0000' },
+  cursor: null,
+  isTyping: true,
+})
+
+// Remove local state (signals "going offline" to peers)
+awareness.setLocalState(null)
+```
+
+#### Listening for Changes
+
+```js
+// Fires when any peer's awareness state changes
+awareness.on('change', ({ added, updated, removed }, origin) => {
+  // added: array of clientIDs that were added
+  // updated: array of clientIDs that were updated
+  // removed: array of clientIDs that were removed
+
+  const allStates = awareness.getStates()
+  // allStates is a Map<number, object> — clientID to state
+
+  allStates.forEach((state, clientID) => {
+    if (state.user) {
+      console.log(`${state.user.name} is connected`)
+    }
+  })
+})
+```
+
+#### Getting All Peer States
+
+```js
+// Get all awareness states as a Map<clientID, state>
+const states = awareness.getStates()
+
+// Get the local client ID
+const localClientID = ydoc.clientID
+
+// Iterate over remote peers
+states.forEach((state, clientID) => {
+  if (clientID !== localClientID && state.user) {
+    console.log(`Remote user: ${state.user.name}`)
+  }
+})
+```
+
+#### Convention: Editor Bindings
+
+```js
+// Editor bindings (y-prosemirror, y-codemirror.next, y-quill, y-monaco)
+// read these fields by convention:
+//
+//   state.user.name     — displayed next to cursor
+//   state.user.color    — cursor/caret color
+//   state.user.colorLight — selection highlight color
+//
+// Cursor position is managed by the binding itself — you only need to set 'user'.
+
+awareness.setLocalStateField('user', {
+  name: 'Alice',
+  color: '#ff0000',
+  colorLight: '#ff000033',
+})
+```
+
+#### Custom Ephemeral State
+
+```js
+// You can store any ephemeral data in awareness
+awareness.setLocalStateField('status', 'viewing')
+awareness.setLocalStateField('selectedElement', 'node-42')
+awareness.setLocalStateField('viewport', { x: 100, y: 200, zoom: 1.5 })
+```
+
+#### Auto-Cleanup
+
+```js
+// Awareness automatically removes a peer's state when:
+// - The peer disconnects from the provider
+// - The peer calls awareness.setLocalState(null)
+// - A timeout elapses without receiving updates from the peer
+//
+// No manual cleanup is needed for remote peers.
+```
+
+#### Verification Checklist
+
+- [ ] Awareness is accessed from the provider (`provider.awareness`), not created manually
+- [ ] Local user info is set with `setLocalStateField('user', { name, color })`
+- [ ] `awareness.on('change', ...)` is used to react to presence updates
+- [ ] `awareness.getStates()` is used to read all peer states
+- [ ] Awareness state is not used for persistent data (it is ephemeral)
+- [ ] `setLocalState(null)` is called if explicit "go offline" behavior is needed
+
+#### Source
+
+- https://docs.yjs.dev/api/about-awareness
 
 ---
 
@@ -1136,7 +2316,147 @@ Most providers (y-websocket, y-webrtc) create an awareness instance automaticall
 
 `Y.UndoManager` provides undo/redo that only reverts the local user's changes, even in a collaborative document. Standard editor undo stacks track all operations and will undo other users' edits — this is incorrect for collaboration. The UndoManager is scoped to specific shared types and can be configured with tracked origins, capture timeouts, and metadata for cursor restoration.
 
-### Basic Setup
+#### Basic Setup
+
+```js
+import * as Y from 'yjs'
+
+const ydoc = new Y.Doc()
+const ytext = ydoc.getText('editor')
+
+// Create an UndoManager scoped to ytext
+const undoManager = new Y.UndoManager(ytext)
+
+// Undo and redo
+undoManager.undo()
+undoManager.redo()
+```
+
+#### Configuration Options
+
+```js
+const ytext = ydoc.getText('editor')
+const ymap = ydoc.getMap('metadata')
+
+// Scope to multiple shared types
+const undoManager = new Y.UndoManager([ytext, ymap], {
+  // Time in ms to group consecutive changes into one undo step (default: 500)
+  captureTimeout: 500,
+
+  // Only track changes from these transaction origins.
+  // null origin means direct local edits (the default).
+  trackedOrigins: new Set([null]),
+
+  // Filter which deleted items should be restored on undo
+  deleteFilter: (item) => true,
+})
+```
+
+#### Stop Capturing (Force New Undo Step)
+
+```js
+// By default, rapid edits within captureTimeout are grouped.
+// Call stopCapturing() to force the next edit into a new undo step.
+undoManager.stopCapturing()
+```
+
+#### Tracked Origins
+
+```js
+// Only undo changes made with specific transaction origins
+const undoManager = new Y.UndoManager(ytext, {
+  trackedOrigins: new Set(['user-input']),
+})
+
+// This change will be tracked (origin matches)
+ydoc.transact(() => {
+  ytext.insert(0, 'Hello')
+}, 'user-input')
+
+// This change will NOT be tracked (origin doesn't match)
+ydoc.transact(() => {
+  ytext.insert(0, 'System: ')
+}, 'system')
+
+// undoManager.undo() only reverts the 'Hello' insert
+```
+
+#### Meta Pattern for Cursor Restoration
+
+```js
+// Use stack item metadata to save/restore cursor positions on undo/redo
+undoManager.on('stack-item-added', (event) => {
+  // Save the current cursor position when a change is recorded
+  event.stackItem.meta.set('cursor-position', getCursorPosition())
+})
+
+undoManager.on('stack-item-popped', (event) => {
+  // Restore cursor position when undoing/redoing
+  const savedPosition = event.stackItem.meta.get('cursor-position')
+  if (savedPosition != null) {
+    restoreCursorPosition(savedPosition)
+  }
+})
+```
+
+#### Events
+
+```js
+// Fired when a new undo step is added to the stack
+undoManager.on('stack-item-added', (event) => {
+  // event.stackItem — the new stack item
+  // event.origin — transaction origin
+  // event.type — 'undo' or 'redo'
+  // event.changedParentTypes — Map of changed Y types
+})
+
+// Fired when an undo or redo is performed
+undoManager.on('stack-item-popped', (event) => {
+  // Same properties as stack-item-added
+})
+
+// Fired when an existing stack item is updated (merged with new changes)
+undoManager.on('stack-item-updated', (event) => {
+  // Same properties as stack-item-added
+})
+```
+
+#### Clear the Stacks
+
+```js
+// Clear both undo and redo stacks
+undoManager.clear()
+
+// Check stack sizes
+console.log('Can undo:', undoManager.undoStack.length > 0)
+console.log('Can redo:', undoManager.redoStack.length > 0)
+```
+
+#### Integration with Editor Bindings
+
+```js
+// y-prosemirror / TipTap: use yUndoPlugin() — it creates an UndoManager internally
+import { yUndoPlugin, undo, redo } from 'y-prosemirror'
+
+// y-codemirror.next: pass undoManager to yCollab
+import { yCollab } from 'y-codemirror.next'
+const undoManager = new Y.UndoManager(ytext)
+const ext = yCollab(ytext, awareness, { undoManager })
+```
+
+#### Verification Checklist
+
+- [ ] `Y.UndoManager` is used instead of the editor's built-in undo
+- [ ] UndoManager is scoped to the correct shared type(s)
+- [ ] `trackedOrigins` is configured if you need to filter which changes are undoable
+- [ ] `captureTimeout` is tuned for your use case (default 500ms)
+- [ ] `stopCapturing()` is called before semantically distinct operations
+- [ ] Cursor position is saved/restored via the meta pattern if needed
+- [ ] Editor's built-in history is disabled when using Yjs undo
+
+#### Source
+
+- https://docs.yjs.dev/api/undo-manager
 
 ---
 
@@ -1157,6 +2477,7 @@ Symptoms of duplicate Yjs imports:
 - `instanceof` checks fail (e.g., `value instanceof Y.Map` returns `false` for a value that is clearly a Y.Map)
 - Errors like "Unexpected case" or "Unknown content type" in the console
 - State vectors diverge between clients that should be in sync
+- A "Yjs was already imported" warning in the browser console
 
 The root cause is almost always multiple versions or multiple builds of `yjs` in the dependency tree. Fix this by forcing a single resolution at the package manager level, and optionally with bundler aliases.
 
@@ -1169,12 +2490,18 @@ The root cause is almost always multiple versions or multiple builds of `yjs` in
     "yjs": "13.6.18"
   }
 }
+```
+
+```jsonc
 // package.json — yarn resolutions
 {
   "resolutions": {
     "yjs": "13.6.18"
   }
 }
+```
+
+```jsonc
 // package.json — pnpm overrides
 {
   "pnpm": {
@@ -1198,15 +2525,22 @@ module.exports = {
     }
   }
 }
+```
+
+```js
 // vite.config.js
 import { defineConfig } from 'vite'
 
 export default defineConfig({
   resolve: {
-    dedupe: ['yjs']
+    // Dedupe yjs plus the packages that share its constructors and awareness:
+    // the protocol package, the binding, and the editor it binds to.
+    dedupe: ['yjs', 'y-protocols', 'y-prosemirror', 'prosemirror-model', 'prosemirror-state', 'prosemirror-view']
   }
 })
 ```
+
+Duplicates are not limited to `yjs` itself. A second copy of `y-protocols` splits awareness, and a second copy of the bound editor (`monaco-editor`, `ckeditor5`, `lexical` and `@lexical/*`, `prosemirror-*`) breaks the binding even when `yjs` is single. In linked or monorepo builds, also dedupe `lib0`.
 
 **Correct — diagnosing the problem:**
 
@@ -1219,6 +2553,18 @@ npm ls yjs
 rm -rf node_modules package-lock.json
 npm install
 ```
+
+**Verification:**
+- [ ] `npm ls yjs` (or equivalent) shows exactly one copy of yjs in the dependency tree
+- [ ] Package manager overrides/resolutions pin yjs to a single version
+- [ ] Bundler config includes alias or dedupe for yjs if using webpack or vite
+- [ ] `y-protocols`, the editor binding, and the editor package also resolve to a single copy
+- [ ] No "Unexpected case" or "Unknown content type" errors in the console
+- [ ] Changes propagate correctly between two browser tabs in the same room
+
+**Source:** https://docs.yjs.dev/tutorials/pitfalls#yjs-is-imported-twice
+
+Also: https://docs.velt.dev/realtime-collaboration/crdt/setup/monaco (dedupe `yjs`, `y-protocols`, `monaco-editor`), https://docs.velt.dev/realtime-collaboration/crdt/setup/prosemirror (dedupe `yjs`, `y-prosemirror`, `prosemirror-*`), https://docs.velt.dev/realtime-collaboration/crdt/setup/ckeditor (dedupe `ckeditor5`, `yjs`, `y-protocols`, `lib0`)
 
 ---
 
@@ -1286,6 +2632,24 @@ subdoc.load()
 subdoc.destroy()
 ```
 
+**When to use each approach:**
+
+| Scenario | Approach |
+|---|---|
+| Multiple editor sections in one view | Y.Map + Y.XmlFragment entries |
+| Multi-tab editor with shared state | Y.Map + named fragments |
+| Very large document with lazy-loaded sections | Subdocuments |
+| Independent documents that share nothing | Separate Y.Doc instances (not subdocs) |
+
+**Verification:**
+- [ ] Subdocuments are only used when lazy-loading of large document sections is required
+- [ ] For multi-editor layouts, Y.Map with multiple Y.XmlFragment entries is used instead
+- [ ] If subdocuments are used, `subdocs` event listener is registered on the parent doc
+- [ ] Each subdocument has a stable `guid` for consistent identification across peers
+- [ ] Subdocument `load()` and `destroy()` are called at appropriate lifecycle points
+
+**Source:** https://docs.yjs.dev/api/subdocuments
+
 ---
 
 ### 7.3 Understand V2 Update Encoding Trade-Offs Before Enabling
@@ -1348,6 +2712,26 @@ function onRemoteUpdate(v2Update) {
   Y.applyUpdateV2(ydoc, v2Update, 'remote')
 }
 ```
+
+**Key considerations before enabling V2:**
+
+| Factor | Detail |
+|---|---|
+| Efficiency | ~10x smaller updates compared to V1 |
+| Compatibility | ALL clients and servers must use V2 — no mixing |
+| Stability | Still marked experimental — API may change |
+| Persistence | Stored updates must use matching V2 encode/decode functions |
+| Migration | Use `convertUpdateFormatV1ToV2` for existing stored data |
+
+**Verification:**
+- [ ] If V2 encoding is used, ALL clients in the room use V2 functions (`applyUpdateV2`, `encodeStateAsUpdateV2`)
+- [ ] Server-side persistence uses matching V2 encode/decode functions
+- [ ] No mixing of V1 and V2 updates in the same sync channel
+- [ ] Existing stored data has been migrated using `convertUpdateFormatV1ToV2` if switching from V1
+- [ ] V2 encoding has been tested thoroughly in staging before production deployment
+- [ ] Rollback plan exists in case V2 issues are discovered post-deployment
+
+**Source:** https://docs.yjs.dev/api/document-updates#update-v2-api
 
 ---
 
@@ -1464,6 +2848,27 @@ ytext.insert(0, 'Hello from tab 1')
 console.log(ytext.toString()) // "Hello from tab 1"
 ```
 
+**Debugging checklist for sync failures:**
+
+| Check | How |
+|---|---|
+| Provider connected? | `provider.on('status', ...)` — should log "connected" |
+| Same room name? | Log room name on both clients and compare |
+| Single Y.Doc per room? | Use singleton pattern above; log `ydoc.clientID` — should differ between tabs |
+| Single Yjs import? | Run `npm ls yjs` — should show one version |
+| Updates flowing? | Add `ydoc.on('update', ...)` listener and verify it fires |
+| State vectors aligned? | Compare `Y.decodeStateVector()` output between peers |
+
+**Verification:**
+- [ ] `Y.logUpdate(update)` is used during development to inspect update contents
+- [ ] State vectors are decoded and compared when sync issues arise
+- [ ] Y.Doc instances use a singleton pattern — one doc per room name
+- [ ] Provider status and sync events are monitored with event listeners
+- [ ] End-to-end sync is verified by opening two browser tabs and typing in one
+- [ ] `npm ls yjs` confirms a single version in the dependency tree
+
+**Source:** https://docs.yjs.dev/api/document-updates
+
 ---
 
 ## References
@@ -1473,3 +2878,6 @@ console.log(ytext.toString()) // "Hello from tab 1"
 - https://docs.velt.dev/realtime-collaboration/crdt/setup/tiptap
 - https://docs.velt.dev/realtime-collaboration/crdt/setup/codemirror
 - https://docs.velt.dev
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/monaco
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/quill
+- https://docs.velt.dev/realtime-collaboration/crdt/setup/prosemirror

@@ -13,7 +13,14 @@ tags: huddle, chat, ephemeral, VeltHuddle, configuration
 
 Ephemeral chat provides a lightweight communication channel during huddles for sharing links, code snippets, or notes without leaving the huddle context. Understanding that messages are ephemeral prevents users from relying on huddle chat for persistent information.
 
-**React: Enable or disable chat**
+**Incorrect (mounting VeltHuddle twice to toggle chat):**
+
+```jsx
+<VeltHuddle chat={true} />
+<VeltHuddle chat={false} /> {/* shared service flag: the last setter wins */}
+```
+
+**Correct (React: enable or disable chat):**
 
 ```jsx
 "use client";
@@ -22,10 +29,7 @@ import { VeltHuddle } from "@veltdev/react";
 function App() {
   return (
     <>
-      {/* Chat enabled (default behavior) */}
-      <VeltHuddle chat={true} />
-
-      {/* Chat disabled */}
+      {/* Mount ONE VeltHuddle. Chat is on by default; pass chat={false} to disable */}
       <VeltHuddle chat={false} />
     </>
   );
@@ -58,7 +62,7 @@ function HuddleChatToggle() {
 }
 ```
 
-**HTML: Chat configuration**
+**Other Frameworks: Chat configuration**
 
 ```html
 <!-- Chat enabled (default) -->
@@ -68,12 +72,20 @@ function HuddleChatToggle() {
 <velt-huddle chat="false"></velt-huddle>
 ```
 
+```js
+const huddleElement = Velt.getHuddleElement();
+huddleElement.enableChat();
+huddleElement.disableChat();
+```
+
 **Key behaviors:**
 
 - Chat is enabled by default (`chat={true}`)
 - Messages are ephemeral — they are not stored or retrievable after the huddle session ends
 - Chat is only visible to active huddle participants
-- Use `useHuddleUtils()` to get the `HuddleElement` for programmatic control
+- Use `useHuddleUtils()` (or `client.getHuddleElement()`) to get the `HuddleElement` for programmatic control
+- The setting is backed by a shared huddle-service flag: if two places set it, the last setter wins
+- The chat panel is customizable via the `<velt-huddle-messages-panel-wireframe>` tag
 
 **Verification:**
 - [ ] `chat` prop is set on `VeltHuddle` as intended
@@ -82,4 +94,5 @@ function HuddleChatToggle() {
 - [ ] Programmatic enable/disable works via `huddleElement`
 
 **Source Pointers:**
-- `https://docs.velt.dev/huddle/customize-behavior` - Huddle behavior configuration
+- https://docs.velt.dev/realtime-collaboration/huddle/customize-behavior#chat - "chat"
+- https://docs.velt.dev/ui-customization/reference/behaviors/recorder-huddle - "VeltHuddle" (`chat` default)

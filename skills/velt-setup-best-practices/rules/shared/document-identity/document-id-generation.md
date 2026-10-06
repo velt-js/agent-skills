@@ -154,6 +154,8 @@ function Dashboard() {
 }
 ```
 
+**Billing note:** Velt bills on Monthly Active Documents (MADs): a document counts once it receives at least one CRUD operation from a Velt feature in the calendar month. Documents that only initialize (connect without any comment, CRDT, reaction, recorder, or notification write) do not count. Stable, reused document IDs keep MAD counts predictable; random per-load IDs inflate them.
+
 **Verification:**
 - [ ] Document ID is deterministic (same users get same ID)
 - [ ] Document ID is shareable via URL
@@ -163,3 +165,4 @@ function Dashboard() {
 
 **Source Pointers:**
 - `https://docs.velt.dev/get-started/quickstart` - Step 6: Initialize Document
+- `https://docs.velt.dev/key-concepts/overview#documents` - Documents (properties, Monthly Active Documents)

@@ -57,7 +57,7 @@ Note: `triggerActivities` creates activity records; `triggerNotification` sends 
 | Field | Type | Default | Description |
 |---|---|---|---|
 | `triggerActivities` | `boolean` | `false` | When `true`, an activity record is automatically created for this comment addition. Requires workspace `activityServiceConfig` to be enabled. Set at the individual `CommentData` level, not the annotation level. |
-| `triggerNotification` | `boolean` | `false` | When `true`, sends a notification to mentioned or subscribed users. Independent of `triggerActivities`. |
+| `triggerNotification` | `boolean` | `false` | When `true`, triggers in-app notifications, email notifications, and webhooks matching the SDK's native behavior. Independent of `triggerActivities`. |
 
 **Verification Checklist:**
 - [ ] `triggerActivities` is set inside `commentData[]`, not at the `commentAnnotations[]` level
@@ -66,5 +66,5 @@ Note: `triggerActivities` creates activity records; `triggerNotification` sends 
 - [ ] Request body uses `commentData` (array) as the key, not `comments`
 
 **Source Pointers:**
-- https://docs.velt.dev/api-reference/rest-api/commentannotations - POST /v2/commentannotations/add endpoint reference
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations - POST /v2/commentannotations/add endpoint reference
 - https://docs.velt.dev/async-collaboration/activity/overview - Activity Service overview and activityServiceConfig

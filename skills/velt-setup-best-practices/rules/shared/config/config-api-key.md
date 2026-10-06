@@ -94,7 +94,7 @@ async function loadVelt() {
 | API Key | Client-side OK | Visible in browser (intended) |
 | Auth Token | Server-side only | Never expose to client |
 
-The API key is safe to include in client-side code - it identifies your app but doesn't grant admin access. The Auth Token (used for JWT generation) must remain server-side only.
+Velt uses a single API key on the client. There is no public/private key pair: the API key is paired with your allowed domains list (Managed Domains) to restrict where it can be used, so it is safe in client-side code. For backend calls to Velt's REST APIs (including JWT generation), generate a separate Auth Token in the Velt Console and send it as the `x-velt-auth-token` header alongside `x-velt-api-key`. Keep the Auth Token server-side only.
 
 **Multiple Environments:**
 
@@ -115,3 +115,4 @@ NEXT_PUBLIC_VELT_API_KEY=prod-api-key
 
 **Source Pointers:**
 - `https://docs.velt.dev/get-started/quickstart` - Step 2: Get Your API Key
+- `https://docs.velt.dev/security/auth-tokens` - Generating Auth Tokens

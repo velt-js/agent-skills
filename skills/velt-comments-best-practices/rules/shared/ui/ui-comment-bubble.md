@@ -111,4 +111,4 @@ import {
 
 **Source Pointers:**
 - https://docs.velt.dev/async-collaboration/comments/setup/popover - "Step 5: Add the Comment Bubble component"
-- https://docs.velt.dev/ui-customization/features/async/comments/comment-bubble - Customization
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-bubble/wireframes - Customization

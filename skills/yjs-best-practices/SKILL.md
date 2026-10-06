@@ -4,7 +4,7 @@ description: "Yjs CRDT best practices for building real-time collaborative appli
 license: MIT
 metadata:
   author: velt
-  version: "1.1.0"
+  version: "1.1.2"
 ---
 
 # Yjs Best Practices
@@ -26,13 +26,14 @@ Reference these guidelines when:
 
 | Priority | Category | Impact | Prefix |
 |----------|----------|--------|--------|
-| 1 | Core (Y.Doc & Updates) | CRITICAL | `core-` |
-| 2 | Shared Types | CRITICAL | `types-` |
+| 1 | Core Document Lifecycle | CRITICAL | `core-` |
+| 2 | Shared Types | HIGH | `types-` |
 | 3 | Providers | HIGH | `provider-` |
 | 4 | Editor Bindings | HIGH | `binding-` |
-| 5 | Awareness | MEDIUM-HIGH | `awareness-` |
-| 6 | Undo/Redo | MEDIUM | `undo-` |
-| 7 | Pitfalls & Debugging | MEDIUM | `pitfall-`, `debug-` |
+| 5 | Awareness | MEDIUM | `awareness-` |
+| 6 | Undo / Redo | MEDIUM | `undo-` |
+| 7 | Pitfalls | MEDIUM | `pitfall-` |
+| 8 | Debugging | LOW-MEDIUM | `debug-` |
 
 ## Quick Reference
 
@@ -42,7 +43,7 @@ Reference these guidelines when:
 - `core-document-updates` — encodeStateAsUpdate, applyUpdate, mergeUpdates, state vectors
 - `core-garbage-collection` — gc flag, when to disable for version history
 
-### Shared Types (CRITICAL)
+### Shared Types (HIGH)
 - `types-ytext` — Text & RichText, insert/format/delta, Quill compatibility
 - `types-yarray` — Ordered sequences, insert/delete/push, nested types
 - `types-ymap` — Key-value storage, observe, historical key retention gotcha
@@ -57,21 +58,23 @@ Reference these guidelines when:
 
 ### Editor Bindings (HIGH)
 - `binding-tiptap` — y-prosemirror with TipTap
-- `binding-prosemirror` — y-prosemirror directly
+- `binding-prosemirror` — y-prosemirror directly; `.ProseMirror-yjs-cursor` styling, shared schema
 - `binding-codemirror` — y-codemirror.next
-- `binding-quill` — y-quill
-- `binding-monaco` — y-monaco
+- `binding-quill` — y-quill; register quill-cursors before `new Quill()`
+- `binding-monaco` — y-monaco; `.yRemoteSelection*` cursor CSS, SSR, dedupe
 
-### Awareness (MEDIUM-HIGH)
+### Awareness (MEDIUM)
 - `awareness-protocol` — Presence, cursors, setLocalStateField
 
 ### Undo/Redo (MEDIUM)
 - `undo-manager` — Y.UndoManager, captureTimeout, trackedOrigins, cursor restoration
 
-### Pitfalls & Debugging (MEDIUM)
-- `pitfall-duplicate-imports` — CJS/ESM double-import breaks sync
+### Pitfalls (MEDIUM)
+- `pitfall-duplicate-imports` — CJS/ESM double-import breaks sync; also dedupe y-protocols, bindings, and editor packages
 - `pitfall-subdocuments` — When to use vs Y.Map alternatives
 - `pitfall-v2-encoding` — useV2Encoding experimental flag
+
+### Debugging (LOW-MEDIUM)
 - `debug-common-issues` — logUpdate, state inspection, connection debugging
 
 ## How to Use

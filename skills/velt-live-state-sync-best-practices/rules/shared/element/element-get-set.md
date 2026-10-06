@@ -1,58 +1,73 @@
 ---
-title: Element API — setLiveStateData and getLiveStateData
+title: Write and subscribe with setLiveStateData and getLiveStateData
 impact: HIGH
-tags: useLiveStateSyncUtils, setLiveStateData, getLiveStateData, subscribe, observable, unsubscribe
+impactDescription: getLiveStateData returns an observable; forgetting to unsubscribe leaks handlers, and omitting merge overwrites other keys
+tags: useLiveStateSyncUtils, getLiveStateSyncElement, setLiveStateData, getLiveStateData, merge, listenToNewChangesOnly, subscribe, unsubscribe
 ---
 
-## Element API — setLiveStateData and getLiveStateData
+## Write and subscribe with setLiveStateData and getLiveStateData
 
-`useLiveStateSyncUtils()` returns the `LiveStateSyncElement` object for imperative control. Use this when you need observable subscriptions, non-React frameworks, or want to call set/get from event handlers or effects.
+The `LiveStateSyncElement` gives imperative control: `setLiveStateData(liveStateDataId, liveStateData, config?)` writes any serializable value, and `getLiveStateData(liveStateDataId, config?)` returns an **observable** you subscribe to. Get the element with `useLiveStateSyncUtils()` (or `client.getLiveStateSyncElement()`) in React and `Velt.getLiveStateSyncElement()` elsewhere.
 
-### Getting the Element
+**Incorrect (subscription never released, partial update overwrites the object):**
 
-```tsx
+```jsx
+useEffect(() => {
+  liveStateSyncElement.getLiveStateData('settings').subscribe(setSettings); // BUG: no unsubscribe
+}, []);
+
+// BUG: replaces the whole 'settings' object, dropping every other key
+liveStateSyncElement.setLiveStateData('settings', { fontSize: 16 });
+```
+
+**Correct (React / Next.js):**
+
+```jsx
 import { useLiveStateSyncUtils } from '@veltdev/react';
+import { useEffect, useState } from 'react';
 
-function MyComponent() {
+function Settings() {
   const liveStateSyncElement = useLiveStateSyncUtils();
-  // use liveStateSyncElement.setLiveStateData(), .getLiveStateData(), etc.
+  const [settings, setSettings] = useState(null);
+
+  useEffect(() => {
+    if (!liveStateSyncElement) return;
+    const subscription = liveStateSyncElement
+      .getLiveStateData('settings', { listenToNewChangesOnly: false })
+      .subscribe((data) => setSettings(data));
+    return () => subscription?.unsubscribe();
+  }, [liveStateSyncElement]);
+
+  const bumpFont = () =>
+    liveStateSyncElement.setLiveStateData('settings', { fontSize: 16 }, { merge: true });
+
+  return <button onClick={bumpFont}>Font: {settings?.fontSize}</button>;
 }
 ```
 
-For non-React frameworks:
+**Correct (Other Frameworks):**
+
 ```js
 const liveStateSyncElement = Velt.getLiveStateSyncElement();
-```
 
-### Writing Data
-
-```tsx
-// Replace entirely
-liveStateSyncElement.setLiveStateData('cursor-position', { x: 100, y: 200 });
-
-// Merge with existing data (only updates keys you pass)
 liveStateSyncElement.setLiveStateData('settings', { fontSize: 16 }, { merge: true });
+
+const subscription = liveStateSyncElement
+  .getLiveStateData('settings')
+  .subscribe((data) => render(data));
+
+// When done:
+subscription?.unsubscribe();
 ```
 
-### Reading Data (Observable)
+`listenToNewChangesOnly: true` skips existing data and only emits changes made after you subscribe (default `false`). For a one-shot read use `fetchLiveStateData()` (see `element-fetch`).
 
-`getLiveStateData` returns an **observable** — you must subscribe and unsubscribe.
+**Verification Checklist:**
+- [ ] Every `getLiveStateData(...).subscribe()` has a matching `unsubscribe()`
+- [ ] Partial object updates pass `{ merge: true }`
+- [ ] React code reads the element from `useLiveStateSyncUtils()` or `client.getLiveStateSyncElement()`; other frameworks use `Velt.getLiveStateSyncElement()`
 
-```tsx
-useEffect(() => {
-  const subscription = liveStateSyncElement
-    .getLiveStateData('cursor-position', { listenToNewChangesOnly: true })
-    .subscribe((data) => {
-      setCursor(data);
-    });
-
-  return () => subscription?.unsubscribe();
-}, [liveStateSyncElement]);
-```
-
-### Key Points
-
-- Always clean up subscriptions in the useEffect return (or component unmount equivalent)
-- `getLiveStateData` is reactive (observable stream); for a one-shot read, use `fetchLiveStateData` instead (see `element-fetch`)
-- The `{ merge: true }` config on `setLiveStateData` is useful for partial updates to objects without overwriting other keys
-- `{ listenToNewChangesOnly: true }` on `getLiveStateData` skips the initial server state and only fires on new changes
+**Source Pointers:**
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/setup#set-live-data — "Set Live Data"
+- https://docs.velt.dev/realtime-collaboration/live-state-sync/setup#get-live-data — "Get Live Data"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#setlivestatedataconfig — `SetLiveStateDataConfig`

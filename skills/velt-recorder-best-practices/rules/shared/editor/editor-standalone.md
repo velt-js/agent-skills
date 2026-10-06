@@ -58,10 +58,13 @@ import { VeltVideoEditor } from '@veltdev/react';
 | `blob` | `Blob` | Video blob object |
 | `url` | `string` | URL to video file |
 | `recorderId` | `string` | Recorder ID to load a specific recording |
-| `variant` | `string` | Variant styling option |
+| `annotationId` | `string` | Bind to an existing annotation's recording (takes precedence over `recorderId`) |
+| `darkMode` | `boolean` | Dark theme (light unless `true`) |
+| `variant` | `string` | Editor wireframe variant |
 
 **Key details:**
-- Use **one** input source: `blob`, `url`, or `recorderId` — not multiple simultaneously
+- Use **one** input source. If you pass several: `annotationId` / `recorderId` switch the editor to embed mode and win; in standalone mode `blob` wins over `url`
+- The retake button only shows when the bound recorder enables it
 - The standalone editor is independent of VeltRecorderTool and VeltRecorderControlPanel
 - Useful for embedding video editing in custom page layouts or dedicated editing views
 
@@ -70,4 +73,6 @@ import { VeltVideoEditor } from '@veltdev/react';
 - [ ] Exactly one input source provided (blob, url, or recorderId)
 - [ ] Component renders and loads the video content
 
-**Source Pointer:** https://docs.velt.dev/async-collaboration/recorder/setup - Embed Velt Video Editor
+**Source Pointers:**
+- https://docs.velt.dev/async-collaboration/recorder/setup - "Embed Velt Video Editor (optional)"
+- https://docs.velt.dev/ui-customization/reference/behaviors/recorder-huddle - "VeltVideoEditor"

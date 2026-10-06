@@ -1,5 +1,5 @@
 # Velt Self Hosting Data Best Practices
-|v1.0.12|Velt|March 2026
+|v1.1.0|Velt|October 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
 |root: ./rules
 
@@ -16,7 +16,7 @@
 |shared/provider:{provider-reaction-recording.md,provider-retry-timeout.md,provider-user-resolver.md,provider-activity.md,provider-notification.md,provider-recorder.md}
 
 ## 5. Backend Implementation — MEDIUM
-|shared/backend:{backend-database-patterns.md,backend-s3-attachments.md,backend-api-routes.md}
+|shared/backend:{backend-verify-resolver-auth.md,backend-database-patterns.md,backend-s3-attachments.md,backend-api-routes.md}
 
 ## 6. Data Types — MEDIUM
 |shared/data:{data-types-reference.md}
@@ -26,3 +26,6 @@
 
 ## 8. Debugging — LOW-MEDIUM
 |shared/debug:{debug-data-provider-events.md}
+
+## 9. Full Self-Hosting — HIGH
+|shared/full:{full-vs-partial-self-hosting.md,full-selfhosted-sdk-config.md}

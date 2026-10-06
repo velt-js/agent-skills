@@ -1,96 +1,90 @@
 ---
 title: Attachment Upload and Delete via Python SDK with S3
 impact: HIGH
-impactDescription: Missing S3 configuration or incorrect file parameters cause upload failures
-tags: python, attachments, s3, upload, self-hosting
+impactDescription: Wrong aws config keys or reading the multipart body as JSON make every attachment upload fail
+tags: python, attachments, s3, upload, multipart, self-hosting, SaveAttachmentResolverRequest, DeleteAttachmentResolverRequest, from_dict
 ---
 
 ## Attachment Upload and Delete via Python SDK with S3
 
-Attachment operations require S3 to be configured during SDK initialization. The save method accepts file data alongside the request object, while delete removes files from both the database and S3.
+`sdk.selfHosting.attachments.saveAttachment` uploads the file to S3 and saves its metadata; `deleteAttachment` removes the S3 object and the metadata. Configure the `aws` block at `VeltSDK.initialize`. The save endpoint receives `multipart/form-data`: the file in the `file` field and the JSON request in the `request` field.
 
-Do not attempt attachment operations without providing `aws` config in `VeltSDK.initialize`. Without S3 configuration, `sdk.selfHosting.attachments.saveAttachment(...)` will raise an error at runtime.
-
-**Correct (SDK init with S3 for attachments):**
+**Incorrect:**
 
 ```python
+# WRONG aws keys: the SDK reads bucket_name / region / access_key_id / secret_access_key
+sdk = VeltSDK.initialize({'aws': {'bucket': 'b', 'access_key': '...', 'secret_key': '...'}})
+
+@app.route('/api/velt/attachments/save', methods=['POST'])
+def save_attachment():
+    body = request.json  # WRONG: attachment saves are multipart, not JSON
+    return sdk.selfHosting.attachments.saveAttachment(body)
+```
+
+**Correct (S3 config):**
+
+```python
+import os
 from velt_py import VeltSDK
 
 sdk = VeltSDK.initialize({
-    'apiKey': 'YOUR_VELT_API_KEY',
-    'authToken': 'YOUR_VELT_AUTH_TOKEN',
-    'database': {
-        'connection_string': 'mongodb+srv://user:pass@cluster.mongodb.net/velt-db'
-    },
+    'database': {'connection_string': os.environ['VELT_MONGODB_URI']},
     'aws': {
-        'bucket_name': 'velt-attachments',
-        'region': 'us-east-1',
-        'access_key_id': 'AKIA...',
-        'secret_access_key': 'secret...'
-    }
+        'bucket_name': os.environ['AWS_S3_BUCKET'],
+        'region': os.environ.get('AWS_REGION', 'us-east-1'),
+        'access_key_id': os.environ['AWS_ACCESS_KEY_ID'],
+        'secret_access_key': os.environ['AWS_SECRET_ACCESS_KEY'],
+    },
 })
 ```
 
-**Correct (upload an attachment):**
+**Correct (Flask save and delete):**
 
 ```python
-from velt_py import SaveAttachmentResolverRequest
+import json
+from flask import request, jsonify
+from velt_py import SaveAttachmentResolverRequest, DeleteAttachmentResolverRequest
 
-# Read file data as bytes
-with open("report.pdf", "rb") as f:
-    file_data = f.read()
+@app.route('/api/velt/attachments/save', methods=['POST'])
+def save_attachment():
+    file = request.files.get('file')
+    request_json = request.form.get('request')
+    if not file or not request_json:
+        return jsonify({'success': False, 'error': 'File and request JSON are required',
+                        'errorCode': 'INVALID_INPUT', 'statusCode': 400}), 400
 
-request = SaveAttachmentResolverRequest(
-    organization_id="org_123",
-    document_id="doc_456",
-    attachment_id="attachment_789"
-)
+    save_request = SaveAttachmentResolverRequest.from_dict(json.loads(request_json))
+    result = sdk.selfHosting.attachments.saveAttachment(
+        save_request,
+        file_data=file.read(),        # bytes
+        file_name=file.filename,
+        mime_type=file.content_type,
+    )
+    return jsonify(result), result.get('statusCode', 200)
 
-response = sdk.selfHosting.attachments.saveAttachment(
-    request,
-    file_data=file_data,
-    file_name="report.pdf",
-    mime_type="application/pdf"
-)
-
-if response['success']:
-    attachment_url = response['data']
-    print(f"Uploaded: {attachment_url}")
-else:
-    print(f"Upload failed: {response['error']}")
+@app.route('/api/velt/attachments/delete', methods=['POST'])
+def delete_attachment():
+    delete_request = DeleteAttachmentResolverRequest.from_dict(request.json)  # delete is JSON
+    result = sdk.selfHosting.attachments.deleteAttachment(delete_request)
+    return jsonify(result), result.get('statusCode', 200)
 ```
 
-**Correct (delete an attachment):**
-
-```python
-from velt_py import DeleteAttachmentResolverRequest
-
-request = DeleteAttachmentResolverRequest(
-    organization_id="org_123",
-    document_id="doc_456",
-    attachment_id="attachment_789"
-)
-
-response = sdk.selfHosting.attachments.deleteAttachment(request)
-
-if response['success']:
-    print("Attachment deleted from database and S3")
-```
+In Django read `request.FILES.get('file')` and `request.POST.get('request')`; in FastAPI declare `file: UploadFile = File(...)` and `request: str = Form(...)` and `await file.read()`.
 
 **Key points:**
 
-- S3 config (`region`, `access_key`, `secret_key`, `bucket`) must be provided at SDK init time. Without it, all attachment operations fail.
-- `saveAttachment` takes four arguments: the request object, `file_data` (bytes), `file_name` (string), and `mime_type` (string).
-- `deleteAttachment` removes the file from both MongoDB and S3.
-- The S3 bucket must exist and the IAM credentials must have `s3:PutObject` and `s3:DeleteObject` permissions.
-- File data should be read as bytes (`"rb"` mode), not as a string.
+- `saveAttachment(request, file_data=..., file_name=..., mime_type=...)`: the typed request first, then the file as keyword arguments. Read the file as bytes.
+- Only the save endpoint is multipart; delete receives JSON.
+- The S3 bucket must exist and the credentials need `s3:PutObject` and `s3:DeleteObject`.
+- Return the SDK result dict unchanged so the frontend gets `success`, `statusCode`, and `data`.
 
 **Verification:**
-- [ ] `aws` config is included in `VeltSDK.initialize` config dict
-- [ ] S3 bucket exists and IAM credentials have correct permissions
-- [ ] File data is read as bytes, not text
-- [ ] `mime_type` matches the actual file type
-- [ ] Response is accessed as a dict: `response['success']`, `response['data']`
-- [ ] Delete operations specify `attachment_id` only (no `comment_id`)
+- [ ] `aws` uses `bucket_name`, `region`, `access_key_id`, `secret_access_key`
+- [ ] The save route parses multipart (`file` + `request` JSON string); the delete route parses JSON
+- [ ] Requests are built with `SaveAttachmentResolverRequest.from_dict(...)` / `DeleteAttachmentResolverRequest.from_dict(...)`
+- [ ] `file_data` is bytes and `mime_type` comes from the upload
+- [ ] The response dict is returned as-is with its `statusCode`
 
-**Source Pointer:** `https://docs.velt.dev/api-reference/sdk/python/attachments` (## Python SDK > ### Attachments)
+**Source Pointers:**
+- https://docs.velt.dev/backend-sdks/python#attachments - "Attachments" (saveAttachment, deleteAttachment; Django, Flask, FastAPI tabs)
+- https://docs.velt.dev/backend-sdks/python#self-hosting-configuration - "AWS (Attachments)"

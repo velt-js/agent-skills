@@ -7,7 +7,7 @@ tags: rest, api, webhooks, advanced-webhooks, endpoints, signing-secret, filterT
 
 ## Manage Advanced Webhooks via REST API
 
-Advanced Webhooks add multiple delivery endpoints, per-endpoint event/channel filtering, rate limiting, and signed payloads on top of basic webhooks. These management endpoints live under `https://api.velt.dev/v2/workspace/` — all are POST, all use **API-key-level auth** (both `x-velt-api-key` and `x-velt-auth-token` headers), and all wrap the payload in `{ "data": { ... } }`. This rule covers *managing* advanced webhooks; for receiving and verifying the delivered events, see `webhooks-advanced` (Svix).
+Advanced Webhooks add multiple delivery endpoints, per-endpoint event/channel filtering, rate limiting, and signed payloads on top of basic webhooks. These management endpoints live under `https://api.velt.dev/v2/workspace/`. All are POST, all use **API-key-level auth** (both `x-velt-api-key` and `x-velt-auth-token` headers), and all wrap the payload in `{ "data": { ... } }`. This rule covers *managing* advanced webhooks; for receiving and verifying the delivered events, see `webhooks-advanced` (Svix).
 
 **Required headers (every request):**
 
@@ -20,7 +20,7 @@ x-velt-auth-token: YOUR_AUTH_TOKEN
 
 ### Enable first: workspace config
 
-Advanced webhooks must be provisioned before any endpoint can be created. The **first** `update` call must include `isEnabled: true` — this provisions the underlying webhook application. Until then, the endpoint-management APIs return `FAILED_PRECONDITION`.
+Advanced webhooks must be provisioned before any endpoint can be created. The **first** `update` call must include `isEnabled: true`, which provisions the underlying webhook application. Until then, the endpoint-management APIs return `FAILED_PRECONDITION`.
 
 ```bash
 # Get config (no body params required)
@@ -33,14 +33,14 @@ POST https://api.velt.dev/v2/workspace/advancedwebhookconfig/update
 { "data": { "isEnabled": true, "encryptData": false, "encodeData": false } }
 ```
 
-If advanced webhooks are not available for the workspace at all, `advancedwebhookconfig/get` returns `FAILED_PRECONDITION` ("Advanced webhooks are not available for this workspace.") — contact Velt to enable the feature.
+If advanced webhooks are not available for the workspace at all, `advancedwebhookconfig/get` returns `FAILED_PRECONDITION` ("Advanced webhooks are not available for this workspace."). Contact Velt to enable the feature.
 
 ### Manage delivery endpoints
 
 All four endpoint operations require advanced webhooks to already be enabled (else `FAILED_PRECONDITION`).
 
 ```bash
-# Create an endpoint — url is required and must be a valid http(s) URL.
+# Create an endpoint: url is required and must be a valid http(s) URL.
 # The signing secret is ALWAYS generated server-side; never pass it in the request.
 POST https://api.velt.dev/v2/workspace/advancedwebhook/endpoints/create
 { "data": {
@@ -55,17 +55,17 @@ POST https://api.velt.dev/v2/workspace/advancedwebhook/endpoints/create
 } }
 # → data: { id: "ep_...", url, description, filterTypes, channels, disabled, rateLimit, uid, createdAt, updatedAt }
 
-# List endpoints — paginated via opaque iterator cursor (limit 1–250)
+# List endpoints: paginated via opaque iterator cursor (limit 1 to 250). Omit iterator on the first page.
 POST https://api.velt.dev/v2/workspace/advancedwebhook/endpoints/get
-{ "data": { "limit": 50, "iterator": "" } }
+{ "data": { "limit": 50 } }
 # → data: { endpoints: [...], iterator, prevIterator, done }
 # When done === false, pass the returned iterator to fetch the next page.
 
-# Update an endpoint — endpointId required; at least one other field; partial (omitted fields unchanged)
+# Update an endpoint: endpointId required; at least one other field; partial (omitted fields unchanged)
 POST https://api.velt.dev/v2/workspace/advancedwebhook/endpoints/update
 { "data": { "endpointId": "ep_...", "description": "Updated", "disabled": false } }
 
-# Delete an endpoint — permanent; immediately stops deliveries and invalidates the signing secret
+# Delete an endpoint: permanent; immediately stops deliveries and invalidates the signing secret
 POST https://api.velt.dev/v2/workspace/advancedwebhook/endpoints/delete
 { "data": { "endpointId": "ep_..." } }
 # → data: { endpointId, deleted: true }
@@ -86,7 +86,7 @@ POST https://api.velt.dev/v2/workspace/advancedwebhook/endpoints/secret/get
 ```bash
 # BUG 1: no prior advancedwebhookconfig/update with { isEnabled: true } →
 #         { "error": { "status": "FAILED_PRECONDITION", "message": "Advanced webhooks are disabled for this workspace..." } }
-# BUG 2: "secret" is ignored — the signing secret is always server-generated and only readable via endpoints/secret/get.
+# BUG 2: "secret" is ignored; the signing secret is always server-generated and only readable via endpoints/secret/get.
 POST https://api.velt.dev/v2/workspace/advancedwebhook/endpoints/create
 { "data": { "url": "https://example.com/webhooks/velt", "secret": "whsec_mine" } }
 ```
@@ -119,7 +119,10 @@ POST https://api.velt.dev/v2/workspace/advancedwebhook/endpoints/secret/get
 - [ ] List pagination loops on `data.iterator` while `data.done === false`
 
 **Source Pointers:**
-- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/advancedwebhookconfig-get — "Get Advanced Webhook Config"
-- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/advancedwebhookconfig-update — "Update Advanced Webhook Config"
-- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/advancedwebhook-endpoints-create — "Create Advanced Webhook Endpoint"
-- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/advancedwebhook-endpoints-secret-get — "Get Advanced Webhook Endpoint Secret"
+- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/advancedwebhookconfig-get - "Get Advanced Webhook Config"
+- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/advancedwebhookconfig-update - "Update Advanced Webhook Config"
+- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/advancedwebhook-endpoints-create - "Create Advanced Webhook Endpoint"
+- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/advancedwebhook-endpoints-secret-get - "Get Advanced Webhook Endpoint Secret"
+- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/advancedwebhook-endpoints-get - "Get Advanced Webhook Endpoints"
+- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/advancedwebhook-endpoints-update - "Update Advanced Webhook Endpoint"
+- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/advancedwebhook-endpoints-delete - "Delete Advanced Webhook Endpoint"

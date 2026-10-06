@@ -1,44 +1,44 @@
 ---
-title: Required Webhook Events to Enable
+title: Enable the comment and reaction webhook events the bot needs
 impact: HIGH
-tags: webhook, events, comment.add, comment_annotation.add, reaction_add, reaction_delete, Velt Console
+impactDescription: Without comment.add the bot never sees mentions; without the reaction events onReaction never fires
+tags: webhook, events, comment.add, comment_annotation.add, comment.reaction_add, comment.reaction_delete, Velt Console, webhookconfig
 ---
 
-## Required Webhook Events
+## Enable the comment and reaction webhook events the bot needs
 
-Enable these events in **Velt Console → Configurations → Webhook Service** for the bot to function:
-
-### Minimum Required Events
+In **Velt Console → Configurations → Webhook Service**, set your endpoint URL and enable these events, then copy the webhook secret (`whsec_...`) into `VELT_WEBHOOK_SECRET`:
 
 | Event | Purpose |
-|-------|---------|
-| `comment.add` | Detects new comments (including @-mentions of the bot) |
-| `comment_annotation.add` | Detects new comment threads being created |
+|---|---|
+| `comment.add` | New comments, including @-mentions of the bot |
+| `comment_annotation.add` | New comment threads |
+| `comment.reaction_add` | Reactions added (drives `onReaction`) |
+| `comment.reaction_delete` | Reactions removed (drives `onReaction`) |
 
-### For Reaction Support
+**Incorrect (mentions only):**
 
-| Event | Purpose |
-|-------|---------|
-| `comment.reaction_add` | Detects reactions added to comments |
-| `comment.reaction_delete` | Detects reactions removed from comments |
+```text
+Enabled events: comment_annotation.add
+Result: replies inside existing threads never reach the bot, and onReaction never fires.
+```
 
-### Optional Events for Richer Bots
+**Correct:**
 
-| Event | Purpose |
-|-------|---------|
-| `comment.update` | Comment text was edited |
-| `comment.delete` | Comment was removed |
-| `comment_annotation.status_change` | Thread status changed (open/resolved) |
-| `comment_annotation.assign` | Thread assigned to a user |
+```text
+Endpoint: https://yourapp.com/api/webhooks/velt
+Enabled events: comment.add, comment_annotation.add, comment.reaction_add, comment.reaction_delete
+Secret: copied into VELT_WEBHOOK_SECRET
+```
 
-### Webhook URL
+You can also configure the webhook with `POST /v2/workspace/webhookconfig/update`. Update the endpoint URL whenever you switch between a development tunnel and production.
 
-Set the endpoint URL to your deployed webhook route:
-- **Production:** `https://yourapp.com/api/webhooks/velt`
-- **Local dev:** `https://your-ngrok-url.ngrok.io/api/webhooks/velt`
+**Verification Checklist:**
+- [ ] All four events above are enabled
+- [ ] The endpoint URL points at the deployed webhook route
+- [ ] `VELT_WEBHOOK_SECRET` matches the secret shown in the Console
 
-### Key Points
-
-- At minimum, enable `comment.add` — without it, the bot won't receive any mentions
-- The adapter filters events it doesn't recognize, so enabling extra events is safe
-- Each enabled event type generates a webhook POST for every occurrence across all documents in the organization
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "Set up the Velt webhook"
+- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/webhookconfig-update — webhook config REST API
+- https://docs.velt.dev/webhooks/advanced — Velt webhooks

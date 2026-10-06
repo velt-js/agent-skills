@@ -1,55 +1,40 @@
 ---
-title: Handle Reactions with onReaction
+title: Observe reactions with onReaction
 impact: MEDIUM
-tags: onReaction, emoji, added, removed, reaction
+impactDescription: onReaction is read-only on managed Velt; it requires the reaction webhook events and fires for reactions across the organization
+tags: onReaction, emoji, added, removed, reaction, comment.reaction_add, comment.reaction_delete
 ---
 
-## Handle Reactions with onReaction
+## Observe reactions with onReaction
 
-`onReaction` fires when a user adds or removes a reaction (emoji) on a comment. This is read-only on managed Velt — the handler observes reactions but cannot programmatically add them without self-hosting (see reactions rules).
+`chat.onReaction(handler)` fires when a user adds or removes a reaction on a comment (the `comment.reaction_add` / `comment.reaction_delete` webhooks). Reading reactions works on all Velt plans. Writing reactions from the bot is a separate, self-hosted-only capability (see `reactions-write-self-hosted`).
+
+**Incorrect (tries to react back on the managed backend):**
 
 ```typescript
 chat.onReaction(async (event) => {
-  console.log(
-    `${event.user.fullName} ${event.added ? "added" : "removed"} ${event.emoji}`
-  );
+  // BUG: throws on the managed Velt backend unless selfHostingConfig.reactionsService is set
+  await event.adapter.addReaction(event.threadId, event.messageId, "👍");
 });
 ```
 
-### Event Properties
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `event.user.fullName` | `string` | User who reacted |
-| `event.user.userId` | `string` | User ID |
-| `event.emoji` | `string` | Emoji value (e.g., `"👍"` or `"thumbsup"`) |
-| `event.rawEmoji` | `string` | Original emoji name from Velt (e.g., `"RAISED_HANDS"`) |
-| `event.added` | `boolean` | `true` if added, `false` if removed |
-| `event.messageId` | `string` | ID of the comment that was reacted to |
-| `event.threadId` | `string` | Encoded thread ID |
-
-### Use Cases
-
-- Track sentiment on bot replies (thumbs up/down)
-- Trigger actions on specific reactions (e.g., 👀 to acknowledge, ✅ to mark done)
-- Log reaction analytics
+**Correct:**
 
 ```typescript
 chat.onReaction(async (event) => {
+  console.log(`${event.user.fullName} ${event.added ? "added" : "removed"} ${event.emoji}`);
   if (event.added && event.emoji === "👍") {
-    // User approved the bot's response
     await logPositiveFeedback(event.threadId, event.messageId);
   }
 });
 ```
 
-### Reading vs Writing Reactions
+Event fields: `event.user` (`fullName`, `userId`), `event.emoji` (normalized), `event.rawEmoji` (the raw value from the Velt payload), `event.added`, `event.messageId` (the comment ID), and `event.threadId`. Filter by `threadId` or `messageId` to scope handling; the bot's own reactions are ignored.
 
-`onReaction` is **read-only** — it observes reactions that users add/remove in the Velt UI. There is no managed REST API endpoint to programmatically add a reaction as a user. Calling `addReaction()` or `removeReaction()` on the managed Velt backend throws a `PermissionError`. To write reactions programmatically, you must configure `selfHostingConfig.reactionsService` on the adapter (see reactions rules). Most bots only need to read reactions.
+**Verification Checklist:**
+- [ ] `comment.reaction_add` and `comment.reaction_delete` are enabled in the Console
+- [ ] The handler only reads reactions unless self-hosted writes are configured
+- [ ] Handling is scoped by `threadId` / `messageId` where needed
 
-### Key Points
-
-- Requires `comment.reaction_add` and `comment.reaction_delete` events enabled in Velt Console
-- The handler fires for all reactions in the organization, not just on bot messages
-- Bot's own reactions (if using self-hosted write) are filtered out by `botUserId`
-- Writing reactions (`addReaction`/`removeReaction`) is NOT available on managed Velt — requires self-hosting configuration
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "Create the bot instance" (`onReaction`) and "Reactions"

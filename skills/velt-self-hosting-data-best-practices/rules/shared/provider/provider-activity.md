@@ -38,7 +38,7 @@ interface ResolverConfig {
   saveRetryConfig?: RetryConfig;        // Retry behavior for `save` (supports `revertOnFailure`)
   getConfig?: ResolverEndpointConfig;   // Endpoint URL + headers for fetching activity PII
   saveConfig?: ResolverEndpointConfig;  // Endpoint URL + headers for saving stripped activity PII
-  fieldsToRemove?: string[];            // Extra fields to strip beyond defaults
+  fieldsToRemove?: string[];            // Top-level keys moved to your DB (all feature types)
 }
 
 interface ResolverEndpointConfig {
@@ -114,7 +114,7 @@ The SDK POSTs the same `GetActivityResolverRequest` / `SaveActivityResolverReque
 
 **Storage-boundary contract (what persists where):**
 
-When the activity resolver is active, the SDK strips entity snapshots and display templates before persisting on Velt; your `save` handler receives the stripped fields and stores them in your backend. On read, the SDK merges your `get` response back into the activity record. Only this minimal identifier shape stays on Velt:
+When the activity resolver is active, the SDK strips PII before persisting on Velt (feature-aware for built-in types, `fieldsToRemove` keys for all types); your `save` handler receives the stripped fields and stores them in your backend. On read, the SDK merges your `get` response back into the activity record.
 
 | Field | Stored on Velt | Stored on your DB |
 |-------|----------------|-------------------|
@@ -127,13 +127,13 @@ When the activity resolver is active, the SDK strips entity snapshots and displa
 | `targetEntityId` | Yes | — |
 | `isActivityResolverUsed` | Yes (boolean flag) | — |
 | `immutable` | Yes (boolean flag) | — |
-| `entityData` | No | Yes |
-| `entityTargetData` | No | Yes |
-| `displayMessageTemplate` | No | Yes |
-| `displayMessageTemplateData` | No | Yes |
+| `entityData` | No for `custom` activities when listed in `fieldsToRemove`; built-in types keep the object with PII fields removed | Yes (stripped PII) |
+| `entityTargetData` | Same as `entityData` | Yes (stripped PII) |
+| `displayMessageTemplate` | No when listed in `fieldsToRemove` | Yes when moved |
+| `displayMessageTemplateData` | No when listed in `fieldsToRemove` (user objects inside are reduced to `{ userId }` when the `user` provider is active) | Yes when moved |
 | Custom fields listed in `config.fieldsToRemove` | No | Yes |
 
-Stored-on-Velt example (everything the SDK retains when the resolver is active):
+Stored-on-Velt example for a `custom` activity (everything the SDK retains when the resolver is active):
 
 ```json
 {
@@ -155,12 +155,12 @@ Stored-on-Velt example (everything the SDK retains when the resolver is active):
 }
 ```
 
-Entity snapshots (`entityData`, `entityTargetData`), display message templates and their data, and any fields listed in `config.fieldsToRemove` are NOT stored on Velt — they live exclusively on your database and are merged back via `get` at render time.
+This `custom` sample assumes `entityData`, `entityTargetData`, `displayMessageTemplate`, and `displayMessageTemplateData` are listed in `config.fieldsToRemove`; that is why those whole fields live only on your database and are merged back via `get` at render time. A custom activity has no automatic field-level strip, so anything you do not list stays on Velt. For built-in feature types (`comment`, `reaction`, `recorder`), Velt keeps the `entityData` / `entityTargetData` objects and removes only the PII fields inside them (see the strip rules below).
 
 **Key details:**
 - `get` and `save` only — there is no `delete` on the activity resolver (and no `deleteConfig`)
 - Each method has two equivalent forms: callback (`get` / `save`) or endpoint config (`getConfig` / `saveConfig`). At least one form per method is required; the two forms can be mixed per-method
-- `fieldsToRemove` extends the default strip list with extra custom field names (e.g., `['customSensitiveField']`)
+- `fieldsToRemove` moves the listed top-level keys wholesale to your DB for every feature type (`comment`, `reaction`, `recorder`, `custom`), on top of the automatic strip. Values are matched on `!== undefined`, so `0`, `false`, and `""` are moved too
 - `saveRetryConfig.revertOnFailure: true` reverts the optimistic cache update when the save ultimately fails after retries — set this on the activity resolver to avoid leaving stale PII in the UI when your backend rejects a write
 - `isActivityResolverUsed: true` on `ActivityRecord` means PII has been stripped; use it to gate a loading skeleton while `get` is in flight
 - The `metadata` block contains both Velt-internal IDs (`documentId`, `organizationId`) and your client-facing IDs (`clientDocumentId`, `clientOrganizationId`) — both shapes live on Velt
@@ -175,24 +175,25 @@ Activity is append-only (no `delete`) and the strip is multi-feature: a single `
 - **`changes['commentText']` is never sent to Velt** (→ your DB) **only** when the **activity** resolver is active. If only the *comment* resolver is active (and not the activity resolver), `commentText` is preserved on Velt — this is deliberate, to avoid unrestorable loss of audit text.
 - **Reaction / recorder `entityData` PII reaches your DB only when both** the activity resolver **and** the matching feature resolver are active. With activity alone, those entity snapshots stay on Velt; with the feature resolver alone, they flow through its own store.
 - **Comment `entityData` / `entityTargetData` PII is handled by the comment resolver's own store**, not duplicated here.
-- **`fieldsToRemove` applies to `featureType === 'custom'` only.** Built-in feature types (`comment`, `reaction`, `recorder`, `crdt`) ignore it — you cannot use `fieldsToRemove` to peel extra fields off a built-in activity record.
+- **`fieldsToRemove` applies to all feature types.** Since v6.0.0-beta.2, listed top-level keys are moved wholesale to your DB for `comment`, `reaction`, `recorder`, and `custom` activities. For built-in types it runs on top of the feature-aware partial strip; for `custom` it is the only stripping that happens (there is no automatic field-level strip for custom activities). Listing `entityData` or `entityTargetData` moves the entire field.
 - **Append-only: no `delete`.** `ActivityAnnotationDataProvider` has no delete member by design.
 
-**Incorrect (assuming `fieldsToRemove` strips a field on every activity, including built-in ones):**
+**Incorrect (assuming a custom activity's PII is stripped automatically, or listing structural keys):**
 
 ```tsx
 const activityDataProvider: ActivityAnnotationDataProvider = {
   get: async (req) => ({ data: await db.getActivity(req), success: true, statusCode: 200 }),
   save: async (req) => ({ data: undefined, success: true, statusCode: 200 }),
   config: {
-    // BUG: This only applies to featureType === 'custom'. A 'comment' activity carrying internalTicketId
-    // will still write internalTicketId to Velt.
-    fieldsToRemove: ['internalTicketId'],
+    // BUG 1: custom activities get no automatic field-level strip. Without listing
+    // 'entityData', a custom activity's entityData (PR titles, deploy metadata) stays on Velt.
+    // BUG 2: 'featureType' and 'targetEntityId' are structural; removing them breaks querying.
+    fieldsToRemove: ['featureType', 'targetEntityId'],
   },
 };
 ```
 
-**Correct (treat `fieldsToRemove` as a custom-only knob; rely on per-feature resolvers for built-in entity PII):**
+**Correct (list only your own top-level keys; built-in entity PII is stripped by the feature-aware rules):**
 
 ```tsx
 const activityDataProvider: ActivityAnnotationDataProvider = {
@@ -208,9 +209,9 @@ const activityDataProvider: ActivityAnnotationDataProvider = {
   },
   config: {
     resolveTimeout: 60000,
-    // Applies only when featureType === 'custom'. Comment/recorder/reaction activities are handled
-    // by their feature resolvers, not by fieldsToRemove.
-    fieldsToRemove: ['customSensitiveField'],
+    // Applies to every feature type. For custom activities this is the only stripping that happens,
+    // so list entityData here if a custom activity's snapshot is sensitive.
+    fieldsToRemove: ['customSensitiveField', 'entityData'],
   },
 };
 ```
@@ -225,7 +226,10 @@ const activityDataProvider: ActivityAnnotationDataProvider = {
 - [ ] Provider set before `identify()` is called
 - [ ] Customer DB stores entity snapshots, display templates, template data, and any `fieldsToRemove` fields; Velt stores only minimal identifiers, action metadata, resolver flag, and `targetEntityId`
 - [ ] UI gates a loading skeleton on `isActivityResolverUsed === true`
-- [ ] `fieldsToRemove` is treated as `featureType === 'custom'`-only; built-in feature types do not strip extra fields through it
+- [ ] `fieldsToRemove` lists only your own top-level keys (never `id`, `featureType`, `actionType`, `targetEntityId`, `metadata`, or resolver flags) and covers custom-activity snapshots that must leave Velt
 - [ ] `displayMessage` is never persisted — only the template and template data are stored
 
-**Source Pointer:** https://docs.velt.dev/self-host-data/activity ("Implementation Approaches", "Endpoint based DataProvider", "Function based DataProvider", "Sample Data"); https://docs.velt.dev/self-host-data/field-inventory - "Activity strip rules"
+**Source Pointers:**
+- https://docs.velt.dev/self-hosting/partial/activity - "What gets stripped", "Implementation Approaches", "Sample Data"
+- https://docs.velt.dev/self-hosting/partial/field-inventory - "Activity strip rules"
+- https://docs.velt.dev/self-hosting/partial/overview - "Excluding & extending fields"

@@ -1,10 +1,10 @@
 ---
 name: velt-rewriter-best-practices
-description: "Best practices for the Velt Rewriter — the AI text-rewriter feature that lets users select text and apply AI-generated rewrites or anchor AI-assisted comments. Use whenever the user is integrating the Velt Rewriter, calling enableRewriter/disableRewriter, subscribing to textSelected events, calling askAi (multi-provider AI generation auto-routed by model prefix across OpenAI/Anthropic/Gemini), calling replaceText to swap DOM text, calling addComment to anchor a Velt comment to a text range, toggling the default selection toolbar with enableDefaultUI/disableDefaultUI, building custom rewriter UI with the wireframe variables (componentConfig.* on velt-rewriter-text-portal-wireframe / velt-rewriter-dialog-wireframe / velt-rewriter-bottom-sheet-wireframe), or typing against RewriterAskAiRequest / RewriterReplaceTextRequest / RewriterAddCommentRequest / AiModel. Trigger even if the user does not say 'Velt' explicitly — any mention of an AI text rewriter, in-place text replacement after AI generation, selection-toolbar AI prompt, or AI rewrite suggestions anchored to text ranges should pull this skill."
+description: "Best practices for the Velt Rewriter, the AI text rewriter that lets users select text and apply AI rewrites or anchor AI comments. Use when calling enableRewriter, subscribing to textSelected, calling askAi (provider routed by model prefix), replaceText, or addComment, toggling the default toolbar, using useAIRewriterUtils, building custom rewriter wireframes, or debugging a rewriter that does nothing inside TipTap or ProseMirror editors. Triggers on AI rewrite or selection-toolbar AI features."
 license: MIT
 metadata:
   author: velt
-  version: "1.2.0"
+  version: "1.2.1"
 ---
 
 # Velt Rewriter Best Practices
@@ -22,6 +22,8 @@ Reference these guidelines when:
 - Controlling whether Velt's built-in selection toolbar shows (`enableDefaultUI` / `disableDefaultUI`)
 - Building a custom Rewriter UI on top of the wireframe primitives (`componentConfig.*` bindings)
 - Typing against `RewriterAskAiRequest`, `RewriterReplaceTextRequest`, `RewriterAddCommentRequest`, or `AiModel`
+- Debugging a Rewriter that does nothing inside TipTap or another ProseMirror-based editor (since v6.0.16-beta.1, `textSelected` does not fire there and `replaceText()` returns `success: false`)
+- Getting the element in React with the `useAIRewriterUtils()` hook
 
 For server-side AI generation via the Velt Python SDK (`sdk.api.rewriter.askAi`), see the `velt-self-hosting-data-best-practices` skill — that path is documented there and is not duplicated here.
 
@@ -37,10 +39,10 @@ For server-side AI generation via the Velt Python SDK (`sdk.api.rewriter.askAi`)
 ## Quick Reference
 
 ### API Methods (HIGH)
-- `api-enable-rewriter` — `enableRewriter()` / `disableRewriter()` (feature toggle; distinct from toolbar toggle)
-- `api-on-text-selected` — `on('textSelected').subscribe()` and the `TextSelectedEvent` that drives the pipeline
+- `api-enable-rewriter` — `enableRewriter()` / `disableRewriter()` (feature toggle; distinct from toolbar toggle); `useAIRewriterUtils()` hook; `featureAllowList` key `'rewriter'`
+- `api-on-text-selected` — `on('textSelected').subscribe()` and the `TextSelectedEvent` that drives the pipeline; does not fire inside TipTap / ProseMirror editors
 - `api-ask-ai` — `askAi()` multi-provider AI generation, auto-routed from model prefix; custom LLM keys via Velt Console
-- `api-replace-text` — `replaceText()` for in-place DOM replacement using event-anchor metadata
+- `api-replace-text` — `replaceText()` for in-place DOM replacement using event-anchor metadata; returns `success: false` inside TipTap / ProseMirror editors
 - `api-add-comment` — `addComment()` to anchor a Velt comment annotation to the selected text range
 - `api-default-ui-toggle` — `enableDefaultUI()` / `disableDefaultUI()` (toolbar visibility; events keep firing)
 

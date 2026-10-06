@@ -9,7 +9,7 @@ tags: organizationid, organization, tenant, access control, isolation
 
 The organizationId field is required in the user object and controls which documents users can access. By default, users can only see documents created within their organization.
 
-**Incorrect (missing organizationId):** If the user object passed to `authProvider` is missing `organizationId`, access control won't work properly — users may see documents from other organizations.
+**Incorrect (missing organizationId):** `organizationId` is a required field on the `User` object. Without it, access control cannot scope the user's documents.
 
 **Incorrect (hardcoded for all users):**
 
@@ -130,24 +130,26 @@ function Page({ params }) {
 
 **Cross-Organization Access:**
 
-If you need to share documents across organizations, use Velt's permission system with JWT tokens:
+To grant access beyond the user's organization, add resources to the JWT permissions in your token endpoint (`POST /v2/auth/generate_token`). Folder and document resources must include their `organizationId`.
 
 ```typescript
 // In your JWT token generation endpoint
 const body = {
-  userId,
-  userProperties: {
-    isAdmin: false,
-  },
-  permissions: {
-    resources: [
-      { type: "organization", id: organizationId },
-      // Add cross-org access if needed
-      { type: "document", id: "shared-doc-123" },
-    ],
+  data: {
+    userId,
+    userProperties: { name, email, isAdmin: false },
+    permissions: {
+      resources: [
+        { type: "organization", id: organizationId },
+        // Cross-org access to one document, read-only
+        { type: "document", id: "shared-doc-123", organizationId: "partner-org", accessRole: "viewer" },
+      ],
+    },
   },
 };
 ```
+
+On the client, subscribe to documents in another organization by passing `organizationId` in the `setDocuments()` options.
 
 **Verification:**
 - [ ] organizationId is included in every user object
@@ -157,3 +159,6 @@ const body = {
 
 **Source Pointers:**
 - `https://docs.velt.dev/get-started/quickstart` - Step 5: Authenticate Users
+- `https://docs.velt.dev/key-concepts/overview#organizations` - Organizations
+- `https://docs.velt.dev/key-concepts/overview#subscribe-to-documents-from-other-organizations` - Subscribe to Documents from Other Organizations
+- `https://docs.velt.dev/api-reference/rest-apis/v2/auth/generate-token` - Generate Token (permissions.resources)

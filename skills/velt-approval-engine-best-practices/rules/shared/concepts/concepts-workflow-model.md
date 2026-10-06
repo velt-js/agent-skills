@@ -1,333 +1,137 @@
 ---
-title: Approval Engine workflow model — nodes, edges, groups, quorum policies, loop regions, and step IDs
+title: Understand the workflow model of definitions, node types, lifecycles, step IDs, scope, and versioning
 impact: HIGH
-impactDescription: Every REST payload carries these shapes; misunderstanding them produces either INVALID_ARGUMENT linter failures at create time or stuck-forever executions at runtime
-tags: approval-engine, workflow, definition, nodes, edges, groups, quorum, agent, human, webhook, reviewers, reviewerIds, slaMs, onQuorumMet, requiredNodeIds, stepId, loops, onReject, reviewerEmails, commentBody, storeDbId, tenant-partitioning, __mock__, mock-agent
+impactDescription: Every REST payload carries these shapes; authoring against the pre-refactor model (onReject, loops[], deferred webhook nodes, blocking agents) produces INVALID_ARGUMENT at create time or runs that never advance
+tags: approval-engine, review-workflow-builder, workflow, definition, nodes, edges, groups, triggers, agent, human, notification, webhook, lifecycle, stepId, scope, storeDbId, tenant-partitioning, versioning, definitionVersion, beta-limitations
 ---
 
-## Approval Engine workflow model — nodes, edges, groups, quorum policies, loop regions, and step IDs
+## Understand the workflow model of definitions, node types, lifecycles, step IDs, scope, and versioning
 
-An Approval Engine **definition** is a static, versioned blueprint composed of three things: **nodes** (work units), **edges** (transitions between them), and **groups** (parallel sets with quorum). The same shapes appear in `/definitions/create`, `/definitions/update`, and `/definitions/get` responses — there is no separate schema language.
+The Approval Engine is documented on docs.velt.dev as the **Review Workflow Builder (Beta)**; the REST surface is still `/v2/workflow/*` and the docs still live under `/ai/approval-engine/`. You describe a review process once as a **definition** (a graph of nodes and edges), then start a **run** (an execution) against it whenever something needs review. The engine runs agents, waits for human approvals, evaluates branching, enforces SLAs, sends notifications, and reports the outcome.
 
-Understanding these shapes first makes the REST endpoints obvious. Skipping the model and copy-pasting endpoint payloads is the most common path to `INVALID_ARGUMENT` linter rejections and workflows that park forever waiting on a quorum that can never be satisfied.
+The model was refactored: rejection routing now lives entirely on edges (`on: "reject"`, `loop`, `on: "exhausted"`), all four node types run, agent nodes need a URL, and triggers start runs on their own. Authoring against the old shapes is the most common source of `INVALID_ARGUMENT`.
 
-**Node types overview:**
-
-```
-agent      Runs an agent. Non-blocking by default (completes asynchronously without a
-           decision). With blocking: true, parks in "waiting" until external resolutions
-           arrive via /steps/recordAgentResolution.
-
-human      Requires reviewer approval. Drives via /steps/recordReviewerDecision. Parks in
-           "waiting" until aggregator resolves.
-
-webhook    Deferred in v1. The `webhook` type passes definition validation (so authors can
-           draft graphs that will rely on it later), but the runtime handler is NOT enabled —
-           a `webhook` node will not run today. Treat it as a forward-compatibility hook,
-           not a runnable surface.
-```
-
-**`webhook` vs. inbound handler vs. outbound delivery — three distinct surfaces:**
-
-The string `webhook` appears in three unrelated places in the Approval Engine. Do NOT conflate them:
-
-1. **`node.type === "webhook"`** — a *deferred* node type that validates in a definition but does not run in v1 (above).
-2. **Inbound webhook handler** — a *live* HTTP endpoint that external systems POST raw JSON to (covered in `webhooks-inbound-handler`).
-3. **Per-execution outbound delivery** — the `webhookUrl` + `webhookSecret` pair set on dispatch that pushes externally-visible events to your receiver (covered in `webhooks-delivery`).
-
-The inbound handler and outbound delivery are both live in v1 and active independently; the `webhook` node is not.
-
-**Agent node shape:**
+**Incorrect (pre-refactor shapes that are now rejected or never run):**
 
 ```json
 {
-  "nodeId": "brand-check",
-  "type": "agent",
-  "config": {
-    "agentId": "brand-agent-v1",
-    "blocking": false,
-    "requireNonEmptyOutput": true,
-    "promptOverride": "...",
-    "inputMapping": { "...": "..." },
-    "agentMaxRuntimeMs": 86400000
-  },
-  "slaMs": 3600000
-}
-```
-
-Agent node config fields: `agentId` (required), `promptOverride` (≤ 8000 chars), `inputMapping` (object), `blocking` (default false), `resolutionPolicy` (**required when `blocking: true`**: `{ kind: "allResolved" | "minResolved", minCount?: integer }`; `minCount` is required when `kind === "minResolved"`), `agentMaxRuntimeMs` (≤ 86_400_000 / 24h), `requireNonEmptyOutput` (boolean).
-
-**Reserved `__mock__` agent id:**
-
-`agentId: "__mock__"` is a reserved identifier that lets you run a definition end-to-end without registering a real agent. The engine accepts the node, treats the step as terminal, and lets the workflow advance — useful for testing the graph shape, edge expressions, and webhook receiver before any real agent code exists. Swap to a real `agentId` before production; `__mock__` does not invoke any agent runtime.
-
-**Human node shape (new — preferred):**
-
-```json
-{
-  "nodeId": "human-legal",
-  "type": "human",
-  "config": {
-    "reviewers": [{ "userId": "u_legal_01", "mandatory": true }],
-    "reviewerEmails": ["legal@example.com"],
-    "commentBody": "Please review for legal compliance.",
-    "onReject": { "routeToNodeId": "human-escalate" }
-  }
-}
-```
-
-Exactly one of `reviewers[]` (preferred) or `reviewerIds[]` (legacy) must be provided. Both are accepted by the engine — `reviewerIds[]` is kept for back-compat. Supplying both at once is rejected with `cannot set both reviewerIds and reviewers — use one`. The `reviewers[]` form must include at least one `mandatory: true`, and userIds must be unique.
-
-`reviewerEmails` (optional, 0–50 string entries) stores email addresses alongside the `reviewers[]` list. The value surfaces in the human step's `output.reviewerEmails` after the step resumes — use it to drive downstream notification UIs. The engine does not validate that emails correspond to configured reviewers.
-
-`commentBody` (optional, ≤ 8 000 chars) is stored on the human step's `output` for use by your reviewer-facing UI. The engine does NOT auto-create a Velt annotation or comment thread per human step in v1 — your application is responsible for surfacing this string to reviewers and, if you use the legacy comment-resolution flow, for creating the comment thread the reviewer replies to.
-
-**`onReject` shorthand — per-node rejection routing:**
-
-Authors can express the rejection path directly on a `human` node instead of declaring a top-level `loops[]` region or hand-writing a `when`-gated edge. Two mutually exclusive forms:
-
-**Correct (Form A — route on reject):**
-
-```json
-{
-  "nodeId": "human-review",
-  "type": "human",
-  "config": {
-    "reviewers": [{ "userId": "u1", "mandatory": true }],
-    "onReject": { "routeToNodeId": "human-escalate" }
-  }
-}
-```
-
-Form A synthesizes a reject-gated edge from this node to `routeToNodeId`.
-
-**Correct (Form B — loop back on reject):**
-
-```json
-{
-  "nodeId": "human-review",
-  "type": "human",
-  "config": {
-    "reviewers": [{ "userId": "u1", "mandatory": true }],
-    "onReject": {
-      "loopBack": {
-        "toNodeId": "agent-draft",
-        "maxIterations": 3,
-        "onExhausted": { "routeToNodeId": "human-final-call" }
+  "nodes": [
+    {
+      "nodeId": "manager-approval",
+      "type": "human",
+      "config": {
+        "reviewers": [{ "userId": "u_manager_01", "mandatory": true }],
+        "onReject": { "routeToNodeId": "rework-notice" }
       }
-    }
-  }
+    },
+    { "nodeId": "rework-notice", "type": "agent", "config": { "agentId": "rework-agent-v1", "blocking": true } }
+  ],
+  "edges": [{ "from": "manager-approval", "to": "rework-notice", "when": "output.decision == 'reject'" }],
+  "loops": [{ "loopId": "rework", "entryNodeId": "rework-notice", "bodyNodeIds": ["rework-notice"], "maxIterations": 3 }]
 }
 ```
 
-Form B synthesizes a top-level loop region with `entryNodeId = toNodeId`. `maxIterations` defaults to 5 (range 1–20). `onExhausted.routeToNodeId` specifies the node spawned when the cap is reached; omitting it causes the execution to fail on exhaustion. A custom `when` predicate may be specified; the default is mandatory-reject.
+`onReject` and top-level `loops[]` are not part of the schema (unknown fields are rejected), `when` is only valid with `on: "custom"` and must be a JSON-AST string, the agent node has neither `url` nor `urlPath`, and `blocking: true` agents are rejected at run time.
 
-**Strict-mode requirement:** every `human` node must satisfy one of the following, or the definition is rejected with `INVALID_ARGUMENT`:
-- `config.onReject` is set (either form), OR
-- the node is a `bodyNodeIds` member of a top-level `loops[]` entry.
-
-The engine desugars `onReject` at write time — it strips `onReject` from the stored config and appends the synthesized edges or loop region to the top-level arrays. `GET /definitions/get` returns this canonical (desugared) form. Note: `onReject.routeToNodeId` set on a `joinOnQuorum` group member is dead code at runtime — the group container owns fan-out on quorum, so the per-member route is never fired.
-
-**Loop regions (`loops[]`):**
-
-A loop region lets a workflow re-enter an earlier node when a reviewer rejects, instead of failing outright. Declare loops at the top level of a definition, peer to `groups[]`. Use a top-level loop (rather than the `onReject` shorthand) when multiple parallel reviewers share a single retry counter, or when you need explicit `loopId` control for event tracking.
-
-**Correct (top-level loops[] declaration):**
+**Correct (the minimal valid workflow from the docs):**
 
 ```json
 {
-  "loops": [
+  "definitionId": "doc-signoff",
+  "name": "Document sign-off",
+  "nodes": [
     {
-      "loopId": "draft-revision",
-      "entryNodeId": "agent-draft",
-      "bodyNodeIds": ["agent-draft", "human-legal", "human-brand"],
-      "onIterationReject": {
-        "when": "{\"op\":\"and\",\"args\":[...]}"
-      },
-      "onExhausted": { "routeToNodeId": "human-escalate" },
-      "maxIterations": 5
+      "nodeId": "manager-approval",
+      "type": "human",
+      "config": { "reviewers": [{ "userId": "u_manager_01", "mandatory": true }] }
+    },
+    {
+      "nodeId": "rework-notice",
+      "type": "agent",
+      "config": { "agentId": "rework-agent-v1", "urlPath": "documentUrl" }
     }
+  ],
+  "edges": [
+    { "from": "manager-approval", "to": "rework-notice", "on": "reject" }
   ]
 }
 ```
 
-`loops[]` fields:
+Approving has no outgoing edge, so the run completes after approval. Rejecting routes to the agent.
 
-| Field | Type | Required | Notes |
+**Building blocks**
+
+| Term | What it is |
+|---|---|
+| Definition | `nodes` (1 to 100) + `edges` (0 to 500) + optional `groups` (0 to 100), `triggers` (0 to 50), `webhookConfig`, `scope`, `tags` (0 to 20), `custom`. `definitionId` matches `^[a-z0-9][a-z0-9-]{2,63}$`. |
+| Node | One step. `nodeId` (1 to 64 chars, unique), `type`, `config` (validated strictly per type; unknown fields rejected). |
+| Edge | "When this node finishes, start that one." Carries an `on` role. See `concepts-edge-model`. |
+| Group | Members that run in parallel and share an approval quorum. See `concepts-groups-quorum`. |
+| Execution | One live run of a definition, with an `executionId` and a `steps[]` array. |
+| Step | One runtime instance of a node inside an execution. |
+
+**Fields every node accepts**
+
+| Field | Notes |
+|---|---|
+| `slaMs` | Deadline for the step, up to 7 days. Needs a breach route (see `concepts-edge-model`). |
+| `requireNonEmptyOutput` | Effective on sync `webhook` nodes only: fails the step with `webhook-node-empty-response` on an empty body. Accepted with no runtime effect elsewhere. |
+| `name` | Cosmetic label, 1 to 200 chars. |
+| `description` | Cosmetic, up to 2000 chars. |
+
+**Node types (all four run)**
+
+| Type | What it does | Parks in `waiting`? | Rule |
 |---|---|---|---|
-| `loopId` | string | yes | 1–64 chars. Stable identifier used in loop events. |
-| `entryNodeId` | string | yes | Node spawned first on each iteration. Must be in `bodyNodeIds`. |
-| `bodyNodeIds` | string[] | yes | 1–50 nodes inside the iteration scope. |
-| `onIterationReject.when` | string (JSON-AST) | no | Predicate to trigger iteration N+1. Default: `decision == reject && rejectorMandatory == true`. |
-| `onExhausted.routeToNodeId` | string | no | Node spawned when `maxIterations` reached. Omitting causes execution failure on exhaustion. |
-| `maxIterations` | integer | yes | 1–20. Hard cap per execution instance. |
+| `agent` | Runs a Velt agent against a URL, then routes on the result. | Yes, while the agent runs; resumes on its own. | `concepts-agent-node` |
+| `human` | Waits for reviewers to approve or reject. | Yes, until you record decisions. | `concepts-human-node` |
+| `notification` | Sends an email or Slack message built from the previous step's output. | No. | `concepts-notification-webhook-nodes` |
+| `webhook` | Calls your own HTTPS endpoint. | Only in `mode: "async"`, until your callback. | `concepts-notification-webhook-nodes` |
 
-**Body-shape constraints:** the body must be one of: (a) a single-terminal sequential subgraph (one node with no outgoing edges inside the body), or (b) a group-bounded body where every member shares a `joinOnQuorum` group with `quorum === expectedSteps`. Violating either shape triggers loop linter codes (see `rest-definitions` rule).
+The graph is a DAG. The single exception is a reject edge marked with `loop` that points back to an ancestor, which creates a bounded revision loop.
 
-**Critical — loop predicate caveat with `/steps/resolve` reject actions:** the default `onIterationReject.when` predicate is `decision == 'reject' && rejectorMandatory == true`. When a step is resolved via the `/steps/resolve` endpoint with `action: "reviewer-reject"` or `action: "force-reject"`, the engine does NOT populate `output.rejectedBy` or `output.rejectorMandatory` on the step. As a result, this default predicate will evaluate to false and the loop region will NOT iterate — the execution will follow the non-loop edge instead. If your loop region must fire on rejection, use `recordReviewerDecision` with a mandatory reviewer (which does populate `rejectorMandatory: true`) rather than the resolve reject actions.
+**Lifecycles:**
 
-**`previousAttempts` payload:** on iteration N+1, the entry step's input object includes:
-
-```json
-{
-  "iteration": 2,
-  "loopId": "draft-revision",
-  "previousAttempts": [
-    {
-      "iteration": 1,
-      "authorOutput": {},
-      "rejectedBy": "u_legal_01",
-      "rejectorMandatory": true,
-      "rejectionReason": "missing clause",
-      "rejectedAt": 1716000000000
-    }
-  ]
-}
+```text
+Execution:  pending -> running -> completed | failed | cancelled
+Step:       pending -> running -> (waiting) -> completed | failed | skipped | cancelled | breached
 ```
 
-Use this to give the entry agent full context about prior rejection reasons so it can revise its output accordingly.
+`waiting` applies to running agent steps (resume on their own), human steps (resume when decisions are recorded), and async webhook steps (resume on your callback).
 
-**Edge shape:**
+**Step IDs (deterministic, so retries land on the same record):**
 
-```typescript
-{
-  from: string,           // source nodeId
-  to: string,             // target nodeId
-  when?: string           // e.g. "output.passesBrandCheck == true"
-}
+```text
+Root step, no incoming edges:   step_<nodeId>_<timestamp>_<rand>
+Per-edge fan-out:               <parentStepId>__to__<childNodeId>
+Group-owned fan-out:            group_<groupId>__to__<childNodeId>
 ```
 
-If `when` is omitted, the edge always fires. If a node has multiple outgoing edges and no `when` clause evaluates true, the execution stalls at that node — always include an unconditional edge or an explicit catch-all `when: "true"`.
+**Ways to start a run:** your backend calls `/executions/dispatch`, or a `triggers[]` entry starts runs for you (inbound webhook, cron schedule, or installed GitHub / Vercel app). See `rest-executions` and `concepts-triggers`.
 
-**`when` expression language:**
+**Scope:** `scope.level` is `apiKey` (default, workspace-wide), `organization` (one `organizationId`), or `document` (one `documentId` under an organization). Scope does NOT select between definitions: you always dispatch a specific `definitionId`, and `/definitions/list` returns every level. Scope sets the `organizationId` / `documentId` that trigger-started runs inherit.
 
-```
-Path roots:
-  output.*              The source step's output object.
-  step.*                The source step's metadata (status, timing).
-  execution.input.*     The triggerContext you passed on dispatch.
+**Versioning:** every update bumps `version`. A run pins the version that was current at dispatch (`definitionVersion`) and finishes on it; edits never migrate in-flight runs. Old versions cannot be read and there is no rollback (see `patterns-copy-update-versioning`).
 
-Operators:
-  ==  !=  <  >  <=  >=  &&  ||  !
-  Helpers: regex, includes, startsWith, endsWith, length, isEmpty
-```
+**Tenant partitioning:** state is partitioned per tenant (`storeDbId`); each tenant's definitions, executions, and events live in that tenant's own database. Never assume an `executionId` or `definitionId` is portable across tenants or API keys.
 
-Expressions are compiled at write time (pure AST, no `eval`) and walked at runtime.
-
-**Group shape (parallel quorum):**
-
-```typescript
-{
-  groupId: string,                                               // 1–64 chars, unique
-  memberNodeIds: string[],                                       // 1–500; each node belongs to AT MOST one group
-  expectedSteps: number,                                         // 1–500; MUST equal memberNodeIds.length
-  quorum: number,                                                // 1–expectedSteps; "how many approvals to satisfy"
-  onQuorumMet?: "waitAll" | "cancelOnQuorum" | "joinOnQuorum",  // default: waitAll
-  requiredNodeIds?: string[]                                     // length ≤ quorum; these specific members must approve too
-}
-```
-
-**Quorum counts only `completed` steps whose `output.decision === 'approve'`** — not total completions, not rejections, not failures, not breaches, not cancellations (those count toward completion only). Two consequences:
-
-1. **Non-blocking agent nodes never satisfy quorum** — they complete without producing an approve/reject decision. Only `human` nodes and `blocking: true` agents belong in approval-counting groups.
-2. **A `reject` does not block group completion.** Group-completion (`expectedSteps` met) and group-quorum (approval threshold) are tracked separately. A group of all-reject members rolls up to complete but never fires `group.quorum-met`.
-
-**onQuorumMet policies — first-time approval-quorum-met effect:**
-
-```
-waitAll          (default)
-  Emits group.quorum-met event only. Execution continues until every member is terminal.
-  Per-member fan-out: each member's outgoing edges fire on its own completion.
-  Two members fanning to the same downstream node ⇒ two downstream step instances.
-
-cancelOnQuorum
-  Emits group.quorum-met AND cancels every sibling member step still in `waiting`
-  (system actor "system:group-quorum", audit reason "group-quorum-met").
-  Completed members still fan out per their edges; cancelled members do not.
-  Linter constraint: requires quorum < expectedSteps.
-
-joinOnQuorum
-  Emits group.quorum-met, cancels waiting siblings, AND fires a single group-owned
-  downstream step per shared successor (synthetic stepId:
-  group_<groupId>__to__<childNodeId>). Per-member fan-out is SUPPRESSED — the
-  group container owns fan-out, so downstream successors run exactly once.
-  Successor's input is { groupOutputs, groupId, quorum, totalApproved }.
-  Linter constraint: every member must share the same outgoing-edge target set.
-```
-
-**Specific-must-approve quorum (`requiredNodeIds`):**
-
-```json
-{
-  "groupId": "approver-group",
-  "memberNodeIds": ["legal", "finance", "brand"],
-  "expectedSteps": 3,
-  "quorum": 2,
-  "requiredNodeIds": ["legal", "finance"]
-}
-```
-
-Quorum-met now requires both: every nodeId in `requiredNodeIds` approves AND the numeric `quorum` is met. `brand` alone reaching 2 approvals does NOT satisfy the gate — `legal` AND `finance` must both also be approvers. Empty/omitted `requiredNodeIds` collapses back to anonymous quorum.
-
-**SLA and breach handling:**
-
-```
-slaMs?: number      // step deadline in ms; set on any node
-
-If the step doesn't complete within slaMs, it transitions to `breached` and emits
-a step.breached event. To handle breaches, declare an outgoing edge that routes on
-the breached status; otherwise the linter rejects the definition with
-`missing-breach-edge` (silent dead-ends are a bug).
-```
-
-**Step IDs are deterministic** (so retries land on the same doc):
-
-```
-Root steps (no incoming edges):       step_<nodeId>_<timestamp>_<rand>
-Per-edge fan-out:                     ${parentStepId}__to__${childNodeId}
-joinOnQuorum group fan-out:           group_<groupId>__to__<childNodeId>
-                                      (single instance regardless of how many group members ran)
-```
-
-**Status flows:**
-
-```
-Execution: pending → running → completed | failed | cancelled
-
-Step:      pending → running → (waiting) → completed | failed | skipped | cancelled | breached
-           // `waiting` applies only to human steps and blocking:true agent steps
-```
-
-**Tenant partitioning — `storeDbId`:**
-
-Approval Engine state is partitioned per tenant: each tenant's executions, definitions, and events are routed to that tenant's dedicated `storeDbId`. Two operational consequences:
-
-- A definition created under tenant A is not visible to tenant B; an `executionId` from one tenant cannot be fetched, cancelled, or replayed under another tenant's API key.
-- Recovery via `/executions/getEvents?sinceSeq=` reads from the partition that owns the execution. There is no cross-tenant event stream.
-
-Treat the partition boundary as a hard isolation boundary when designing multi-tenant integrations — never assume an ID is portable across tenants.
+**Beta limitations (from the overview)**
+- Definitions are authored as JSON; there is no visual builder.
+- You host the reviewer UI: render the waiting step and call `recordReviewerDecision`.
+- `blocking: true` on an agent node is rejected at run time; put a `human` node downstream instead.
+- Editing a definition affects only new runs.
 
 **Verification Checklist:**
-- [ ] Node `type` is one of `agent` / `human` / `webhook` (the `webhook` type validates but does NOT run in v1 — don't depend on its runtime behavior)
-- [ ] Code that switches on `webhook` does not confuse the deferred node type with the live [[webhooks-inbound-handler]] or the live outbound delivery covered in [[webhooks-delivery]]
-- [ ] Test runs that use `agentId: "__mock__"` are swapped to a real `agentId` before production
-- [ ] Multi-tenant integrations treat `storeDbId` as a hard isolation boundary — no IDs assumed portable across tenants
-- [ ] Every `human` node provides exactly one of `reviewers[]` or `reviewerIds[]` — never both
-- [ ] Every `human` node using the new shape has at least one `reviewers[].mandatory: true`
-- [ ] Every `human` node satisfies strict-mode: has `config.onReject` set OR is a member of a top-level `loops[]` body
-- [ ] `reviewerEmails` has 0–50 entries (if provided)
-- [ ] `commentBody` is ≤ 8 000 chars; application surfaces it to reviewers (engine does NOT auto-create annotations)
-- [ ] `onReject.loopBack.maxIterations` is 1–20 (default 5)
-- [ ] Every `blocking: true` agent node includes `resolutionPolicy` (with `minCount` when `kind === "minResolved"`)
-- [ ] Every node with `slaMs` has at least one outgoing breach-routed edge (avoids `missing-breach-edge`)
-- [ ] Each node belongs to at most one group
-- [ ] For every group: `expectedSteps === memberNodeIds.length`, `1 ≤ quorum ≤ expectedSteps`, `requiredNodeIds.length ≤ quorum`
-- [ ] `cancelOnQuorum` groups have `quorum < expectedSteps` (avoids `group-cancelonquorum-requires-quorum-lt-expected`)
-- [ ] `joinOnQuorum` groups: all members share the same successor set (avoids `group-joinonquorum-members-must-share-successors`)
-- [ ] Approval-counting groups contain only `human` or `blocking: true` agents — never non-blocking agents
-- [ ] Every `loops[]` entry: `entryNodeId` is in `bodyNodeIds`, `maxIterations` 1–20, no node appears in more than one loop body, `onExhausted.routeToNodeId` (if set) references a node outside the loop body
+- [ ] No `onReject`, top-level `loops[]`, or `blocking: true` in authored definitions
+- [ ] Every node `type` is one of `agent`, `human`, `notification`, `webhook`, and its `config` has no unknown fields
+- [ ] Every `human` node has an outgoing `on: "reject"` edge; every `agent` node sets `url` or `urlPath`
+- [ ] Definition stays within limits: 100 nodes, 500 edges, 100 groups, 50 triggers
+- [ ] Code reading steps handles `waiting` for agent, human, and async webhook steps
+- [ ] Scope is chosen for trigger inheritance, not as a definition selector
+- [ ] IDs are never reused across tenants or API keys
 
 **Source Pointers:**
-- https://docs.velt.dev/ai/approval-engine/overview — concepts overview, step ID formats, deferred `webhook` node type, tenant `storeDbId` partitioning
-- https://docs.velt.dev/ai/approval-engine/customize-behavior — full node configuration, edge expressions, quorum policies, SLAs, deferred `webhook` node clarification vs. inbound/outbound surfaces
-- https://docs.velt.dev/ai/approval-engine/setup — reserved `__mock__` agent id for end-to-end tests
+- https://docs.velt.dev/ai/approval-engine/overview — "What is the Review Workflow Builder?", "Building blocks", "Node types", "Lifecycles", "Scope", "Limitations in beta"
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#node-configuration — common node fields
+- https://docs.velt.dev/ai/approval-engine/customize-behavior#step-ids — step ID shapes
+- https://docs.velt.dev/api-reference/rest-apis/v2/approval-engine/definitions/create-definition — field limits and `definitionId` pattern

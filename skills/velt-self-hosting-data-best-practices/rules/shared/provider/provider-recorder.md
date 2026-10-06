@@ -25,18 +25,18 @@ interface GetRecorderResolverRequest {
   organizationId: string;
   recorderAnnotationIds?: string[];
   documentIds?: string[];
-  folderId?: string;
-  allDocuments?: boolean;
 }
 
 interface SaveRecorderResolverRequest {
-  recorderAnnotations: Record<string, PartialRecorderAnnotation>;
+  recorderAnnotation: Record<string, PartialRecorderAnnotation>; // singular key
   metadata?: BaseMetadata;
   event?: ResolverActions;
 }
 
 interface SaveRecorderResolverData {
-  recorderAnnotation: Record<string, PartialRecorderAnnotation>;
+  transcription?: Transcription;       // updated transcription
+  attachment?: Attachment | null;      // deprecated; use attachments
+  attachments?: Attachment[];          // updated attachments
 }
 
 interface DeleteRecorderResolverRequest {
@@ -125,6 +125,7 @@ const recorderStorage: AttachmentDataProvider = {
 - `storage` is a scoped `AttachmentDataProvider` just for recorder media (separate from the main attachment provider)
 - Recording data includes transcription text, user identity, and media URLs — all sensitive PII
 - `RecorderResolverModuleName.GET_RECORDER_ANNOTATIONS` in dataProvider events for debugging
+- The recorder config supports `additionalFields` and, since v6.0.0-beta.2, `fieldsToRemove` for your own custom fields (matched on `!== undefined`, so `0`, `false`, and `""` are moved too)
 
 ### Recorder strip rules
 
@@ -145,7 +146,7 @@ const saveRecorder = async (request) => {
   // BUG: Velt still tracks { attachmentId, name } stubs for each attachment.
   // If your DB is the only source of truth for attachment IDs, you risk orphaning bucket objects
   // because Velt no longer retains a storage path back to your bucket.
-  for (const partial of Object.values(request.recorderAnnotations)) {
+  for (const partial of Object.values(request.recorderAnnotation)) {
     await db.saveAttachments(partial.attachments); // assumes Velt has nothing — wrong
   }
   return { success: true, statusCode: 200 };
@@ -156,7 +157,7 @@ const saveRecorder = async (request) => {
 
 ```tsx
 const saveRecorder = async (request) => {
-  for (const [annotationId, partial] of Object.entries(request.recorderAnnotations)) {
+  for (const [annotationId, partial] of Object.entries(request.recorderAnnotation)) {
     // partial.transcription          → entire object, your DB only
     // partial.from                   → full User object (PII)
     // partial.attachments[]          → full attachment objects including url
@@ -176,5 +177,6 @@ const saveRecorder = async (request) => {
 - [ ] Provider set before identify()
 - [ ] `attachments[]` round-trip preserves Velt-side stubs `{ attachmentId, name }` (Velt no longer stores `bucketPath`)
 - [ ] `recordingEditVersions` per-version PII is treated as optional (versions without PII are absent from the payload)
+- [ ] Save handlers read `request.recorderAnnotation` (singular), not `recorderAnnotations`
 
-**Source Pointer:** https://docs.velt.dev/self-host-data/recordings; https://docs.velt.dev/self-host-data/field-inventory - "Recorder strip rules"
+**Source Pointer:** https://docs.velt.dev/self-hosting/partial/recordings; https://docs.velt.dev/self-hosting/partial/field-inventory - "Recorder strip rules"

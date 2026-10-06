@@ -1,134 +1,114 @@
 ---
-title: Webhook v1 Setup and Event Handling
+title: Set Up Basic Webhooks and Handle Their Payloads
 impact: HIGH
-impactDescription: Webhooks are the primary way to react to collaboration events server-side — missing events means broken workflows
-tags: webhooks, events, comments, huddle, crdt, security
+impactDescription: Basic webhooks are the main server-side signal for comments, huddles, and CRDT; wrong action names or decryption code drop events
+tags: webhooks, basic, v1, events, comments, huddle, crdt, authorization, encoding, encryption, accessDeniedUsers, visibility
 ---
 
-## Webhook v1 Setup and Event Handling
+## Set Up Basic Webhooks and Handle Their Payloads
 
-Webhooks deliver real-time event notifications from Velt to your server.
+Basic webhooks POST a `WebhookV1Payload` to one endpoint URL for Comments, Huddle, and CRDT events. Enable them in the Velt Console (Configurations > Webhook Service) or with `POST /v2/workspace/webhookconfig/update`. Each payload carries `webhookId`, `actionType`, `notificationSource` (`comment`, `huddle`, `crdt`, or `recorder`), and optional `actionUser`, `metadata`, and `platform`.
 
-### Configuration
-
-Configure webhooks in the Velt Console: **Configurations > Webhook Service**.
-
-1. Enter your webhook endpoint URL.
-2. Optionally set an auth token for request verification.
-3. Select which event types to receive.
-
-### Comment Events
-
-| Action Type | Trigger |
-|------------|---------|
-| `newlyAdded` | First comment in a new annotation |
-| `added` | Reply added to existing annotation |
-| `updated` | Comment text edited |
-| `deleted` | Comment deleted |
-| `approved` | Comment marked as approved |
-| `assigned` | Comment assigned to a user |
-| `statusChanged` | Comment status changed (e.g., open to resolved) |
-| `priorityChanged` | Comment priority changed |
-| `reactionAdded` | Reaction emoji added to a comment |
-| `reactionDeleted` | Reaction emoji removed from a comment |
-
-### Huddle Events
-
-| Action Type | Trigger |
-|------------|---------|
-| `created` | New huddle session started |
-| `joined` | User joined an existing huddle |
-
-### CRDT Events
-
-| Action Type | Trigger |
-|------------|---------|
-| `updateData` | CRDT data changed (5-second debounce) |
-
-### Payload Format
-
-Every webhook POST delivers this structure:
-
-```json
-{
-  "webhookId": "wh-123",
-  "actionType": "added",
-  "notificationSource": "comment",
-  "actionUser": {
-    "userId": "user-1",
-    "name": "Alice",
-    "email": "alice@example.com"
-  },
-  "metadata": {
-    "organizationId": "org-123",
-    "documentId": "doc-456",
-    "annotationId": "ann-789"
-  }
-}
-```
-
-### Handling Webhooks (Node.js Example)
+**Incorrect (wrong auth header check, wrong huddle action, single-key decryption):**
 
 ```javascript
-const express = require("express");
+app.post('/velt/webhook', (req, res) => {
+  if (req.headers.authorization !== process.env.VELT_WEBHOOK_TOKEN) return res.sendStatus(401); // missing "Basic " prefix
+  if (req.body.notificationSource === 'huddle' && req.body.actionType === 'joined') { /* never fires */ }
+  res.sendStatus(200);
+});
+```
+
+**Correct (`Basic` token, documented action types, acknowledge fast):**
+
+```javascript
+const express = require('express');
 const app = express();
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 
-app.post("/velt/webhook", (req, res) => {
-  const { actionType, notificationSource, actionUser, metadata } = req.body;
-
-  if (notificationSource === "comment" && actionType === "added") {
-    console.log(`${actionUser.name} commented on doc ${metadata.documentId}`);
+app.post('/velt/webhook', (req, res) => {
+  if (req.headers.authorization !== `Basic ${process.env.VELT_WEBHOOK_TOKEN}`) {
+    return res.status(401).send('Unauthorized');
   }
+  res.status(200).send('OK'); // acknowledge first, process asynchronously
 
-  res.status(200).send("OK");
+  const { actionType, notificationSource, metadata, accessDeniedUsers = [] } = req.body;
+  if (notificationSource === 'comment' && (actionType === 'newlyAdded' || actionType === 'added')) {
+    enqueueCommentFanout(req.body, { skipUserIds: accessDeniedUsers });
+  } else if (notificationSource === 'huddle' && actionType === 'join') {
+    enqueueHuddleJoin(metadata);
+  } else if (notificationSource === 'crdt' && actionType === 'updateData') {
+    enqueueCrdtSync(req.body);
+  }
 });
 ```
 
-### Security
+### Action types
 
-**Auth token verification** — If configured, Velt sends your auth token in the request. Verify it before processing:
+**Comments:** `newlyAdded` (first comment in a thread), `added` (later comments), `updated`, `deleted`, `approved`, `accepted`, `rejected` (Moderator Mode), `assigned`, `statusChanged`, `priorityChanged`, `accessModeChanged`, `reactionAdded`, `reactionDeleted`, `subscribed`, `unsubscribed`, `suggestionAccepted`, `suggestionRejected`. The two suggestion events are opt-in and off by default.
 
-```javascript
-app.post("/velt/webhook", (req, res) => {
-  const token = req.headers["authorization"];
-  if (token !== process.env.VELT_WEBHOOK_TOKEN) {
-    return res.status(401).send("Unauthorized");
-  }
-  // process event...
-  res.status(200).send("OK");
-});
+**Huddle:** `created`, `join`.
+
+**CRDT:** `updateData`, debounced at 5 seconds.
+
+When notification settings are configured, payloads also include `usersOrganizationNotificationsConfig` or `usersDocumentNotificationsConfig`.
+
+### Enable and configure via REST
+
+```bash
+POST https://api.velt.dev/v2/workspace/webhookconfig/update
+{ "data": {
+    "useWebhookService": true,
+    "webhookServiceConfig": {
+      "authToken": "webhook_auth_token_here",
+      "rawNotificationUrl": "https://example.com/webhooks/raw",
+      "processedNotificationUrl": "https://example.com/webhooks/processed"
+    }
+} }
 ```
 
-**Encrypted payloads** — Velt supports optional AES-256-CBC encryption with base64 encoding. When enabled, the payload body is encrypted and must be decrypted server-side before parsing:
+On first enable, default triggers are seeded: standard comment and all huddle triggers on, **CRDT and recorder triggers off**, and the suggestion triggers off until you enable them. Turn on the ones you need through `webhookServiceConfig.triggers`.
+
+### Security: auth token, encoding, encryption
+
+- **Auth token:** when set, Velt sends it in the `Authorization` header as `Basic YOUR_AUTH_TOKEN`.
+- **Encoding (optional):** the payload arrives as `{ "encodedPayload": "<base64>" }`; decode with `JSON.parse(Buffer.from(encodedPayload, 'base64').toString('utf-8'))`.
+- **Encryption (optional):** the payload arrives as `{ encryptedData, encryptedKey, iv }`. The AES-256-CBC key is itself encrypted with your RSA public key (PKCS1 OAEP, SHA-256). Provide the public key as a base64 string without PEM headers (2048-bit recommended).
 
 ```javascript
-const crypto = require("crypto");
+const crypto = require('crypto');
 
-function decryptPayload(encrypted, key, iv) {
-  const decipher = crypto.createDecipheriv(
-    "aes-256-cbc",
-    Buffer.from(key, "hex"),
-    Buffer.from(iv, "hex")
+function decryptVeltWebhook({ encryptedData, encryptedKey, iv }, privateKeyBase64) {
+  const symmetricKey = crypto.privateDecrypt(
+    {
+      key: `-----BEGIN RSA PRIVATE KEY-----\n${privateKeyBase64}\n-----END RSA PRIVATE KEY-----`,
+      padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
+      oaepHash: 'sha256'
+    },
+    Buffer.from(encryptedKey, 'base64')
   );
-  let decrypted = decipher.update(encrypted, "base64", "utf8");
-  decrypted += decipher.final("utf8");
-  return JSON.parse(decrypted);
+  const decipher = crypto.createDecipheriv('aes-256-cbc', symmetricKey, Buffer.from(iv, 'base64'));
+  let json = decipher.update(encryptedData, 'base64', 'utf8');
+  json += decipher.final('utf8');
+  return JSON.parse(json);
 }
 ```
 
-**Key points:**
+### Private comments: `visibility` and `accessDeniedUsers`
 
-- CRDT `updateData` events are debounced at 5 seconds — you will not receive every keystroke.
-- Your endpoint must return a 2xx status code or Velt will consider the delivery failed.
-- The `notificationSource` field identifies the feature area: `comment`, `huddle`, or `crdt`.
-- Encryption key and IV are configured in the Velt Console alongside the webhook URL.
+Notifications for private comments carry a `visibility` object (`type`: `public`, `organizationPrivate`, or `restricted`, plus `userIds` / `organizationIds` / `organizationId`) and an `accessDeniedUsers` list of client user IDs denied by your Permission Provider or by the comment's visibility. Drop those users from your own fan-out. Never use these fields to widen who you forward to. Public comments carry no `visibility` key.
 
-**Verification:**
-- [ ] Webhook URL is configured in Velt Console under Configurations > Webhook Service
-- [ ] Endpoint returns 2xx status for all valid requests
-- [ ] Auth token is verified if configured
-- [ ] CRDT debounce behavior is accounted for in event handling
-- [ ] Encrypted payloads are decrypted before parsing if encryption is enabled
+**Verification Checklist:**
+- [ ] Webhook is enabled in the Console or via `/v2/workspace/webhookconfig/update`, and CRDT / recorder / suggestion triggers are turned on explicitly if needed
+- [ ] The `Authorization` header is compared against `Basic <token>`
+- [ ] Handlers branch on `notificationSource` + `actionType` using the documented names (`newlyAdded`, `join`, `updateData`, ...)
+- [ ] Encoded payloads are base64-decoded; encrypted payloads decrypt `encryptedKey` with RSA-OAEP (SHA-256) before AES-256-CBC
+- [ ] `accessDeniedUsers` are removed from any downstream fan-out
+- [ ] The endpoint returns 2xx quickly and processes work asynchronously
+- [ ] CRDT handlers expect 5-second debounced updates, not every keystroke
 
-**Source Pointer:** `https://docs.velt.dev/webhooks/overview` (## Webhooks > ### Setup & Events)
+**Source Pointers:**
+- https://docs.velt.dev/webhooks/basic - "Basic Webhooks"
+- https://docs.velt.dev/webhooks/basic#comment-visibility - "Comment Visibility"
+- https://docs.velt.dev/api-reference/rest-apis/v2/workspace/webhookconfig-update - "Update Webhook Config"
+- https://docs.velt.dev/api-reference/sdk/models/data-models#webhookv1payload - "WebhookV1Payload"

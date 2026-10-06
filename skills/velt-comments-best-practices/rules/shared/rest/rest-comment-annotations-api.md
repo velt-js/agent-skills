@@ -2,18 +2,29 @@
 title: REST API — Comment Annotation CRUD
 impact: HIGH
 impactDescription: Server-side comment annotation management via REST
-tags: rest, api, commentannotations, add, get, update, delete, count, server, agent, agentSource, agentId, executionId, agentName, agentSuggestions, agentComments, suggestion, suggestionAccepted, suggestionRejected
+tags: rest, api, commentannotations, add, get, update, delete, count, server, updatedData, statusUpdatedByUserId, resolvedByUserId, progress, actions, suggestion, visibility, triggerNotification, triggerActivities, agent, agentSource, agentId, executionId, agentSuggestions, agentComments, nextPageToken
 ---
 
 ## REST API — Comment Annotation CRUD
 
-Use Velt's REST APIs to manage comment annotations from your backend. All endpoints require `x-velt-api-key` and `x-velt-auth-token` headers.
+Use Velt's V2 REST APIs to manage comment annotations from your backend. Every endpoint is a `POST` with a `{ data: {...} }` body and the `x-velt-api-key` and `x-velt-auth-token` headers. Update requests select annotations with filters (`annotationIds`, `locationIds`, `userIds`) and apply one `updatedData` object; there is no per-annotation `annotations[]` array.
 
-> **Agent annotations?** If the task involves AI agents, agent comments, agent suggestions, agentSource, executionId, or accept/reject — the agent block goes on `commentData[0]` with `type: "suggestion"`, `agentName` (required for external), and a `reason` object. See `rest-agent-comments-api.md` for the full reference and code examples. Use `suggestionAccepted`/`suggestionRejected` events on the client to handle reviewer decisions.
+> **Agent annotations?** If the task involves AI agents, agent comments, agent suggestions, agentSource, executionId, or accept/reject: the agent block goes on `commentData[0]` with `type: "suggestion"`, `agentName` (required for external), and a `reason` object. See `rest-agent-comments-api.md`. Use `suggestionAccepted` / `suggestionRejected` events on the client to handle reviewer decisions.
+
+**Incorrect (invented update and count shapes):**
+
+```javascript
+// Update: there is no `annotations` array
+body: JSON.stringify({ data: { organizationId: 'org-1', documentId: 'doc-1',
+  annotations: [{ annotationId: 'ann-123', status: { id: 'resolved' } }] } });
+
+// Count: requires documentIds (max 30) and userId, not a single documentId
+body: JSON.stringify({ data: { organizationId: 'org-1', documentId: 'doc-1' } });
+```
 
 **Add Annotations:**
 
-The request body uses `data.commentAnnotations` — an array of annotation objects, each containing a `commentData` array.
+The request body uses `data.commentAnnotations`, an array of annotation objects that each contain a `commentData` array.
 
 ```javascript
 // POST https://api.velt.dev/v2/commentannotations/add
@@ -29,196 +40,136 @@ const response = await fetch('https://api.velt.dev/v2/commentannotations/add', {
       organizationId: 'org-1',
       documentId: 'doc-1',
       commentAnnotations: [{
+        location: { id: 'locationId', locationName: 'Page 1' },       // optional
+        visibility: { type: 'restricted', userIds: ['user-1'] },       // optional, default public
+        context: { access: { dashboardId: 'myDashboard' } },           // optional Access Context
         commentData: [{
           commentText: 'This needs review',
           commentHtml: '<p>This needs review</p>',
-          from: { userId: 'user-1' },
+          from: { userId: 'user-1', name: 'User One' },                // required
+          triggerNotification: true,  // in-app + email notifications and webhooks (default false)
+          triggerActivities: true,    // activity log record (default false)
         }],
       }],
     },
   }),
 });
+const { result } = await response.json();
+// result.data is a MAP keyed per annotation, not an array, and its order does not match your input.
+for (const entry of Object.values(result.data)) {
+  console.log(entry.success, entry.annotationId, entry.commentIds, entry.findingId);
+}
 ```
 
-**Add Agent Annotations (AI agent findings with Accept/Reject buttons):**
+Response handling:
+- Read `entry.annotationId` from each value, never the map key. Keys for permission-denied entries without your own `annotationId` fall back to `__velt_denied:<index>`.
+- On a failure response, `error.details` carries the same per-annotation map. Entries with `"success": true` **were created**, so treat a failed request as a partial write.
+- For agent annotations, `findingId` echoes `commentData[0].agent.reason.findingId`; use it to correlate results with your own records.
 
-To let an AI agent leave findings as comments, set `type: "suggestion"` on the annotation and attach an `agent` object to `commentData[0]` with `agentSource`, `agentName` (required for external), and `reason`. The server stamps `sourceType: "agent"` and renders Accept/Reject buttons. See `rest-agent-comments-api.md` for the full reference.
+**Optional annotation fields on add:**
 
-```javascript
-// POST https://api.velt.dev/v2/commentannotations/add
-const response = await fetch('https://api.velt.dev/v2/commentannotations/add', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'x-velt-api-key': process.env.VELT_API_KEY,
-    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
-  },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'acme-corp',
-      documentId: 'design-mockup-v2',
-      commentAnnotations: [{
-        type: 'suggestion',
-        commentData: [{
-          commentText: 'This button has insufficient color contrast.',
-          from: { userId: 'a11y-bot' },
-          agent: {
-            agentSource: 'external',
-            agentName: 'Accessibility Bot',
-            agentId: 'a11y-bot',
-            executionId: 'run_8f21',
-            reason: {
-              title: 'Low color contrast',
-              description: 'Contrast ratio is 2.1:1, below the 4.5:1 WCAG AA threshold.',
-              severity: 'high',
-              findingType: 'pin',
-            },
-          },
-        }],
-      }],
-    },
-  }),
-});
-```
+| Field | Notes |
+|-------|-------|
+| `type` | `'comment'` (default) or `'suggestion'`. Use `'suggestion'` for agent findings and reviewable proposed changes. The legacy `commentType: "suggestion"` no longer drives classification. |
+| `suggestion` | Proposed-change payload for `type: 'suggestion'`: `targetId`, `targetType`, `oldValue`, `newValue`, `summary`, `driftDetected`, plus any custom fields. `status` is server-owned and stamped `pending` on create. |
+| `visibility` | `{ type: 'public' \| 'organizationPrivate' \| 'restricted', organizationId?, userIds? }`. `organizationPrivate` requires `organizationId`; `restricted` requires non-empty `userIds`. |
+| `actions` | Annotation-level default action chips (`CommentAction[]`, max 20). See `data-comment-actions.md`. |
+| `commentData[].progress` | Live progress row (`CommentProgress`, `steps` max 100). See `data-comment-progress.md`. |
+| `commentData[].actions` | Row-level action chips that override the annotation default. |
+| `createOrganization` / `createDocument` | Create the org or document if missing. |
+| `verifyUserPermissions` | Check the author can access the document (default `false`). |
 
 **Get Annotations (with filters):**
 
 ```javascript
 // POST https://api.velt.dev/v2/commentannotations/get
-const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'x-velt-api-key': process.env.VELT_API_KEY,
-    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
+body: JSON.stringify({
+  data: {
+    organizationId: 'org-1',          // required
+    documentIds: ['doc-1'],           // optional, max 30; or documentId
+    locationIds: ['locationx'],       // optional
+    annotationIds: ['ann-1'],         // optional
+    userIds: ['user-1'],              // optional: authors
+    mentionedUserIds: ['user-2'],     // optional: annotations that tag these users
+    resolvedBy: 'user-3',             // optional: matches resolvedByUserId
+    statusIds: ['OPEN'],              // optional
+    updatedAfter: 1700000000000,      // optional, ms
+    order: 'desc',                    // 'asc' | 'desc' on lastUpdated
+    pageSize: 50,                     // default 1000
+    pageToken: 'next-token',
   },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'org-1',
-      documentId: 'doc-1',           // Optional
-      locationIds: [1, 2],           // Optional
-      annotationIds: ['ann-1'],      // Optional
-      userIds: ['user-1'],           // Optional
-      statusIds: ['open'],           // Optional
-      folderId: 'folder-1',         // Optional
-      updatedAfter: 1700000000000,   // Optional: timestamp ms
-      createdBefore: 1700100000000,  // Optional: timestamp ms
-      pageSize: 50,                  // Default: 1000
-      pageToken: 'next-token',      // For pagination
-    },
-  }),
-});
-// Response: { result: { status, data: CommentAnnotation[], pageToken } }
+}),
+// Response: { result: { status, message, data: CommentAnnotation[], nextPageToken } }
 ```
 
-**Get Agent Annotations (agent-specific filters):**
-
-Use these filters to query agent-created annotations. Only one agent filter per request.
-
-| Filter | Description |
-|--------|-------------|
-| `agentId` | Annotations created by a specific agent. |
-| `executionId` | Annotations from a specific agent run. |
-| `agentSource` | `"velt"` or `"external"`. |
-| `agentSuggestions` | When `true`, returns only fresh (unaccepted) agent suggestions. |
-| `agentComments` | When `true`, returns all agent annotations regardless of status. |
-
-```javascript
-// Get all findings from a specific agent run
-const response = await fetch('https://api.velt.dev/v2/commentannotations/get', {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'x-velt-api-key': process.env.VELT_API_KEY,
-    'x-velt-auth-token': process.env.VELT_AUTH_TOKEN,
-  },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'acme-corp',
-      documentId: 'design-mockup-v2',
-      executionId: 'run_8f21',
-    },
-  }),
-});
-
-// Get only pending (unaccepted) agent suggestions
-const pending = await fetch('https://api.velt.dev/v2/commentannotations/get', {
-  method: 'POST',
-  headers: { /* same headers */ },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'acme-corp',
-      documentId: 'design-mockup-v2',
-      agentSuggestions: true,
-    },
-  }),
-});
-```
+Agent filters (`agentId`, `executionId`, `agentType`, `agentSource`, `agentSuggestions`, `agentComments`) are covered in `rest-agent-comments-api.md`; only one agent filter is allowed per Get request.
 
 **Update Annotations:**
 
 ```javascript
 // POST https://api.velt.dev/v2/commentannotations/update
-const response = await fetch('https://api.velt.dev/v2/commentannotations/update', {
-  method: 'POST',
-  headers: { /* same headers */ },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'org-1',
-      documentId: 'doc-1',
-      annotations: [{
-        annotationId: 'ann-123',
-        status: { id: 'resolved', name: 'Resolved', type: 'terminal' },
-        priority: { id: 'low', name: 'Low' },
-      }],
+body: JSON.stringify({
+  data: {
+    organizationId: 'org-1',
+    documentId: 'doc-1',
+    annotationIds: ['ann-123', 'ann-456'],   // and/or locationIds, userIds
+    updatedData: {
+      status: { id: 'resolved', name: 'Resolved', type: 'terminal' },
+      statusUpdatedByUserId: 'user-1',       // who made the status change; null clears it
+      resolvedByUserId: 'user-1',            // matched by the Get `resolvedBy` filter
+      priority: { id: 'P1', name: 'P1' },
     },
-  }),
-});
+  },
+}),
 ```
+
+- A non-`terminal` status automatically clears `resolvedByUserId` and `resolvedByUser`; `statusUpdatedByUserId` is kept so you still know who reopened it. Omit a field to leave it unchanged.
+- `updatedData.suggestion` **replaces** the stored `suggestion` object; include existing fields when changing one value. Unlike create, `status` (`pending` / `accepted` / `rejected`) is honored here.
+- `updatedData.actions` replaces the stored array outright.
+- `updateUsers: [{ oldUser, newUser }]` rewrites user references.
 
 **Delete Annotations:**
 
 ```javascript
 // POST https://api.velt.dev/v2/commentannotations/delete
-const response = await fetch('https://api.velt.dev/v2/commentannotations/delete', {
-  method: 'POST',
-  headers: { /* same headers */ },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'org-1',
-      documentId: 'doc-1',
-      annotationIds: ['ann-123', 'ann-456'],
-    },
-  }),
-});
+body: JSON.stringify({
+  data: {
+    organizationId: 'org-1',
+    documentId: 'doc-1',                     // required
+    annotationIds: ['ann-123', 'ann-456'],   // optional; also locationIds, userIds
+  },
+}),
 ```
+
+With only `organizationId` + `documentId`, every annotation on the document is deleted. The combinable agent filters (`agentId`, `agentSuggestions`, `agentUrls`) are covered in `rest-agent-comments-api.md`.
 
 **Get Counts (total + unread):**
 
 ```javascript
 // POST https://api.velt.dev/v2/commentannotations/count/get
-const response = await fetch('https://api.velt.dev/v2/commentannotations/count/get', {
-  method: 'POST',
-  headers: { /* same headers */ },
-  body: JSON.stringify({
-    data: {
-      organizationId: 'org-1',
-      documentId: 'doc-1',
-    },
-  }),
-});
-// Response: { result: { data: { total: number, unread: number } } }
+// Requires advanced queries enabled in the Velt Console
+body: JSON.stringify({
+  data: {
+    organizationId: 'org-1',
+    documentIds: ['doc-1', 'doc-2'],   // required, max 30
+    userId: 'user-1',                  // required: whose unread count
+    statusIds: ['OPEN'],               // optional
+  },
+}),
+// Response: { result: { data: { 'doc-1': { total: 4, unread: 2 }, 'doc-2': { total: 2, unread: 0 } } } }
 ```
 
-**Key flags:**
-- `triggerNotification: true` — sends notification to tagged users
-- `triggerActivities: true` — creates activity log record
-- `verifyUserPermissions: true` — checks user has document access
-
 **Verification:**
-- [ ] API key and auth token in environment variables (not client-side)
-- [ ] organizationId included in every request
-- [ ] Pagination handled with pageToken for large result sets
-- [ ] Correct endpoint URL used
+- [ ] API key and auth token read from server-side environment variables
+- [ ] Add responses iterated with `Object.values(result.data)` and `entry.annotationId`, and failed requests checked for partial writes in `error.details`
+- [ ] Updates use `annotationIds` / filters plus a single `updatedData` object
+- [ ] Status changes send `statusUpdatedByUserId` (and `resolvedByUserId` for terminal statuses)
+- [ ] Count requests send `documentIds` (max 30) and `userId`
+- [ ] Pagination reads `nextPageToken` and sends it back as `pageToken`
 
-**Source Pointer:** https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/add-comment-annotations - Add Comment Annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-v2 - Get Comment Annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/update-comment-annotations - Update Comment Annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/delete-comment-annotations - Delete Comment Annotations
+- https://docs.velt.dev/api-reference/rest-apis/v2/comments-feature/comment-annotations/get-comment-annotations-count - Get Comment Annotations Count

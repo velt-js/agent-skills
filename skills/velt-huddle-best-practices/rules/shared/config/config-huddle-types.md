@@ -1,26 +1,25 @@
 ---
 title: Configure VeltHuddleTool Type
 impact: HIGH
-impactDescription: The type prop controls which huddle options are available to users
-tags: huddle, type, audio, video, screen, VeltHuddleTool, configuration
+impactDescription: The type prop controls what the first click on the huddle tool starts
+tags: huddle, type, audio, video, screen, presentation, all, VeltHuddleTool, configuration
 ---
 
 ## VeltHuddleTool Type Prop
 
-The `type` prop on `VeltHuddleTool` controls which huddle options are presented to users. Available values are `'audio'`, `'video'`, `'screen'`, and `'all'`.
+The `type` prop on `VeltHuddleTool` sets what kind of huddle the first click starts. Always set it explicitly: the huddle feature page lists the default as `all`, while the component behavior reference lists `audio`.
 
 **Why this matters:**
 
-Choosing the right type ensures users see only the huddle options relevant to your application. A code review tool may only need audio, while a design collaboration tool benefits from all options including screen sharing.
+Relying on the default gives different behavior depending on which doc you trust. A code review tool may only need audio, while a design tool needs video and screen sharing.
 
-**Type options:**
+**Incorrect (implicit default):**
 
-- `'all'` — Shows a dropdown with audio, video, and screen sharing options. This is the recommended default for most applications.
-- `'audio'` — Shows only an audio huddle button. Users can start voice-only calls.
-- `'video'` — Shows only a video huddle button. Users can start video calls.
-- `'screen'` — Shows only a screen sharing button. Users can share their screen.
+```jsx
+<VeltHuddleTool /> {/* default is documented as both 'all' and 'audio' */}
+```
 
-**React: Type examples**
+**Correct (React / Next.js):**
 
 ```jsx
 "use client";
@@ -29,46 +28,47 @@ import { VeltHuddleTool } from "@veltdev/react";
 function Toolbar() {
   return (
     <div className="toolbar">
-      {/* Dropdown with all options */}
       <VeltHuddleTool type="all" />
     </div>
   );
 }
-```
 
-```jsx
-// Audio-only huddle button
+// Single-purpose buttons
 <VeltHuddleTool type="audio" />
-
-// Video-only huddle button
 <VeltHuddleTool type="video" />
-
-// Screen share-only button
-<VeltHuddleTool type="screen" />
 ```
 
-**HTML: Type examples**
+**Correct (Other Frameworks):**
 
 ```html
 <velt-huddle-tool type="all"></velt-huddle-tool>
 <velt-huddle-tool type="audio"></velt-huddle-tool>
 <velt-huddle-tool type="video"></velt-huddle-tool>
-<velt-huddle-tool type="screen"></velt-huddle-tool>
 ```
 
-**Usage guidance:**
+**Type values:**
 
-- Use `type="all"` for general collaboration apps where users may want any communication mode
-- Use `type="audio"` for lightweight voice-only scenarios like code reviews or quick syncs
-- Use `type="video"` when face-to-face communication is the primary use case
-- Use `type="screen"` when the main goal is screen sharing for demos or walkthroughs
-- You can render multiple `VeltHuddleTool` components with different types if you want separate buttons instead of the dropdown
+| Value | What the first click starts |
+|---|---|
+| `'audio'` | Audio-only huddle |
+| `'video'` | Audio + video huddle |
+| `'all'` | All options |
+| `'screen'` / `'presentation'` | Audio + screen share. The feature page names this `screen`; the component reference and `componentConfig.type` name it `presentation`. Verify against your SDK version before relying on it. |
+
+**Key details:**
+
+- If a huddle is already running, clicking any huddle tool joins it with the existing huddle's type
+- Screen sharing requires browser support for `navigator.mediaDevices.getDisplayMedia`; the tool exposes `componentConfig.screenSharingSupported` for wireframes
+- `darkMode` on `VeltHuddleTool` toggles the dark theme
+- You can render several `VeltHuddleTool` buttons with different types
 
 **Verification:**
-- [ ] `type` prop is set on `VeltHuddleTool`
-- [ ] The displayed huddle options match the intended user experience
-- [ ] `VeltHuddle` component is present at the root for the tool to function
-- [ ] Browser permissions for microphone/camera are handled appropriately for the chosen type
+- [ ] `type` is set explicitly on every `VeltHuddleTool`
+- [ ] The offered huddle options match the intended experience
+- [ ] `VeltHuddle` is mounted at the root for the tool to work
+- [ ] Microphone, camera, and screen permissions are handled for the chosen type
 
 **Source Pointers:**
-- `https://docs.velt.dev/huddle/setup` - Huddle tool configuration
+- https://docs.velt.dev/realtime-collaboration/huddle/customize-behavior#type - "type"
+- https://docs.velt.dev/ui-customization/reference/behaviors/recorder-huddle - "VeltHuddleTool (sibling)"
+- https://docs.velt.dev/ui-customization/features/realtime/huddle/wireframe-variables - `componentConfig.type`

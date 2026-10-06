@@ -1,39 +1,31 @@
 ---
-title: Notification Management via REST API
+title: Manage Notifications and Notification Config via REST API
 impact: MEDIUM
-impactDescription: Notifications keep users informed of collaboration events — misconfigured templates produce broken messages
-tags: rest, api, notifications, templates
+impactDescription: Wrong payload nesting or a missing notifyAll false sends notifications to the whole organization or drops them
+tags: rest, api, notifications, templates, notifyAll, notifyUsers, resolver, config, readByUserIds, verifyUserPermissions
 ---
 
-## Notification Management via REST API
+## Manage Notifications and Notification Config via REST API
 
-Send custom notifications and manage notification configuration. All endpoints are POST with base URL `https://api.velt.dev/v2`.
+Notification fields sit **directly under `data`** (there is no `notification` wrapper object). `notifyAll` **defaults to `true`**, which sends the notification to every user in the organization; set `notifyAll: false` to target only `notifyUsers`. All endpoints are `POST` with the API-key-level headers.
 
-**Required headers:**
+**Incorrect (nested `notification` object, `notifyAll` left at its default):**
 
+```json
+{
+  "data": {
+    "organizationId": "org-123",
+    "documentId": "doc-456",
+    "notification": {
+      "displayHeadlineMessageTemplate": "{actionUser} assigned you to {taskName}",
+      "actionUser": { "userId": "user-1" },
+      "notifyUsers": [{ "userId": "user-2" }]
+    }
+  }
+}
 ```
-x-velt-api-key: YOUR_API_KEY
-x-velt-auth-token: YOUR_AUTH_TOKEN
-```
 
-### Add a Notification
-
-Use `displayHeadlineMessageTemplate` with template variables to create dynamic notification messages.
-
-**Required vs. optional fields on `POST /v2/notifications/add`:**
-
-| Field | Required | Notes |
-|-------|----------|-------|
-| `organizationId` | Yes | Always required |
-| `documentId` | Yes | Always required |
-| `notificationId` | Yes | Custom IDs may use `_` and `-` only |
-| `actionUser` | Yes | `userId`, `name`, `email` |
-| `notifyUsers` | Yes | Array of recipients |
-| `displayHeadlineMessageTemplate` | Conditional | Required **unless** `isNotificationResolverUsed` is `true` |
-| `displayBodyMessage` | Conditional | Required **unless** `isNotificationResolverUsed` is `true` |
-| `isNotificationResolverUsed` | No | Set `true` to enable Notification Resolver mode (content resolved at read time) |
-| `notificationSource` | No | `'custom'` routes through the Notification Resolver; built-in values: `'comment'`, `'huddle'`, `'crdt'` |
-| `notificationSourceData` | No | Arbitrary object delivered in the click callback |
+**Correct (top-level fields, explicit `notifyAll: false`):**
 
 ```bash
 POST https://api.velt.dev/v2/notifications/add
@@ -42,176 +34,120 @@ POST https://api.velt.dev/v2/notifications/add
   "data": {
     "organizationId": "org-123",
     "documentId": "doc-456",
-    "notification": {
-      "notificationSource": "custom",
-      "displayHeadlineMessageTemplate": "{actionUser} assigned you to {taskName}",
-      "displayHeadlineMessageTemplateData": {
-        "actionUser": "Alice",
-        "taskName": "Fix login bug"
-      },
-      "actionUser": {
-        "userId": "user-1",
-        "name": "Alice",
-        "email": "alice@example.com"
-      },
-      "notifyUsers": [
-        {
-          "userId": "user-2",
-          "name": "Bob",
-          "email": "bob@example.com"
-        }
-      ]
-    }
+    "notificationId": "task-assigned-42",
+    "actionUser": { "userId": "user-1", "name": "Alice", "email": "alice@example.com" },
+    "displayHeadlineMessageTemplate": "{actionUser} assigned you to {taskName}",
+    "displayHeadlineMessageTemplateData": {
+      "actionUser": { "userId": "user-1", "name": "Alice", "email": "alice@example.com" },
+      "taskName": "Fix login bug"
+    },
+    "displayBodyMessage": "Due Friday",
+    "notifyUsers": [{ "userId": "user-2", "name": "Bob", "email": "bob@example.com" }],
+    "notifyAll": false,
+    "notificationSourceData": { "taskId": "42" }
   }
 }
 ```
 
-**Common template variables:**
+**Fields on `POST /v2/notifications/add`:**
 
-| Variable | Description |
-|----------|-------------|
-| `{actionUser}` | User who triggered the action |
-| `{taskName}` | Name of the task or item |
-| `{documentName}` | Name of the document |
-| `{commentText}` | Content of the comment |
+| Field | Required | Notes |
+|-------|----------|-------|
+| `organizationId`, `documentId` | Yes | `createOrganization` / `createDocument` create them if missing |
+| `actionUser` | Yes | User who took the action |
+| `notifyUsers` | Yes | Recipients |
+| `notifyAll` | No | Default `true` (whole organization). Set `false` to notify only `notifyUsers` |
+| `displayHeadlineMessageTemplate` | Conditional | Required unless `isNotificationResolverUsed` is `true`. Variables use `{name}` syntax |
+| `displayHeadlineMessageTemplateData` | No | Values for template variables: `actionUser`, `recipientUser`, or any custom string field |
+| `displayBodyMessage` | Conditional | Required unless `isNotificationResolverUsed` is `true` |
+| `notificationId` | No | Auto-generated when omitted. Set it to prevent duplicates. Only `_` and `-` special characters |
+| `verifyUserPermissions` | No | Default `false`. When `true`, only users with access to the document are notified |
+| `notificationSource` | No | `'custom'` routes through the Notification Resolver; other values include `'comment'`, `'huddle'`, `'crdt'` |
+| `notificationSourceData` | No | Any object; returned in the click callback |
+| `context` | No | `{ access: { key: value } }` for Access Context filtering |
 
-### Writing Resolver-Eligible Notifications (Cloud Functions / Notification Resolver mode)
+### Resolver-eligible notifications (self-hosted content)
 
-When notification content (headline, body) lives on your own infrastructure and is resolved at read time via the [Notification Resolver](https://docs.velt.dev/self-host-data/notifications), omit `displayHeadlineMessageTemplate` and `displayBodyMessage`, and set both `isNotificationResolverUsed: true` and `notificationSource: 'custom'` in the POST body. Only notifications where `notificationSource === 'custom'` are routed through the resolver — other sources (`'comment'`, `'huddle'`, `'crdt'`) use built-in templates and do **not** call your data provider.
-
-**Correct (resolver-eligible write — minimal payload):**
-
-```bash
-POST https://api.velt.dev/v2/notifications/add
-```
+When notification content lives on your infrastructure and is resolved at read time by the Notification Resolver, omit `displayHeadlineMessageTemplate` and `displayBodyMessage`, and set both `isNotificationResolverUsed: true` and `notificationSource: 'custom'`. Only `notificationSource === 'custom'` notifications are routed through the resolver.
 
 ```json
 {
   "data": {
     "organizationId": "yourOrganizationId",
     "documentId": "yourDocumentId",
-    "actionUser": {
-      "userId": "yourUserId",
-      "name": "User Name",
-      "email": "user@example.com"
-    },
+    "actionUser": { "userId": "yourUserId", "name": "User Name", "email": "user@example.com" },
     "notificationId": "custom-notif-001",
     "isNotificationResolverUsed": true,
     "notificationSource": "custom",
-    "notifyUsers": [
-      {
-        "userId": "recipientUserId",
-        "email": "recipient@example.com"
-      }
-    ],
+    "notifyUsers": [{ "userId": "recipientUserId", "email": "recipient@example.com" }],
     "notifyAll": false
   }
 }
 ```
 
-**Incorrect (resolver flag set but `notificationSource` missing — will NOT route through your data provider):**
+Setting only `isNotificationResolverUsed: true` without `notificationSource: 'custom'` does not route through your data provider.
 
-```json
-{
-  "data": {
-    "organizationId": "yourOrganizationId",
-    "documentId": "yourDocumentId",
-    "notificationId": "custom-notif-001",
-    "isNotificationResolverUsed": true,
-    "notifyUsers": [{ "userId": "recipientUserId" }]
-  }
-}
-```
-
-**Incorrect (resolver mode but templates also included — wastes payload; templates are ignored when the resolver hydrates):**
-
-```json
-{
-  "data": {
-    "notificationId": "custom-notif-001",
-    "isNotificationResolverUsed": true,
-    "notificationSource": "custom",
-    "displayHeadlineMessageTemplate": "{actionUser} did a thing",
-    "displayBodyMessage": "Stored on Velt — defeats the purpose of self-hosting"
-  }
-}
-```
-
-### Get, Update, Delete Notifications
+### Get, update, and delete notifications
 
 ```bash
-# Get notifications for a user
+# Get (requires advanced queries). Pass documentId or userId; notificationIds max 30.
 POST https://api.velt.dev/v2/notifications/get
-{
-  "data": {
-    "organizationId": "org-123",
-    "userId": "user-2",
-    "documentId": "doc-456"
-  }
-}
+{ "data": { "organizationId": "org-123", "userId": "user-2", "pageSize": 20, "order": "desc" } }
+# -> result.data[], result.pageToken
 
-# Update a notification (e.g., mark as read)
+# Update: notifications[] items keyed by id; mark read with readByUserIds
 POST https://api.velt.dev/v2/notifications/update
-{
-  "data": {
+{ "data": {
     "organizationId": "org-123",
-    "notificationId": "notif-1",
-    "notification": {
-      "isRead": true
-    }
-  }
-}
+    "documentId": "doc-456",
+    "notifications": [
+      { "id": "task-assigned-42", "readByUserIds": ["user-2"], "persistReadForUsers": true }
+    ]
+} }
 
-# Delete notifications
+# Delete by organizationId plus any of documentId, locationId, userId, notificationIds
 POST https://api.velt.dev/v2/notifications/delete
-{
-  "data": {
-    "organizationId": "org-123",
-    "notificationIds": ["notif-1"]
-  }
-}
+{ "data": { "organizationId": "org-123", "documentId": "doc-456", "notificationIds": ["task-assigned-42"] } }
 ```
 
-### Notification Configuration
+- `update` and `delete` return `result.data[notificationId] = { success, message }`; check every entry.
+- `get` filters results by comment visibility: a notification for a private comment is returned only to users who can see that comment.
+- `delete` with only `organizationId` + `documentId` deletes every notification on that document. Narrow it with `notificationIds` when you mean specific ones.
+
+### Notification preferences (per user)
 
 ```bash
-# Get notification config
-POST https://api.velt.dev/v2/notifications/get-config
-{
-  "data": {
-    "organizationId": "org-123"
-  }
-}
-
-# Set notification config
-POST https://api.velt.dev/v2/notifications/set-config
-{
-  "data": {
+# Set preferences for users; omit documentIds to set the organization-level default
+POST https://api.velt.dev/v2/notifications/config/set
+{ "data": {
     "organizationId": "org-123",
-    "config": {
-      "emailNotifications": true,
-      "inAppNotifications": true,
-      "emailDelay": 300
-    }
-  }
-}
+    "userIds": ["user-2"],
+    "documentIds": ["doc-456"],
+    "config": { "inbox": "ALL", "email": "MINE", "slack": "NONE" }
+} }
+
+# Get preferences for one user (documentIds max 30, or getOrganizationConfig: true)
+POST https://api.velt.dev/v2/notifications/config/get
+{ "data": { "organizationId": "org-123", "userId": "user-2", "getOrganizationConfig": true } }
 ```
 
-**Key points:**
+Channel values are `ALL`, `MINE`, or `NONE`. These endpoints require the notifications feature enabled in the Velt Console. For frontend notification setup, see `velt-notifications-best-practices`.
 
-- Template variables in `displayHeadlineMessageTemplate` use `{variableName}` syntax.
-- All variable values must be provided in `displayHeadlineMessageTemplateData`.
-- The `notifyUsers` array determines who receives the notification.
-- `actionUser` is the user who performed the action (shown in the notification).
-- Config endpoints control org-wide notification behavior (email delay, channels).
-- Resolver mode requires **both** `isNotificationResolverUsed: true` and `notificationSource: 'custom'` — setting only the boolean flag will not route the notification through your data provider.
+**Verification Checklist:**
+- [ ] Notification fields are top-level under `data`, with no `notification` wrapper
+- [ ] `notifyAll: false` is set whenever only `notifyUsers` should receive it
+- [ ] Template variables in `displayHeadlineMessageTemplate` match keys in `displayHeadlineMessageTemplateData`
+- [ ] Resolver-mode writes set both `isNotificationResolverUsed: true` and `notificationSource: 'custom'` and omit the templates
+- [ ] Updates send `notifications: [{ id, ... }]`; read state uses `readByUserIds`
+- [ ] Preference endpoints are `/v2/notifications/config/set` and `/v2/notifications/config/get` with `ALL` / `MINE` / `NONE`
+- [ ] Per-item `success: false` entries are handled on update and delete
+- [ ] Both API-key-level headers are included
 
-**Verification:**
-- [ ] Template variables in the message match keys in `displayHeadlineMessageTemplateData`
-- [ ] `notifyUsers` array includes all intended recipients
-- [ ] `actionUser` object has `userId`, `name`, and `email`
-- [ ] Both required headers are included
-- [ ] `organizationId` is present in every request
-- [ ] For resolver-mode writes: `isNotificationResolverUsed: true` **and** `notificationSource: 'custom'` are both set; `displayHeadlineMessageTemplate` and `displayBodyMessage` are omitted
-
-**Source Pointer:** `https://docs.velt.dev/api-reference/rest-api/notifications` (## REST API > ### Notifications)
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/rest-apis/v2/notifications/add-notifications - "Add Notifications"
+- https://docs.velt.dev/api-reference/rest-apis/v2/notifications/get-notifications-v2 - "Get Notifications"
+- https://docs.velt.dev/api-reference/rest-apis/v2/notifications/update-notifications - "Update Notifications"
+- https://docs.velt.dev/api-reference/rest-apis/v2/notifications/delete-notifications - "Delete Notifications"
+- https://docs.velt.dev/api-reference/rest-apis/v2/notifications/set-config - "Set Config"
+- https://docs.velt.dev/api-reference/rest-apis/v2/notifications/get-config - "Get Config"
+- https://docs.velt.dev/self-hosting/partial/notifications - "Notification Resolver"

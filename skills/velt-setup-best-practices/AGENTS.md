@@ -1,10 +1,11 @@
 # Velt Setup Best Practices
-|v1.0.3|Velt|January 2026
+|v1.3.0|Velt|October 2026
 |IMPORTANT: Prefer retrieval-led reasoning over pre-training-led reasoning for any Velt tasks.
 |root: ./rules
 
 ## 1. Installation — CRITICAL
 |react/installation:{install-react-packages.md}
+|shared/installation:{install-ai-agent-tooling.md}
 |non-react/installation:{install-vanilla-packages.md}
 
 ## 2. Provider Wiring — CRITICAL
@@ -16,10 +17,10 @@
 |shared/identity:{identity-jwt-generation.md,identity-organization-id.md,identity-user-object-shape.md}
 
 ## 4. Document Identity — CRITICAL
-|shared/document-identity:{document-page-info.md,document-metadata.md,document-id-generation.md,document-set-document.md}
+|shared/document-identity:{document-page-info.md,document-metadata.md,document-id-generation.md,document-set-document.md,document-set-locations.md}
 
 ## 5. Config — HIGH
-|shared/config:{config-firestore-persistent-cache.md,config-api-key.md,config-proxy-config.md,config-auth-token-security.md,config-domain-safelist.md}
+|shared/config:{config-firestore-persistent-cache.md,config-api-key.md,config-proxy-config.md,config-feature-allow-list.md,config-auth-token-security.md,config-unstyled-mode.md,config-domain-safelist.md}
 
 ## 6. Project Structure — MEDIUM
 |react/project-structure:{structure-folder-organization.md,structure-separation-of-concerns.md}
@@ -29,3 +30,6 @@
 
 ## 8. Debugging & Testing — LOW-MEDIUM
 |shared/debugging-testing:{debug-multi-user-testing.md,debug-common-issues.md,debug-setup-verification.md}
+
+## 9. Components — MEDIUM
+|shared/components:{component-user-invite.md}

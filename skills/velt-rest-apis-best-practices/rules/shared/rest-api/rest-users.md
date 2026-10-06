@@ -1,150 +1,124 @@
 ---
-title: User Management via REST API
+title: Manage Users and GDPR Data via REST API
 impact: HIGH
-impactDescription: User provisioning and GDPR compliance are critical for production deployments
-tags: rest, api, users, gdpr, permissions, roles
+impactDescription: User provisioning and GDPR deletion are production-critical; the wrong scope field grants or revokes access at the wrong level
+tags: rest, api, users, gdpr, accessRole, viewer, editor, permissions, organization, folder, document
 ---
 
-## User Management via REST API
+## Manage Users and GDPR Data via REST API
 
-Manage users, access roles, and GDPR data operations. All endpoints are POST with base URL `https://api.velt.dev/v2`.
+The Users API adds people to an organization, a folder, or a document, and sets their `accessRole`. The **scope is chosen by request-level fields**: send only `organizationId` for organization access, add `folderId` for folder access, or add `documentId` for document access. Each user object carries its own `accessRole`.
 
-**Required headers:**
+**Incorrect (invented per-user `resources` array):**
 
+```json
+{
+  "data": {
+    "organizationId": "org-123",
+    "users": [
+      {
+        "userId": "user-1",
+        "resources": [{ "resourceId": "doc-456", "resourceType": "document", "role": "viewer" }]
+      }
+    ]
+  }
+}
 ```
-x-velt-api-key: YOUR_API_KEY
-x-velt-auth-token: YOUR_AUTH_TOKEN
-```
 
-### Add Users with Access Roles
-
-Users can be assigned roles (`viewer` or `editor`) scoped to resource types (`organization`, `document`, or `folder`).
+**Correct (scope at the request level, `accessRole` on each user):**
 
 ```bash
+# Organization-level access
 POST https://api.velt.dev/v2/users/add
-
-{
-  "data": {
+{ "data": {
     "organizationId": "org-123",
     "users": [
-      {
-        "userId": "user-1",
-        "name": "Alice Smith",
-        "email": "alice@example.com",
-        "photoUrl": "https://example.com/alice.jpg",
-        "plan": "pro",
-        "resources": [
-          {
-            "resourceId": "org-123",
-            "resourceType": "organization",
-            "role": "editor"
-          },
-          {
-            "resourceId": "doc-456",
-            "resourceType": "document",
-            "role": "viewer"
-          },
-          {
-            "resourceId": "folder-789",
-            "resourceType": "folder",
-            "role": "editor"
-          }
-        ]
-      }
+      { "userId": "user-1", "name": "Alice Smith", "email": "alice@example.com", "accessRole": "editor" }
     ]
-  }
-}
+} }
+
+# Document-level access (user is added to the document only, not to the organization)
+POST https://api.velt.dev/v2/users/add
+{ "data": {
+    "organizationId": "org-123",
+    "documentId": "doc-456",
+    "users": [
+      { "userId": "user-1", "name": "Alice Smith", "email": "alice@example.com", "accessRole": "viewer" }
+    ]
+} }
 ```
 
-### Get, Update, Delete Users
+- Provide either `documentId` or `folderId`, not both. With either, the user is added only at that level; call the API again with only `organizationId` to also add them to the organization.
+- `createOrganization`, `createFolder`, and `createDocument` create the container first when it does not exist.
+- `accessRole` is `viewer` (read-only) or `editor` (read/write). It can only be set through the v2 Users and Auth Permissions REST APIs, never from frontend SDK methods. For per-resource grants with expiry, use `/v2/auth/permissions/add` (see `core-jwt-tokens`).
+- If `initial` is missing on a user, Velt derives it from `name`.
+
+### Get, update, and delete users
 
 ```bash
-# Get users
+# Get users (requires advanced queries enabled in the Console)
 POST https://api.velt.dev/v2/users/get
-{
-  "data": {
-    "organizationId": "org-123",
-    "userIds": ["user-1", "user-2"]
-  }
-}
+{ "data": { "organizationId": "org-123", "documentId": "doc-456", "userIds": ["user-1", "user-2"] } }
 
-# Update users
+# All document-level users of an organization, grouped by document
+POST https://api.velt.dev/v2/users/get
+{ "data": { "organizationId": "org-123", "allDocuments": true, "groupByDocumentId": true } }
+
+# Update user metadata or accessRole at the same scope
 POST https://api.velt.dev/v2/users/update
-{
-  "data": {
+{ "data": {
     "organizationId": "org-123",
-    "users": [
-      {
-        "userId": "user-1",
-        "name": "Alice Johnson",
-        "resources": [
-          {
-            "resourceId": "doc-456",
-            "resourceType": "document",
-            "role": "editor"
-          }
-        ]
-      }
-    ]
-  }
-}
+    "folderId": "folder-789",
+    "users": [ { "userId": "user-1", "name": "Alice Johnson", "accessRole": "editor" } ]
+} }
 
-# Delete users
+# Remove users from the organization (or from a documentId / folderId)
 POST https://api.velt.dev/v2/users/delete
-{
-  "data": {
-    "organizationId": "org-123",
-    "userIds": ["user-1"]
-  }
-}
+{ "data": { "organizationId": "org-123", "userIds": ["user-1"] } }
 ```
 
-### GDPR Data Operations
+- `users/get` filters: `documentId` or `folderId`, `userIds` (max 30), `organizationUserGroupIds` (max 30), `allDocuments`, `groupByDocumentId`, `pageSize` (default 1000), `pageToken`. Continue with `result.nextPageToken`.
+- `allDocuments: true` returns document-level users only, not organization-level users.
+- Per-user results come back as `result.data[userId] = { success, id? }`. A `success: false` entry means that user was not found; check every entry.
 
-Export or delete all data associated with a user for GDPR compliance.
+### GDPR data operations
 
 ```bash
-# Export user data
+# Export a user's data (paginated, up to 100 items per feature per page)
 POST https://api.velt.dev/v2/users/data/get
-{
-  "data": {
-    "organizationId": "org-123",
-    "userId": "user-1"
-  }
-}
+{ "data": { "organizationId": "org-123", "userId": "user-1", "pageToken": "..." } }
+# -> result.data: { comments, reactions, recordings, notifications }, result.nextPageToken
 
-# Delete user data
+# Delete all data for one or more users (async job)
 POST https://api.velt.dev/v2/users/data/delete
-{
-  "data": {
-    "organizationId": "org-123",
-    "userId": "user-1"
-  }
-}
+{ "data": { "userIds": ["user-1"], "organizationIds": ["org-123"] } }
+# -> { "data": { "jobId": "dsQuvPmIynANgPLLEhCm", "tasksCount": 5 }, "statusCode": 202 }
 
-# Check deletion status (async operation)
+# Poll the deletion job by jobId
 POST https://api.velt.dev/v2/users/data/delete/status
-{
-  "data": {
-    "organizationId": "org-123",
-    "userId": "user-1"
-  }
-}
+{ "data": { "jobId": "dsQuvPmIynANgPLLEhCm" } }
+# -> result.data: { isDeleteCompleted, tasksLeft, lastTaskCompletedTime }
 ```
 
-**Key points:**
+- `users/data/delete` takes `userIds` (array) and optional `organizationIds` to speed it up. It can take up to 5 minutes to respond with `202`, and full deletion can take up to 24 hours.
+- Poll `users/data/delete/status` with the returned `jobId` (not `userId`) until `isDeleteCompleted` is `true`.
+- `users/data/get` pages with `nextPageToken`; stop when it is absent.
 
-- The `resources` array controls per-resource access. Each entry needs `resourceId`, `resourceType`, and `role`.
-- Valid roles: `viewer` (read-only) and `editor` (read-write).
-- Valid resource types: `organization`, `document`, `folder`.
-- GDPR data deletion is asynchronous — poll `/users/data/delete/status` to check completion.
-- `/users/data/get` returns all user-generated content (comments, reactions, recordings) for export.
+**Verification Checklist:**
+- [ ] Scope is set with request-level `organizationId` + optional `documentId` or `folderId`, never a per-user `resources` array
+- [ ] Each user object sets `accessRole` to `viewer` or `editor` when access level matters
+- [ ] `users/get` is only called with advanced queries enabled, and paginates with `pageToken`
+- [ ] Per-user `success: false` entries are handled on add, update, and delete
+- [ ] GDPR deletion sends `userIds` (array) and polls `users/data/delete/status` by `jobId`
+- [ ] GDPR export loops on `nextPageToken`
+- [ ] Both API-key-level headers are present
 
-**Verification:**
-- [ ] `organizationId` is included in every request
-- [ ] Each user in the `users` array has a `userId`
-- [ ] `resources` entries use valid `role` and `resourceType` values
-- [ ] GDPR deletion status is polled until complete
-- [ ] Both required headers are present
-
-**Source Pointer:** `https://docs.velt.dev/api-reference/rest-api/users` (## REST API > ### Users)
+**Source Pointers:**
+- https://docs.velt.dev/api-reference/rest-apis/v2/users/add-users - "Add Users"
+- https://docs.velt.dev/api-reference/rest-apis/v2/users/get-users-v2 - "Get Users"
+- https://docs.velt.dev/api-reference/rest-apis/v2/users/update-users - "Update Users"
+- https://docs.velt.dev/api-reference/rest-apis/v2/users/delete-users - "Delete Users"
+- https://docs.velt.dev/api-reference/rest-apis/v2/gdpr/get-all-user-data-gdpr - "Get All User Data"
+- https://docs.velt.dev/api-reference/rest-apis/v2/gdpr/delete-all-user-data-gdpr - "Delete All User Data"
+- https://docs.velt.dev/api-reference/rest-apis/v2/gdpr/get-delete-user-data-status-gdpr - "Get Delete User Data Status"
+- https://docs.velt.dev/key-concepts/overview#access-control - "Access Control"

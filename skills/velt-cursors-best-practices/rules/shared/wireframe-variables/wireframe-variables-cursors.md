@@ -11,6 +11,15 @@ The Cursors wireframe exposes a fixed set of template variables that you read wi
 
 Do not rebuild pointer state from `useCursorUsers` or use short-name variable lookups. The wireframe already supplies each pointer's data via `componentConfig.<path>`.
 
+**Incorrect (short names and root variables inside the per-user pointer):**
+
+```jsx
+<VeltCursorPointerWireframe>
+  <VeltData field="cursorUser.name" />            {/* missing componentConfig. prefix */}
+  <VeltData field="componentConfig.cursorUsers" /> {/* root-only, undefined here */}
+</VeltCursorPointerWireframe>
+```
+
 **Correct (read the per-user `componentConfig` via `VeltData` / `velt-if` / `velt-class`):**
 
 ```jsx
@@ -57,7 +66,7 @@ The pointer's `componentConfigSignal` is **per-user** — it carries data for on
 | Variable | Type | Use |
 |---|---|---|
 | `componentConfig.cursorUser` | `CursorUser` | The user this pointer represents (`name`, `color`, `textColor`, `photoUrl`, `userId`). |
-| `componentConfig.selfCursorPointer` | `boolean` | True when this pointer is the local user (production normally hides). |
+| `componentConfig.selfCursorPointer` | `boolean` | True when this pointer is the local user. Your own pointer renders only in huddle-on-cursor mode. |
 | `componentConfig.showDefault` | `boolean` | Default arrow icon should render. |
 | `componentConfig.showAvatar` | `boolean` | Avatar bubble should render. |
 | `componentConfig.showAudio` | `boolean` | Audio indicator (huddle mode) should render. |
@@ -120,3 +129,4 @@ Each registered as `<velt-cursor-pointer-...-wireframe>` and resolves the per-us
 **Source Pointers:**
 - https://docs.velt.dev/ui-customization/features/realtime/cursors-wireframe-variables — "Cursors Wireframe Variables"
 - https://docs.velt.dev/ui-customization/template-variables — "Template Variables overview"
+- https://docs.velt.dev/ui-customization/features/realtime/cursors - "Limitations"

@@ -63,4 +63,4 @@ window.addEventListener('veltCrdtStoreUnregister', (event) => {
 - [ ] `getValue()` returns current state
 - [ ] Subscribe callback fires on changes
 
-**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/core` (### Debugging > #### window.VeltCrdtStoreMap)
+**Source Pointer:** `https://docs.velt.dev/realtime-collaboration/crdt/setup/core#debugging` (## Debugging > ### window.VeltCrdtStoreMap); `getAll()` and the registration events are documented in the v4 CRDT core changelog

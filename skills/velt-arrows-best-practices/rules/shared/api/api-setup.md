@@ -15,7 +15,16 @@ The Arrows feature is two components plus one programmatic handle:
 
 Without `<VeltArrows>` you can place a trigger but arrows never render; without `<VeltArrowTool>` users have no way to start drawing.
 
-**React / Next.js — minimal end-to-end setup:**
+**Incorrect (trigger without the root component):**
+
+```tsx
+// BUG: no <VeltArrows />, so users can start drawing but placed arrows never render
+<div className="toolbar">
+  <VeltArrowTool />
+</div>
+```
+
+**Correct (React / Next.js): minimal end-to-end setup:**
 
 ```tsx
 import { VeltArrows, VeltArrowTool } from '@veltdev/react';
@@ -37,7 +46,7 @@ export default function App() {
 }
 ```
 
-**Other Frameworks (HTML / web component) — minimal setup:**
+**Correct (Other Frameworks): minimal setup:**
 
 ```html
 <!doctype html>
@@ -123,6 +132,10 @@ function YourToolbar() {
 
 Both forms work — the plain child pattern (most common in the official `custom-button.mdx` docs) and the named-slot pattern (from the `slots.mdx` page) target the same `button` slot. Prefer the plain child form for new code; the named `slot="button"` attribute is explicit and helpful if you ever need to add additional slots in the future.
 
+### v6 modular SDK
+
+If you pass `featureAllowList` in the Velt config, include `'arrow'`; otherwise the arrows chunk is not preloaded and the tags render inert until it loads. `client.preloadArrow()` warms the chunk ahead of first use, and calling `getArrowElement()` auto-enables the feature. Arrows have no headless React hooks; use the components, `getArrowElement()`, CSS, and props.
+
 **Common pitfalls:**
 - DO NOT mount `<VeltArrows>` inside a conditional that unmounts on tool toggle — it owns the per-document arrow state. Mount it once at the top of the tree.
 - DO NOT call `getArrowElement()` before the Velt client is ready. In React, guard on `client` inside a `useEffect`.
@@ -134,8 +147,10 @@ Both forms work — the plain child pattern (most common in the official `custom
 - [ ] `client.getArrowElement()` is called only after the Velt client is initialized
 - [ ] Custom tool buttons are passed as children of `<VeltArrowTool>` (replaces the default button entirely)
 - [ ] In React, the ArrowElement-bootstrap effect has a `[client]` dependency
+- [ ] If `featureAllowList` is set, it includes `'arrow'`
 
 **Source Pointers:**
 - https://docs.velt.dev/async-collaboration/arrows/setup — component placement
 - https://docs.velt.dev/api-reference/sdk/api/api-methods#getarrowelement — `client.getArrowElement()`
 - https://docs.velt.dev/ui-customization/features/async/arrows/custom-button — custom-button child-slot pattern
+- https://docs.velt.dev/api-reference/sdk/api/api-methods#preloadarrow — `preloadArrow()` and `featureAllowList`

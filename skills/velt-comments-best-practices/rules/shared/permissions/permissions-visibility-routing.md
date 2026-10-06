@@ -7,7 +7,7 @@ tags: isAnnotationPrivate, visibility, visibilityConfig, iam.accessMode, restric
 
 ## Use isAnnotationPrivate() for Unified Visibility Routing
 
-Velt has two mechanisms for marking comments as private: the legacy `iam.accessMode === 'private'` field and the newer `visibilityConfig.type` field (which can be `'restricted'` or `'organizationPrivate'`). The SDK's shared `isAnnotationPrivate()` utility checks both, so you should always route through it rather than checking a single field.
+Velt has two mechanisms for marking comments as private: the legacy `iam.accessMode === 'private'` field and the newer `visibilityConfig.type` field (which can be `'restricted'` or `'organizationPrivate'`). The SDK routes every privacy check through its shared internal `isAnnotationPrivate()` utility, which checks both. Your own code and wireframes should apply the same rule (or bind to the `isPrivateComment` wireframe variable) instead of checking a single field.
 
 **Incorrect (only checking legacy field):**
 
@@ -16,7 +16,14 @@ Velt has two mechanisms for marking comments as private: the legacy `iam.accessM
 const isPrivate = annotation.iam?.accessMode === 'private';
 ```
 
-**Correct (use isAnnotationPrivate which checks both paths):**
+**Correct (check both paths, the same way the SDK does):**
+
+```jsx
+const isPrivate =
+  annotation.iam?.accessMode === 'private' ||
+  annotation.visibilityConfig?.type === 'restricted' ||
+  annotation.visibilityConfig?.type === 'organizationPrivate';
+```
 
 The SDK's internal `isAnnotationPrivate()` returns `true` when any of these conditions holds:
 - `annotation.iam.accessMode === 'private'` (legacy)
@@ -27,7 +34,9 @@ This utility is used internally by these primitive components:
 - `VeltCommentDialogOptionsDropdownContentMakePrivate` — auto-suppressed when `featureState.visibilityOptions === true`
 - `VeltCommentDialogOptionsDropdownContentMakePrivateEnable` — shown when `isAnnotationPrivate()` returns `false`
 - `VeltCommentDialogOptionsDropdownContentMakePrivateDisable` — shown when `isAnnotationPrivate()` returns `true`
-- `VeltCommentDialogPrivateBadge` — auto-suppressed when visibility options are active
+- The private badge and banner are auto-suppressed when visibility options are active
+
+In wireframes, bind to `{isPrivateComment}` (Comment Bubble and Comment Dialog wireframe variables), which reflects both models.
 
 **How to set visibility:**
 
@@ -92,3 +101,13 @@ await addComment({
 ```
 
 **Two enum systems:** The API methods use `CommentVisibilityConfig` with 3 values (`'public'`, `'organizationPrivate'`, `'restricted'`). The UI wireframes use `CommentVisibilityOption` with 4 values (`'restrictedSelf'`, `'restrictedSelectedPeople'`, `'organizationPrivate'`, `'public'`). The API's single `'restricted'` value covers both "self-only" and "selected people" — distinguished by whether `userIds` is provided.
+
+**Verification Checklist:**
+- [ ] Privacy checks cover `iam.accessMode === 'private'` and `visibilityConfig.type` of `restricted` / `organizationPrivate`
+- [ ] Wireframes use `{isPrivateComment}` rather than reading one field
+- [ ] Visibility changes go through `updateVisibility()` / `enablePrivateMode()`, not by writing `iam` directly
+
+**Source Pointers:**
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-dialog/primitives#veltcommentdialogoptionsdropdowncontentmakeprivateenable - Make-private enable/disable variants
+- https://docs.velt.dev/ui-customization/features/async/comments/comment-bubble/wireframe-variables - `isPrivateComment` variable
+- https://docs.velt.dev/async-collaboration/comments/customize-behavior#private-comments-beta - Private Comments

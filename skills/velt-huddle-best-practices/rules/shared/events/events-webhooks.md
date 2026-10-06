@@ -2,87 +2,89 @@
 title: Handle Huddle Webhook Events
 impact: MEDIUM
 impactDescription: Server-side webhooks fire when huddles are created or users join
-tags: huddle, webhooks, events, server, created, joined
+tags: huddle, webhooks, events, server, created, joined, huddle.create, huddle.join, HuddlePayload, notificationSource
 ---
 
 ## Huddle Webhook Events
 
-Velt fires webhook events when huddle actions occur. Two event types are available: `created` (a new huddle is started) and `joined` (a user joins an existing huddle). Configure webhook endpoints in the Velt Console to receive these events on your server.
+Velt sends a webhook when a user creates a huddle or joins one. The payload shape depends on which webhook service you enabled in the Velt Console: Basic (v1) or Advanced (v2, Enterprise). Handle the shape you actually receive.
 
 **Why this matters:**
 
-Webhooks enable server-side reactions to huddle activity such as logging analytics, sending notifications to offline users, triggering recording pipelines, or updating activity feeds. Without webhooks, huddle events are only available client-side.
+Basic webhooks identify huddle events with `notificationSource: "huddle"` and `actionType`. Advanced webhooks use `event` names (`huddle.create`, `huddle.join`) and nest the details under `data`. A handler written for one shape silently ignores the other.
 
-**Webhook event types:**
-
-- `created` — Fired when a user starts a new huddle session
-- `joined` — Fired when a user joins an existing huddle session
-
-**Webhook payload structure:**
-
-```json
-{
-  "actionType": "created",
-  "actionUser": {
-    "email": "user@example.com",
-    "name": "Alice",
-    "userId": "user-123"
-  },
-  "metadata": {
-    "apiKey": "YOUR_API_KEY",
-    "clientDocumentId": "project-alpha",
-    "pageInfo": {
-      "baseUrl": "https://app.example.com",
-      "path": "/projects/alpha",
-      "title": "Project Alpha"
-    },
-    "locations": []
-  }
-}
-```
-
-**Server-side handler example (Node.js/Express):**
+**Incorrect (no source check, reads fields from the wrong level):**
 
 ```javascript
-app.post("/webhooks/velt-huddle", (req, res) => {
-  const { actionType, actionUser, metadata } = req.body;
-
-  switch (actionType) {
-    case "created":
-      console.log(`${actionUser.name} started a huddle on ${metadata.clientDocumentId}`);
-      // Log to analytics, notify team, start recording
-      break;
-    case "joined":
-      console.log(`${actionUser.name} joined a huddle on ${metadata.clientDocumentId}`);
-      // Update activity feed, track participation
-      break;
-  }
-
-  res.status(200).json({ received: true });
+app.post("/webhooks/velt", (req, res) => {
+  const { actionType, actionUser } = req.body; // undefined for Advanced (v2) payloads
+  if (actionType === "created") notifyTeam(actionUser.name); // also fires for comment events
+  res.sendStatus(200);
 });
 ```
 
-**Configuration steps:**
+**Correct (Basic / v1 payload):**
 
-1. Go to the Velt Console (console.velt.dev)
-2. Navigate to webhook configuration
-3. Add your server endpoint URL
-4. Select huddle events to subscribe to
-5. Save the configuration
+```javascript
+app.post("/webhooks/velt", (req, res) => {
+  const body = req.body;
+  if (body.notificationSource === "huddle") {
+    const { actionType, actionUser, metadata } = body;
+    // actionType: "created" | "joined" (the Basic Webhooks table lists the join action as "join")
+    if (actionType === "created") {
+      notifyTeam(`${actionUser.name} started a huddle on ${metadata.clientDocumentId}`);
+    } else if (actionType === "joined" || actionType === "join") {
+      trackParticipation(actionUser.userId, metadata.clientDocumentId);
+    }
+  }
+  res.sendStatus(200);
+});
+```
+
+**Correct (Advanced / v2 payload):**
+
+```javascript
+app.post("/webhooks/velt", (req, res) => {
+  // Verify the signature first (see Advanced Webhooks: "Verifying webhook signatures")
+  const { event, data } = req.body; // WebhookV2Payload; data is a HuddlePayload
+  switch (event) {
+    case "huddle.create":
+      notifyTeam(`${data.actionUser?.name} started a huddle`);
+      break;
+    case "huddle.join":
+      trackParticipation(data.actionUser?.userId, data.metadata);
+      break;
+  }
+  res.sendStatus(200);
+});
+```
+
+**Basic (v1) huddle payload fields:**
+
+| Field | Notes |
+|---|---|
+| `actionType` | `created` or `joined` |
+| `notificationSource` | `"huddle"` |
+| `actionUser` | User who created or joined |
+| `metadata` | `apiKey`, `clientDocumentId`, `documentId`, `pageInfo`, and `locations` when set |
+| `platform` | `"sdk"` |
 
 **Key behaviors:**
 
-- Webhooks are sent as HTTP POST requests with JSON payload
-- The `actionUser` object contains the user who triggered the event
-- The `metadata` object includes document context and page information
-- Webhooks fire regardless of client-side event subscriptions
+- Enable webhooks in the Velt Console (Configurations > Webhook Service) and add your endpoint URL
+- Return a 2xx response quickly; Advanced webhooks expect it within 15 seconds
+- Basic webhooks can carry an optional auth token in the `Authorization` header (`Basic YOUR_AUTH_TOKEN`); payloads may be Base64-encoded or encrypted if you enabled those options
+- Advanced webhook triggers for huddles are controlled by the workspace `triggers.huddle` config (`HuddleTrigger`)
 
 **Verification:**
-- [ ] Webhook endpoint is configured in Velt Console
-- [ ] Server handles POST requests at the configured endpoint
-- [ ] Both `created` and `joined` event types are handled
-- [ ] Response returns 200 status to acknowledge receipt
-- [ ] Webhook payload is parsed correctly for `actionType`, `actionUser`, and `metadata`
+- [ ] Handler checks `notificationSource === "huddle"` (v1) or `event` starts with `huddle.` (v2)
+- [ ] Both create and join events are handled
+- [ ] Advanced webhooks verify signatures before processing
+- [ ] Endpoint returns 2xx promptly
+- [ ] Encoded or encrypted payloads are decoded when those options are enabled
 
 **Source Pointers:**
-- `https://docs.velt.dev/huddle/webhook-events` - Huddle webhook events
+- https://docs.velt.dev/webhooks/basic#huddle-events - "Huddle Events"
+- https://docs.velt.dev/webhooks/advanced#huddle - "Huddle" event types
+- https://docs.velt.dev/api-reference/sdk/models/data-models#huddlepayload - `HuddlePayload`
+- https://docs.velt.dev/api-reference/sdk/models/data-models#webhookv2payload - `WebhookV2Payload`

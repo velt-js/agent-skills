@@ -1,21 +1,22 @@
 ---
 name: velt-crdt-best-practices
-description: Velt CRDT (Yjs) collaborative editing best practices for real-time applications. This skill should be used when implementing collaborative features using Velt CRDT stores, integrating with editors like Tiptap, BlockNote, CodeMirror, or ReactFlow, or debugging sync issues. Triggers on tasks involving real-time collaboration, multiplayer editing, CRDT stores, or Velt SDK integration.
+description: Velt CRDT (Yjs) collaborative editing best practices for real-time applications. Use when implementing collaborative features with Velt CRDT stores (useStore, createVeltStore), integrating Velt multiplayer editors (Tiptap, BlockNote, CodeMirror, ReactFlow, Lexical, Slate, Draft.js, ProseMirror, Quill, TinyMCE, CKEditor, SuperDoc, Monaco, Ace, Apryse, Nutrient, SpreadJS), or debugging sync issues. Triggers on real-time collaboration, multiplayer editing, CRDT stores, or Velt SDK integration.
 license: MIT
 metadata:
   author: velt
-  version: "2.0.3"
+  version: "2.2.0"
 ---
 
 # Velt CRDT Best Practices
 
-Comprehensive best practices guide for implementing real-time collaborative editing with Velt CRDT (Yjs), maintained by Velt. Contains 42 rules across 5 categories, prioritized by impact to guide automated code generation and debugging.
+Comprehensive best practices guide for implementing real-time collaborative editing with Velt CRDT (Yjs), maintained by Velt. Contains 71 rules across 6 categories, prioritized by impact to guide automated code generation and debugging.
 
 ## When to Apply
 
 Reference these guidelines when:
 - Setting up Velt client and CRDT stores
 - Integrating with Tiptap, BlockNote, CodeMirror, or ReactFlow
+- Adding multiplayer editing to Lexical, Slate, Draft.js, ProseMirror, Quill, TinyMCE, CKEditor 5, SuperDoc, Monaco, Ace, Apryse WebViewer, Nutrient, or SpreadJS
 - Implementing real-time synchronization
 - Managing version history and checkpoints
 - Debugging collaboration or sync issues
@@ -30,13 +31,14 @@ Reference these guidelines when:
 | 3 | BlockNote Integration | HIGH | `blocknote-` |
 | 4 | CodeMirror Integration | HIGH | `codemirror-` |
 | 5 | ReactFlow Integration | HIGH | `reactflow-` |
+| 6 | Multiplayer Editor Integrations | HIGH | `editors-` |
 
 ## Quick Reference
 
 ### 1. Core CRDT (CRITICAL)
 
 - `core-install` - Install correct CRDT packages for your framework
-- `core-velt-init` - Initialize Velt client before creating stores
+- `core-velt-init` - Initialize Velt client, set document, authenticate before creating stores; v6 `featureAllowList` / `preloadCrdt()`
 - `core-store-v2-api` - **v2** Use `useStore<T>` + `useAwareness` React hooks; `createVeltStore` v2 config (`forceResetInitialContent`, `contentKey`, `userId`, `collection`, `logLevel`); reactive status/sync/error
 - `core-v1-to-v2-migration` - Migration table: `useVeltCrdtStore` → `useStore` (`id` → `storeId`, new status/sync/error/onError, `useAwareness`)
 - `core-store-create-vanilla` - Use createVeltStore for non-React (entry point unchanged in v2)
@@ -46,11 +48,14 @@ Reference these guidelines when:
 - `core-store-text` - Text store: useStore/createVeltStore with type:'text', textarea binding, null coalesce with ?? ''
 - `core-store-xml` - XML store: NEVER call update(); mutate via store.getXml() (Y.XmlFragment) + Yjs APIs; requires npm i yjs
 - `core-store-subscribe` - Subscribe to store changes for remote updates
+- `core-store-lifecycle` - Call `store.destroy()` in non-React code; Yjs accessors (`getDoc`, `getProvider`, `getText`, `getXml`, `getAwareness`)
 - `core-store-update` - Use update() method to modify values
 - `core-version-save` - Save named version checkpoints
 - `core-encryption` - Use custom encryption provider for sensitive data
-- `core-webhooks` - Use webhooks to listen for CRDT data changes
-- `core-rest-api` - Use REST API to retrieve CRDT data server-side
+- `core-webhooks` - Enable the `crdt.update_data` webhook explicitly; debounce and payload shape
+- `core-event-subscription` - Subscribe to `on('updateData')` Observables and unsubscribe on cleanup
+- `core-crdt-utils-hooks` - `useCrdtUtils()` and `useCrdtEventCallback()` React hooks
+- `core-rest-api` - REST get/add/update CRDT data; match each editor's store type and content key
 - `core-activity-debounce` - Use setActivityDebounceTime() to control how frequently batched CRDT editor activities are flushed
 - `core-activity-action-types` - Use CrdtActivityActionTypes constant for type-safe CRDT activity filtering instead of raw strings
 - `core-message-stream` - Use CrdtElement message-stream methods (pushMessage, onMessage, getMessages, getSnapshot, saveSnapshot, pruneMessages) for Yjs-backed collaborative editors
@@ -101,6 +106,24 @@ Reference these guidelines when:
 - `reactflow-editor-id` - Use unique editorId per instance
 - `reactflow-testing` - Test collaboration with multiple users
 
+### 6. Multiplayer Editor Integrations (HIGH)
+
+- `editors-integration-lifecycle` - Shared lifecycle: Velt ready + auth + document, editor first, one manager and one binding path, uncontrolled content, ordered teardown
+- `editors-choose-package` - Package / React entry-point matrix, shared data model, and merge granularity per editor
+- `editors-lexical` - `editorState: null`, no HistoryPlugin, composer hook or plugin, REST-to-editor limitation
+- `editors-slate` - Create the editor once; manager applies withYjs/withYHistory/withCursors; `Descendant[]` seed
+- `editors-draftjs` - Route every change through `handleChange()` with ref-backed `EditorState`; snapshot model
+- `editors-prosemirror` - `autoInitialize: false`, attach the view before `initialize()`, Velt `undo`/`redo`, stable schema
+- `editors-quill` - Register `quill-cursors` before `new Quill()`; use manager `undo()`/`redo()`
+- `editors-tinymce` - Keep TinyMCE uncontrolled; destroy the manager before `tinymce.remove()`
+- `editors-ckeditor` - Create CKEditor first, keep `data` uncontrolled, forward `onAfterDestroy`
+- `editors-superdoc` - Manager first; same `{ ydoc, provider }` in `documents[]` and `modules.collaboration`; one cursor renderer
+- `editors-monaco` - One binding path, no `value`/`defaultValue`, y-monaco cursor CSS, client-only rendering
+- `editors-ace` - Real Ace `Range` factory, collaborative undo, one binding path
+- `editors-apryse` - XFDF annotation sync around an app-owned WebViewer; dispose after the manager
+- `editors-nutrient` - Pass `overlayContainer`, flush Instant JSON, unload after `manager.destroy()`
+- `editors-spreadjs` - Pass `GC.Spread.Sheets.Events`; snapshot model; destroy the manager before the workbook
+
 ## How to Use
 
 Read individual rule files for detailed explanations and code examples:
@@ -108,6 +131,8 @@ Read individual rule files for detailed explanations and code examples:
 ```
 rules/shared/core/core-install.md
 rules/shared/tiptap/tiptap-disable-history.md
+rules/shared/editors/editors-integration-lifecycle.md
+rules/react/editors/editors-slate.md
 ```
 
 Each rule file contains:

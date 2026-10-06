@@ -9,12 +9,31 @@ tags: huddle, debug, troubleshooting, common-issues, permissions
 
 This rule covers the most frequently encountered huddle problems and their solutions.
 
+**Incorrect (common misconfigurations):**
+
+```jsx
+<VeltProvider apiKey="API_KEY" config={{ featureAllowList: ["presence"] }}> {/* 'huddle' missing */}
+  <VeltHuddleTool />                                                     {/* no VeltHuddle, implicit type */}
+</VeltProvider>
+```
+
+**Correct:**
+
+```jsx
+<VeltProvider apiKey="API_KEY" authProvider={authProvider} config={{ featureAllowList: ["presence", "huddle"] }}>
+  <VeltHuddle />
+  <DocumentScope /> {/* calls setDocuments after login */}
+  <VeltHuddleTool type="all" />
+</VeltProvider>
+```
+
 **Issue 1: Huddle not starting**
 
 - Check that `VeltHuddle` is rendered at the root level inside `VeltProvider`
 - Check that `VeltHuddleTool` is rendered in the toolbar with a valid `type` prop
 - Verify `authProvider` is configured on `VeltProvider` and authentication succeeds
 - Ensure the domain is safelisted in the Velt Console
+- If `featureAllowList` is set, it must include `'huddle'`
 - In Next.js, confirm `"use client"` directive is present on components using Velt
 
 **Issue 2: No audio or video**
@@ -27,7 +46,7 @@ This rule covers the most frequently encountered huddle problems and their solut
 
 **Issue 3: Peer-to-peer connection failing**
 
-- Velt uses `serverFallback={true}` by default, which routes through a server when peer-to-peer fails
+- `serverFallback` is `true` by default, which routes through a server when peer-to-peer fails; check that it has not been set to `false` (`server-fallback="false"`)
 - If peer-to-peer connections consistently fail, check for restrictive corporate firewalls or VPN configurations
 - Ensure WebRTC is not blocked by browser extensions or network policies
 - The server fallback ensures huddles work even when direct connections cannot be established
@@ -37,21 +56,26 @@ This rule covers the most frequently encountered huddle problems and their solut
 - Verify `setDocuments` is called with the correct document ID
 - Ensure `useSetDocuments` is called in a child component of `VeltProvider`
 - Confirm the document ID updates on route changes
-- Without `setDocuments`, huddle defaults to root document scope (all users across all pages)
+- Huddle uses the root document: with multiple documents, make the one the user is viewing the root
 
 **Issue 5: Chat not visible in huddle**
 
 - Check that `chat={true}` is set on `VeltHuddle` (this is the default)
 - If chat was explicitly disabled with `chat={false}`, re-enable it
 - Chat is only visible during an active huddle session — it does not appear before a huddle starts
-- Verify the chat panel is not hidden behind other UI elements (adjust `--velt-huddle-z-index`)
+- If chat was disabled with `huddleElement.disableChat()` elsewhere, the last setter wins
+
+**Issue 6: Screen share option missing**
+
+- Screen sharing requires `navigator.mediaDevices.getDisplayMedia`; unsupported browsers hide it (`componentConfig.screenSharingSupported` is `false`)
 
 **Debugging checklist:**
 
 - [ ] `VeltProvider` renders with valid `apiKey` and `authProvider`
 - [ ] `VeltHuddle` is at the root level inside `VeltProvider`
 - [ ] `VeltHuddleTool` is in the toolbar with `type` prop set
-- [ ] `useSetDocuments` is called with correct document ID after authentication
+- [ ] `setDocuments` (from `useSetDocuments()` or `Velt.setDocuments`) is called with the correct `{ id }` after authentication
+- [ ] `featureAllowList`, if set, includes `'huddle'`
 - [ ] `"use client"` directive is present in Next.js
 - [ ] Domain is safelisted in Velt Console
 - [ ] Browser microphone/camera permissions are granted
@@ -60,5 +84,7 @@ This rule covers the most frequently encountered huddle problems and their solut
 - [ ] Check browser console for Velt SDK errors
 
 **Source Pointers:**
-- `https://docs.velt.dev/huddle/setup` - Huddle setup guide
-- `https://docs.velt.dev/huddle/customize-behavior` - Huddle behavior options
+- https://docs.velt.dev/realtime-collaboration/huddle/setup - "Huddle Setup"
+- https://docs.velt.dev/realtime-collaboration/huddle/customize-behavior#serverfallback - "serverFallback"
+- https://docs.velt.dev/ui-customization/reference/behaviors/recorder-huddle - "VeltHuddle" defaults
+- https://docs.velt.dev/api-reference/sdk/models/data-models#config - `Config.featureAllowList`

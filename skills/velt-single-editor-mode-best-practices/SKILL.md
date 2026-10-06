@@ -1,15 +1,15 @@
 ---
 name: velt-single-editor-mode-best-practices
-description: Velt Single Editor Mode implementation patterns and best practices for React, Next.js, and web applications. Use when implementing exclusive editing access, editor/viewer role management, access request handoff flows, element-level sync control, timeout-based editor transfer, or multi-tab editing restrictions.
+description: Velt Single Editor Mode patterns for React, Next.js, and web apps. Use when implementing exclusive editing (one editor, read-only viewers), enableSingleEditorMode, setUserAsEditor error codes, useUserEditorState / useEditor, editor access requests and handoff, timeout-based transfer, singleEditorModeContainerIds, data-velt-sync-access and auto-sync attributes, single-tab editing, heartbeat, SEM events, or customizing the VeltSingleEditorModePanel wireframe.
 license: MIT
 metadata:
   author: velt
-  version: "1.0.0"
+  version: "1.1.0"
 ---
 
 # Velt Single Editor Mode Best Practices
 
-Comprehensive implementation guide for Velt's Single Editor Mode in React and Next.js applications. Contains 14 rules across 7 categories, prioritized by impact to guide automated code generation and integration patterns.
+Comprehensive implementation guide for Velt's Single Editor Mode in React and Next.js applications. Contains 15 rules across 8 categories, prioritized by impact to guide automated code generation and integration patterns.
 
 ## When to Apply
 
@@ -26,6 +26,7 @@ Reference these guidelines when:
 - Subscribing to SEM events (accessRequested, editorAssigned, etc.)
 - Handling multi-tab editing scenarios with singleTabEditor and editCurrentTab()
 - Configuring heartbeat and presence detection for editor tracking
+- Customizing the default Single Editor Mode panel with wireframes
 
 ## Rule Categories by Priority
 
@@ -38,12 +39,13 @@ Reference these guidelines when:
 | 5 | Timeout Configuration | MEDIUM | `timeout-` |
 | 6 | Event Handling | MEDIUM | `events-` |
 | 7 | Debugging & Testing | LOW-MEDIUM | `debug-` |
+| 8 | UI Customization | MEDIUM | `ui-` |
 
 ## Quick Reference
 
 ### 1. Core Setup (CRITICAL)
 
-- `core-setup` — Enable Single Editor Mode with config, default UI, and panel component
+- `core-setup` — Enable Single Editor Mode after useVeltInitState(), with config, default UI, and panel component
 
 ### 2. Editor State Management (CRITICAL)
 
@@ -74,7 +76,11 @@ Reference these guidelines when:
 
 ### 7. Debugging & Testing (LOW-MEDIUM)
 
-- `debug-common-issues` — Common issues, heartbeat config, and testing checklist
+- `debug-common-issues` — Common issues, heartbeat config, featureAllowList, and testing checklist
+
+### 8. UI Customization (MEDIUM)
+
+- `ui-panel-wireframe` — Customize VeltSingleEditorModePanel with VeltSingleEditorModePanelWireframe, shadowDom, darkMode, variant
 
 ## How to Use
 

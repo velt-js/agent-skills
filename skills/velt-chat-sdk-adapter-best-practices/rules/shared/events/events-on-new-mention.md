@@ -1,12 +1,23 @@
 ---
-title: Handle Bot Mentions with onNewMention
+title: Reply to @-mentions with onNewMention and subscribe to the thread
 impact: HIGH
-tags: onNewMention, thread, message, subscribe, post, mention
+impactDescription: onNewMention is the bot's entry point; without thread.subscribe() follow-up messages in that thread are ignored
+tags: onNewMention, thread, message, subscribe, post, mention, streaming, AI bot
 ---
 
-## Handle Bot Mentions with onNewMention
+## Reply to @-mentions with onNewMention and subscribe to the thread
 
-`onNewMention` fires when a user @-mentions the bot in a comment thread for the first time. This is the primary entry point for bot interactions.
+`chat.onNewMention(handler)` fires when a comment @-mentions the bot. Call `thread.subscribe()` to keep receiving that thread's messages (see `events-on-subscribed-message`), then reply with `thread.post()`, which adds a reply to the Velt comment thread as the bot user. `thread.post()` accepts a string or a text stream, so you can stream an LLM reply.
+
+**Incorrect (replies once and never follows the thread):**
+
+```typescript
+chat.onNewMention(async (thread, message) => {
+  await thread.post("Hello!"); // BUG: no thread.subscribe(), so follow-ups never reach the bot
+});
+```
+
+**Correct (greeting bot):**
 
 ```typescript
 chat.onNewMention(async (thread, message) => {
@@ -15,28 +26,7 @@ chat.onNewMention(async (thread, message) => {
 });
 ```
 
-### Parameters
-
-- **`thread`** — The comment thread where the bot was mentioned. Has methods:
-  - `thread.post(text)` — Reply to the thread (posts as the bot user)
-  - `thread.subscribe()` — Subscribe to future messages in this thread
-  - `thread.id` — Encoded thread ID (`velt:{orgId}:{docId}:{annotationId}`)
-  - `thread.adapter` — Reference to the VeltAdapter instance
-
-- **`message`** — The comment that mentioned the bot:
-  - `message.author.fullName` — Display name of the author
-  - `message.author.userId` — User ID of the author
-  - `message.text` — Plain text content of the message
-  - `message.isMention` — Always `true` in onNewMention
-  - `message.raw` — Raw Velt webhook payload (VeltRawMessage)
-
-### The thread.subscribe() Pattern
-
-Calling `thread.subscribe()` tells the Chat SDK to keep tracking this thread. Without it, the bot only responds to the initial mention — subsequent messages in the same thread are ignored. Always call subscribe if you want continued conversation.
-
-### AI Bot Pattern (Streaming)
-
-For AI bots, use the Vercel AI SDK's `streamText` and pass the stream directly to `thread.post()`:
+**Correct (streaming AI reply with the Vercel AI SDK):**
 
 ```typescript
 import { streamText } from "ai";
@@ -44,20 +34,22 @@ import { anthropic } from "@ai-sdk/anthropic";
 
 chat.onNewMention(async (thread, message) => {
   await thread.subscribe();
-
   const result = streamText({
-    model: anthropic("claude-sonnet-4-6"),
+    model: anthropic(process.env.AI_MODEL!),
     system: "You are a helpful assistant.",
     messages: [{ role: "user", content: message.text }],
   });
-
   await thread.post(result.textStream);
 });
 ```
 
-### Key Points
+Useful fields: `message.author.fullName` / `message.author.userId`, `message.text`, `message.isMention`, and `message.raw` (the Velt comment, including document context such as `documentName`, `documentUrl`, and `anchoredText`). `thread.id` encodes organization, document, and annotation (`velt:{organizationId}:{documentId}:{annotationId}`).
 
-- Always call `thread.subscribe()` if you want the bot to respond to follow-up messages
-- `thread.post()` accepts a string or a ReadableStream (for streaming LLM responses)
-- The bot's own replies do NOT trigger `onNewMention` — the adapter filters out events from `botUserId`
-- Register `onNewMention` before the Chat instance is used (inside `getChat()`, before assigning to singleton)
+**Verification Checklist:**
+- [ ] The handler is registered inside `getChat()` before the instance is cached
+- [ ] `thread.subscribe()` is called when follow-up conversation is expected
+- [ ] Streaming replies pass a text stream to `thread.post()`
+- [ ] The bot's own replies are not handled as mentions (the adapter ignores events from `botUserId`)
+
+**Source Pointers:**
+- https://docs.velt.dev/ai/chat-sdk-adapter — "How it maps" and "Create the bot instance"
