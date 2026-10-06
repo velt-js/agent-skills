@@ -14,7 +14,7 @@ constructive in all contributions.
 
 ## Auto-sync from docs
 
-Skills in this repo are **automatically updated** by the [`docs-sync-skills`](https://github.com/velt-js/docs/blob/main/.github/workflows/docs-sync-skills.yml) workflow whenever a docs change merges to `main`. The pipeline opens a PR labeled `skills-sync` (look for the `skills-sync` label in PRs) and assigns reviewers per `.github/CODEOWNERS`.
+Skills in this repo are **automatically updated** by a Claude Code routine whenever a PR merges into [`velt-js/docs`](https://github.com/velt-js/docs) `main` (plus a daily safety-net run). The routine opens or updates a PR titled `skills-sync (routine): docs@<sha>`; the `docs@<sha>` in the title records the last synced docs commit.
 
 **What this means for contributors:**
 
